@@ -8,10 +8,10 @@ Add the marketplace:
 
 ```bash
 # From GitHub
-/plugin marketplace add Studio-Moser/product-pulse
+/plugin marketplace add Studio-Moser/skills-n-stuff
 
 # Or from a local clone
-/plugin marketplace add ./product-pulse
+/plugin marketplace add ./skills-n-stuff
 ```
 
 Then install plugins:
