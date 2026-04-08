@@ -1,0 +1,26 @@
+{
+  "name": "product-pulse",
+  "version": "0.1.0",
+  "description": "Strategic intelligence system for product teams. Weekly strategy briefs, daily market research, and interactive sprint development — a three-cadence system that keeps you focused on what matters.",
+  "author": {
+    "name": "Studio Moser",
+    "url": "https://github.com/Studio-Moser"
+  },
+  "repository": "https://github.com/Studio-Moser/product-pulse",
+  "license": "MIT",
+  "keywords": [
+    "strategy",
+    "market-research",
+    "competitive-analysis",
+    "product-management",
+    "growth",
+    "multi-agent",
+    "research-automation"
+  ],
+  "userConfig": {
+    "research_dir": {
+      "description": "Relative path for research output (e.g., docs/research or research)",
+      "sensitive": false
+    }
+  }
+}
