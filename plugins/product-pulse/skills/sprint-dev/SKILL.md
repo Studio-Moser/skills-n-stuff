@@ -31,7 +31,7 @@ Interactive skill that presents the research tracker backlog, proposes how items
 
 ### 0.1 Read Product Context
 
-Read `{research_dir}/product-context.md` for project structure, repo info, and tech stack. If missing, tell the user to run `/product-pulse:setup`.
+Read `{research_dir}/research-context.md` for project structure, repo info, and tech stack. If missing, tell the user to run `/product-pulse:setup`.
 
 ### 0.2 Pull Latest
 
@@ -39,7 +39,7 @@ Read `{research_dir}/product-context.md` for project structure, repo info, and t
 git pull origin main 2>/dev/null || true
 ```
 
-For multi-repo projects, pull all repos listed in product-context.md.
+For multi-repo projects, pull all repos listed in research-context.md.
 
 ### 0.3 Context Recovery
 

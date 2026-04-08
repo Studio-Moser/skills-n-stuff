@@ -31,7 +31,7 @@ You are NOT a research scanner (that's the daily skill). You are a strategic lay
 
 ### 0.1 Read Product Context
 
-Read `{research_dir}/product-context.md` to understand the product, competitors, audiences, and domains. This is your foundation — every recommendation must be relevant to this product.
+Read `{research_dir}/research-context.md` to understand the product, competitors, audiences, and domains. This is your foundation — every recommendation must be relevant to this product.
 
 Extract the **Git branch** from the Configuration section (default: `main` if not specified). Use this as `{branch}` for all git operations.
 

@@ -32,7 +32,7 @@ You are NOT a strategist — that's the weekly skill. You gather intel and surfa
 
 ### 0.1 Read Product Context
 
-Read `{research_dir}/product-context.md`. If missing, stop and tell the user to run `/product-pulse:setup`.
+Read `{research_dir}/research-context.md`. If missing, stop and tell the user to run `/product-pulse:setup`.
 
 Extract the **Git branch** from the Configuration section (default: `main` if not specified). Use this as `{branch}` for all git operations.
 

@@ -36,13 +36,13 @@ This interviews you about your product, competitors, and strategic priorities, t
 
 ```
 {research_dir}/
-├── product-context.md        # Your product's identity and market position
+├── research-context.md       # Your product's identity and market position
 ├── research-sources.json     # Curated sources per research domain
 ├── research-tracker.md       # Action item backlog
-├── daily/                    # Daily research reports (organized by year/month)
-│   └── 2026/04/
-└── weekly/                   # Weekly strategy briefs (organized by year/month)
-    └── 2026/04/
+├── deep-dives/               # Standalone research reports and evaluations
+└── {YYYY-MM}/                # Month folders (created automatically)
+    └── W{NN}/                # Week folders with daily reports + weekly briefs
+
 ```
 
 ## Skills
@@ -122,7 +122,7 @@ research/
 │       └── ...
 ├── 2026-05/
 │   └── ...
-├── product-context.md
+├── research-context.md
 ├── research-sources.json
 └── research-tracker.md
 ```
