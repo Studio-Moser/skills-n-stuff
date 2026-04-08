@@ -49,8 +49,9 @@ Ask these together:
 ### Batch 4: Configuration
 
 1. **Where should research files live?** (default: `docs/research/`, or use the `research_dir` userConfig value if set)
-2. **Is this a monorepo or multi-repo project?** If multi-repo, which repos and what does each one do?
-3. **Do you have any existing research, competitive analysis, or strategy docs?** (we can seed from them)
+2. **Which git branch should research be committed to?** (default: `main` — some projects use `master`, `develop`, etc.)
+3. **Is this a monorepo or multi-repo project?** If multi-repo, which repos and what does each one do?
+4. **Do you have any existing research, competitive analysis, or strategy docs?** (we can seed from them)
 
 ---
 
@@ -97,6 +98,7 @@ From the interview answers, generate `{research_dir}/product-context.md`:
 ## Configuration
 
 - **Research directory**: {research_dir}
+- **Git branch**: {branch} (branch to commit research into)
 - **Multi-repo**: {yes/no, with repo list if yes}
 ```
 

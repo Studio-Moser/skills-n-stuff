@@ -33,6 +33,8 @@ You are NOT a research scanner (that's the daily skill). You are a strategic lay
 
 Read `{research_dir}/product-context.md` to understand the product, competitors, audiences, and domains. This is your foundation — every recommendation must be relevant to this product.
 
+Extract the **Git branch** from the Configuration section (default: `main` if not specified). Use this as `{branch}` for all git operations.
+
 If the file doesn't exist, stop and tell the user to run `/product-pulse:setup` first.
 
 ### 0.2 Pull Latest (if in a git repo)
@@ -173,7 +175,7 @@ Items from the research tracker selected for sprint-dev.
 - Save weekly brief summary to memory
 - Git commit and push if in a repo:
   ```bash
-  git add {research_dir}/ && git commit -m "strategy: weekly brief W{NN} — {theme short}" && git push origin HEAD
+  git checkout {branch} && git add {research_dir}/ && git commit -m "strategy: weekly brief W{NN} — {theme short}" && git push origin {branch}
   ```
 
 ---

@@ -34,6 +34,8 @@ You are NOT a strategist — that's the weekly skill. You gather intel and surfa
 
 Read `{research_dir}/product-context.md`. If missing, stop and tell the user to run `/product-pulse:setup`.
 
+Extract the **Git branch** from the Configuration section (default: `main` if not specified). Use this as `{branch}` for all git operations.
+
 ### 0.2 Pull Latest
 
 ```bash
@@ -174,7 +176,7 @@ For each source checked, update quality tracking in memory (hit/miss ratio).
 - Save findings to memory with topic `product-pulse-daily-research`
 - Git commit and push if in a repo:
   ```bash
-  git add {research_dir}/ && git commit -m "research: daily scan {today} — {N} findings across {M} domains" && git push origin HEAD
+  git checkout {branch} && git add {research_dir}/ && git commit -m "research: daily scan {today} — {N} findings across {M} domains" && git push origin {branch}
   ```
 
 ---
