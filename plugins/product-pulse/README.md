@@ -108,22 +108,20 @@ Run any skill manually at any time:
 
 ## File Organization
 
-Reports are organized by year and month for long-running projects:
+Reports are organized by month and week — each week folder contains the strategy brief, focus list, and all daily reports for that week:
 
 ```
 research/
-├── daily/
-│   └── 2026/
-│       ├── 04/
-│       │   ├── 2026-04-07-daily-research.md
-│       │   └── 2026-04-08-daily-research.md
-│       └── 05/
-├── weekly/
-│   └── 2026/
-│       ├── 04/
-│       │   ├── 2026-W15-strategy-brief.md
-│       │   └── 2026-W15-focus.md
+├── 2026-04/
+│   ├── W15/
+│   │   ├── 2026-W15-strategy-brief.md
+│   │   ├── 2026-W15-focus.md
+│   │   ├── 2026-04-07-daily-research.md
+│   │   └── 2026-04-08-daily-research.md
+│   └── W16/
 │       └── ...
+├── 2026-05/
+│   └── ...
 ├── product-context.md
 ├── research-sources.json
 └── research-tracker.md

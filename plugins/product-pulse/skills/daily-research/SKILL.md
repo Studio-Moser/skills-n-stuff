@@ -112,17 +112,17 @@ Take the top 5 by alignment score, then by impact/effort ratio. Only these go in
 ### Determine paths
 
 ```
-year = current year (YYYY)
-month = current month (MM)
+month = current month (YYYY-MM)
+week = current ISO week (WNN)
 today = current date (YYYY-MM-DD)
-report_dir = {research_dir}/daily/{year}/{month}/
+week_dir = {research_dir}/{month}/W{NN}/
 ```
 
-Create the directory if it doesn't exist.
+Create the directory if it doesn't exist. Daily reports live alongside the weekly brief for that week.
 
 ### Write Daily Report
 
-Write to `{report_dir}/{today}-daily-research.md`. Structure:
+Write to `{week_dir}/{today}-daily-research.md`. Structure:
 
 ```markdown
 # Daily Research — {today}

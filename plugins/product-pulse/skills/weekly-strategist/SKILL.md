@@ -43,11 +43,19 @@ git pull origin main 2>/dev/null || true
 
 ### 0.3 Read Last Weekly Brief
 
-Find the most recent weekly brief in `{research_dir}/weekly/` (search recursively through year/month folders). Read it to understand last week's direction.
+```bash
+find {research_dir}/ -name "*-strategy-brief.md" 2>/dev/null | sort -r | head -1
+```
+
+Read it to understand last week's direction.
 
 ### 0.4 Read Last 7 Daily Reports
 
-Find the 7 most recent daily reports in `{research_dir}/daily/` (search recursively). Extract:
+```bash
+find {research_dir}/ -name "*-daily-research.md" 2>/dev/null | sort -r | head -7
+```
+
+Extract:
 - Recurring themes across multiple days
 - High-impact findings
 - Cross-domain patterns
@@ -119,21 +127,20 @@ Rules:
 ### Determine paths
 
 ```
-year = current year (YYYY)
-month = current month (MM)
+month = current month (YYYY-MM)
 week = current ISO week (WNN)
-brief_dir = {research_dir}/weekly/{year}/{month}/
+week_dir = {research_dir}/{month}/W{NN}/
 ```
 
 Create the directory if it doesn't exist.
 
 ### Write Strategy Brief
 
-Write to `{brief_dir}/{YYYY}-W{NN}-strategy-brief.md` using the template in `references/strategy-brief-template.md`.
+Write to `{week_dir}/{YYYY}-W{NN}-strategy-brief.md` using the template in `references/strategy-brief-template.md`.
 
 ### Write Focus List
 
-Write to `{brief_dir}/{YYYY}-W{NN}-focus.md`:
+Write to `{week_dir}/{YYYY}-W{NN}-focus.md`:
 
 ```markdown
 # This Week's Focus — W{NN}

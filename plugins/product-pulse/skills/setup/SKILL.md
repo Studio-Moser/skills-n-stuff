@@ -111,35 +111,28 @@ Create the following directory structure:
 ├── product-context.md          # From Phase 2
 ├── research-sources.json       # Curated sources per domain
 ├── research-tracker.md         # Action item backlog
-├── weekly/                     # Weekly strategy briefs
-│   └── .gitkeep
-└── daily/                      # Daily research reports
-    └── .gitkeep
+└── .gitkeep
 ```
 
-### Folder Organization (for long-running projects)
+### Folder Organization
 
-Daily and weekly reports are organized by year and month to prevent directory bloat:
+Reports are organized by month and week. Each week folder contains that week's strategy brief, focus list, and all daily reports — keeping a complete picture of each week together:
 
 ```
 {research_dir}/
-├── daily/
-│   └── 2026/
-│       ├── 04/
-│       │   ├── 2026-04-07-daily-research.md
-│       │   └── 2026-04-08-daily-research.md
-│       └── 05/
-│           └── ...
-├── weekly/
-│   └── 2026/
-│       ├── 04/
-│       │   ├── 2026-W15-strategy-brief.md
-│       │   └── 2026-W15-focus.md
-│       └── 05/
-│           └── ...
+├── 2026-04/
+│   ├── W15/
+│   │   ├── 2026-W15-strategy-brief.md
+│   │   ├── 2026-W15-focus.md
+│   │   ├── 2026-04-07-daily-research.md
+│   │   └── 2026-04-08-daily-research.md
+│   └── W16/
+│       └── ...
+├── 2026-05/
+│   └── ...
 ```
 
-The daily and weekly skills create the year/month subdirectories automatically as they run. The setup skill creates the top-level structure.
+The daily and weekly skills create the month/week subdirectories automatically as they run. The setup skill creates the top-level structure.
 
 ### Generate research-sources.json
 
