@@ -3,8 +3,8 @@ name: daily-research
 description: >-
   Daily research automation. Scans configured domains for actionable
   intelligence, filters through the weekly strategy brief for relevance,
-  and caps tracker additions at 5/day. Produces a dated research report
-  and updates the tracker. Trigger: "run daily research", "research scan",
+  and adds new ideas to todos/backlog.md (max 5/day). Produces a dated
+  research report. Trigger: "run daily research", "research scan",
   "what's new", "check for updates", or /product-pulse:daily-research.
   Also triggered by scheduled tasks.
 ---
@@ -20,7 +20,8 @@ You are NOT a strategist — that's the weekly skill. You gather intel and surfa
 ## Ground Rules
 
 - **Max 5 findings per domain.** Quality over quantity.
-- **Max 5 new tracker items per day.** Prioritize by strategic alignment.
+- **Max 5 new backlog items per day.** Prioritize by strategic alignment.
+- **Research adds items as `idea` status ONLY** — never `ready` or beyond. You discover; others promote.
 - **Search term rotation** — Pick 3-5 terms per domain per run. Rotate so you don't search the same phrases daily. Append current month/year for recency.
 - **Quiet days** — If 3+ domains return zero findings, use condensed format.
 - **No fabricated URLs** — Every finding must have a real, verifiable source.
@@ -44,21 +45,25 @@ git pull origin main 2>/dev/null || true
 
 ### 0.3 Read the Weekly Strategy Brief
 
-Find the most recent `*-strategy-brief.md` in `{research_dir}/weekly/` (search recursively through year/month folders). Extract:
+Find the most recent `*-strategy-brief.md` in `{research_dir}/` (search recursively through year/month folders). Extract:
 - This week's theme and top 3 priorities
-- Focus items from the corresponding `*-focus.md`
+- Recommendations from the corresponding `*-recommendations.md`
 
 If no weekly brief exists, all findings are treated as potentially relevant (no strategic filter).
 
 ### 0.4 Context Recovery
 
-Search memory for prior daily research findings (last 7 days). Read the tracker for open items.
+Search memory for prior daily research findings (last 7 days). Read the backlog for current items.
+
+Read `todos/backlog.md`. Parse all sections: Roadmap, Ready, Ideas (all subsections), Awaiting PR, Monitor, Manual, Dismissed.
 
 ### 0.5 Build Dedup List
 
 From memory and recent reports, collect finding URLs and summaries. A finding is a duplicate if:
 - Same URL as a previous finding, OR
 - 3+ shared significant keywords with a previous finding in the same domain
+
+Also check against existing backlog items to avoid adding duplicates.
 
 ---
 
@@ -97,7 +102,7 @@ Sort by:
 3. Medium impact + Low effort (easy pickups)
 4. Lower priority combinations
 
-### 3.3 Apply Strategic Filter for Tracker
+### 3.3 Apply Strategic Filter for Backlog
 
 If a weekly brief exists, score each finding:
 - **+2** if it directly supports a top 3 priority
@@ -105,7 +110,19 @@ If a weekly brief exists, score each finding:
 - **+0** if unrelated
 - **Always include** P0-level findings regardless (security, hard deadlines, blockers)
 
-Take the top 5 by alignment score, then by impact/effort ratio. Only these go into the tracker. All others stay in the report as "Noted."
+Take the top 5 by alignment score, then by impact/effort ratio. Only these go into the backlog. All others stay in the report as "Noted."
+
+### 3.4 Classify for Backlog Placement
+
+For each of the top 5 findings:
+- **Actionable items** → Ideas subsection (matching domain)
+- **Watch-and-wait items** (not actionable yet, depends on external trigger or timeline) → Monitor table
+
+### 3.5 Map to Backlog Format
+
+- **Size**: Map Effort to Size — Easy → S, Medium → M, Hard → L
+- **Source**: Always `research`
+- **Found**: Today's date
 
 ---
 
@@ -132,7 +149,7 @@ Write to `{week_dir}/{today}-daily-research.md`. Structure:
 **Product**: {product name}
 **Weekly theme**: {theme or "No weekly brief"}
 **Domains scanned**: {N}
-**Findings**: {N} total, {N} added to tracker
+**Findings**: {N} total, {N} added to backlog
 
 ---
 
@@ -143,7 +160,7 @@ Write to `{week_dir}/{today}-daily-research.md`. Structure:
 - **Summary**: {2-3 sentences}
 - **Impact**: {H/M/L} | **Effort**: {H/M/L} | **Confidence**: {H/M/L}
 - **Relevance**: {why this matters to the product}
-- **Status**: {Added to tracker | Noted}
+- **Status**: {Added to backlog | Noted}
 
 ...
 
@@ -152,7 +169,7 @@ Write to `{week_dir}/{today}-daily-research.md`. Structure:
 | Source | Domain | Checked | Hit? |
 |--------|--------|---------|------|
 
-## Noted (Not Added to Tracker)
+## Noted (Not Added to Backlog)
 
 {findings that were interesting but didn't make the top 5 cut}
 
@@ -161,9 +178,18 @@ Write to `{week_dir}/{today}-daily-research.md`. Structure:
 {list per domain, for rotation tracking}
 ```
 
-### Update Tracker
+### Update the Backlog
 
-Add up to 5 new items to the Open Items table. Each gets: item number (sequential), description, domain, impact, effort, ease, priority, found date, report link.
+Read `todos/backlog.md` and add new items:
+
+- **Actionable items** → Add rows to the matching domain subsection under Ideas:
+  `| # | Item | Size | Priority | Source | Found |`
+- **Watch-and-wait items** → Add rows to the Monitor table:
+  `| # | Item | Trigger | Deadline | Found |`
+
+Item numbers are sequential across the entire backlog (continue from the highest existing number).
+
+**Never** add items to Roadmap, Ready, or any other section. Research creates `idea` and `monitor` entries only.
 
 ### Update Source Quality
 
@@ -176,7 +202,7 @@ For each source checked, update quality tracking in memory (hit/miss ratio).
 - Save findings to memory with topic `product-pulse-daily-research`
 - Git commit and push if in a repo:
   ```bash
-  git checkout {branch} && git add {research_dir}/ && git commit -m "research: daily scan {today} — {N} findings across {M} domains" && git push origin {branch}
+  git checkout {branch} && git add {research_dir}/ todos/backlog.md && git commit -m "research: daily scan {today} — {N} findings across {M} domains" && git push origin {branch}
   ```
 
 ---
@@ -188,7 +214,16 @@ Product Pulse — Daily Research ({today})
 ==========================================
 Domains scanned: {N}
 Findings: {N} total
-Tracker additions: {N} (max 5)
+Backlog additions: {N} (max 5)
 Noted (not added): {N}
 Sources checked: {N} ({N} hits, {N} misses)
 ```
+
+---
+
+## Error Handling
+
+- **Backlog file missing**: Stop and tell the user to run `/product-pulse:setup`.
+- **Research context missing**: Stop and tell the user to run `/product-pulse:setup`.
+- **Memory unavailable**: Continue without memory context — rely on file-based data.
+- **Sub-agent failure**: Note the failed domain and continue with others.

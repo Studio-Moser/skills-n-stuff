@@ -3,10 +3,10 @@ name: setup
 description: >-
   Onboard Product Pulse to a new project. Interviews you about your product,
   competitors, target audiences, and strategic priorities, then scaffolds
-  the research directory, tracker, source config, and product context file.
-  Run this once when you first install the plugin. Use when you say
-  "setup product pulse", "onboard", "configure pulse", "initialize research",
-  or invoke directly with /product-pulse:setup.
+  the research directory, backlog, spec system, source config, and product
+  context file. Run this once when you first install the plugin. Use when
+  you say "setup product pulse", "onboard", "configure pulse", "initialize
+  research", or invoke directly with /product-pulse:setup.
 ---
 
 # Product Pulse — Setup
@@ -104,28 +104,32 @@ From the interview answers, generate `{research_dir}/research-context.md`:
 
 ---
 
-## Phase 3: Scaffold Research Directory
+## Phase 3: Scaffold Directory Structure
 
-Create the following directory structure:
+Create the following structure:
 
 ```
 {research_dir}/
 ├── research-context.md         # From Phase 2
 ├── research-sources.json       # Curated sources per domain
-├── research-tracker.md         # Action item backlog
-└── deep-dives/                 # Standalone research reports
+├── deep-dives/                 # Standalone research reports
+todos/
+├── backlog.md                  # Unified backlog (replaces research-tracker.md)
+├── WORKFLOW.md                 # Lifecycle documentation
+└── specs/
+    └── _TEMPLATE.md            # Spec template for ready items
 ```
 
 ### Folder Organization
 
-Reports are organized by month and week. Each week folder contains that week's strategy brief, focus list, and all daily reports — keeping a complete picture of each week together:
+Reports are organized by month and week. Each week folder contains that week's strategy brief, recommendations, and all daily reports — keeping a complete picture of each week together:
 
 ```
 {research_dir}/
 ├── 2026-04/
 │   ├── W15/
 │   │   ├── 2026-W15-strategy-brief.md
-│   │   ├── 2026-W15-focus.md
+│   │   ├── 2026-W15-recommendations.md
 │   │   ├── 2026-04-07-daily-research.md
 │   │   └── 2026-04-08-daily-research.md
 │   └── W16/
@@ -174,33 +178,182 @@ Build a starter source config based on the interview. For each research domain, 
 
 Use web search to find real, relevant sources for each domain. Don't fabricate URLs. If you can't find good sources for a domain, include fewer and note "sources need manual curation" in the domain description.
 
-### Generate research-tracker.md
+### Generate todos/backlog.md
+
+Build the backlog with sections based on the user's product domains. Use the domain names from the interview to create subsections under Ideas.
 
 ```markdown
-# Research Tracker
+# Backlog
 
 **Product**: {product name}
 **Last updated**: {DATE}
 
-## Open Items
+## Roadmap
 
-| # | Item | Domain | Impact | Effort | Ease | Priority | Found | Report |
-|---|------|--------|--------|--------|------|----------|-------|--------|
+Strategic items with long-term timelines.
+
+| # | Item | Size | Priority | Owner | Target | Status | Notes |
+|---|------|------|----------|-------|--------|--------|-------|
+
+## Ready
+
+Items with specs that are ready for implementation.
+
+| # | Item | Size | Priority | Spec | Freshness | Notes |
+|---|------|------|----------|------|-----------|-------|
+
+## Ideas
+
+### {Domain 1 Name}
+
+| # | Item | Size | Priority | Source | Found |
+|---|------|------|----------|--------|-------|
+
+### {Domain 2 Name}
+
+| # | Item | Size | Priority | Source | Found |
+|---|------|------|----------|--------|-------|
+
+### {Domain N Name}
+
+| # | Item | Size | Priority | Source | Found |
+|---|------|------|----------|--------|-------|
 
 ## Awaiting PR
 
-| # | Item | Domain | Repo | Branch | PR | Date |
-|---|------|--------|------|--------|----|------|
+| # | Item | Repo | Branch | PR | Date |
+|---|------|------|--------|----|------|
 
-## Completed
+## Monitor
 
-| # | Item | Domain | Completed | Notes |
-|---|------|--------|-----------|-------|
+Items to watch — not actionable yet, but may become relevant.
+
+| # | Item | Trigger | Deadline | Found |
+|---|------|---------|----------|-------|
+
+## Manual
+
+Items that require human judgment or external action.
+
+| # | Item | Owner | Context | Added |
+|---|------|-------|---------|-------|
 
 ## Dismissed
 
 | # | Item | Reason | Date |
 |---|------|--------|------|
+```
+
+### Generate todos/WORKFLOW.md
+
+```markdown
+# Backlog Workflow
+
+## Lifecycle
+
+```
+idea → specced → ready → in-progress → awaiting-pr → done
+```
+
+### Statuses
+
+| Status | Where | Meaning |
+|--------|-------|---------|
+| `idea` | Ideas section | Raw finding from research or manual entry. Not yet evaluated. |
+| `specced` | Ideas section | Has a spec in `todos/specs/`. Needs review before promotion. |
+| `ready` | Ready table | Spec reviewed, item approved for implementation. |
+| `in-progress` | Ready table | Currently being worked on by sprint-dev. |
+| `awaiting-pr` | Awaiting PR table | PR created, waiting for merge. |
+| `done` | Removed (logged) | PR merged. Item archived from backlog. |
+| `monitor` | Monitor table | Watch-and-wait. Not actionable yet. |
+| `manual` | Manual table | Requires human action, not code. |
+| `dismissed` | Dismissed table | No longer relevant. Kept for audit trail. |
+
+### Who Does What
+
+| Role | Adds Ideas | Promotes to Ready | Implements | Dismisses |
+|------|-----------|-------------------|------------|-----------|
+| Daily Research | Yes (max 5/day) | Never | Never | Never |
+| Weekly Strategist | Never | Never (recommends only) | Never | Yes |
+| Sprint Dev | Never | Never | Yes | Never |
+| User | Yes | Yes | Yes | Yes |
+
+### Size Guide
+
+| Size | Meaning | Typical Effort |
+|------|---------|---------------|
+| S | Small / trivial | < 1 hour |
+| M | Medium | 1-4 hours |
+| L | Large — needs a spec | 4+ hours |
+| XL | Extra large — needs spec + chunking | Multi-day |
+
+### Spec Requirement
+
+- **S/M items**: Spec optional. Can go straight to Ready if straightforward.
+- **L/XL items**: Spec required before promotion to Ready. Use `todos/specs/_TEMPLATE.md`.
+- **Specs live at**: `todos/specs/{item-number}-{slug}.md`
+```
+
+### Generate todos/specs/_TEMPLATE.md
+
+```markdown
+# Spec: {Item Title}
+
+**Backlog #**: {number}
+**Size**: {S|M|L|XL}
+**Priority**: {P0|P1|P2|P3}
+**Created**: {DATE}
+**Status**: draft | reviewed | approved
+
+---
+
+## Goal
+
+{What this item achieves. One paragraph max.}
+
+## Context
+
+{Why this matters now. Link to research report or strategic brief that surfaced it.}
+
+## Code References
+
+Files and modules this item will touch.
+
+| File/Module | Purpose | Base SHA |
+|-------------|---------|----------|
+| {path} | {why it's relevant} | {git SHA at time of spec writing} |
+
+## Approach
+
+{How to implement. Be specific enough that a sub-agent can follow this without ambiguity.}
+
+## Chunks
+
+For L/XL items, break the work into ordered chunks that can be committed independently.
+
+1. {Chunk 1 description}
+2. {Chunk 2 description}
+3. {Chunk 3 description}
+
+## Acceptance Criteria
+
+- [ ] {Criterion 1}
+- [ ] {Criterion 2}
+- [ ] {Criterion 3}
+
+## Dependencies
+
+{Other backlog items, external APIs, or prerequisites that must be in place.}
+
+## Open Questions
+
+- {Question 1}
+- {Question 2}
+
+## Freshness Log
+
+| Date | Checker | Result | Notes |
+|------|---------|--------|-------|
 ```
 
 ---
@@ -230,15 +383,19 @@ Product Pulse — Setup Complete
 
 Project: {product name}
 Research directory: {research_dir}/
+Backlog: todos/backlog.md
+Specs directory: todos/specs/
 Domains configured: {N} ({list})
 Sources seeded: {N} across all domains
-Tracker initialized: empty, ready for first research run
+Backlog initialized: empty, ready for first research run
 
 --- Next Steps ---
 
 1. Review the generated files:
    - {research_dir}/research-context.md — edit product details, add non-product context
    - {research_dir}/research-sources.json — add/remove sources per domain
+   - todos/backlog.md — add any known items manually
+   - todos/WORKFLOW.md — review the lifecycle
 
 2. Run your first weekly strategy brief:
    /product-pulse:weekly-strategist
@@ -246,7 +403,7 @@ Tracker initialized: empty, ready for first research run
 3. Run your first daily research scan:
    /product-pulse:daily-research
 
-4. When you're ready to implement items from the tracker:
+4. When you're ready to implement items from the backlog:
    /product-pulse:sprint-dev
 
 --- Scheduling (Optional) ---
@@ -272,5 +429,6 @@ Sprint dev is manual-only — run /product-pulse:sprint-dev when you're ready to
 
 - **Files already exist**: Ask before overwriting. Offer to merge with existing content.
 - **User doesn't know competitors**: That's fine — leave the table sparse and note "competitor discovery" as a priority for the first weekly run.
-- **User has existing research**: Offer to read their existing docs and seed the tracker from them.
+- **User has existing research**: Offer to read their existing docs and seed the backlog from them.
 - **Multi-repo project**: Note all repos in research-context.md. The sprint-dev skill will use this for routing.
+- **Migrating from research-tracker.md**: If a `research-tracker.md` exists, offer to migrate items into the new `todos/backlog.md` format.

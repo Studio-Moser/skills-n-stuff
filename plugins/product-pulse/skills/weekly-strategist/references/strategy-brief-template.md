@@ -43,11 +43,15 @@
 
 ---
 
-## Tracker Triage
+## Backlog Review
 
-**This Week**: {N} items for sprint-dev
-**Backlog**: {N} deferred
+**Recommended for speccing**: {N} items
+**Monitor alerts**: {N} approaching
 **Dismissed**: {N} removed
+
+### Recommended for Speccing
+| # | Item | Size | Rationale |
+|---|------|------|-----------|
 
 ### Dismissed Items
 | # | Item | Reason |
@@ -74,14 +78,16 @@
 
 ---
 
-## Tracker Health
+## Backlog Health
 
-- **Open**: {N} (was {N} last week)
+- **Ideas**: {N} (was {N} last week)
+- **Ready**: {N}
 - **Awaiting PR**: {N}
 - **Shipped this week**: {N}
+- **Monitor**: {N}
 - **Oldest item**: #{N} ({age} days)
 - **By priority**: P0: {N} | P1: {N} | P2: {N} | P3: {N}
-- **By ease**: Easy: {N} | Med: {N} | Hard: {N}
+- **By size**: S: {N} | M: {N} | L: {N} | XL: {N}
 
 ---
 

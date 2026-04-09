@@ -6,7 +6,7 @@
 **Product**: {product name}
 **Weekly theme**: {theme or "No weekly brief"}
 **Domains scanned**: {N}
-**Findings**: {N} total, {N} added to tracker
+**Findings**: {N} total, {N} added to backlog
 
 ---
 
@@ -17,7 +17,7 @@
 - **Summary**: {2-3 sentences}
 - **Impact**: {H/M/L} | **Effort**: {H/M/L} | **Confidence**: {H/M/L}
 - **Relevance**: {why this matters to the product}
-- **Status**: Added to tracker | Noted
+- **Status**: Added to backlog | Noted
 
 {Repeat for each finding in this domain, max 5}
 
@@ -29,12 +29,19 @@
 
 ---
 
-## Action Items Added to Tracker
+## Action Items Added to Backlog
 
-| # | Item | Domain | Impact | Effort | Ease | Priority |
-|---|------|--------|--------|--------|------|----------|
+### Ideas
 
-## Noted (Not Added to Tracker)
+| # | Item | Size | Priority | Source | Domain |
+|---|------|------|----------|--------|--------|
+
+### Monitor
+
+| # | Item | Trigger | Deadline |
+|---|------|---------|----------|
+
+## Noted (Not Added to Backlog)
 
 {Findings that were interesting but didn't make the top 5 cut, with brief reason}
 
