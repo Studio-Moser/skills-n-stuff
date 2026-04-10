@@ -19,6 +19,8 @@
   ],
   "userConfig": {
     "research_dir": {
+      "type": "string",
+      "title": "Research directory",
       "description": "Relative path for research output (e.g., docs/research or research)",
       "sensitive": false
     }
