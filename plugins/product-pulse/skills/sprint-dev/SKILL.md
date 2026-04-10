@@ -237,7 +237,33 @@ Dispatch independent PRs in parallel. Conflicting PRs run sequentially.
 Agent(subagent_type="general-purpose", prompt=built_prompt)
 ```
 
-### 2C. Report Results
+### 2C. Code Review & Fix
+
+After each sub-agent creates its PR, run the `code-review` skill against that PR. The review scores each issue 0–100 for confidence (0 = false positive, 25 = somewhat confident, 50 = moderately confident, 75 = highly confident, 100 = certain).
+
+**Filter**: keep issues with a confidence score **above 24** (i.e., 25+). Fix everything that clears this bar.
+
+If any issues clear the bar, dispatch a follow-up sub-agent on the same branch:
+
+1. Check out the PR branch
+2. Address each filtered issue
+3. Run the full verify protocol (tests/build/lint/typecheck per project)
+4. Commit as new commits — `fix: address code review findings`
+5. Push to the same branch (never force push)
+6. Post a PR comment summarizing what was fixed and which issues (if any) were intentionally deferred with reasons
+
+Report inline:
+
+```
+Code Review: {cluster}
+  Issues found: {N}
+  Above threshold (>24): {N}
+  Fixes pushed: {yes/no} {commit sha if yes}
+```
+
+If nothing clears the threshold, note "clean" and proceed.
+
+### 2D. Report Results
 
 After each sub-agent completes, immediately tell the user:
 
@@ -253,7 +279,7 @@ Review: {issues found}
 Spec compliance: {met/partial/N/A}
 ```
 
-### 2D. Sync Backlog
+### 2E. Sync Backlog
 
 - Move completed items → Awaiting PR (with PR URL, date)
 - Leave skipped items in Ready
