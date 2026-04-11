@@ -45,6 +45,16 @@ Ask these together:
    - Growth & distribution channels
    - Product & technical capabilities
    - (Offer to add custom domains relevant to their space)
+3. **Are there any architectural facts that MUST be watched on every scan?** (Always Check items)
+
+   Explain: "Always Check items are persistent watch items that run every daily research scan regardless of normal search rotation. Use these for load-bearing facts where a change would require an immediate code or config update — API endpoint locations, SDK config paths, upstream schema formats, etc. Any hit gets escalated to the top of the daily report. You can skip this and add items later by editing `research-context.md`."
+
+   If the user has ideas, for each one collect:
+   - **Topic** (short name)
+   - **Which domain it belongs to** (match to one of the configured domains)
+   - **What counts as a hit** (precise definition — the sub-agent uses this to decide when something is worth escalating)
+   - **Search terms** (3-6 specific queries that must run every scan)
+   - **Reference doc** (optional path to a Guide doc that captures the current known state; create later if needed)
 
 ### Batch 4: Configuration
 
@@ -94,6 +104,26 @@ From the interview answers, generate `{research_dir}/research-context.md`:
 ## Research Domains
 
 {for each domain: name, description, why it matters to this product}
+
+## Always Check
+
+Persistent watch items that run on every daily research scan, no rotation. Any hit is escalated to the top of the daily report and added to the backlog outside the normal 5-item cap. Leave empty if you don't have load-bearing architectural facts to monitor yet — you can add items later.
+
+Format each item as:
+
+```markdown
+### AC-{N}: {Topic}
+
+- **Domain**: {domain name — must match one of the Research Domains above}
+- **Reference**: {path to Guide doc, or "none yet"}
+- **Hit definition**: {precise description of what counts as a change worth escalating}
+- **Search terms**:
+  - `{term 1}`
+  - `{term 2}`
+  - `{term 3}`
+```
+
+{Populate with the items gathered in Batch 3, or leave as an empty "_(none yet)_" placeholder.}
 
 ## Configuration
 
@@ -392,7 +422,7 @@ Backlog initialized: empty, ready for first research run
 --- Next Steps ---
 
 1. Review the generated files:
-   - {research_dir}/research-context.md — edit product details, add non-product context
+   - {research_dir}/research-context.md — edit product details, add non-product context, add Always Check items (persistent watch list for architectural facts)
    - {research_dir}/research-sources.json — add/remove sources per domain
    - todos/backlog.md — add any known items manually
    - todos/WORKFLOW.md — review the lifecycle

@@ -7,6 +7,22 @@
 **Weekly theme**: {theme or "No weekly brief"}
 **Domains scanned**: {N}
 **Findings**: {N} total, {N} added to backlog
+**Always Check items scanned**: {N}
+**Escalations**: {N}
+
+---
+
+## Escalations (Always Check Hits)
+
+{Only populate if one or more Always Check items triggered. Omit the section entirely otherwise.}
+
+### {Always Check ID} — {Topic}
+
+- **Source**: [{source}]({URL})
+- **Change detected**: {what shifted vs the hit definition}
+- **Reference doc**: {path to Guide doc, if any}
+- **Guide doc update required**: {yes/no}
+- **Action**: {what the user should do about this}
 
 ---
 

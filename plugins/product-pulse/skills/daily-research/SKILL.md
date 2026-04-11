@@ -23,6 +23,7 @@ You are NOT a strategist — that's the weekly skill. You gather intel and surfa
 - **Max 5 new backlog items per day.** Prioritize by strategic alignment.
 - **Research adds items as `idea` status ONLY** — never `ready` or beyond. You discover; others promote.
 - **Search term rotation** — Pick 3-5 terms per domain per run. Rotate so you don't search the same phrases daily. Append current month/year for recency.
+- **Always Check items run every scan (no rotation)** — see Phase 0.6 below. These are user-configured architectural watch items that must be searched on every run regardless of rotation. Any hit is flagged `**ALWAYS-CHECK HIT**` and surfaced in a dedicated Escalations section at the top of the report.
 - **Quiet days** — If 3+ domains return zero findings, use condensed format.
 - **No fabricated URLs** — Every finding must have a real, verifiable source.
 - **Error tolerant** — If a sub-agent fails, note it and continue. If memory is unavailable, skip memory ops.
@@ -65,6 +66,21 @@ From memory and recent reports, collect finding URLs and summaries. A finding is
 
 Also check against existing backlog items to avoid adding duplicates.
 
+### 0.6 Load Always Check Items
+
+Parse the `## Always Check` section of `{research_dir}/research-context.md`. This section (if present) contains a list of persistent watch items the user has flagged as architecturally load-bearing. Each item has:
+
+- **ID** (e.g., AC-1)
+- **Topic** — short name
+- **Domain** — which research domain owns it
+- **Reference** — optional path to a Guide doc that captures the current known state
+- **Hit definition** — what counts as a meaningful change
+- **Search terms** — terms that must run every scan, no rotation
+
+If the section is missing or empty, skip this phase — the user hasn't configured Always Check items yet. Do NOT fabricate items.
+
+When dispatching sub-agents in Phase 2, pass each domain's Always Check items (if any) alongside its regular search terms. The sub-agent must run **every** Always Check search term on **every** run, in addition to its 3-5 rotating terms.
+
 ---
 
 ## Phase 1: Load Sources
@@ -80,15 +96,21 @@ Read `{research_dir}/research-sources.json`. For each domain, rank sources by `q
 For each domain defined in the product context and research-sources.json, dispatch a sub-agent with:
 - The product context (condensed)
 - The domain's sources and search terms
+- The domain's **Always Check items** (from Phase 0.6, if any) — with clear instructions that every Always Check search term must run on every scan, no rotation
 - The dedup list
 - The weekly strategic direction (if available)
 - Instructions to find max 5 findings, each with: title, URL, summary, impact (H/M/L), effort (H/M/L), confidence (H/M/L), and relevance to the product
+- Instructions that any Always Check hit must be tagged `**ALWAYS-CHECK HIT**` in the Title field and returned with Impact at least "medium" regardless of normal scoring
 
 Each sub-agent uses WebSearch and WebFetch to scan its sources and search terms. YouTube MCP tools should be used for YouTube sources if available.
 
 ---
 
 ## Phase 3: Synthesize
+
+### 3.0 Extract Always Check Hits
+
+Before deduping or ranking, separate out any findings tagged `**ALWAYS-CHECK HIT**`. These bypass the normal ranking and strategic filter — they always surface at the top of the report in a dedicated **Escalations** section and are always added to the backlog (they don't count against the 5-item daily cap, since they're triggered by pre-approved watch items). If an Always Check hit references a Guide doc in its Reference field, note "Guide doc update required: {path}" so the user knows to refresh it.
 
 ### 3.1 Deduplicate Across Domains
 
