@@ -35,6 +35,31 @@
         "product",
         "growth"
       ]
+    },
+    {
+      "name": "site-capture",
+      "source": "./plugins/site-capture",
+      "description": "Capture full-page screenshots of websites with scroll-triggered animation support. Handles bot-protected sites, cookie banners, and lazy-loaded content.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Studio Moser"
+      },
+      "license": "MIT",
+      "keywords": [
+        "screenshot",
+        "website-capture",
+        "competitive-analysis",
+        "design-reference",
+        "full-page",
+        "scroll-capture"
+      ],
+      "category": "productivity",
+      "tags": [
+        "screenshot",
+        "capture",
+        "design",
+        "competitive-analysis"
+      ]
     }
   ]
 }
