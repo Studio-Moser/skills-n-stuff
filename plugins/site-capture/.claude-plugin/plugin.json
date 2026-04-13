@@ -1,0 +1,27 @@
+{
+  "name": "site-capture",
+  "version": "0.1.0",
+  "description": "Capture full-page screenshots of websites with scroll-triggered animation support. Handles bot-protected sites, cookie banners, and lazy-loaded content. Uses Microlink API with Chrome browser fallback.",
+  "author": {
+    "name": "Studio Moser",
+    "url": "https://github.com/Studio-Moser"
+  },
+  "repository": "https://github.com/Studio-Moser/skills-n-stuff",
+  "license": "MIT",
+  "keywords": [
+    "screenshot",
+    "website-capture",
+    "competitive-analysis",
+    "design-reference",
+    "full-page",
+    "scroll-capture"
+  ],
+  "userConfig": {
+    "output_dir": {
+      "type": "string",
+      "title": "Output directory",
+      "description": "Relative path for screenshot output (e.g., design/_refs or screenshots)",
+      "sensitive": false
+    }
+  }
+}

@@ -34,6 +34,16 @@ Strategic intelligence system for product teams. Weekly strategy briefs, daily m
 
 [Full documentation](plugins/product-pulse/README.md)
 
+### Site Capture
+
+Capture full-page screenshots of websites with scroll-triggered animation support. Handles bot-protected sites, cookie banners, and lazy-loaded content.
+
+**Skills:**
+- `/site-capture:capture` — Capture screenshots of one or more websites (Microlink API + Chrome fallback)
+- `/site-capture:audit` — Audit existing screenshots for quality issues (wrong content, blank sections, errors)
+
+[Full documentation](plugins/site-capture/README.md)
+
 ## License
 
 MIT
