@@ -40,6 +40,12 @@
       "title": "Git branch for research",
       "description": "Branch to checkout and commit to when saving reports. Leave empty to use the current branch.",
       "sensitive": false
+    },
+    "use_shelby": {
+      "type": "string",
+      "title": "Save learnings to Shelby memory",
+      "description": "Whether to save key research insights to project memory via Shelby MCP (true/false). Requires Shelby to be installed.",
+      "sensitive": false
     }
   }
 }

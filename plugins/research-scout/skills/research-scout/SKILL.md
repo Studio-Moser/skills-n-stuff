@@ -38,7 +38,13 @@ Check whether the plugin's userConfig values are set (`output_dir`, `backlog_fil
    - If yes: "What branch should research commits go to?" Suggest `research`, `docs`, or "current branch" as options.
    - Store `use_git` as `"true"` or `"false"`, and `git_branch` as the branch name (empty = current branch).
 
-4. **Create the output directory** if it doesn't exist.
+4. **Do you have Shelby (memory MCP) installed?**
+   - Check if `mcp__shelby-memory__capture_thought` is available as a tool.
+   - If available: "I detected Shelby. Want me to save key learnings from each research session to your project memory?"
+   - If not available: skip — don't ask about it.
+   - Store `use_shelby` as `"true"` or `"false"`.
+
+5. **Create the output directory** if it doesn't exist.
 
 On subsequent runs, skip this phase — the config is already set. If the user wants to change config later, they can update it through the plugin settings.
 
@@ -218,7 +224,29 @@ If `backlog_file` is not configured, skip this phase entirely.
 
 ---
 
-## Phase 10: Commit and push (only if files were saved)
+## Phase 10: Save to memory (optional — Shelby only)
+
+If `use_shelby` is `"true"` and the Shelby memory tools are available:
+
+1. Ask: "Want me to save the key learnings from this research to your project memory?"
+2. If yes, distill the research into memory-worthy insights — things that would be valuable context in future conversations:
+   - Key decisions or conclusions about tools/patterns/approaches
+   - Important tradeoffs discovered (e.g., "Library X is faster but lacks Y support")
+   - Risks or gotchas that affect the project
+   - Contradictions with prior understanding
+3. Save each insight as a separate thought using `capture_thought` with:
+   - `type`: `"insight"` or `"decision"` depending on the content
+   - `topics`: relevant technology/concept tags
+   - `project`: auto-detected from current working directory
+   - `source`: `"research-scout"`
+   - `summary`: one-line summary for searchability
+4. If a prior report was referenced and the new research contradicts it, use `manage_edges` to link the new insight to the prior one with edge type `refines` or `refuted_by` as appropriate.
+
+If `use_shelby` is `"false"` or Shelby tools are not available, skip this phase.
+
+---
+
+## Phase 11: Commit and push (only if files were saved)
 
 If `use_git` is `"true"` and any files were written (report and/or backlog):
 
