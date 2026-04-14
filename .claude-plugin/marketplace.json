@@ -37,6 +37,31 @@
       ]
     },
     {
+      "name": "research-scout",
+      "source": "./plugins/research-scout",
+      "description": "Deep-dive research and analysis of external reference materials (YouTube videos, articles, GitHub repos, docs) against your current project. Goes beyond summaries — cross-references findings with your codebase and delivers specific, actionable recommendations.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Studio Moser"
+      },
+      "license": "MIT",
+      "keywords": [
+        "research",
+        "analysis",
+        "reference",
+        "comparison",
+        "competitive-analysis",
+        "deep-dive"
+      ],
+      "category": "productivity",
+      "tags": [
+        "research",
+        "analysis",
+        "reference",
+        "competitive-analysis"
+      ]
+    },
+    {
       "name": "site-capture",
       "source": "./plugins/site-capture",
       "description": "Capture full-page screenshots of websites with scroll-triggered animation support. Handles bot-protected sites, cookie banners, and lazy-loaded content.",
