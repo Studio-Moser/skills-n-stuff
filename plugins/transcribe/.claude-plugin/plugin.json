@@ -1,0 +1,20 @@
+{
+  "name": "transcribe",
+  "version": "0.1.0",
+  "description": "Transcribe spoken-word audio from YouTube, Shorts, Instagram, TikTok, and Threads. Local on Apple Silicon via yt-dlp + mlx-whisper, with a headless-Playwright fallback for Threads.",
+  "author": {
+    "name": "Studio Moser",
+    "url": "https://github.com/Studio-Moser"
+  },
+  "repository": "https://github.com/Studio-Moser/skills-n-stuff",
+  "license": "MIT",
+  "keywords": [
+    "transcript",
+    "whisper",
+    "video",
+    "youtube",
+    "instagram",
+    "threads",
+    "research"
+  ]
+}
