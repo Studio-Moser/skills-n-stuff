@@ -7,18 +7,20 @@
 // Stdout:  JSON: { "title": "...", "duration_seconds": 0, "video_path": "/abs/path.mp4" }
 // Exit:    0 on success, non-zero on failure (with message on stderr)
 //
-// Strategy: Threads and Instagram serve DASH-style split streams — separate
-// audio-only and video-only .mp4 URLs alongside (sometimes) a muxed URL. We
-// capture every .mp4 the page requests, then use ffprobe to find the one
-// that contains an audio stream, downloading candidates in ascending size
-// (audio-only streams are typically the smallest). We write the first file
-// that ffprobe confirms has audio to `video.mp4` in the output directory.
+// Strategy: Pages like Threads render the target post alongside related/
+// suggested videos, so naive ".mp4 URL capture" can pick a neighbor's clip.
+// We anchor on the first <video> element's currentSrc (that is the target
+// post's stream), then:
+//   1. Try the currentSrc directly. If ffprobe finds an audio stream, use it.
+//   2. Otherwise, Threads is using DASH-style split streams. Match captured
+//      .mp4 URLs by shared "asset id" prefix with currentSrc, and pick the
+//      smallest one that ffprobe confirms carries audio.
+//   3. As a last resort, try the smallest captured .mp4 regardless of prefix.
 
 import { chromium } from 'playwright';
-import { createWriteStream } from 'node:fs';
+import { createWriteStream, unlinkSync, statSync, renameSync } from 'node:fs';
 import { pipeline } from 'node:stream/promises';
 import { spawnSync } from 'node:child_process';
-import { unlinkSync, statSync } from 'node:fs';
 import path from 'node:path';
 
 const [, , URL_ARG, OUT_DIR] = process.argv;
@@ -39,14 +41,10 @@ function hasAudio(filePath) {
   const r = spawnSync(
     'ffprobe',
     [
-      '-v',
-      'error',
-      '-select_streams',
-      'a',
-      '-show_entries',
-      'stream=codec_type',
-      '-of',
-      'csv=p=0',
+      '-v', 'error',
+      '-select_streams', 'a',
+      '-show_entries', 'stream=codec_type',
+      '-of', 'csv=p=0',
       filePath,
     ],
     { encoding: 'utf8' }
@@ -56,9 +54,7 @@ function hasAudio(filePath) {
 
 async function downloadTo(url, headers, dest) {
   const resp = await fetch(url, { headers });
-  if (!resp.ok) {
-    throw new Error(`HTTP ${resp.status}`);
-  }
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
   await pipeline(resp.body, createWriteStream(dest));
 }
 
@@ -70,6 +66,20 @@ function stripPseudoHeaders(h) {
   delete out[':path'];
   delete out[':scheme'];
   return out;
+}
+
+// Extract an "asset id" fingerprint from a CDN URL so we can group segments
+// that belong to the same video. Threads/Instagram URLs look like:
+//   https://scontent-<dc>.cdninstagram.com/o1/v/t2/f2/m86/AQM...?<query>
+// The first 20 chars of the filename segment are a reliable grouping key.
+function assetIdOf(url) {
+  try {
+    const u = new URL(url);
+    const last = u.pathname.split('/').pop() || '';
+    return last.slice(0, 20);
+  } catch {
+    return '';
+  }
 }
 
 const ctx = await chromium.launchPersistentContext(PROFILE_DIR, {
@@ -110,78 +120,93 @@ try {
   }
 }
 
-// Force the player to start loading all segments (including audio on DASH streams).
-// We mute first so muted autoplay policies don't reject the play() call, then
-// let the video run long enough to trigger audio segment requests.
+// Coax the target player into loading audio segments. Muted autoplay gets
+// past the browser gesture policy; unmuting afterwards persuades the player
+// to actually fetch the audio track on DASH streams.
 try {
   await page.evaluate(async () => {
     const v = document.querySelector('video');
     if (!v) return;
+    v.scrollIntoView({ block: 'center' });
     v.muted = true;
-    try {
-      await v.play();
-    } catch {
-      // Ignore — we just want the play attempt to trigger buffering.
-    }
+    try { await v.play(); } catch {}
+    v.muted = false;
+    try { await v.play(); } catch {}
   });
-} catch {
-  // Ignore; we still continue and check what we got.
-}
+} catch {}
 
-// Give the page time to request audio segments.
-await page.waitForTimeout(6_000);
+await page.waitForTimeout(8_000);
+
+// currentSrc identifies the target post's stream.
+let currentSrc = null;
+try {
+  currentSrc = await page.$eval('video', (v) => v.currentSrc || v.src);
+} catch {}
 
 const title = await page.title().catch(() => 'Unknown');
 await ctx.close();
 
-if (candidates.length === 0) {
-  console.error('ERROR: no .mp4 URLs captured from this page.');
+if (!currentSrc && candidates.length === 0) {
+  console.error('ERROR: no video URL found on page.');
   process.exit(4);
 }
 
-// Sort candidates by size ascending — audio-only streams are typically the smallest.
-candidates.sort((a, b) => a.size - b.size);
-
-const tryPath = path.join(OUT_DIR, '_candidate.mp4');
 const outPath = path.join(OUT_DIR, 'video.mp4');
+const tryPath = path.join(OUT_DIR, '_candidate.mp4');
 let success = false;
 
-for (const cand of candidates) {
+// Step 1: try currentSrc directly.
+async function tryCandidate(url, headers) {
   try {
-    await downloadTo(cand.url, stripPseudoHeaders(cand.headers), tryPath);
+    await downloadTo(url, stripPseudoHeaders(headers), tryPath);
     if (hasAudio(tryPath)) {
-      // Move candidate to final output path.
-      const renameSync = (await import('node:fs')).renameSync;
-      try {
-        unlinkSync(outPath);
-      } catch {}
+      try { unlinkSync(outPath); } catch {}
       renameSync(tryPath, outPath);
-      success = true;
-      break;
+      return true;
     }
-  } catch (err) {
-    // Try the next candidate.
-    try {
-      unlinkSync(tryPath);
-    } catch {}
-    continue;
-  }
-  try {
-    unlinkSync(tryPath);
   } catch {}
+  try { unlinkSync(tryPath); } catch {}
+  return false;
+}
+
+if (currentSrc && /\.mp4(\?|$)/.test(currentSrc)) {
+  const match = candidates.find((c) => c.url === currentSrc);
+  const headers = match ? match.headers : {};
+  success = await tryCandidate(currentSrc, headers);
+}
+
+// Step 2: candidates matching currentSrc's asset id, smallest first.
+if (!success && currentSrc) {
+  const targetId = assetIdOf(currentSrc);
+  if (targetId) {
+    const matching = candidates
+      .filter((c) => assetIdOf(c.url) === targetId && c.url !== currentSrc)
+      .sort((a, b) => a.size - b.size);
+    for (const cand of matching) {
+      success = await tryCandidate(cand.url, cand.headers);
+      if (success) break;
+    }
+  }
+}
+
+// Step 3: last resort — any captured mp4 with audio, smallest first.
+if (!success) {
+  const fallback = [...candidates].sort((a, b) => a.size - b.size);
+  for (const cand of fallback) {
+    success = await tryCandidate(cand.url, cand.headers);
+    if (success) break;
+  }
 }
 
 if (!success) {
   console.error(
-    `ERROR: none of the ${candidates.length} .mp4 candidates contained an audio stream.`
+    `ERROR: none of the ${candidates.length} .mp4 candidates contained an audio stream for the target post.`
   );
   process.exit(5);
 }
 
 let bytes = 0;
-try {
-  bytes = statSync(outPath).size;
-} catch {}
+try { bytes = statSync(outPath).size; } catch {}
 
 process.stdout.write(
   JSON.stringify({
