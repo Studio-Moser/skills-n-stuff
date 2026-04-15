@@ -78,6 +78,7 @@ Smaller models trade accuracy for speed. Use `whisper-base-mlx` (~140MB) for qui
 - **Silent videos hallucinate.** Whisper will invent text on silent or music-only audio. The plugin returns the transcript regardless but adds a stderr warning when repeated segments are detected.
 - **Login-gated posts.** Public content only unless the user has signed into the persistent Playwright profile at `~/.cache/transcribe-plugin/playwright-profile/`.
 - **No batching.** One URL per call. Use a shell loop for multiple.
+- **Threads is flaky.** Threads post pages also render a feed of suggested videos, and Playwright's network capture can land on a neighbor instead of the target post. The extractor anchors to the `<video>` element's `currentSrc` and filters to segments sharing its CDN asset id, but expect occasional failures or mismatches. Retry or fall back to manual download for critical Threads transcripts.
 
 ## See also
 
