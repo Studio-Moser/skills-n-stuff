@@ -67,7 +67,7 @@ If the output directory is empty or doesn't exist yet, skip this phase.
 
 For each link the user provides, extract as much substance as possible:
 
-- **YouTube videos**: Pull the transcript and analyze the full content — key concepts, tools mentioned, architectural patterns, specific recommendations, code examples discussed.
+- **YouTube / Shorts / Instagram / TikTok / Threads videos**: Fetch the full transcript with the `transcribe` skill — from Bash as `transcribe <url>`, or via `Skill({ skill: "transcribe:transcribe", args: "<url>" })`. Then analyze the full content — key concepts, tools mentioned, architectural patterns, specific recommendations, code examples discussed. If transcribe fails, surface the stderr message to the user and stop; do not try to analyze the video without its transcript.
 - **Articles / blog posts / docs**: Read the full content and identify the core ideas, technical specifics, libraries/tools referenced, and any opinionated takes on best practices.
 - **GitHub repos**: Examine the README, project structure, key source files, dependencies, and architectural decisions. Understand what the repo does and how it does it.
 - **Other links**: Adapt your approach — the goal is always to thoroughly understand what the resource is communicating.
