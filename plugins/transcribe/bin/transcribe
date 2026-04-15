@@ -1,0 +1,184 @@
+#!/bin/bash
+# transcribe — Fetch a spoken-word transcript from a video URL.
+#
+# Usage:
+#   transcribe <url>           # markdown output
+#   transcribe <url> --json    # JSON output
+#
+# Env:
+#   WHISPER_MODEL    mlx-whisper model (default: mlx-community/whisper-large-v3-mlx)
+#   HF_TOKEN         HuggingFace token, raises HF download rate limits
+
+set -euo pipefail
+
+# ── Parse args ───────────────────────────────────────────────────────────────
+
+URL=""
+OUTPUT_JSON=false
+
+for arg in "$@"; do
+  case "$arg" in
+    --json) OUTPUT_JSON=true ;;
+    -h|--help)
+      cat <<'HELP'
+transcribe — fetch a spoken-word transcript from a video URL.
+
+Usage:
+  transcribe <url>           Markdown output (default)
+  transcribe <url> --json    JSON output
+
+Supports: YouTube, YouTube Shorts, Instagram posts/Reels, TikTok, Threads.
+
+Env:
+  WHISPER_MODEL   mlx-whisper model (default: mlx-community/whisper-large-v3-mlx)
+  HF_TOKEN        HuggingFace token for higher download rate limits
+HELP
+      exit 0 ;;
+    -*) echo "Unknown flag: $arg" >&2; exit 1 ;;
+    *)  URL="$arg" ;;
+  esac
+done
+
+if [[ -z "$URL" ]]; then
+  echo "Usage: transcribe <url> [--json]" >&2
+  exit 1
+fi
+
+# ── Locate plugin scripts ────────────────────────────────────────────────────
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PLUGIN_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# ── Verify deps ──────────────────────────────────────────────────────────────
+
+"$PLUGIN_ROOT/scripts/verify-deps.sh" >/dev/null 2>&1 || {
+  echo "ERROR: transcribe plugin deps missing." >&2
+  echo "Run: bash $PLUGIN_ROOT/scripts/install.sh" >&2
+  exit 1
+}
+
+# ── Detect platform ──────────────────────────────────────────────────────────
+
+detect_platform() {
+  local url="$1"
+  if   [[ "$url" =~ (youtube\.com|youtu\.be) ]]; then echo "YouTube"
+  elif [[ "$url" =~ instagram\.com ]];          then echo "Instagram"
+  elif [[ "$url" =~ tiktok\.com ]];             then echo "TikTok"
+  elif [[ "$url" =~ threads\.(net|com) ]];      then echo "Threads"
+  else                                               echo "Unknown"
+  fi
+}
+
+PLATFORM="$(detect_platform "$URL")"
+echo "Platform: $PLATFORM" >&2
+
+# ── Temp dir ─────────────────────────────────────────────────────────────────
+
+TMPDIR_WORK="$(mktemp -d)"
+trap 'rm -rf "$TMPDIR_WORK"' EXIT
+AUDIO_WAV="$TMPDIR_WORK/audio_16k.wav"
+
+# ── Tier 1: yt-dlp ───────────────────────────────────────────────────────────
+
+WHISPER_MODEL="${WHISPER_MODEL:-mlx-community/whisper-large-v3-mlx}"
+VIDEO_TITLE="Unknown"
+DURATION_SECONDS=0
+USED_TIER=""
+
+tier1_ytdlp() {
+  echo "→ Tier 1: yt-dlp" >&2
+
+  # Title + duration via yt-dlp metadata (may fail on some URLs; tolerate)
+  local meta
+  meta="$(yt-dlp --print "%(title)s|||%(duration)s" "$URL" 2>/dev/null || true)"
+  if [[ -n "$meta" ]]; then
+    VIDEO_TITLE="${meta%%|||*}"
+    DURATION_SECONDS="${meta##*|||}"
+    [[ "$DURATION_SECONDS" == "NA" || -z "$DURATION_SECONDS" ]] && DURATION_SECONDS=0
+  fi
+
+  # Download + extract audio
+  if ! yt-dlp -x --audio-format wav \
+        -o "$TMPDIR_WORK/audio_raw.%(ext)s" \
+        "$URL" >/dev/null 2>&1; then
+    return 1
+  fi
+
+  local raw
+  raw="$(find "$TMPDIR_WORK" -name 'audio_raw.*' -type f | head -1)"
+  [[ -z "$raw" ]] && return 1
+
+  ffmpeg -y -i "$raw" -ar 16000 -ac 1 -c:a pcm_s16le "$AUDIO_WAV" >/dev/null 2>&1 || return 1
+
+  USED_TIER="ytdlp"
+  return 0
+}
+
+# ── Skip tier 1 for known-unsupported platforms ──────────────────────────────
+
+if [[ "$PLATFORM" == "Threads" ]]; then
+  echo "→ Tier 1 skipped (Threads unsupported by yt-dlp)" >&2
+elif tier1_ytdlp; then
+  :
+else
+  echo "→ Tier 1 failed, will fall through to tier 2 (not yet implemented)" >&2
+  echo "ERROR: tier 1 failed and tier 2 is not available in this task." >&2
+  exit 2
+fi
+
+if [[ "$PLATFORM" == "Threads" ]]; then
+  echo "ERROR: Threads not supported in this task. Implemented in Task 7." >&2
+  exit 2
+fi
+
+# ── Transcribe with mlx-whisper ──────────────────────────────────────────────
+
+echo "→ Transcribing with $WHISPER_MODEL" >&2
+TRANSCRIPT_JSON="$TMPDIR_WORK/transcript.json"
+python3 - <<PYEOF > "$TRANSCRIPT_JSON"
+import json, mlx_whisper
+r = mlx_whisper.transcribe("$AUDIO_WAV", path_or_hf_repo="$WHISPER_MODEL")
+print(json.dumps(r))
+PYEOF
+
+TRANSCRIPT_TEXT="$(python3 -c "import json,sys; print(json.load(open('$TRANSCRIPT_JSON'))['text'].strip())")"
+
+# ── Format output ────────────────────────────────────────────────────────────
+
+human_duration() {
+  local s="${1:-0}"
+  [[ "$s" == "0" ]] && { echo "unknown"; return; }
+  printf "%d:%02d" $((s/60)) $((s%60))
+}
+
+if $OUTPUT_JSON; then
+  python3 - <<PYEOF
+import json
+data = json.load(open("$TRANSCRIPT_JSON"))
+out = {
+    "title": """$VIDEO_TITLE""",
+    "url": """$URL""",
+    "platform": """$PLATFORM""",
+    "duration_seconds": int("$DURATION_SECONDS" or 0),
+    "model": """$WHISPER_MODEL""",
+    "tier": """$USED_TIER""",
+    "text": data.get("text", "").strip(),
+    "segments": [
+        {"start": s["start"], "end": s["end"], "text": s["text"].strip()}
+        for s in data.get("segments", [])
+    ],
+}
+print(json.dumps(out, indent=2))
+PYEOF
+else
+  cat <<MD
+# $VIDEO_TITLE
+
+**Source:** $URL
+**Platform:** $PLATFORM
+**Duration:** $(human_duration "$DURATION_SECONDS")
+**Model:** $WHISPER_MODEL
+
+$TRANSCRIPT_TEXT
+MD
+fi
