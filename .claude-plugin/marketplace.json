@@ -85,6 +85,31 @@
         "design",
         "competitive-analysis"
       ]
+    },
+    {
+      "name": "transcribe",
+      "source": "./plugins/transcribe",
+      "description": "Transcribe spoken-word audio from YouTube, Shorts, Instagram, TikTok, and Threads. Local on Apple Silicon via yt-dlp + mlx-whisper, with a headless-Playwright fallback for Threads.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Studio Moser"
+      },
+      "license": "MIT",
+      "keywords": [
+        "transcript",
+        "whisper",
+        "video",
+        "youtube",
+        "instagram",
+        "threads",
+        "research"
+      ],
+      "category": "productivity",
+      "tags": [
+        "research",
+        "transcript",
+        "video"
+      ]
     }
   ]
 }
