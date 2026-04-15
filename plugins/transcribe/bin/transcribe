@@ -119,10 +119,11 @@ tier1_ytdlp() {
 tier2_playwright() {
   echo "→ Tier 2: Playwright" >&2
   local meta
-  meta="$(node "$PLUGIN_ROOT/scripts/extract-via-playwright.mjs" "$URL" "$TMPDIR_WORK")"
+  meta="$(node "$PLUGIN_ROOT/scripts/extract-via-playwright.mjs" "$URL" "$TMPDIR_WORK" 2>&2)" || return 1
+  [[ -z "$meta" ]] && return 1
   local vid_path
-  vid_path="$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['video_path'])" "$meta")"
-  VIDEO_TITLE="$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['title'])" "$meta")"
+  vid_path="$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['video_path'])" "$meta" 2>/dev/null)" || return 1
+  VIDEO_TITLE="$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['title'])" "$meta" 2>/dev/null)" || VIDEO_TITLE="Unknown"
   # Playwright path doesn't give duration reliably; probe with ffprobe.
   DURATION_SECONDS="$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$vid_path" 2>/dev/null | cut -d. -f1 || echo 0)"
   [[ -z "$DURATION_SECONDS" ]] && DURATION_SECONDS=0
