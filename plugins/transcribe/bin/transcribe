@@ -116,19 +116,29 @@ tier1_ytdlp() {
 
 # ── Skip tier 1 for known-unsupported platforms ──────────────────────────────
 
+tier2_playwright() {
+  echo "→ Tier 2: Playwright" >&2
+  local meta
+  meta="$(node "$PLUGIN_ROOT/scripts/extract-via-playwright.mjs" "$URL" "$TMPDIR_WORK")"
+  local vid_path
+  vid_path="$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['video_path'])" "$meta")"
+  VIDEO_TITLE="$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['title'])" "$meta")"
+  # Playwright path doesn't give duration reliably; probe with ffprobe.
+  DURATION_SECONDS="$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$vid_path" 2>/dev/null | cut -d. -f1 || echo 0)"
+  [[ -z "$DURATION_SECONDS" ]] && DURATION_SECONDS=0
+  ffmpeg -y -i "$vid_path" -ar 16000 -ac 1 -c:a pcm_s16le "$AUDIO_WAV" >/dev/null 2>&1 || return 1
+  USED_TIER="playwright"
+  return 0
+}
+
 if [[ "$PLATFORM" == "Threads" ]]; then
   echo "→ Tier 1 skipped (Threads unsupported by yt-dlp)" >&2
+  tier2_playwright || { echo "ERROR: tier 2 extraction failed for $URL" >&2; exit 2; }
 elif tier1_ytdlp; then
   :
 else
-  echo "→ Tier 1 failed, will fall through to tier 2 (not yet implemented)" >&2
-  echo "ERROR: tier 1 failed and tier 2 is not available in this task." >&2
-  exit 2
-fi
-
-if [[ "$PLATFORM" == "Threads" ]]; then
-  echo "ERROR: Threads not supported in this task. Implemented in Task 7." >&2
-  exit 2
+  echo "→ Tier 1 failed, falling through to tier 2" >&2
+  tier2_playwright || { echo "ERROR: both tiers failed for $URL" >&2; exit 2; }
 fi
 
 # ── Transcribe with mlx-whisper ──────────────────────────────────────────────
