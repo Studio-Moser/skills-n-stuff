@@ -1,8 +1,8 @@
 # transcribe
 
-Local video transcription for Claude Code on Apple Silicon.
+Video transcription for Claude Code. Captions-first for YouTube; local mlx-whisper on Apple Silicon as the fallback.
 
-Handles YouTube, YouTube Shorts, Instagram posts/Reels, TikTok, and Threads. Uses yt-dlp + mlx-whisper for the first four; falls back to a headless-Playwright + Chromium pipeline for Threads (unsupported by yt-dlp upstream).
+Handles YouTube, YouTube Shorts, Instagram posts/Reels, TikTok, and Threads. YouTube URLs hit a captions tier first (seconds, no model download). Non-YouTube platforms and YouTube videos without captions fall through to yt-dlp + mlx-whisper, with a headless-Playwright + Chromium pipeline for Threads.
 
 ## Install
 
@@ -23,8 +23,9 @@ Installs: yt-dlp, ffmpeg, Node.js, Playwright Chromium, mlx-whisper. Apple Silic
 ### From the Bash tool (or terminal, after install)
 
 ```
-transcribe <url>
+transcribe <url>                  # captions-first for YouTube, whisper otherwise
 transcribe <url> --json
+transcribe <url> --force-whisper  # skip captions, always run whisper
 ```
 
 ### From another skill
@@ -35,10 +36,11 @@ Skill({ skill: "transcribe:transcribe", args: "<url>" })
 
 ## Configuration
 
-| Env var         | Default                                   | Purpose                                |
-|-----------------|-------------------------------------------|----------------------------------------|
-| `WHISPER_MODEL` | `mlx-community/whisper-large-v3-mlx`      | mlx-whisper model HF repo              |
-| `HF_TOKEN`      | —                                         | HuggingFace token (higher rate limits) |
+| Env var          | Default                               | Purpose                                        |
+|------------------|---------------------------------------|------------------------------------------------|
+| `WHISPER_MODEL`  | `mlx-community/whisper-large-v3-mlx`  | mlx-whisper model HF repo                      |
+| `HF_TOKEN`       | —                                     | HuggingFace token (higher rate limits)         |
+| `FORCE_WHISPER`  | `0`                                   | When `1`, skip YouTube-caption tier (same as `--force-whisper`) |
 
 ## Output
 
