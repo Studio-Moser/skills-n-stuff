@@ -144,11 +144,15 @@ Create the following structure:
 ├── research-sources.json       # Curated sources per domain
 ├── deep-dives/                 # Standalone research reports
 todos/
-├── backlog.md                  # Unified backlog (replaces research-tracker.md)
+├── backlog.md                  # Live work queue (Roadmap, Ready, Monitor, Manual, Done, Dismissed)
+├── backlog-ideas.md            # Incoming ideas staging (per-domain Ideas + Expired)
 ├── WORKFLOW.md                 # Lifecycle documentation
+├── archive/                    # Done rows older than 7 days, partitioned by quarter
 └── specs/
     └── _TEMPLATE.md            # Spec template for ready items
 ```
+
+The two-file backlog separates the live sprint queue (`backlog.md`) from the incoming-idea staging area (`backlog-ideas.md`) so daily research adds to one file without bloating the other. The archive directory holds quarterly done-rows (`done-YYYY-QN.md`) once they age out of the 7-day rolling window in `backlog.md`.
 
 ### Folder Organization
 
@@ -208,9 +212,9 @@ Build a starter source config based on the interview. For each research domain, 
 
 Use web search to find real, relevant sources for each domain. Don't fabricate URLs. If you can't find good sources for a domain, include fewer and note "sources need manual curation" in the domain description.
 
-### Generate todos/backlog.md
+### Generate todos/backlog.md (live work queue)
 
-Build the backlog with sections based on the user's product domains. Use the domain names from the interview to create subsections under Ideas.
+`backlog.md` holds everything sprint-dev acts on. Ideas live in the sibling file `backlog-ideas.md` (next section).
 
 ```markdown
 # Backlog
@@ -220,17 +224,64 @@ Build the backlog with sections based on the user's product domains. Use the dom
 
 ## Roadmap
 
-Strategic items with long-term timelines.
+Strategic items with long-term timelines. Use `R{N}` IDs.
 
 | # | Item | Size | Priority | Owner | Target | Status | Notes |
 |---|------|------|----------|-------|--------|--------|-------|
 
 ## Ready
 
-Items with specs that are ready for implementation.
+Items the user has approved for implementation. Group related items into named sprint subsections (`### Sprint: …`). Items in flight carry `awaiting-pr` or `in-progress` status inline — there is no separate Awaiting PR section.
 
-| # | Item | Size | Priority | Spec | Freshness | Notes |
-|---|------|------|----------|------|-----------|-------|
+### Sprint: Unassigned
+
+Ad-hoc ready items that don't yet belong to a named sprint.
+
+| # | Item | Size | Priority | Status | Spec | Freshness | Notes |
+|---|------|------|----------|--------|------|-----------|-------|
+
+<!-- Add `### Sprint: {Name}` subsections as work coalesces. Each subsection uses the same column layout. -->
+
+## Monitor
+
+Watch-and-wait items — not actionable yet, but may become relevant.
+
+| # | Item | Trigger | Deadline | Found |
+|---|------|---------|----------|-------|
+
+## Manual
+
+Items that require human judgment or external action (no code change).
+
+| # | Item | Owner | Context | Added |
+|---|------|-------|---------|-------|
+
+## Done (last 7 days)
+
+Recently merged items. Sprint-dev moves rows here on merge and archives anything older than 7 days into `todos/archive/done-YYYY-QN.md`.
+
+| # | Item | PR | Merged |
+|---|------|----|--------|
+
+## Dismissed
+
+| # | Item | Reason | Date |
+|---|------|--------|------|
+```
+
+### Generate todos/backlog-ideas.md (incoming ideas staging)
+
+Daily research writes new actionable findings into the per-domain Ideas subsections here. Use the domain names from the interview to create the subsections.
+
+```markdown
+# Backlog — Ideas
+
+**Product**: {product name}
+**Last updated**: {DATE}
+
+Incoming ideas staged for triage. Daily research adds rows here (max 5/day). Weekly strategist removes rows on dismissal or Monitor promotion. The user promotes idea rows to `backlog.md` Ready when ready to implement.
+
+All items here carry status `idea`. Item numbers are sequential across BOTH this file and `backlog.md`.
 
 ## Ideas
 
@@ -249,35 +300,30 @@ Items with specs that are ready for implementation.
 | # | Item | Size | Priority | Source | Found |
 |---|------|------|----------|--------|-------|
 
-## Awaiting PR
+## Expired / passed-deadline
 
-| # | Item | Repo | Branch | PR | Date |
-|---|------|------|--------|----|------|
+Recovery surface — Monitor items whose deadline closed without the trigger firing land here so the context isn't lost. If the underlying topic reopens, weekly strategist promotes the row back into an active Ideas subsection.
 
-## Monitor
-
-Items to watch — not actionable yet, but may become relevant.
-
-| # | Item | Trigger | Deadline | Found |
-|---|------|---------|----------|-------|
-
-## Manual
-
-Items that require human judgment or external action.
-
-| # | Item | Owner | Context | Added |
-|---|------|-------|---------|-------|
-
-## Dismissed
-
-| # | Item | Reason | Date |
-|---|------|--------|------|
+| # | Item | Original Trigger | Closed | Notes |
+|---|------|------------------|--------|-------|
 ```
+
+### Create todos/archive/
+
+Create the directory `todos/archive/` (empty for now). Sprint-dev will create quarterly files (e.g. `done-2026-Q2.md`) when it archives rows older than 7 days out of `backlog.md`'s Done section.
 
 ### Generate todos/WORKFLOW.md
 
 ```markdown
 # Backlog Workflow
+
+The backlog is split across two files:
+
+- `todos/backlog.md` — live work queue (Roadmap, Ready, Monitor, Manual, Done last 7 days, Dismissed). This is what sprint-dev acts on.
+- `todos/backlog-ideas.md` — incoming ideas staging (per-domain Ideas subsections plus an Expired / passed-deadline table). This is where daily research writes new findings.
+- `todos/archive/done-YYYY-QN.md` — append-only history of merged items older than 7 days, partitioned by quarter.
+
+Item IDs are sequential across both files. Roadmap items use an `R{N}` prefix.
 
 ## Lifecycle
 
@@ -289,24 +335,25 @@ idea → specced → ready → in-progress → awaiting-pr → done
 
 | Status | Where | Meaning |
 |--------|-------|---------|
-| `idea` | Ideas section | Raw finding from research or manual entry. Not yet evaluated. |
-| `specced` | Ideas section | Has a spec in `todos/specs/`. Needs review before promotion. |
-| `ready` | Ready table | Spec reviewed, item approved for implementation. |
-| `in-progress` | Ready table | Currently being worked on by sprint-dev. |
-| `awaiting-pr` | Awaiting PR table | PR created, waiting for merge. |
-| `done` | Removed (logged) | PR merged. Item archived from backlog. |
-| `monitor` | Monitor table | Watch-and-wait. Not actionable yet. |
-| `manual` | Manual table | Requires human action, not code. |
-| `dismissed` | Dismissed table | No longer relevant. Kept for audit trail. |
+| `idea` | `backlog-ideas.md` Ideas subsections | Raw finding from research or manual entry. Not yet evaluated. |
+| `specced` | `backlog-ideas.md` Ideas subsections | Has a spec in `todos/specs/`. Needs user review before promotion. |
+| `ready` | `backlog.md` Ready (sprint subsection) | Spec reviewed, item approved for implementation. |
+| `in-progress` | `backlog.md` Ready (status inline on row) | Currently being worked on by sprint-dev. |
+| `awaiting-pr` | `backlog.md` Ready (status inline on row, PR link embedded) | PR created, waiting for merge. No standalone section. |
+| `done` | `backlog.md` Done (last 7 days), then `todos/archive/done-YYYY-QN.md` | PR merged. |
+| `monitor` | `backlog.md` Monitor table | Watch-and-wait. Not actionable yet. |
+| `manual` | `backlog.md` Manual table | Requires human action, not code. |
+| `expired` | `backlog-ideas.md` Expired / passed-deadline | Monitor item whose deadline closed without trigger firing — kept for context. |
+| `dismissed` | `backlog.md` Dismissed table | No longer relevant. Kept for audit trail. |
 
 ### Who Does What
 
-| Role | Adds Ideas | Promotes to Ready | Implements | Dismisses |
-|------|-----------|-------------------|------------|-----------|
-| Daily Research | Yes (max 5/day) | Never | Never | Never |
-| Weekly Strategist | Never | Never (recommends only) | Never | Yes |
-| Sprint Dev | Never | Never | Yes | Never |
-| User | Yes | Yes | Yes | Yes |
+| Role | Adds Ideas (`backlog-ideas.md`) | Adds Monitor (`backlog.md`) | Promotes to Ready | Implements | Dismisses |
+|------|---------------------------------|-----------------------------|-------------------|------------|-----------|
+| Daily Research | Yes (max 5/day) | Yes (watch-and-wait items) | Never | Never | Never |
+| Weekly Strategist | Never | Yes (moves Ideas → Monitor) | Never (recommends only) | Never | Yes (Ideas → Dismissed) |
+| Sprint Dev | Never | Never | Never | Yes | Never |
+| User | Yes | Yes | Yes | Yes | Yes |
 
 ### Size Guide
 
@@ -413,7 +460,9 @@ Product Pulse — Setup Complete
 
 Project: {product name}
 Research directory: {research_dir}/
-Backlog: todos/backlog.md
+Backlog (live): todos/backlog.md
+Backlog (ideas): todos/backlog-ideas.md
+Archive: todos/archive/
 Specs directory: todos/specs/
 Domains configured: {N} ({list})
 Sources seeded: {N} across all domains
@@ -424,8 +473,9 @@ Backlog initialized: empty, ready for first research run
 1. Review the generated files:
    - {research_dir}/research-context.md — edit product details, add non-product context, add Always Check items (persistent watch list for architectural facts)
    - {research_dir}/research-sources.json — add/remove sources per domain
-   - todos/backlog.md — add any known items manually
-   - todos/WORKFLOW.md — review the lifecycle
+   - todos/backlog.md — add any known Roadmap or Ready items manually
+   - todos/backlog-ideas.md — add any pre-existing ideas you want triaged
+   - todos/WORKFLOW.md — review the lifecycle and two-file split
 
 2. Run your first weekly strategy brief:
    /product-pulse:weekly-strategist
@@ -461,4 +511,5 @@ Sprint dev is manual-only — run /product-pulse:sprint-dev when you're ready to
 - **User doesn't know competitors**: That's fine — leave the table sparse and note "competitor discovery" as a priority for the first weekly run.
 - **User has existing research**: Offer to read their existing docs and seed the backlog from them.
 - **Multi-repo project**: Note all repos in research-context.md. The sprint-dev skill will use this for routing.
-- **Migrating from research-tracker.md**: If a `research-tracker.md` exists, offer to migrate items into the new `todos/backlog.md` format.
+- **Migrating from research-tracker.md**: If a `research-tracker.md` exists, offer to migrate items into the two-file backlog: actionable findings → `todos/backlog-ideas.md` Ideas subsections, watch-and-wait → `todos/backlog.md` Monitor.
+- **Migrating from a single-file backlog.md**: If `todos/backlog.md` exists with an Ideas section, offer to extract those rows into `todos/backlog-ideas.md` and trim `backlog.md` to the live-queue layout above. Drop any standalone Awaiting PR section — those rows now carry inline `awaiting-pr` status in their sprint-section row.

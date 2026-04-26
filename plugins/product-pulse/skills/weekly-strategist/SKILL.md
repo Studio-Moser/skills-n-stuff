@@ -25,7 +25,7 @@ You are NOT a research scanner (that's the daily skill). You are a strategic **a
 - **Advisor, not executor** — Recommend items for speccing, don't promote them yourself.
 - **Brevity over comprehensiveness** — The brief should be readable in 5 minutes. Each analyst produces max 500 words.
 - **Opinionated** — Make recommendations. Say "do X" not "you could do X or Y."
-- **Error tolerant** — If an analyst agent fails, continue with the others. If no daily reports exist, use web research. If memory is unavailable, use file-based data.
+- **Error tolerant** — If an analyst agent fails, continue with the others. If no daily reports exist, use web research. If memory is unavailable, use file-based data. If either backlog file (`todos/backlog.md` or `todos/backlog-ideas.md`) is missing/unparseable, skip the triage section for that file and focus on market analysis. Do NOT auto-recreate — a stripped backlog suggests an unresolved merge conflict.
 
 ---
 
@@ -65,14 +65,26 @@ Extract:
 - Cross-domain patterns
 - Trend lines (increasing frequency or urgency)
 
-### 0.5 Read the Backlog
+### 0.5 Read the Backlog (both files)
 
-Read `todos/backlog.md`. Parse all sections: Roadmap, Ready, Ideas (all subsections), Awaiting PR, Monitor, Manual, Dismissed.
+Read BOTH `todos/backlog.md` AND `todos/backlog-ideas.md` — the active backlog is split across two files.
 
-Build a health snapshot:
-- Total items by section
+From `todos/backlog.md`, parse:
+- **Roadmap** — big-ticket items the user controls
+- **Ready** — sprint subsections (`### Sprint: ...`) with items the user has approved for sprint-dev
+- **Monitor** — watch-and-wait items
+- **Manual** — human-blocked actions
+- **Done (last 7 days)** — rolling window of recent merges (older items are archived under `todos/archive/done-YYYY-QN.md`)
+- **Dismissed** — items ruled out
+
+From `todos/backlog-ideas.md`, parse:
+- **All Ideas subsections** (per-domain incoming ideas)
+- **Expired / passed-deadline** — items whose deadline has closed; kept as recovery context, no action expected
+
+Build a health snapshot across both files:
+- Total items by section/file
 - Items by priority/domain/size
-- Oldest item age
+- Oldest item age (flag Ideas items > 30 days with no movement)
 - Monitor items with approaching deadlines
 - Ready items awaiting implementation
 
@@ -116,31 +128,35 @@ Exactly 3. Each must be: specific, achievable in a week, tied to evidence, and h
 
 ### 3.3 Review the Backlog (Advisor Role)
 
-Go through the backlog as an advisor. Your job is to **recommend**, not to move items yourself (except dismissals).
+Go through both backlog files as an advisor. Your job is to **recommend**, not to move items yourself (except dismissals and Monitor moves).
 
-**Recommend for speccing** (max 5 items):
-- Select up to 5 items from Ideas that align with this week's priorities
-- These are recommendations for the user to spec and promote — you do NOT set status to `ready`
+**Recommend for speccing** (max 5 items, drawn from `backlog-ideas.md`):
+- Select up to 5 Ideas items that align with this week's priorities
+- These are recommendations for the user to spec and promote into `backlog.md` Ready — you do NOT set status to `ready`
 - Explain why each item is recommended and which priority it serves
 - Note the suggested size and any spec considerations
 
-**Review Monitor section**:
+**Review Monitor section** (in `backlog.md`):
 - Flag items with approaching deadlines or triggers that may have fired
 - Recommend promoting any that have become actionable
+- If a Monitor item's deadline has passed AND its trigger never fired, plan to move it to the `Expired / passed-deadline` table at the bottom of `backlog-ideas.md` (recovery surface — preserves context if the topic reopens)
 
-**Comment on Roadmap**:
+**Review Expired / passed-deadline** (bottom of `backlog-ideas.md`):
+- If any underlying topic has reopened (e.g., a regulator reopened a comment period), recommend promoting the item back to an active Ideas subsection
+
+**Comment on Roadmap** (in `backlog.md`):
 - Note if any Roadmap items should be prioritized or deprioritized based on this week's intelligence
 
-**Dismiss stale items**:
+**Dismiss stale items** (from `backlog-ideas.md` Ideas):
 - Items older than 30 days with no activity → evaluate for dismissal
 - Items superseded by newer findings → dismiss with reason
-- Move dismissed items to the Dismissed table with reason and date
+- Move dismissed items to the Dismissed table in `backlog.md` with reason and date
 
 **Update priorities**:
-- Adjust priority levels on Ideas items if new intelligence warrants it
+- Adjust priority levels on Ideas rows (`backlog-ideas.md`) or Roadmap/Monitor rows (`backlog.md`) if new intelligence warrants it
 
 **Move watch-and-wait items**:
-- If any Ideas items are actually watch-and-wait (not actionable yet), move them to Monitor
+- If any Ideas items in `backlog-ideas.md` are actually watch-and-wait (not actionable yet), remove them from Ideas and append to the Monitor table in `backlog.md`
 
 ### 3.4 Spot Opportunities
 
@@ -213,17 +229,35 @@ S-sized Ideas that could be fast wins if capacity allows.
 
 ## Phase 5: Update Backlog & Persist
 
-- Move dismissed items to Dismissed table with reason and date
-- Update priority levels where warranted
-- Move watch-and-wait items from Ideas to Monitor
-- Do NOT mark any items as `ready` — that is the user's decision
-- Do NOT add new items (that's daily-research's job)
-- Update `Last updated:` date
-- Save weekly brief summary to memory
-- Git commit and push if in a repo:
-  ```bash
-  git checkout {branch} && git add {research_dir}/ todos/backlog.md && git commit -m "strategy: weekly brief W{NN} — {theme short}" && git push origin {branch}
-  ```
+Edits land in different files depending on what's moving.
+
+**In `todos/backlog-ideas.md`:**
+- Remove rows you're dismissing (they'll land in the Dismissed table in `backlog.md`)
+- Remove rows you're moving to Monitor (they'll land in the Monitor table in `backlog.md`)
+- Update priority levels on Ideas rows where warranted
+- Append rows to the `Expired / passed-deadline` table for any Monitor items in `backlog.md` whose deadline passed without the trigger firing
+- Update the `Last updated:` date
+
+**In `todos/backlog.md`:**
+- Append dismissed Ideas items to the **Dismissed** table with reason and date
+- Append watch-and-wait Ideas items to the **Monitor** table with trigger/deadline
+- Remove rows from Monitor that have moved to Expired in `backlog-ideas.md`
+- Update priority levels on Roadmap/Monitor rows where warranted
+- Update the `Last updated:` date
+
+Rules:
+- Do NOT add new Ideas — that's daily-research's job
+- Do NOT mark items as `ready` or `specced` — that's the user's job
+- Do NOT move items to Done — that's sprint-dev's job (it also archives rows older than 7 days to `todos/archive/done-YYYY-QN.md`)
+- Do NOT touch `todos/archive/` — that's append-only history
+
+Save the weekly brief summary to memory and commit:
+
+```bash
+git checkout {branch} && git add {research_dir}/ todos/backlog.md todos/backlog-ideas.md && git commit -m "strategy: weekly brief W{NN} — {theme short}" && git push origin {branch}
+```
+
+Include both backlog files in `git add` even if one wasn't modified — `git add` is a no-op on unchanged files.
 
 ---
 
@@ -235,8 +269,10 @@ Product Pulse — Weekly Strategy W{NN}
 Theme: {theme}
 Priorities: {p1} | {p2} | {p3}
 Recommended for speccing: {N} items
-Dismissed: {N} items removed
+Dismissed: {N} items removed from backlog-ideas.md
 Monitor alerts: {N}
 Opportunities: {N} identified
-Backlog: {total ideas} ideas, {ready} ready, {awaiting} in PR, {completed this week} shipped
+Backlog: {roadmap} roadmap | {ready} ready | {ideas} ideas | {monitor} monitoring | {done7d} done (last 7d)
 ```
+
+`roadmap` + `ready` + `monitor` + `done7d` are counts from `backlog.md`; `ideas` is the count across all subsections of `backlog-ideas.md` (excluding the Expired / passed-deadline table).

@@ -53,19 +53,29 @@ git branch -a | grep pulse/ 2>/dev/null
 
 Note any in-flight branches with open PRs.
 
-### 0.5 Reconcile Awaiting PR Items
+### 0.5 Reconcile items with `awaiting-pr` status
 
-Check the **Awaiting PR** section of the backlog. For each item:
+The standalone **Awaiting PR** section was retired — items in flight now carry the `awaiting-pr` (or `in-progress`) status inline in their sprint-section row. Scan both backlog files:
+
+```bash
+grep -E '\| (awaiting-pr|in-progress) \|' todos/backlog.md todos/backlog-ideas.md
+```
+
+For each row with `awaiting-pr`, find its PR URL (the row should embed a `[#N](https://github.com/...)` link) and check the PR state:
 
 ```bash
 gh pr view <PR-URL> --json state,mergedAt 2>/dev/null
 ```
 
-- **merged** → remove from backlog (log as done)
-- **closed** (rejected) → move back to Ready
-- **open** → leave in Awaiting PR, skip this item
+- **merged** → add a row to `## Done (last 7 days)` in `todos/backlog.md` and remove the row from its sprint section
+- **closed** (rejected) → flip the status back to `ready` in its sprint-section row (or move the row back into `todos/backlog-ideas.md` if it was originally an idea the user promoted)
+- **open** → leave as-is
 
-Commit any moves: `backlog: reconcile PRs`
+Commit any moves:
+```bash
+git add todos/backlog.md todos/backlog-ideas.md
+git commit -m "backlog: reconcile PRs"
+```
 
 ---
 
@@ -73,10 +83,14 @@ Commit any moves: `backlog: reconcile PRs`
 
 ### 1.1 Parse the Backlog
 
-Read `todos/backlog.md` and parse all sections. Focus on:
-- **Ready** table — items with specs that are approved for implementation
-- **Roadmap** table — strategic items (only pick up if user has set status to `ready`)
-- **Ideas** table — note S-sized items as "quick wins" available for promotion
+Read both files:
+
+From `todos/backlog.md`, collect items with status `ready` from:
+- **Roadmap** table (only those the user has explicitly marked `ready`)
+- Every `### Sprint: ...` subsection inside **Ready**
+- An optional **Unassigned / standalone ready items** table (ad-hoc ready rows that didn't land in a named sprint)
+
+From `todos/backlog-ideas.md`, collect S-sized items that could be promoted directly (S items don't need specs). Present these separately as "quick wins available if you want to promote them." Skip the **Expired / passed-deadline** table — those items are explicitly idle.
 
 ### 1.2 Read the Weekly Recommendations
 
@@ -107,15 +121,16 @@ If a spec has no Code References table or no Base SHA, treat as Yellow with a no
 
 ### 1.4 Filter Eligible Items
 
-Primary pool: **Ready** items with Green or Yellow freshness.
+Primary pool: **Ready** items (from `backlog.md` Roadmap, sprint subsections, and Unassigned) with Green or Yellow freshness.
 
-Quick wins pool: S-sized **Ideas** items (present separately as available for user promotion).
+Quick wins pool: S-sized items from `backlog-ideas.md` Ideas subsections (present separately as available for user promotion).
 
 Exclusions:
-- Items in Awaiting PR
+- Items already carrying `awaiting-pr` or `in-progress` status inline
 - Items with active `pulse/*` branches
 - Items with Red freshness (flag for re-spec)
 - Monitor, Manual, and Dismissed items
+- Anything in the Expired / passed-deadline table
 
 ### 1.5 Cluster Into Proposed PRs
 
@@ -147,7 +162,7 @@ Product Pulse — Sprint Proposal
 Weekly Direction: {theme or "No weekly brief"}
 Top Priorities: {p1} | {p2} | {p3}
 
-Backlog: {N} ready, {N} ideas, {N} awaiting PR
+Backlog: {N} ready | {N} awaiting PR (inline) | {N} ideas | {N} roadmap
 
 --- Freshness Results ---
 
@@ -281,12 +296,20 @@ Spec compliance: {met/partial/N/A}
 
 ### 2E. Sync Backlog
 
-- Move completed items → Awaiting PR (with PR URL, date)
-- Leave skipped items in Ready
-- Commit: `backlog: update — {cluster} batch complete`
-- Save to memory
+For each item in the batch:
+- **PR open, not yet merged** → flip the status in its sprint-section row from `ready` → `awaiting-pr` and embed the PR link inline in the item description (no standalone Awaiting PR section)
+- **PR already merged** before the sub-agent returned → remove the row from its sprint section and add a row to `## Done (last 7 days)` in `todos/backlog.md`
+- **Skipped/failed** → leave in its current section with status unchanged
 
-Clean up worktree if used.
+If a sprint subsection now has zero `ready` rows left, leave the section header in place unless the whole sprint is complete; in that case delete the entire subsection and summarize it in the commit message.
+
+Commit:
+```bash
+git add todos/backlog.md todos/backlog-ideas.md
+git commit -m "backlog: update — {cluster} batch complete ({N} items)"
+```
+
+Save to memory and clean up worktree if used.
 
 ---
 

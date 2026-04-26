@@ -3,7 +3,8 @@ name: daily-research
 description: >-
   Daily research automation. Scans configured domains for actionable
   intelligence, filters through the weekly strategy brief for relevance,
-  and adds new ideas to todos/backlog.md (max 5/day). Produces a dated
+  and adds new ideas to todos/backlog-ideas.md (watch-and-wait items go
+  to the Monitor table in todos/backlog.md), max 5/day. Produces a dated
   research report. Trigger: "run daily research", "research scan",
   "what's new", "check for updates", or /product-pulse:daily-research.
   Also triggered by scheduled tasks.
@@ -56,7 +57,12 @@ If no weekly brief exists, all findings are treated as potentially relevant (no 
 
 Search memory for prior daily research findings (last 7 days). Read the backlog for current items.
 
-Read `todos/backlog.md`. Parse all sections: Roadmap, Ready, Ideas (all subsections), Awaiting PR, Monitor, Manual, Dismissed.
+Read BOTH `todos/backlog.md` AND `todos/backlog-ideas.md` — the active backlog is split across two files:
+
+- `todos/backlog.md` — Roadmap, Ready (sprint subsections), Monitor, Manual, Done (last 7 days), Dismissed. The live-queue surface that sprint-dev reads.
+- `todos/backlog-ideas.md` — incoming-ideas staging area (per-domain Ideas subsections, plus an Expired / passed-deadline table at the bottom). This is where this skill writes new research items.
+
+Pay attention to the Expired / passed-deadline table at the bottom of `backlog-ideas.md` so we don't re-add items whose deadlines have already closed.
 
 ### 0.5 Build Dedup List
 
@@ -202,16 +208,16 @@ Write to `{week_dir}/{today}-daily-research.md`. Structure:
 
 ### Update the Backlog
 
-Read `todos/backlog.md` and add new items:
+Where new items go depends on their type:
 
-- **Actionable items** → Add rows to the matching domain subsection under Ideas:
+- **Actionable items** → Add rows to the matching domain subsection under Ideas in `todos/backlog-ideas.md`:
   `| # | Item | Size | Priority | Source | Found |`
-- **Watch-and-wait items** → Add rows to the Monitor table:
+- **Watch-and-wait items** (regulatory rulings, competitor launches, dependency releases) → Add rows to the Monitor table in `todos/backlog.md`:
   `| # | Item | Trigger | Deadline | Found |`
 
-Item numbers are sequential across the entire backlog (continue from the highest existing number).
+**Numbering**: Item numbers are sequential across BOTH files. Check both before picking the next free ID. If a collision appears on write (concurrent run, manual edit), the older item keeps the ID and the new one takes the next free slot with a "renumbered from #X" note inline.
 
-**Never** add items to Roadmap, Ready, or any other section. Research creates `idea` and `monitor` entries only.
+**Never** add items to Roadmap, Ready, or Done — those are human-controlled and live in `backlog.md`. Research creates `idea` and `monitor` entries only.
 
 ### Update Source Quality
 
@@ -224,8 +230,9 @@ For each source checked, update quality tracking in memory (hit/miss ratio).
 - Save findings to memory with topic `product-pulse-daily-research`
 - Git commit and push if in a repo:
   ```bash
-  git checkout {branch} && git add {research_dir}/ todos/backlog.md && git commit -m "research: daily scan {today} — {N} findings across {M} domains" && git push origin {branch}
+  git checkout {branch} && git add {research_dir}/ todos/backlog.md todos/backlog-ideas.md && git commit -m "research: daily scan {today} — {N} findings across {M} domains" && git push origin {branch}
   ```
+  Include both backlog files in `git add` even if one wasn't modified — `git add` is a no-op on unchanged files.
 
 ---
 
@@ -245,7 +252,7 @@ Sources checked: {N} ({N} hits, {N} misses)
 
 ## Error Handling
 
-- **Backlog file missing**: Stop and tell the user to run `/product-pulse:setup`.
+- **Backlog files missing or malformed**: If either `todos/backlog.md` or `todos/backlog-ideas.md` is missing or unparseable, skip the relevant update (Ideas additions if `backlog-ideas.md` is bad; Monitor additions if `backlog.md` is bad) and note it in the report. Do NOT auto-recreate — a stripped backlog suggests a merge conflict the user needs to resolve. If both are missing, stop and tell the user to run `/product-pulse:setup`.
 - **Research context missing**: Stop and tell the user to run `/product-pulse:setup`.
 - **Memory unavailable**: Continue without memory context — rely on file-based data.
 - **Sub-agent failure**: Note the failed domain and continue with others.
