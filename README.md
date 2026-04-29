@@ -20,6 +20,16 @@ Then install plugins:
 /plugin install product-pulse@studio-moser
 ```
 
+### Other agents (skills only)
+
+For non-Claude-Code agents (Cursor, Codex, Gemini CLI, OpenCode, etc.), the [`skills` CLI](https://github.com/vercel-labs/skills) can install just the `SKILL.md` prompts into your agent's skills directory:
+
+```bash
+npx skills add Studio-Moser/skills-n-stuff
+```
+
+Note: subagents, hooks, and bundled scripts (e.g., the `transcribe` CLI) are Claude-Code-only and aren't included by this path.
+
 ## Plugins
 
 ### Product Pulse
