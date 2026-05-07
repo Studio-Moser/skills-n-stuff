@@ -413,13 +413,15 @@ Insert the same config-discovery block. Sprint-dev needs `{backlog.active}` and 
 
 Find every reference to `todos/backlog.md` and `todos/backlog-ideas.md` (or `{research_dir}/backlog.md` etc.). Replace with `{backlog.active}` and `{backlog.ideas}` from config. Sprint-dev also references the archive path — update to `planning/archive/done-YYYY-QN.md` (baked-in convention per spec).
 
-- [ ] **Step 4: Update repo selection for multi-repo target**
+- [~] **Step 4: Update repo selection for multi-repo target — DEFERRED**
 
-Sprint-dev dispatches sub-agents per target repo. Currently this is hardcoded for the single-repo case. Update to iterate `repos:` from config, group items by `target_repo` (column in backlog rows), and dispatch one sub-agent per target repo per PR group.
+Sprint-dev dispatches sub-agents per target repo. The current plugin already has prose direction for this on line 152: "For multi-repo projects, also route each item to its target repo based on the product context." The orchestrating LLM follows that direction at runtime by reading `target_repo` from backlog rows when present.
 
-- [ ] **Step 5: Replace push-to-main**
+Adding explicit code-level grouping/iteration logic would be additive and is deferred until a real multi-repo sprint-dev run surfaces a concrete need. Tracked here so it's visible if/when that need appears.
 
-Sprint-dev creates implementation PRs (separate from the daily/weekly PRs). The PR-creation logic should already exist; verify it pushes to a feature branch and uses `gh pr create`. Make `auto_merge: false` the default for implementation PRs (you want human review before merging code changes), regardless of the config's `auto_merge` setting — sprint-dev work is not the same as research output.
+- [~] **Step 5: Replace push-to-main — N/A**
+
+Sprint-dev's implementation PRs are created by the dispatched sub-agents (via the `code-review` skill or their own logic), NOT by the sprint-dev orchestrator. There is no `gh pr merge --auto` call in sprint-dev to override. The spec's intent ("don't auto-merge implementation PRs") is naturally satisfied because sprint-dev never auto-merges anything — the only `git push` calls in sprint-dev are the backlog-reconcile commits (Phases 0.5 and 2E), which push directly to `$default_branch` because sprint-dev is interactive-only (per its own Ground Rules: "Manual only").
 
 - [ ] **Step 6: Add memory config check**
 
