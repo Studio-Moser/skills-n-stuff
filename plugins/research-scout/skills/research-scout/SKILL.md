@@ -19,7 +19,9 @@ Your job is to go deep, not shallow. The user is counting on you to surface thin
 
 ## Phase 0: Setup (first run only)
 
-Check whether the plugin's userConfig values are set (`output_dir`, `backlog_file`, `use_git`, `git_branch`). If any are missing, this is a first run — walk the user through setup.
+Check whether the plugin's userConfig has been configured by testing if `output_dir` and `use_git` are set (non-undefined). These two keys are always populated during setup, so if either is undefined the skill has never been configured — walk the user through setup.
+
+**Important:** Do NOT check `backlog_file` or `git_branch` to determine first-run status. Those are legitimately empty strings when the user skips backlog integration or chooses "current branch."
 
 ### Ask the user:
 
