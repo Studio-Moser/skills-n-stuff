@@ -1,8 +1,8 @@
-# Studio Moser — Claude Code Marketplace
+# skills-n-stuff
 
 [![skills.sh](https://skills.sh/b/Studio-Moser/skills-n-stuff)](https://skills.sh/Studio-Moser/skills-n-stuff)
 
-A plugin marketplace for [Claude Code](https://code.claude.com) by Studio Moser.
+Product research, market intelligence, and content tools for AI-native teams. A plugin collection for [Claude Code](https://code.claude.com) by [Studio Moser](https://studiomoser.design).
 
 ## Installation
 
