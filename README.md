@@ -1,5 +1,7 @@
 # Studio Moser — Claude Code Marketplace
 
+[![skills.sh](https://skills.sh/b/Studio-Moser/skills-n-stuff)](https://skills.sh/Studio-Moser/skills-n-stuff)
+
 A plugin marketplace for [Claude Code](https://code.claude.com) by Studio Moser.
 
 ## Installation
@@ -53,6 +55,24 @@ Capture full-page screenshots of websites with scroll-triggered animation suppor
 - `/site-capture:audit` — Audit existing screenshots for quality issues (wrong content, blank sections, errors)
 
 [Full documentation](plugins/site-capture/README.md)
+
+### Research Scout
+
+Deep-dive research and analysis of external reference materials against your current project. Analyzes YouTube videos, articles, GitHub repos, documentation, and code sources — then compares findings to your codebase with specific, actionable recommendations.
+
+**Skills:**
+- `/research-scout:research-scout` — Research and analyze external sources against your project
+
+[Full documentation](plugins/research-scout/README.md)
+
+### Transcribe
+
+Video transcription for Claude Code. Captions-first for YouTube; local mlx-whisper on Apple Silicon as the fallback. Handles YouTube, YouTube Shorts, Instagram posts/Reels, TikTok, and Threads.
+
+**Skills:**
+- `/transcribe:transcribe` — Fetch a spoken-word transcript from a video URL
+
+[Full documentation](plugins/transcribe/README.md)
 
 ## License
 
