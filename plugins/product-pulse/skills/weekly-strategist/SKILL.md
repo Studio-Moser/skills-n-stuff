@@ -52,9 +52,21 @@ if [ -z "$config_path" ]; then
   echo "No pulse-config.yaml found. Run /product-pulse:setup first." >&2
   exit 1
 fi
+
+primary_repo_root="$(cd "$research_dir" && git rev-parse --show-toplevel)"
+
+backlog_active="$primary_repo_root/$(yq '.backlog.active // "planning/todos.md"' "$config_path")"
+backlog_ideas="$primary_repo_root/$(yq '.backlog.ideas // "planning/ideas.md"' "$config_path")"
+default_branch="$(yq '.default_branch // "main"' "$config_path")"
+auto_merge="$(yq '.auto_merge // true' "$config_path")"
+project_id="$(yq '.project_id' "$config_path")"
+memory_connector="$(yq '.memory.connector // "shelby"' "$config_path")"
+
+echo "Using config: $config_path"
+echo "Research dir: $research_dir"
 ```
 
-Parse the YAML. Required fields: `project_id`, `repos`. Optional with defaults: `default_branch` (default `main`), `auto_merge` (default `true`), `memory.connector` (default `null`), `backlog.active` (default `planning/todos.md`), `backlog.ideas` (default `planning/ideas.md`).
+Parse the YAML. Required fields: `project_id`, `repos`. Optional with defaults: `default_branch` (default `main`), `auto_merge` (default `true`), `memory.connector` (default `shelby`; set to `null` to disable), `backlog.active` (default `planning/todos.md`), `backlog.ideas` (default `planning/ideas.md`).
 
 Find the entry in `repos:` with `role: primary`. Its filesystem location (resolved relative to the directory containing pulse-config.yaml's parent) is the **primary repo root** (`{primary_repo_root}`) for backlog and git operations.
 
@@ -70,7 +82,7 @@ Iterate `repos:` from `pulse-config.yaml`. For each repo, resolve its absolute p
 
 ```bash
 for repo_path in $(yq '.repos[].path' pulse-config.yaml); do
-  abs="$(cd "$primary_repo_root/.." && cd "$(yq '.repos[] | select(.role == "primary") | .name' pulse-config.yaml)/.." && cd "$repo_path" 2>/dev/null && pwd)" || continue
+  abs="$(realpath "$primary_repo_root/$repo_path")"
   echo "=== Pulling $abs ==="
   cd "$abs" && git checkout "$default_branch" && git pull origin "$default_branch" || echo "pull failed for $abs"
 done
@@ -127,6 +139,7 @@ If `memory.connector` is set in `pulse-config.yaml` (not `null`), look for MCP t
 
 ```
 search_thoughts(query="weekly-strategist {project_id}", limit=10)
+search_thoughts(query="{project_id}-daily-research", limit=20)
 ```
 
 If `memory.connector: null` or no matching tools are found, skip this phase.
