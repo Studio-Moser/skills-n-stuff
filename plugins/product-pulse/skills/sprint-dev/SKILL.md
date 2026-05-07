@@ -4,9 +4,10 @@ description: >-
   Interactive sprint worker. Presents eligible backlog items with context,
   groups them into proposed PRs, and waits for your approval before building.
   Dispatches parallel sub-agents with self-review and full testing for each
-  PR. Manual-only — you decide when to build and what to ship. Trigger:
-  "let's build", "work the backlog", "what can we ship", "sprint",
-  "implement items", or /product-pulse:sprint-dev.
+  PR. Reads pulse-config.yaml from the nearest research directory. Manual
+  only — you decide when to build and what to ship. Trigger: "let's build",
+  "work the backlog", "what can we ship", "sprint", "implement items", or
+  /product-pulse:sprint-dev.
 ---
 
 # Product Pulse — Sprint Dev
@@ -29,21 +30,65 @@ Interactive skill that presents the backlog, proposes how items should be groupe
 
 ## Phase 0: Sync & Reconcile
 
+### 0.0 Discover Configuration
+
+Walk up from cwd until you find `pulse-config.yaml`. That file's parent directory is the **research directory** (referred to below as `{research_dir}`). Load the YAML config; the rest of the skill uses values from it.
+
+```bash
+config_path=""
+dir="$PWD"
+while [ "$dir" != "/" ]; do
+  if [ -f "$dir/pulse-config.yaml" ]; then
+    config_path="$dir/pulse-config.yaml"
+    research_dir="$dir"
+    break
+  fi
+  dir="$(dirname "$dir")"
+done
+
+if [ -z "$config_path" ]; then
+  echo "No pulse-config.yaml found. Run /product-pulse:setup first." >&2
+  exit 1
+fi
+
+primary_repo_root="$(cd "$research_dir" && git rev-parse --show-toplevel)"
+
+backlog_active="$primary_repo_root/$(yq '.backlog.active // "planning/todos.md"' "$config_path")"
+backlog_ideas="$primary_repo_root/$(yq '.backlog.ideas // "planning/ideas.md"' "$config_path")"
+default_branch="$(yq '.default_branch // "main"' "$config_path")"
+auto_merge="$(yq '.auto_merge // true' "$config_path")"
+project_id="$(yq '.project_id' "$config_path")"
+memory_connector="$(yq '.memory.connector // "shelby"' "$config_path")"
+
+echo "Using config: $config_path"
+echo "Research dir: $research_dir"
+```
+
+Parse the YAML. Required fields: `project_id`, `repos`. Optional with defaults: `default_branch` (default `main`), `auto_merge` (default `true`), `memory.connector` (default `shelby`; set to `null` to disable), `backlog.active` (default `planning/todos.md`), `backlog.ideas` (default `planning/ideas.md`).
+
+Find the entry in `repos:` with `role: primary`. Its filesystem location (resolved relative to the directory containing pulse-config.yaml's parent) is the **primary repo root** (`{primary_repo_root}`) for backlog and git operations.
+
 ### 0.1 Read Product Context
 
 Read `{research_dir}/research-context.md` for project structure, repo info, and tech stack. If missing, tell the user to run `/product-pulse:setup`.
 
-### 0.2 Pull Latest
+### 0.2 Pull Latest (all configured repos)
+
+Iterate `repos:` from `pulse-config.yaml`. For each repo, resolve its absolute path relative to `{primary_repo_root}`'s parent directory, then pull the default branch:
 
 ```bash
-git pull origin main 2>/dev/null || true
+for repo_path in $(yq '.repos[].path' pulse-config.yaml); do
+  abs="$(realpath "$primary_repo_root/$repo_path")"
+  echo "=== Pulling $abs ==="
+  cd "$abs" && git checkout "$default_branch" && git pull origin "$default_branch" || echo "pull failed for $abs"
+done
 ```
 
-For multi-repo projects, pull all repos listed in research-context.md.
+If any pull fails, note it and continue. Single-element `repos:` is the monorepo case — same loop, one iteration.
 
-### 0.3 Context Recovery
+### 0.3 Context Recovery (if memory configured)
 
-Search memory for prior sprint-dev runs — check for known blockers, failed items, in-flight branches.
+If `memory.connector` is set in `pulse-config.yaml` (not `null`), look for MCP tools matching that prefix. If found, search memory for prior sprint-dev runs — known blockers, failed items, in-flight branches. If `memory.connector: null` or no matching tools are found, skip this phase.
 
 ### 0.4 Check Existing Branches
 
@@ -58,7 +103,7 @@ Note any in-flight branches with open PRs.
 The standalone **Awaiting PR** section was retired — items in flight now carry the `awaiting-pr` (or `in-progress`) status inline in their sprint-section row. Scan both backlog files:
 
 ```bash
-grep -E '\| (awaiting-pr|in-progress) \|' todos/backlog.md todos/backlog-ideas.md
+grep -E '\| (awaiting-pr|in-progress) \|' "$backlog_active" "$backlog_ideas"
 ```
 
 For each row with `awaiting-pr`, find its PR URL (the row should embed a `[#N](https://github.com/...)` link) and check the PR state:
@@ -67,15 +112,18 @@ For each row with `awaiting-pr`, find its PR URL (the row should embed a `[#N](h
 gh pr view <PR-URL> --json state,mergedAt 2>/dev/null
 ```
 
-- **merged** → add a row to `## Done (last 7 days)` in `todos/backlog.md` and remove the row from its sprint section
-- **closed** (rejected) → flip the status back to `ready` in its sprint-section row (or move the row back into `todos/backlog-ideas.md` if it was originally an idea the user promoted)
+- **merged** → add a row to `## Done (last 7 days)` in `$backlog_active` and remove the row from its sprint section
+- **closed** (rejected) → flip the status back to `ready` in its sprint-section row (or move the row back into `$backlog_ideas` if it was originally an idea the user promoted)
 - **open** → leave as-is
 
 Commit any moves:
 ```bash
-git add todos/backlog.md todos/backlog-ideas.md
+git add "$backlog_active" "$backlog_ideas"
 git commit -m "backlog: reconcile PRs"
+git push origin "$default_branch"
 ```
+
+(direct push to default branch is OK here — sprint-dev is interactive only)
 
 ---
 
@@ -85,12 +133,12 @@ git commit -m "backlog: reconcile PRs"
 
 Read both files:
 
-From `todos/backlog.md`, collect items with status `ready` from:
+From `{backlog.active}` (`$backlog_active`), collect items with status `ready` from:
 - **Roadmap** table (only those the user has explicitly marked `ready`)
 - Every `### Sprint: ...` subsection inside **Ready**
 - An optional **Unassigned / standalone ready items** table (ad-hoc ready rows that didn't land in a named sprint)
 
-From `todos/backlog-ideas.md`, collect S-sized items that could be promoted directly (S items don't need specs). Present these separately as "quick wins available if you want to promote them." Skip the **Expired / passed-deadline** table — those items are explicitly idle.
+From `{backlog.ideas}` (`$backlog_ideas`), collect S-sized items that could be promoted directly (S items don't need specs). Present these separately as "quick wins available if you want to promote them." Skip the **Expired / passed-deadline** table — those items are explicitly idle.
 
 ### 1.2 Read the Weekly Recommendations
 
@@ -101,7 +149,7 @@ Find the most recent `*-recommendations.md` in `{research_dir}/` (search recursi
 
 ### 1.3 Freshness Check
 
-**For each `ready` item that has a spec** in `todos/specs/`:
+**For each `ready` item that has a spec** in `{primary_repo_root}/planning/specs/`:
 
 1. Read the spec's Code References table
 2. For each file listed, diff against the Base SHA:
@@ -121,9 +169,9 @@ If a spec has no Code References table or no Base SHA, treat as Yellow with a no
 
 ### 1.4 Filter Eligible Items
 
-Primary pool: **Ready** items (from `backlog.md` Roadmap, sprint subsections, and Unassigned) with Green or Yellow freshness.
+Primary pool: **Ready** items (from `{backlog.active}` Roadmap, sprint subsections, and Unassigned) with Green or Yellow freshness.
 
-Quick wins pool: S-sized items from `backlog-ideas.md` Ideas subsections (present separately as available for user promotion).
+Quick wins pool: S-sized items from `{backlog.ideas}` Ideas subsections (present separately as available for user promotion).
 
 Exclusions:
 - Items already carrying `awaiting-pr` or `in-progress` status inline
@@ -175,7 +223,7 @@ Red: {N} items (need re-spec, skipped)
 PR 1: {cluster name} ({N} items)
 Branch: pulse/{cluster}-{YYYY-MM-DD}
   #{n} {item description}
-     Spec: todos/specs/{n}-{slug}.md
+     Spec: planning/specs/{n}-{slug}.md
      Freshness: {Green|Yellow} {notes if Yellow}
      Size: {S|M|L|XL} | Priority: {priority}
      Files likely touched: {file hints}
@@ -298,15 +346,16 @@ Spec compliance: {met/partial/N/A}
 
 For each item in the batch:
 - **PR open, not yet merged** → flip the status in its sprint-section row from `ready` → `awaiting-pr` and embed the PR link inline in the item description (no standalone Awaiting PR section)
-- **PR already merged** before the sub-agent returned → remove the row from its sprint section and add a row to `## Done (last 7 days)` in `todos/backlog.md`
+- **PR already merged** before the sub-agent returned → remove the row from its sprint section and add a row to `## Done (last 7 days)` in `$backlog_active`
 - **Skipped/failed** → leave in its current section with status unchanged
 
 If a sprint subsection now has zero `ready` rows left, leave the section header in place unless the whole sprint is complete; in that case delete the entire subsection and summarize it in the commit message.
 
 Commit:
 ```bash
-git add todos/backlog.md todos/backlog-ideas.md
+git add "$backlog_active" "$backlog_ideas"
 git commit -m "backlog: update — {cluster} batch complete ({N} items)"
+git push origin "$default_branch"
 ```
 
 Save to memory and clean up worktree if used.
