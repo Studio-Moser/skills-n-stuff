@@ -1,41 +1,39 @@
 # Product Pulse
 
-A strategic intelligence plugin for [Claude Code](https://code.claude.com). Keeps your finger on the pulse of your market with automated research, weekly strategy briefs, and interactive sprint development.
+A strategic intelligence plugin for [Claude Code](https://code.claude.com). Keeps your finger on the pulse of your market with automated research, weekly strategy briefs, and deep-dive analysis.
+
+> **For project management** (triage, sprint execution, issue tracking), install the `pm` plugin: `/plugin install pm@studio-moser`
 
 ## What It Does
 
-Product Pulse is a **three-cadence system** that coordinates strategic thinking, daily intelligence, and focused implementation:
+Product Pulse is a **three-cadence intelligence system** that coordinates strategic thinking, daily intelligence, and on-demand deep research:
 
 | Cadence | Skill | Role | When | What |
 |---------|-------|------|------|------|
 | **Weekly** | `/product-pulse:weekly-strategist` | Advisor | Monday mornings | 5 analyst agents scan the market, review backlog, recommend items for speccing |
 | **Daily** | `/product-pulse:daily-research` | Intelligence | Every morning | Domain-specific research filtered through the weekly strategy, adds ideas to backlog |
-| **On-demand** | `/product-pulse:sprint-dev` | Executor | When you're ready | Implements ready items with freshness checks, code review, and testing |
+| **On-demand** | `/product-pulse:deep-dive` | Analyst | When you need depth | Deep-dive research on specific resources — videos, articles, repos, docs |
 
 ### The Flow
 
 ```
-Monday     Weekly Strategist reviews backlog + recommends items for speccing
+Monday     Weekly Strategist reviews research + sets direction
                     |
 Tue-Sun    Daily Research gathers intel (filtered by weekly direction)
                     |
-You        Spec recommended items, promote to Ready when satisfied
+Anytime    Deep Dive researches specific resources in depth
                     |
-Anytime    Sprint Dev implements ready items (with your approval)
-                    |
-Next Mon   Weekly Strategist reads the week's research, adjusts course
+PM Plugin  /pm:ingest reads reports → /pm:triage specs items → /pm:sprint-dev builds
 ```
 
 ### Item Lifecycle
 
 ```
-idea → specced → ready → in-progress → awaiting-pr → done
+Product-pulse discovers → PM ingests → PM triages → PM builds
 ```
 
 - **Daily Research** discovers ideas (max 5/day)
 - **Weekly Strategist** recommends which ideas to spec (never promotes directly)
-- **You** write specs and promote items to Ready
-- **Sprint Dev** implements Ready items, checks spec freshness first
 
 ## Prerequisites
 
@@ -140,7 +138,7 @@ backlog:
   ideas: planning/ideas.md
 ```
 
-The weekly-strategist and daily-research skills pull all configured repos at the start of every run. Sprint-dev routes implementation items to the correct target repo based on the backlog row's `target_repo` column.
+The weekly-strategist and daily-research skills pull all configured repos at the start of every run.
 
 ## Skills
 
@@ -167,40 +165,24 @@ Produces a strategy brief PR (auto-mergeable when `auto_merge: true`) with:
 
 Scans configured research domains for actionable intelligence. Filters findings through the weekly strategy brief so only strategically relevant items land in your backlog. Adds items as `idea` status only — never promotes beyond that. Caps at 5 new backlog items per day. Outputs go through a daily PR.
 
-### `/product-pulse:sprint-dev`
+### `/product-pulse:deep-dive`
 
-Interactive implementation tool. Reads the weekly recommendations, presents eligible Ready items grouped into proposed PRs, and waits for your approval.
+On-demand deep-dive research on specific external resources. Use when you need thorough analysis of a video, article, repo, or documentation page.
 
-**Freshness checks**: Before proposing work, sprint-dev diffs each spec's Code References against their Base SHA:
-- **Green** — no changes, proceed normally
-- **Yellow** — minor drift (<20 lines), proceed with notes
-- **Red** — significant divergence, skip and flag for re-spec
+**When to use**: You explicitly ask for research or analysis on a specific resource — "research this repo", "analyze this article", "what does this video cover?"
 
-Then dispatches sub-agents that:
-1. Read the spec (L/XL items follow Chunks order)
-2. Plan the implementation
-3. Write code (TDD where applicable)
-4. Self-review (security, quality, correctness, spec compliance)
-5. Run tests and build
-6. Create the PR
+**How it works**:
+1. Transcribes videos (YouTube captions or audio)
+2. Reads and extracts key content from articles and docs
+3. Analyzes repos for architecture, patterns, and relevance
+4. Compares findings to your project context
+5. Produces a structured research report
 
-You control what gets built and when.
-
-## The Spec System
-
-L/XL backlog items need a spec before promotion to Ready. Specs live at `planning/specs/{item-number}-{slug}.md` and include:
-
-- **Goal** and **Context** — what and why
-- **Code References with Base SHA** — enables freshness checking
-- **Approach** and **Chunks** — how to implement, in what order
-- **Acceptance Criteria** — what "done" looks like
-- **Freshness Log** — tracks when specs were last validated
-
-The template is scaffolded at `planning/specs/_TEMPLATE.md` during setup.
+**Output**: Report delivered in chat and saved to `{research_dir}/deep-dives/` as a dated markdown file. Creates a PR when configured.
 
 ## Scheduling
 
-Product Pulse works best with automated scheduling for the weekly and daily skills. Sprint-dev is always manual.
+Product Pulse works best with automated scheduling for the weekly and daily skills. Deep-dive is always on-demand.
 
 Use your `project_id` from `pulse-config.yaml` as the prefix for scheduled task IDs so memory tagging stays consistent across runs.
 
@@ -222,7 +204,7 @@ Run any skill manually at any time:
 ```
 /product-pulse:weekly-strategist
 /product-pulse:daily-research
-/product-pulse:sprint-dev
+/product-pulse:deep-dive
 ```
 
 ## File Organization
