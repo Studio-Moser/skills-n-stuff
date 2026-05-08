@@ -97,6 +97,25 @@ for item_file in "$items_dir"/*.yml; do
 done
 ```
 
+**Trello backend:**
+
+Iterate boards. For each board, resolve the `LIST_NEEDS_TRIAGE` list id and load its cards.
+
+```bash
+triage_items=()
+echo "$trello_boards_json" | jq -c '.[]' | while read -r board_json; do
+  eval "$("$CLAUDE_PLUGIN_ROOT/scripts/for-each-board.sh" "[$board_json]")"
+  # Agent executes:
+  # mcp__trello__set_active_board({ boardId: $BOARD_ID })
+  # lists = mcp__trello__get_lists({})
+  # list_id = (find list where name == $LIST_NEEDS_TRIAGE).id
+  # cards  = mcp__trello__get_cards_by_list_id({ listId: list_id })
+  # For each card, append { id, name, desc, labels, board_id, board_name } to triage_items.
+done
+```
+
+If zero items across all boards, print `"No needs-triage items found across {N} configured board(s). Nothing to do."` and exit cleanly.
+
 If zero items are found, print `"No needs-triage items found. Nothing to do."` and exit cleanly.
 
 Otherwise print: `"Found {N} needs-triage item(s). Starting triage pipeline."`
@@ -108,6 +127,8 @@ Also fetch all open items WITHOUT `needs-triage` — these are the dedup targets
 **GitHub:** Same `gh issue list` call but without `--label` filter, piped through `jq` to exclude `needs-triage` items.
 
 **Local:** Same loop over `$items_dir/*.yml`, skipping files whose labels include `needs-triage`.
+
+**Trello dedup pool:** the same loop as 0.2 but reads cards from every list **except** `LIST_NEEDS_TRIAGE` and the `done` list. Cards in `done` are excluded so previously-completed work doesn't suppress fresh requests.
 
 ---
 
@@ -209,6 +230,21 @@ Update the item's YAML file — replace `needs-triage` in labels with `rejected`
 yq -i '.labels -= ["needs-triage"] | .labels += ["rejected"] | .closed_at = "{ISO 8601 timestamp}"' "$item_file"
 ```
 
+**Trello backend:**
+
+Write the same `oos_file` markdown to `$oos_dir/${slug}.md` (this is backend-agnostic), then archive the card:
+
+```
+# Agent executes (board context already set during loop):
+mcp__trello__add_comment({
+  cardId: $card_id,
+  text: "Rejected during triage. See `.pm/out-of-scope/${slug}.md` for the decision record."
+})
+mcp__trello__archive_card({ cardId: $card_id })
+```
+
+We use `archive_card` rather than moving to a "Rejected" list because rejection is terminal — archived cards remain searchable for the dedup pool but vanish from the active board. (If a project later wants a visible Rejected list, that is a per-board configuration concern handled in /pm:setup; for now, archive is the canonical reject.)
+
 ### Process duplicates
 
 When an item is marked as a duplicate:
@@ -230,6 +266,16 @@ gh issue edit {number} \
 
 ```bash
 yq -i '.labels -= ["needs-triage"] | .labels += ["duplicate"] | .duplicate_of = {duplicate_number} | .closed_at = "{ISO 8601 timestamp}"' "$item_file"
+```
+
+**Trello backend:**
+
+```
+mcp__trello__add_comment({
+  cardId: $card_id,
+  text: "Duplicate of card {duplicate_card_short_url}. Closing."
+})
+mcp__trello__archive_card({ cardId: $card_id })
 ```
 
 ### Sort summary
@@ -363,6 +409,19 @@ Also update the local item's YAML to reference the spec:
 ```bash
 yq -i ".spec = \"planning/specs/${number}-${slug}.md\"" "$item_file"
 ```
+
+**Trello backend** — update the card description with the spec content:
+
+```
+mcp__trello__update_card_details({
+  cardId: $card_id,
+  desc:   "{spec content}"     # same structured Markdown body as the GitHub template
+})
+```
+
+Trello card descriptions support full Markdown. Use the same `## Goal / ## Context / ## Code References / ## Approach / ## Chunks / ## Acceptance Criteria / ## Negative Constraints` structure as the GitHub branch — agents downstream (sprint-dev) read either source identically.
+
+Multi-board: specs always go on the card's home board. Do not duplicate the spec across boards.
 
 #### Step 2d: Checkpoint
 
@@ -505,6 +564,46 @@ gh issue edit {number} --add-label "repo/{target_repo_name}" --repo "$gh_owner/$
 yq -i '.labels -= ["needs-triage"] | .labels += ["{status_label}", "{size_label}", "P{priority}"]' "$item_file"
 ```
 
+**Trello backend:**
+
+Promotion = move card from `LIST_NEEDS_TRIAGE` to `LIST_READY_FOR_AGENT` on the card's home board. Validate the transition first.
+
+```bash
+"$CLAUDE_PLUGIN_ROOT/scripts/check-transition.sh" \
+  "needs_triage" "ready_for_agent" "$trello_statuses_json" \
+  || { echo "transition check failed — aborting promote"; continue; }
+```
+
+Then the agent executes:
+
+```
+mcp__trello__set_active_board({ boardId: $card_board_id })
+lists = mcp__trello__get_lists({})
+ready_list_id = (find list where name == $LIST_READY_FOR_AGENT).id
+
+mcp__trello__move_card({
+  cardId: $card_id,
+  listId: ready_list_id
+})
+
+# Apply size/priority labels via update_card_details (Trello labels are board-scoped strings):
+mcp__trello__update_card_details({
+  cardId: $card_id,
+  labels: ["{size_label}", "P{priority}"]   # combined with any existing labels — preserve "ready-for-agent" if the board uses status labels too
+})
+```
+
+### Approval cues (Trello-specific)
+
+The "user confirmation" gate in Phase 1 step "Confirm? (yes / reject / keep / duplicate / skip)" works in two modes for Trello:
+
+1. **Synchronous** — the user is at the keyboard and answers the prompt directly. Same as GitHub/local.
+2. **Asynchronous** — the user moved the card themselves (e.g., dragged it from "Needs Triage" to "Ready") between sessions. When the skill loads a card, check its current list. If the card is in `LIST_READY_FOR_AGENT` already, treat it as approved and skip the prompt — proceed to label the card and update planning files.
+
+Additionally, when reading a card's comments via `mcp__trello__get_card_comments`, look for natural-language approval cues from the most recent human comment, in priority order: `"yes"`, `"approve(d)"`, `"lgtm"`, `":+1:"`, `":thumbsup:"`, `"ship it"`, `"go"`, `"promote"`. Treat as confirmation. If a more recent comment from the human says `"hold"`, `"wait"`, `"not yet"`, `"reject"`, the skill must ask for explicit confirmation.
+
+This implements the spec's "card-to-Ready move = approval" pattern (W2c) without losing the explicit-confirm mode for sit-down sessions.
+
 ### 4.3 Link to parent epic (if applicable)
 
 If the item references a parent epic (an issue with the `epic` label), create a sub-issue relationship.
@@ -520,6 +619,8 @@ yq -i '.parent_epic = {epic_number}' "$item_file"
 ```
 
 ### 4.4 Update planning/todos.md
+
+> When backend == trello, the row's `#{number}` is the card's Trello short id (e.g. `t-AbCdEfGh`); `{spec path or "—"}` is the card's `shortUrl`. Otherwise, the row format is identical.
 
 If the project maintains the markdown backlog (`planning/todos.md` exists), add promoted items to the Ready section.
 
@@ -577,3 +678,5 @@ Left as needs-info:           {C}
 - **planning/todos.md missing**: Skip the backlog update step. Warn: `"planning/todos.md not found — skipping backlog row insertion. Run /pm:setup to create the backlog."`.
 - **User stops mid-pipeline**: This is expected and fine. Items that haven't been processed remain as `needs-triage`. Print a partial summary of what was completed.
 - **Item body is empty or malformed**: Flag it to the user during sorting. Recommend reject or keep with a note that it needs a description before speccing.
+- **Trello card moved by user mid-skill**: If the skill loaded a card from `LIST_NEEDS_TRIAGE` and the user moved it to another list during the run, the move-to-target call from this skill will fail with "card already in list X". Surface the error, skip the item, and continue. Reconcile will catch up next run.
+- **Approval cue ambiguous**: When neither a clear approval cue nor an explicit user response is available, ALWAYS ask. Do not infer.
