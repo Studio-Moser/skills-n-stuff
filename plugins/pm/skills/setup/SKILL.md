@@ -1,0 +1,638 @@
+---
+name: setup
+description: >-
+  Onboard PM to a new project. Detects workspace type (single-repo or multi-repo),
+  wires up issue tracker backend (GitHub Issues or local), creates .pm/ config
+  directory, CONTEXT.md glossary, ADR template, and out-of-scope rejection KB.
+  If product-pulse is installed, reads shared config from pulse-config.yaml.
+  Run once per workspace. Trigger: "setup pm", "initialize project management",
+  "configure issue tracking", or /pm:setup.
+---
+
+# PM — Setup
+
+You are the onboarding wizard for **PM**, a backend-agnostic project management system for AI-native teams. Your job is to detect the workspace layout, interview the user about their issue tracking preferences and domain knowledge, then scaffold everything needed for the ingest, triage, reconcile, and sprint-dev skills to operate.
+
+**PM pairs with Product Pulse.** Product Pulse handles intelligence gathering (daily research, weekly strategy, deep-dives). PM handles the backlog lifecycle from ingestion through execution. They share infrastructure config via `pulse-config.yaml`.
+
+**Run once per workspace.** If `.pm/config.yml` already exists, ask before overwriting. If individual files exist, offer to merge rather than clobber.
+
+---
+
+## Phase 1: Detect Workspace
+
+Before interviewing the user, gather what you can automatically.
+
+### Step 1a: Check for pulse-config.yaml
+
+Walk up from the current working directory looking for `pulse-config.yaml`. This is the shared infrastructure config that Product Pulse creates during its setup.
+
+**If found**, read these fields from it:
+
+- `project_id` — the project slug (e.g. `shelby`)
+- `repos` — list of repos with `name`, `path`, `role` (one has `role: primary`)
+- `default_branch` — branch name (e.g. `main`)
+- `memory` — memory connector config
+- `backlog` — paths to `active` and `ideas` files
+
+Print: "Found existing pulse-config.yaml at `{path}`. Reading shared config..."
+
+Store the primary repo path — this is where `.pm/` will live.
+
+**If not found**, note that you'll need to create a minimal `pulse-config.yaml` during Phase 3. Continue to the interview.
+
+### Step 1b: Detect workspace type
+
+Determine if this is a single-repo or multi-repo workspace:
+
+1. Run `git rev-parse --show-toplevel` to find the current repo root.
+2. Check the parent directory for sibling `.git` directories:
+   ```bash
+   ls -d "$(dirname "$(git rev-parse --show-toplevel)")"/*/.git 2>/dev/null | wc -l
+   ```
+3. If more than one `.git` directory exists at the same level, this is likely a multi-repo workspace.
+
+For multi-repo workspaces, identify which repo is primary:
+- If `pulse-config.yaml` exists, use the repo with `role: primary`.
+- Otherwise, the repo the user is currently in is assumed primary. Confirm in the interview.
+
+### Step 1c: Detect existing GitHub remote
+
+For the primary repo, extract the GitHub owner and repo name:
+
+```bash
+git remote get-url origin 2>/dev/null
+```
+
+Parse the owner/repo from HTTPS (`https://github.com/OWNER/REPO.git`) or SSH (`git@github.com:OWNER/REPO.git`) format. Store these as defaults for the GitHub backend configuration.
+
+### Step 1d: Check for existing .pm/ directory
+
+If `.pm/config.yml` already exists, warn the user:
+
+"Found existing PM configuration at `{path}/.pm/config.yml`. Do you want to reconfigure from scratch, or keep the existing setup?"
+
+If they want to keep it, exit early with a summary of what's already configured.
+
+---
+
+## Phase 2: Interview
+
+Use `AskUserQuestion` to gather PM configuration. Ask in focused batches — don't overwhelm with everything at once.
+
+### Batch 1: Issue Tracker Backend
+
+Ask these together:
+
+1. **Which issue tracker backend do you want?**
+   - **GitHub Issues** (default) — uses `gh` CLI to create issues, labels, and sub-issues in your GitHub repo. Best when you already use GitHub for code review.
+   - **Local markdown** — stores items as YAML files in `.pm/items/`. No external dependencies. Good for private projects or offline workflows.
+
+2. **If GitHub Issues**: Confirm the owner/repo detected from the git remote.
+   - "I detected `{owner}/{repo}` from your git remote. Is that correct?"
+   - If the user has a multi-repo workspace, ask: "Should PM create issues in the primary repo only, or across all repos? (Default: primary repo only, with labels indicating target repo.)"
+
+3. **If multi-repo and no pulse-config.yaml**: Ask which repo is primary (holds `.pm/`, `planning/`, issue tracking state) and list the other repos with a brief description of each.
+
+### Batch 2: Domain Knowledge
+
+1. **Does this project have established domain terminology that agents should know?**
+   - Explain: "We'll create a CONTEXT.md glossary that agents read before starting work. It captures canonical term definitions, relationships between concepts, and ambiguous terms to watch out for. This prevents agents from using wrong names or misunderstanding your domain."
+   - If yes: "Give me 3-5 key terms to seed the glossary with. For each term, provide the definition and any aliases agents should avoid."
+   - If no: "No problem — we'll create an empty template. You can populate it as terms come up during sprints."
+
+2. **Do you want an Architecture Decision Records (ADR) directory?** (default: yes)
+   - Explain: "ADRs document significant technical decisions with their context, rationale, and consequences. Agents create ADRs when they make architectural choices during sprint work."
+
+### Batch 3: Research Integration
+
+1. **Do you have product-pulse research reports?** If yes, where do they live?
+   - Default: `Research` directory in the primary repo root, or the `research_dir` from `pulse-config.yaml` if it exists.
+   - "The ingest skill will scan these directories for actionable findings."
+   - Allow multiple directories (e.g. `Research` and `Research/deep-dives`).
+
+2. **Stale threshold**: "How many days before an untouched item is flagged as stale?" (default: 30)
+
+### Batch 4: Project Identity (only if no pulse-config.yaml)
+
+Skip this batch if `pulse-config.yaml` already provided these values.
+
+1. **What's your project_id slug?** (suggested: `{lowercased-hyphenated-repo-name}`)
+   - "This slug is used to tag memory entries and as a prefix for scheduled tasks."
+2. **Which git branch is your default?** (default: `main`)
+3. **Memory connector?** Options:
+   - `shelby` (default — looks for tools matching `mcp__shelby-memory__*`)
+   - `null` (skip memory operations entirely)
+   - Any other prefix matching your memory MCP's tool names
+
+---
+
+## Phase 3: Scaffold .pm/ Directory
+
+Create the `.pm/` directory at the primary repo root. This is the PM-specific config directory — separate from `pulse-config.yaml` which is shared infrastructure.
+
+### Directory structure
+
+```
+{primary_repo_root}/
+└── .pm/
+    ├── config.yml          # PM-specific configuration
+    ├── state.yml           # Ingestion watermarks
+    └── out-of-scope/
+        └── README.md       # Explains the rejection KB pattern
+```
+
+### Generate .pm/config.yml
+
+Build from interview answers. This file controls how PM skills behave:
+
+```yaml
+# PM Configuration
+# Generated by /pm:setup on {DATE}
+
+# Issue tracker backend: github | local
+backend: {github or local}
+
+# GitHub backend settings (only used when backend: github)
+github:
+  owner: {owner from git remote or interview}
+  repo: {repo from git remote or interview}
+  # For multi-repo workspaces, target repos receive issues with a repo label.
+  # Uncomment and list target repos if PM should create issues across repos:
+  # target_repos:
+  #   - owner/repo-name
+
+# Where to find research reports for ingestion
+# Paths relative to primary repo root
+research_dirs:
+  - {first research dir, e.g. Research}
+  # - {additional dirs if provided}
+
+# Triage settings
+triage:
+  stale_threshold_days: {threshold from interview, default 30}
+
+# Domain knowledge paths (relative to primary repo root)
+context_md: CONTEXT.md
+adr_dir: docs/adr
+
+# Out-of-scope rejection knowledge base
+out_of_scope_dir: .pm/out-of-scope
+```
+
+If the backend is `local`, omit the `github:` section entirely and add:
+
+```yaml
+# Local backend settings
+local:
+  items_dir: .pm/items
+```
+
+And create the `.pm/items/` directory.
+
+### Generate .pm/state.yml
+
+This file tracks ingestion watermarks. Start empty — the ingest skill populates it:
+
+```yaml
+# Ingestion watermarks — updated by /pm:ingest
+last_ingested: {}
+last_reconcile: null
+```
+
+### Generate .pm/out-of-scope/README.md
+
+```markdown
+# Out-of-Scope Rejection KB
+
+This directory holds rejection records for features, ideas, and requests that have
+been evaluated and deliberately excluded from the project's scope.
+
+## Purpose
+
+When an agent encounters a request or idea that has been previously rejected,
+it can check this directory to find the decision record. This prevents:
+
+- Re-litigating settled decisions
+- Wasting triage time on known rejections
+- Losing the reasoning behind past rejections
+
+## Format
+
+Each file is a markdown document named `{slug}.md` with this structure:
+
+- **Feature/Concept Name** — what was rejected
+- **Decided date** — when the decision was made
+- **Status** — always "Rejected"
+- **Decision** — one paragraph on what was rejected and why
+- **Reasoning** — trade-offs considered
+- **Prior requests** — log of each time this was requested, with date and context
+
+## Usage
+
+- Triage adds entries here when dismissing items with reusable reasoning.
+- Agents check this directory before promoting similar ideas.
+- If circumstances change, move the file to an `archived/` subdirectory and
+  re-evaluate the request.
+
+See the entry template at `plugins/pm/templates/out-of-scope-entry.md`.
+```
+
+### Create or update pulse-config.yaml (if it doesn't exist)
+
+If Phase 1 did not find a `pulse-config.yaml`, create a minimal one in the primary repo root:
+
+```yaml
+project_id: {slug from interview}
+
+repos:
+  - name: {primary repo name}
+    path: .
+    role: primary
+  # Multi-repo: add sibling repos here
+  # - name: {repo-name}
+  #   path: ../{repo-name}
+
+default_branch: {branch from interview, default main}
+
+memory:
+  connector: {connector from interview, default shelby}
+
+backlog:
+  active: planning/todos.md
+  ideas: planning/ideas.md
+```
+
+If `pulse-config.yaml` already exists but lacks a `backlog:` section, append the `backlog:` block to it.
+
+---
+
+## Phase 4: Create CONTEXT.md
+
+Read the template from `templates/context-md.md` (relative to this skill's plugin directory at `plugins/pm/`).
+
+**Placement:**
+- **Single-repo**: Write to `{primary_repo_root}/CONTEXT.md`
+- **Multi-repo**: Write to `{workspace_root}/CONTEXT.md` (the parent directory containing all repos)
+
+If the user provided seed terms in Batch 2 of the interview, populate the Terms table:
+
+```markdown
+## Terms
+
+| Term | Definition | Aliases to avoid |
+|------|-----------|-----------------|
+| {term 1} | {definition 1} | {aliases 1} |
+| {term 2} | {definition 2} | {aliases 2} |
+| {term 3} | {definition 3} | {aliases 3} |
+```
+
+If the user did not provide seed terms, write the template as-is with empty tables.
+
+After writing, print: "Created CONTEXT.md at `{path}`. Agents will read this before starting work."
+
+---
+
+## Phase 5: Create ADR Directory
+
+If the user opted in to ADRs (default: yes), create the directory and seed the template.
+
+### Create directory
+
+```bash
+mkdir -p "{primary_repo_root}/docs/adr"
+```
+
+### Copy ADR template
+
+Read the template from `templates/adr-template.md` (relative to this skill's plugin directory at `plugins/pm/`). Write it to:
+
+```
+{primary_repo_root}/docs/adr/0000-template.md
+```
+
+The template file serves as both documentation and a copy source. When agents create new ADRs, they copy this file and fill in the placeholders.
+
+Print: "Created ADR directory at `docs/adr/` with template `0000-template.md`."
+
+---
+
+## Phase 6: Set Up GitHub Labels
+
+**Skip this phase if backend is `local`.**
+
+Use the `gh` CLI to create PM labels in the primary repo. These labels are used by triage, sprint-dev, and reconcile skills to track issue lifecycle state.
+
+### Create labels
+
+```bash
+for label in "needs-triage:d4c5f9" "ready-for-agent:0e8a16" "ready-for-human:fbca04" "blocker:d93f0b" "spawned-during-sprint:c2e0c6" "epic:5319e7" "size/S:e6e6e6" "size/M:e6e6e6" "size/L:e6e6e6" "size/XL:e6e6e6"; do
+  name="${label%%:*}"
+  color="${label##*:}"
+  gh label create "$name" --color "$color" --force 2>/dev/null || true
+done
+```
+
+### Label descriptions
+
+| Label | Color | Purpose |
+|-------|-------|---------|
+| `needs-triage` | `#d4c5f9` (lavender) | New issue awaiting triage classification |
+| `ready-for-agent` | `#0e8a16` (green) | Triaged and specced — agent can pick up |
+| `ready-for-human` | `#fbca04` (yellow) | Requires human judgment or approval |
+| `blocker` | `#d93f0b` (red) | Blocking other work — escalate |
+| `spawned-during-sprint` | `#c2e0c6` (light green) | Created by an agent during sprint execution |
+| `epic` | `#5319e7` (purple) | Groups related issues under a parent |
+| `size/S` | `#e6e6e6` (gray) | Small: < 1 hour |
+| `size/M` | `#e6e6e6` (gray) | Medium: 1-4 hours |
+| `size/L` | `#e6e6e6` (gray) | Large: 4+ hours, needs spec |
+| `size/XL` | `#e6e6e6` (gray) | Extra large: multi-day, needs spec + chunking |
+
+### Multi-repo label sync
+
+If the user has a multi-repo workspace and chose to track issues across repos, offer to create the same labels in each target repo:
+
+"Should I create these labels in your other repos too? ({list of target repos})"
+
+If yes, run the same `gh label create` loop for each target repo, using `--repo {owner}/{repo-name}`.
+
+Print the results — how many labels were created vs. already existed.
+
+---
+
+## Phase 7: Scaffold planning/ Directory
+
+Check whether `planning/` already exists in the primary repo root (Product Pulse setup creates this directory).
+
+### If planning/ already exists
+
+Print: "Found existing `planning/` directory — skipping scaffold. PM will use the existing backlog files."
+
+Verify these files exist and warn if any are missing:
+- `planning/todos.md`
+- `planning/ideas.md`
+- `planning/WORKFLOW.md`
+- `planning/archive/`
+- `planning/specs/_TEMPLATE.md`
+
+### If planning/ does not exist
+
+Create the same structure that Product Pulse setup creates. This ensures PM works standalone without requiring Product Pulse.
+
+```
+planning/
+├── todos.md          # Live work queue
+├── ideas.md          # Incoming ideas staging
+├── WORKFLOW.md       # Lifecycle documentation
+├── archive/          # Done rows older than 7 days
+└── specs/
+    └── _TEMPLATE.md  # Spec template for ready items
+```
+
+#### Generate planning/todos.md
+
+```markdown
+# Backlog
+
+**Project**: {project name or project_id}
+**Last updated**: {DATE}
+
+## Roadmap
+
+Strategic items with long-term timelines. Use `R{N}` IDs.
+
+| # | Item | Size | Priority | Owner | Target | Status | Notes |
+|---|------|------|----------|-------|--------|--------|-------|
+
+## Ready
+
+Items approved for implementation. Group related items into named sprint subsections (`### Sprint: ...`). Items in flight carry `awaiting-pr` or `in-progress` status inline.
+
+### Sprint: Unassigned
+
+| # | Item | Size | Priority | Status | Spec | Freshness | Notes |
+|---|------|------|----------|--------|------|-----------|-------|
+
+## Monitor
+
+Watch-and-wait items — not actionable yet, but may become relevant.
+
+| # | Item | Trigger | Deadline | Found |
+|---|------|---------|----------|-------|
+
+## Manual
+
+Items that require human judgment or external action (no code change).
+
+| # | Item | Owner | Context | Added |
+|---|------|-------|---------|-------|
+
+## Done (last 7 days)
+
+| # | Item | PR | Merged |
+|---|------|----|--------|
+
+## Dismissed
+
+| # | Item | Reason | Date |
+|---|------|--------|------|
+```
+
+#### Generate planning/ideas.md
+
+```markdown
+# Backlog -- Ideas
+
+**Project**: {project name or project_id}
+**Last updated**: {DATE}
+
+Incoming ideas staged for triage. Research adds rows here. The user promotes
+idea rows to `planning/todos.md` Ready when ready to implement.
+
+## Ideas
+
+### General
+
+| # | Item | Size | Priority | Source | Found |
+|---|------|------|----------|--------|-------|
+
+## Expired / passed-deadline
+
+| # | Item | Original Trigger | Closed | Notes |
+|---|------|------------------|--------|-------|
+```
+
+#### Generate planning/WORKFLOW.md
+
+```markdown
+# Backlog Workflow
+
+The backlog is split across two files:
+
+- `planning/todos.md` -- live work queue (Roadmap, Ready, Monitor, Manual, Done, Dismissed)
+- `planning/ideas.md` -- incoming ideas staging
+- `planning/archive/done-YYYY-QN.md` -- merged items older than 7 days
+
+Item IDs are sequential across both files. Roadmap items use `R{N}` prefix.
+
+## Lifecycle
+
+```
+idea -> specced -> ready -> in-progress -> awaiting-pr -> done
+```
+
+## Statuses
+
+| Status | Where | Meaning |
+|--------|-------|---------|
+| idea | ideas.md | Raw finding, not yet evaluated |
+| specced | ideas.md | Has a spec, needs user review |
+| ready | todos.md Ready | Approved for implementation |
+| in-progress | todos.md Ready | Currently being worked on |
+| awaiting-pr | todos.md Ready | PR created, waiting for merge |
+| done | todos.md Done | PR merged |
+| monitor | todos.md Monitor | Watch-and-wait |
+| manual | todos.md Manual | Requires human action |
+| dismissed | todos.md Dismissed | No longer relevant |
+
+## Size Guide
+
+| Size | Meaning | Typical Effort |
+|------|---------|---------------|
+| S | Small / trivial | < 1 hour |
+| M | Medium | 1-4 hours |
+| L | Large -- needs a spec | 4+ hours |
+| XL | Extra large -- needs spec + chunking | Multi-day |
+```
+
+#### Generate planning/specs/_TEMPLATE.md
+
+```markdown
+# Spec: {Item Title}
+
+**Backlog #**: {number}
+**Size**: {S|M|L|XL}
+**Priority**: {P0|P1|P2|P3}
+**Created**: {DATE}
+**Status**: draft | reviewed | approved
+
+---
+
+## Goal
+
+{What this item achieves. One paragraph max.}
+
+## Context
+
+{Why this matters now. Link to research report or strategic brief if applicable.}
+
+## Approach
+
+{How to implement. Be specific enough that an agent can follow without ambiguity.}
+
+## Chunks
+
+For L/XL items, break into ordered chunks that can be committed independently.
+
+1. {Chunk 1}
+2. {Chunk 2}
+
+## Acceptance Criteria
+
+- [ ] {Criterion 1}
+- [ ] {Criterion 2}
+
+## Open Questions
+
+- {Question 1}
+```
+
+#### Create planning/archive/
+
+Create the empty directory. Sprint-dev creates quarterly files (e.g. `done-2026-Q2.md`) when archiving.
+
+#### Update pulse-config.yaml
+
+If `pulse-config.yaml` exists but lacks a `backlog:` section, append:
+
+```yaml
+backlog:
+  active: planning/todos.md
+  ideas: planning/ideas.md
+```
+
+---
+
+## Phase 8: Print Summary
+
+After all scaffolding is complete, print a summary of everything created and next steps.
+
+```
+PM — Setup Complete
+====================
+
+Project: {project_id}
+Backend: {github or local}
+Workspace: {single-repo or multi-repo ({N} repos)}
+Primary repo: {repo name} ({path})
+
+Files created:
+  .pm/config.yml              — PM configuration
+  .pm/state.yml               — ingestion watermarks (empty)
+  .pm/out-of-scope/README.md  — rejection KB documentation
+  CONTEXT.md                  — domain glossary ({N} terms seeded)
+  docs/adr/0000-template.md   — ADR template
+  {planning files if created}
+
+{If GitHub backend:}
+GitHub labels created: {N} labels in {owner}/{repo}
+  needs-triage, ready-for-agent, ready-for-human, blocker,
+  spawned-during-sprint, epic, size/S, size/M, size/L, size/XL
+
+--- Next Steps ---
+
+1. Review generated config:
+   - .pm/config.yml — backend settings, research dirs, triage thresholds
+   - CONTEXT.md — add domain terms as they come up
+   - pulse-config.yaml — shared infra config (repos, branches, memory)
+
+2. Populate the backlog:
+   - If you have research reports: run /pm:ingest
+   - To add items manually: run /pm:triage
+   - To add items via GitHub: create issues with the "needs-triage" label
+
+3. Triage and prioritize:
+   - /pm:triage — classify, size, and prioritize backlog items
+
+4. Start building:
+   - /pm:sprint-dev — pick up ready items and execute
+
+5. Keep things in sync:
+   - /pm:reconcile — sync GitHub Issues with local backlog state
+```
+
+Adjust the summary based on what was actually created — omit sections for skipped phases (e.g., no GitHub labels if backend is local, no planning files if they already existed).
+
+---
+
+## Edge Cases
+
+- **Files already exist**: Always ask before overwriting. For `.pm/config.yml`, offer to show a diff of what would change. For `CONTEXT.md`, offer to merge new seed terms into the existing file.
+
+- **No git remote**: If `git remote get-url origin` fails, the GitHub backend isn't viable. Default to local backend, or ask the user to add a remote first.
+
+- **gh CLI not installed**: If the GitHub backend is selected but `gh` is not available, warn the user: "The `gh` CLI is required for the GitHub Issues backend. Install it with `brew install gh` and run `gh auth login`, then re-run `/pm:setup`." Fall back to local backend if the user prefers.
+
+- **gh CLI not authenticated**: If `gh auth status` fails, prompt the user to run `gh auth login` first.
+
+- **Multi-repo with no pulse-config.yaml**: Interview must capture all repo names, paths, and roles. Create the full `pulse-config.yaml` with the repos list.
+
+- **Product Pulse already set up**: Common case. Read everything you can from `pulse-config.yaml` and skip redundant questions. The `planning/` directory likely exists already — just verify its contents.
+
+- **User wants to change backend later**: Note that switching from local to GitHub (or vice versa) requires re-running `/pm:setup` and migrating existing items. The setup skill doesn't handle migration — that's a manual process.
+
+- **Existing CONTEXT.md at a different path**: If `.pm/config.yml` points `context_md` at a non-default path, respect it. Don't create a second copy.
+
+- **No research reports**: That's fine. Set `research_dirs` to an empty list and skip the ingest recommendation in next steps. The user can add research directories later by editing `.pm/config.yml`.
+
+- **Private repos without gh access**: If `gh repo view` fails with a permissions error, note this and suggest the user check their `gh` authentication scopes.
