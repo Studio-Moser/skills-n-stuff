@@ -3,12 +3,11 @@ name: daily-research
 description: >-
   Daily research automation. Scans configured domains for actionable
   intelligence, filters through the weekly strategy brief for relevance,
-  and adds new ideas to the configured ideas file (watch-and-wait items
-  go to the active backlog Monitor table), max 5/day. Produces a dated
-  research report and opens an auto-mergeable PR. Reads pulse-config.yaml
-  from the nearest research directory. Trigger: "run daily research",
-  "research scan", "what's new", "check for updates", or
-  /product-pulse:daily-research. Also triggered by scheduled tasks.
+  and produces a dated research report with action items for PM ingestion.
+  Opens an auto-mergeable PR. Reads pulse-config.yaml from the nearest
+  research directory. Trigger: "run daily research", "research scan",
+  "what's new", "check for updates", or /product-pulse:daily-research.
+  Also triggered by scheduled tasks.
 ---
 
 # Product Pulse — Daily Research
@@ -22,8 +21,7 @@ You are NOT a strategist — that's the weekly skill. You gather intel and surfa
 ## Ground Rules
 
 - **Max 5 findings per domain.** Quality over quantity.
-- **Max 5 new backlog items per day.** Prioritize by strategic alignment.
-- **Research adds items as `idea` status ONLY** — never `ready` or beyond. You discover; others promote.
+- **Max 5 action items in the report's Action Items table.** Prioritize by strategic alignment.
 - **Search term rotation** — Pick 3-5 terms per domain per run. Rotate so you don't search the same phrases daily. Append current month/year for recency.
 - **Always Check items run every scan (no rotation)** — see Phase 0.6 below. These are user-configured architectural watch items that must be searched on every run regardless of rotation. Any hit is flagged `**ALWAYS-CHECK HIT**` and surfaced in a dedicated Escalations section at the top of the report.
 - **Quiet days** — If 3+ domains return zero findings, use condensed format.
@@ -61,8 +59,6 @@ fi
 
 primary_repo_root="$(cd "$research_dir" && git rev-parse --show-toplevel)"
 
-backlog_active="$primary_repo_root/$(yq '.backlog.active // "planning/todos.md"' "$config_path")"
-backlog_ideas="$primary_repo_root/$(yq '.backlog.ideas // "planning/ideas.md"' "$config_path")"
 default_branch="$(yq '.default_branch // "main"' "$config_path")"
 auto_merge="$(yq '.auto_merge // true' "$config_path")"
 project_id="$(yq '.project_id' "$config_path")"
@@ -72,9 +68,9 @@ echo "Using config: $config_path"
 echo "Research dir: $research_dir"
 ```
 
-Parse the YAML. Required fields: `project_id`, `repos`. Optional with defaults: `default_branch` (default `main`), `auto_merge` (default `true`), `memory.connector` (default `shelby`; set to `null` to disable), `backlog.active` (default `planning/todos.md`), `backlog.ideas` (default `planning/ideas.md`).
+Parse the YAML. Required fields: `project_id`, `repos`. Optional with defaults: `default_branch` (default `main`), `auto_merge` (default `true`), `memory.connector` (default `shelby`; set to `null` to disable).
 
-Find the entry in `repos:` with `role: primary`. Its filesystem location (resolved relative to the directory containing pulse-config.yaml's parent) is the **primary repo root** (`{primary_repo_root}`) for backlog and git operations.
+Find the entry in `repos:` with `role: primary`. Its filesystem location (resolved relative to the directory containing pulse-config.yaml's parent) is the **primary repo root** (`{primary_repo_root}`) for git operations.
 
 ### 0.1 Read Product Context
 
@@ -102,24 +98,15 @@ Find the most recent `*-strategy-brief.md` in `{research_dir}/` (search recursiv
 
 If no weekly brief exists, all findings are treated as potentially relevant (no strategic filter).
 
-### 0.4 Context Recovery
+### 0.4 Context Recovery (if memory configured)
 
-Search memory for prior daily research findings (last 7 days). Read the backlog for current items.
-
-Read BOTH `{backlog.active}` AND `{backlog.ideas}` — the active backlog is split across two files. The actual paths are configurable via `pulse-config.yaml`:
-
-- `{backlog.active}` — Roadmap, Ready (sprint subsections), Monitor, Manual, Done (last 7 days), Dismissed. The live-queue surface that sprint-dev reads.
-- `{backlog.ideas}` — incoming-ideas staging area (per-domain Ideas subsections, plus an Expired / passed-deadline table at the bottom). This is where this skill writes new research items.
-
-Pay attention to the Expired / passed-deadline table at the bottom of `{backlog.ideas}` so we don't re-add items whose deadlines have already closed.
+If `memory.connector` is set, search for prior daily research findings (last 7 days) to avoid duplicates.
 
 ### 0.5 Build Dedup List
 
 From memory and recent reports, collect finding URLs and summaries. A finding is a duplicate if:
 - Same URL as a previous finding, OR
 - 3+ shared significant keywords with a previous finding in the same domain
-
-Also check against existing backlog items to avoid adding duplicates.
 
 ### 0.6 Load Always Check Items
 
@@ -165,7 +152,7 @@ Each sub-agent uses WebSearch and WebFetch to scan its sources and search terms.
 
 ### 3.0 Extract Always Check Hits
 
-Before deduping or ranking, separate out any findings tagged `**ALWAYS-CHECK HIT**`. These bypass the normal ranking and strategic filter — they always surface at the top of the report in a dedicated **Escalations** section and are always added to the backlog (they don't count against the 5-item daily cap, since they're triggered by pre-approved watch items). If an Always Check hit references a Guide doc in its Reference field, note "Guide doc update required: {path}" so the user knows to refresh it.
+Before deduping or ranking, separate out any findings tagged `**ALWAYS-CHECK HIT**`. These bypass the normal ranking and strategic filter — they always surface at the top of the report in a dedicated **Escalations** section and always appear in the Action Items table (they don't count against the 5-item cap, since they're triggered by pre-approved watch items). If an Always Check hit references a Guide doc in its Reference field, note "Guide doc update required: {path}" so the user knows to refresh it.
 
 ### 3.1 Deduplicate Across Domains
 
@@ -179,7 +166,7 @@ Sort by:
 3. Medium impact + Low effort (easy pickups)
 4. Lower priority combinations
 
-### 3.3 Apply Strategic Filter for Backlog
+### 3.3 Apply Strategic Filter
 
 If a weekly brief exists, score each finding:
 - **+2** if it directly supports a top 3 priority
@@ -187,19 +174,7 @@ If a weekly brief exists, score each finding:
 - **+0** if unrelated
 - **Always include** P0-level findings regardless (security, hard deadlines, blockers)
 
-Take the top 5 by alignment score, then by impact/effort ratio. Only these go into the backlog. All others stay in the report as "Noted."
-
-### 3.4 Classify for Backlog Placement
-
-For each of the top 5 findings:
-- **Actionable items** → Ideas subsection (matching domain)
-- **Watch-and-wait items** (not actionable yet, depends on external trigger or timeline) → Monitor table
-
-### 3.5 Map to Backlog Format
-
-- **Size**: Map Effort to Size — Easy → S, Medium → M, Hard → L
-- **Source**: Always `research`
-- **Found**: Today's date
+Take the top 5 by alignment score, then by impact/effort ratio. Only these appear in the report's Action Items table.
 
 ---
 
@@ -226,7 +201,7 @@ Write to `{week_dir}/{today}-daily-research.md`. Structure:
 **Product**: {product name}
 **Weekly theme**: {theme or "No weekly brief"}
 **Domains scanned**: {N}
-**Findings**: {N} total, {N} added to backlog
+**Findings**: {N} total, {N} action items
 
 ---
 
@@ -237,16 +212,20 @@ Write to `{week_dir}/{today}-daily-research.md`. Structure:
 - **Summary**: {2-3 sentences}
 - **Impact**: {H/M/L} | **Effort**: {H/M/L} | **Confidence**: {H/M/L}
 - **Relevance**: {why this matters to the product}
-- **Status**: {Added to backlog | Noted}
 
 ...
+
+## Action Items
+
+| # | Item | Size | Priority | Domain | Source | Confidence |
+|---|------|------|----------|--------|--------|------------|
 
 ## Source Performance
 
 | Source | Domain | Checked | Hit? |
 |--------|--------|---------|------|
 
-## Noted (Not Added to Backlog)
+## Noted
 
 {findings that were interesting but didn't make the top 5 cut}
 
@@ -254,19 +233,6 @@ Write to `{week_dir}/{today}-daily-research.md`. Structure:
 
 {list per domain, for rotation tracking}
 ```
-
-### Update the Backlog
-
-Where new items go depends on their type:
-
-- **Actionable items** → Add rows to the matching domain subsection under Ideas in `{backlog.ideas}`:
-  `| # | Item | Size | Priority | Source | Found |`
-- **Watch-and-wait items** (regulatory rulings, competitor launches, dependency releases) → Add rows to the Monitor table in `{backlog.active}`:
-  `| # | Item | Trigger | Deadline | Found |`
-
-**Numbering**: Item numbers are sequential across BOTH files. Check both before picking the next free ID. If a collision appears on write (concurrent run, manual edit), the older item keeps the ID and the new one takes the next free slot with a "renumbered from #X" note inline.
-
-**Never** add items to Roadmap, Ready, or Done — those are human-controlled and live in `{backlog.active}`. Research creates `idea` and `monitor` entries only.
 
 ### Update Source Quality
 
@@ -276,37 +242,25 @@ For each source checked, update quality tracking in memory (hit/miss ratio).
 
 ## Phase 5: Persist & Commit
 
-### 5.1 Backlog edits
-
-Daily research writes two types of rows:
-- **`idea` rows** → appended to the matching domain subsection under Ideas in `{backlog.ideas}`
-- **`monitor` rows** → appended to the Monitor table in `{backlog.active}`
-
-Rules:
-- Do NOT add items to Roadmap, Ready, or Done — those are human-controlled
-- Do NOT move or dismiss existing items — that's weekly-strategist's job
-- Do NOT touch `{primary_repo_root}/planning/archive/` — that's append-only history
-- Include both backlog files in `git add` even if one wasn't modified — `git add` is a no-op on unchanged files
-
-### 5.2 Save to memory (if configured)
+### 5.1 Save to memory (if configured)
 
 If `memory.connector` is set, capture a summary of today's findings. Tool names match the connector prefix:
 
 ```
 capture_thought({
-  content: "{summary of findings, domains scanned, and backlog additions}",
+  content: "{summary of findings and domains scanned}",
   summary: "Daily research {YYYY-MM-DD}: {N} findings across {M} domains",
   type: "note",
   topics: ["product-pulse-daily-research", "{project_id}-research"],
   source: "daily-research-{YYYY-MM-DD}",
   project: "{project_id}",
-  metadata: { date: "{YYYY-MM-DD}", domains: {M}, findings: {N}, backlog_additions: {K} }
+  metadata: { date: "{YYYY-MM-DD}", domains: {M}, findings: {N}, action_items: {K} }
 })
 ```
 
 If `memory.connector: null` or no matching tools are found, skip this phase.
 
-### 5.3 Branch + commit + PR (always)
+### 5.2 Branch + commit + PR (always)
 
 Inside the primary repo:
 
@@ -314,17 +268,17 @@ Inside the primary repo:
 cd "$primary_repo_root"
 branch="daily-research/{YYYY-MM-DD}"
 git checkout -b "$branch"
-git add "$research_dir" "$backlog_active" "$backlog_ideas"
+git add "$research_dir"
 git commit -m "research: daily scan {today} — {N} findings across {M} domains"
 git push -u origin "$branch"
 pr_url=$(gh pr create --base "$default_branch" --head "$branch" \
   --title "research: daily scan {today} — {N} findings across {M} domains" \
-  --body "Daily research scan for {today}. {N} findings across {M} domains; {K} items added to backlog. Auto-generated by product-pulse daily-research." \
+  --body "Daily research scan for {today}. {N} findings across {M} domains; {K} action items. Auto-generated by product-pulse daily-research." \
   | tail -n1)
 echo "PR opened: $pr_url"
 ```
 
-### 5.4 Auto-merge (if enabled and mergeable)
+### 5.3 Auto-merge (if enabled and mergeable)
 
 If `auto_merge: true` in config:
 
@@ -345,8 +299,8 @@ Product Pulse — Daily Research ({today})
 ==========================================
 Domains scanned: {N}
 Findings: {N} total
-Backlog additions: {N} (max 5)
-Noted (not added): {N}
+Action items: {N} in report
+Noted: {N}
 Sources checked: {N} ({N} hits, {N} misses)
 PR: {pr_url} ({merged | open})
 ```
@@ -355,7 +309,6 @@ PR: {pr_url} ({merged | open})
 
 ## Error Handling
 
-- **Backlog files missing or malformed**: If either `{backlog.active}` or `{backlog.ideas}` is missing or unparseable, skip the relevant update (Ideas additions if `{backlog.ideas}` is bad; Monitor additions if `{backlog.active}` is bad) and note it in the report. Do NOT auto-recreate — a stripped backlog suggests a merge conflict the user needs to resolve. If both are missing, stop and tell the user to run `/product-pulse:setup`.
 - **Research context missing**: Stop and tell the user to run `/product-pulse:setup`.
 - **Memory unavailable**: Continue without memory context — rely on file-based data.
 - **Sub-agent failure**: Note the failed domain and continue with others.
