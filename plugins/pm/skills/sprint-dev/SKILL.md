@@ -81,9 +81,14 @@ if [ ! -f "$pm_config" ]; then
   exit 1
 fi
 backend="$(yq '.backend // "github"' "$pm_config")"
+
+if [ "$backend" = "github" ]; then
+  gh_owner="$(yq '.github.owner' "$pm_config")"
+  gh_repo="$(yq '.github.repo' "$pm_config")"
+fi
 ```
 
-The `backend` value (`github` or `local`) determines how items are loaded and updated throughout the rest of this skill.
+The `backend` value (`github` or `local`) determines how items are loaded and updated throughout the rest of this skill. When using the GitHub backend, `gh_owner` and `gh_repo` identify the target repository for all `gh` CLI commands.
 
 ### 0.1 Read Product Context
 
@@ -160,7 +165,7 @@ Load items based on the configured backend.
 
 **GitHub backend:**
 ```bash
-gh issue list --label "ready-for-agent" --state open --json number,title,body,labels --limit 50
+gh issue list --label "ready-for-agent" --state open --json number,title,body,labels --limit 50 --repo "$gh_owner/$gh_repo"
 ```
 Parse each issue. Extract from the body:
 - Acceptance criteria (look for `## Acceptance Criteria` header)
@@ -397,10 +402,10 @@ For each completed item:
 **GitHub backend:**
 ```bash
 # Comment on the issue with PR link
-gh issue comment {number} --body "Implemented in PR {pr_url}. Spec compliance: {met/partial}. Tests: {pass/fail}."
+gh issue comment {number} --body "Implemented in PR {pr_url}. Spec compliance: {met/partial}. Tests: {pass/fail}." --repo "$gh_owner/$gh_repo"
 
 # Close the issue if PR is merged
-gh issue close {number}
+gh issue close {number} --repo "$gh_owner/$gh_repo"
 ```
 
 **Local backend:**

@@ -96,7 +96,7 @@ If the output directory is empty or doesn't exist yet, skip this phase.
 
 For each link the user provides, extract as much substance as possible:
 
-- **YouTube / Shorts / Instagram / TikTok / Threads videos**: Fetch the full transcript with the `transcribe` skill — from Bash as `transcribe <url>`, or via `Skill({ skill: "transcribe:transcribe", args: "<url>" })`. Then analyze the full content — key concepts, tools mentioned, architectural patterns, specific recommendations, code examples discussed. If transcribe fails, surface the stderr message to the user and stop; do not try to analyze the video without its transcript.
+- **YouTube / Shorts / Instagram / TikTok / Threads videos**: Fetch the full transcript via `Skill({ skill: "transcribe:transcribe", args: "<url>" })`. Then analyze the full content — key concepts, tools mentioned, architectural patterns, specific recommendations, code examples discussed. If transcribe fails, surface the stderr message to the user and stop; do not try to analyze the video without its transcript.
 - **Articles / blog posts / docs**: Read the full content and identify the core ideas, technical specifics, libraries/tools referenced, and any opinionated takes on best practices.
 - **GitHub repos**: Examine the README, project structure, key source files, dependencies, and architectural decisions. Understand what the repo does and how it does it.
 - **Other links**: Adapt your approach — the goal is always to thoroughly understand what the resource is communicating.
@@ -224,9 +224,9 @@ Each item states: what to do, why it matters, rough effort (quick win / moderate
 
 ## Phase 8: Save Report
 
-Always save the report to `{output_dir}/{slug}.md`. The slug is derived from the primary topic (e.g., `react-server-components.md`, `auth-middleware-comparison.md`). Use kebab-case, no dates in the slug.
+Save the same report content from Phase 7 to `{output_dir}/{slug}.md`. The slug is derived from the primary topic (e.g., `react-server-components.md`, `auth-middleware-comparison.md`). Use kebab-case, no dates in the slug. If a file with the same slug already exists, append `-2` (or the next available number) to avoid overwriting prior research.
 
-Write the report as a markdown file with YAML frontmatter. Use the template from `references/report-template.md`. Include frontmatter with: title, resources (url, type, title, published), tags, and related_reports (slugs of prior reports referenced, omit if none).
+Wrap the report in YAML frontmatter matching the template at `references/report-template.md`. The frontmatter must include: title, resources (url, type, title, published), tags, and related_reports (slugs of prior reports referenced, omit if none). The body sections are the same as the chat report from Phase 7.
 
 ---
 
@@ -259,7 +259,7 @@ Inside the primary repo:
 ```bash
 cd "$primary_repo_root"
 branch="deep-dive/{slug}"
-git checkout -b "$branch"
+git checkout -b "$branch" 2>/dev/null || git checkout "$branch"  # reuse branch if re-running
 git add "$output_dir"
 git commit -m "research: deep dive on {topic}"
 git push -u origin "$branch"

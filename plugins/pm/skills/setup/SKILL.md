@@ -78,7 +78,7 @@ If they want to keep it, exit early with a summary of what's already configured.
 
 ## Phase 2: Interview
 
-Use `AskUserQuestion` to gather PM configuration. Ask in focused batches — don't overwhelm with everything at once.
+Gather PM configuration by asking the user directly. Ask in focused batches — don't overwhelm with everything at once.
 
 ### Batch 1: Issue Tracker Backend
 

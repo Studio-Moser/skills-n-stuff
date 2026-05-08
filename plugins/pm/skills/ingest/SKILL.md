@@ -162,7 +162,7 @@ For each new report, determine its type from the filename and dispatch the **ing
 
 **CRITICAL**: Dispatch all report analysts in a single message as parallel Agent tool calls.
 
-For each report, dispatch the **ingestion-analyst** agent (`plugins/pm/agents/ingestion-analyst.md`) with:
+For each report, read `plugins/pm/agents/ingestion-analyst.md` and use its content as the system prompt for an Agent tool call. Provide in the user prompt:
 
 - The full text of the report (read the file)
 - The report type (from classification above)

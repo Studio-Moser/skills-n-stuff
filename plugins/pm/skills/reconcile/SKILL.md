@@ -19,7 +19,7 @@ You are NOT the triage agent -- that's `/pm:triage`. You sync state; others clas
 
 ## Ground Rules
 
-- **Partially interactive.** Completion tracking and blocker classification run automatically. Stale item decisions, CONTEXT.md proposals, and ADR proposals require user confirmation.
+- **Partially interactive.** Completion tracking presents evidence and asks for confirmation before closing issues. Blocker classification runs automatically. Stale item decisions, CONTEXT.md proposals, and ADR proposals require user confirmation.
 - **Multi-repo aware.** Scan git history across ALL configured repos, not just primary.
 - **Idempotent.** Running reconcile twice in succession produces no additional changes -- the `last_reconcile` timestamp prevents re-processing.
 - **Non-destructive.** Never close or modify an issue without evidence (a merged commit on the default branch, user confirmation for stale items). When in doubt, flag for the user.

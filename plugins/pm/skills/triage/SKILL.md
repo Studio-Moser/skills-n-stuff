@@ -309,29 +309,23 @@ Process one item at a time. For each:
 
 #### Step 2a: Brainstorm
 
-Invoke the brainstorming skill with the item as the problem statement, informed by domain context and out-of-scope constraints:
+Invoke the brainstorming skill with the item as the problem statement. Pass all relevant context as the `args` parameter so the skill has what it needs:
 
 ```
-Skill({ skill: "superpowers:brainstorming" })
+Skill({ skill: "superpowers:brainstorming", args: "{item title}: {item description}\n\nDomain context: {relevant CONTEXT.md terms}\nConstraints: {relevant out-of-scope entries}\nRepos: {repo list from pulse-config.yaml with paths}" })
 ```
-
-Provide the brainstorming skill with:
-- **Problem statement**: the item's title and description
-- **Domain context**: relevant terms from CONTEXT.md
-- **Constraints**: relevant out-of-scope entries (what NOT to consider)
-- **Project repos**: list of repos from `pulse-config.yaml` with paths
 
 The brainstorming skill will explore the design space and produce a recommended approach.
 
 #### Step 2b: Write implementation plan
 
-After brainstorming produces a design direction, invoke the writing-plans skill to produce a full implementation spec:
+After brainstorming produces a design direction, invoke the writing-plans skill. Pass the brainstorming output as context:
 
 ```
-Skill({ skill: "superpowers:writing-plans" })
+Skill({ skill: "superpowers:writing-plans", args: "Write a spec for: {item title}\n\nBrainstorming output: {brainstorm result summary}\nTarget repo: {repo path}" })
 ```
 
-The writing-plans skill receives the brainstorming output and produces a structured spec with: Goal, Context, Code References, Approach, Chunks, and Acceptance Criteria.
+The writing-plans skill produces a structured implementation plan with tasks, code, and acceptance criteria.
 
 #### Step 2c: Write spec to backend
 
@@ -426,7 +420,7 @@ Evaluate each item that survived Phase 1 (both specced and unspecced) against th
 
 ### Dispatch the scorecard evaluator
 
-For each item, dispatch the **scorecard-evaluator** agent (`plugins/pm/agents/scorecard-evaluator.md`) with:
+For each item, read `plugins/pm/agents/scorecard-evaluator.md` and use its content as the system prompt for an Agent tool call. Provide in the user prompt:
 
 - The item's title, description, and spec (if one was written in Phase 2)
 - The project's CONTEXT.md content
@@ -590,10 +584,10 @@ Read the current `planning/todos.md`. Find the `## Ready` section and the `### S
 | #{number} | {title} | {size} | P{priority} | {status_label} | {spec path or "—"} | {TODAY} | — |
 ```
 
-For `needs-info` items, do NOT add to Ready — they stay in triage. For `ready-for-human` items, add to the `## Manual` section instead:
+For `needs-info` items, do NOT add to Ready — they stay in triage. For `ready-for-human` items, add to Ready with status `ready-for-human` (these still need code work, but a human should review the spec gaps first):
 
 ```markdown
-| #{number} | {title} | — | {failing scorecard criteria, comma-separated} | {TODAY} |
+| #{number} | {title} | {size} | P{priority} | ready-for-human | {spec path or "—"} | {TODAY} | {failing criteria} |
 ```
 
 ---
