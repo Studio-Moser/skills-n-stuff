@@ -154,6 +154,24 @@ for item_file in "$primary_repo_root/.pm/items/"*.yml; do
 done
 ```
 
+**Trello backend:**
+
+Iterate boards. For each board, set active and read cards from each non-rejected list (`needs_triage`, `ready_for_agent`, `in_progress`, `review`, `needs_changes`, `blocked`). The `done` list is excluded — done items are valid dedup-misses (they may be reborn).
+
+```bash
+echo "$trello_boards_json" | jq -c '.[]' | while read -r board_json; do
+  eval "$("$CLAUDE_PLUGIN_ROOT/scripts/for-each-board.sh" "[$board_json]")"
+  # MCP tool call (the agent executes this — shell can't call MCP):
+  # mcp__trello__set_active_board({ boardId: $BOARD_ID })
+  # all_lists = mcp__trello__get_lists({})
+  # For each required list (except done), find its id and:
+  #   cards = mcp__trello__get_cards_by_list_id({ listId: $LIST_ID })
+  # Collect (title, description, board_id, card_id) into existing_cards.
+done
+```
+
+Compare each extracted ingestion item against `existing_cards` using the same > 80% significant-word similarity rule. Mark duplicates: `"duplicate of existing card on board {board_name}: {card_title}"`.
+
 An item is a **duplicate** if its title or description shares > 80% significant-word overlap with an existing issue. Significant words are 3+ characters, excluding stop words ("the", "a", "and", "for", "to", "in", "of", "is"). Similarity = `(shared words) / (min(words_in_A, words_in_B))`. Mark duplicates: `"duplicate of existing issue: {matching title}"`.
 
 ### 3.2 Check against out-of-scope rejections
@@ -291,6 +309,41 @@ created_at: "{ISO 8601 timestamp}"
 
 Increment `next_num` for the next item.
 
+### Trello backend
+
+Cards are created on the **first** configured board's `needs_triage` list. Multi-board fan-out (creating one card per relevant board) is not in scope for ingest — triage handles routing to the right board.
+
+For each surviving item:
+
+```bash
+# Resolve the first board and its needs_triage list id once per skill run.
+first_board_json="$(echo "$trello_boards_json" | jq -c '.[0]')"
+eval "$("$CLAUDE_PLUGIN_ROOT/scripts/for-each-board.sh" "[$first_board_json]")"
+```
+
+Then call (the agent executes these MCP tools — see `plugins/pm/scripts/trello-ops.md`):
+
+```
+mcp__trello__set_active_board({ boardId: $BOARD_ID })
+lists = mcp__trello__get_lists({})
+list_id_needs_triage = (find list where name == $LIST_NEEDS_TRIAGE).id
+
+card = mcp__trello__add_card_to_list({
+  listId: list_id_needs_triage,
+  name:   "{title}",
+  desc:   "{body from template above}",
+  labels: ["needs-triage", "size/{suggested_size}"]
+})
+
+# Source attribution comment (separate from desc so future edits don't lose it):
+mcp__trello__add_comment({
+  cardId: card.id,
+  text: "Ingested by /pm:ingest from `{source_report}` on {DATE}. Confidence: {confidence}. Suggested priority: {suggested_priority}."
+})
+```
+
+Capture `card.id` and `card.shortUrl` for the summary. The card title is the item title; the description follows the same Markdown template as GitHub.
+
 ---
 
 ## Phase 5: Update Watermarks
@@ -335,6 +388,7 @@ New items created:     {U}
 Backend: {github or local}
 {If GitHub: "Issues created in {owner}/{repo}"}
 {If local: "Items written to {items_dir}"}
+{If Trello: "Cards created on board {first_board_name} ({first_board_id}) in list \"{LIST_NEEDS_TRIAGE}\""}
 
 Next: Run /pm:triage to classify and prioritize the new items.
 ```
@@ -355,3 +409,5 @@ If zero items were created, note: `"All extracted items were duplicates, out-of-
 - **State file missing**: Create with empty watermarks (first-run behavior).
 - **Items directory missing (local)**: Create automatically.
 - **Git pull fails**: Note and continue. Watermarks catch duplicates on next run.
+- **Trello MCP tool call failure (rate limit, auth)**: Stop the run. Print the error verbatim. Resume after fixing credentials (`/pm:setup` re-validates) or after the rate limit window passes.
+- **`trello_boards_json=[]`**: Stop — config has no boards. Run `/pm:setup`.
