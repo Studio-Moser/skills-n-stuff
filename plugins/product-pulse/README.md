@@ -68,14 +68,9 @@ This interviews you about your product, competitors, and strategic priorities, t
 └── {YYYY-MM}/                # Month folders (created automatically by skills)
     └── W{NN}/                # Week folders with daily reports + weekly briefs
 
-planning/
-├── todos.md                  # Live work queue (Roadmap, Ready, Monitor, Manual, Done, Dismissed)
-├── ideas.md                  # Incoming ideas staging (per-domain Ideas + Expired)
-├── WORKFLOW.md               # Lifecycle documentation and role guide
-├── archive/                  # Done rows older than 7 days, partitioned by quarter
-└── specs/
-    └── _TEMPLATE.md          # Spec template for L/XL items
 ```
+
+> **Project management**: For backlog tracking, triage, and sprint execution, install the [PM plugin](/plugins/pm/README.md) (`/plugin install pm@studio-moser`).
 
 ## Configuration
 
@@ -144,7 +139,7 @@ The weekly-strategist and daily-research skills pull all configured repos at the
 
 ### `/product-pulse:setup`
 
-One-time onboarding. Interviews you, scaffolds files, seeds sources, creates the `pulse-config.yaml`, the `planning/` folder, and the spec system.
+One-time onboarding. Interviews you, scaffolds files, seeds sources, and creates the `pulse-config.yaml`.
 
 ### `/product-pulse:weekly-strategist`
 

@@ -113,7 +113,7 @@ From the interview answers, generate `{research_dir}/research-context.md`:
 
 ## Always Check
 
-Persistent watch items that run on every daily research scan, no rotation. Any hit is escalated to the top of the daily report and added to the backlog outside the normal 5-item cap. Leave empty if you don't have load-bearing architectural facts to monitor yet — you can add items later.
+Persistent watch items that run on every daily research scan, no rotation. Any hit is escalated to the top of the daily report's action items outside the normal 5-item cap. Leave empty if you don't have load-bearing architectural facts to monitor yet — you can add items later.
 
 Format each item as:
 
@@ -168,7 +168,7 @@ The daily and weekly skills create the month/week subdirectories automatically a
 
 ### Generate pulse-config.yaml
 
-This is the operational config the daily-research, weekly-strategist, and sprint-dev skills will discover at runtime. Place at `{research_dir}/pulse-config.yaml`:
+This is the operational config the daily-research, weekly-strategist, and deep-dive skills will discover at runtime (PM's sprint-dev skill also reads this). Place at `{research_dir}/pulse-config.yaml`:
 
 ```yaml
 project_id: {slug derived from product name, lowercase with hyphens}
@@ -264,12 +264,9 @@ Sources seeded: {N} across all domains
 3. Run your first daily research scan:
    /product-pulse:daily-research
 
-4. When you're ready to implement items from the backlog:
-   /product-pulse:sprint-dev
-
-For project management (backlog, triage, sprint execution):
-  Install the pm plugin: /plugin install pm@studio-moser
-  Then run: /pm:setup
+4. For project management (triage, sprint execution):
+   Install the pm plugin: /plugin install pm@studio-moser
+   Then run: /pm:setup
 
 --- Scheduling (Optional) ---
 
@@ -287,7 +284,7 @@ Daily research (runs every morning):
   Schedule: Daily ~8:00 AM
   Prompt: "Run /product-pulse:daily-research"
 
-Sprint dev is manual-only — run /product-pulse:sprint-dev when you're ready to build.
+Sprint execution is handled by the PM plugin — run /pm:sprint-dev when you're ready to build.
 ```
 
 ---
@@ -297,4 +294,4 @@ Sprint dev is manual-only — run /product-pulse:sprint-dev when you're ready to
 - **Files already exist**: Ask before overwriting. Offer to merge with existing content.
 - **User doesn't know competitors**: That's fine — leave the table sparse and note "competitor discovery" as a priority for the first weekly run.
 - **User has existing research**: Offer to read their existing docs and seed the research context from them.
-- **Multi-repo project**: Note all repos in research-context.md. The sprint-dev skill will use this for routing.
+- **Multi-repo project**: Note all repos in research-context.md. PM's sprint-dev skill will use this for routing.

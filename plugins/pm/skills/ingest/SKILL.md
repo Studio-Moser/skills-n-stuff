@@ -154,7 +154,7 @@ For each new report, determine its type from the filename and dispatch the **ing
 | Filename pattern | Report type |
 |-----------------|-------------|
 | `*-daily-research.md` | `daily-research` |
-| `*-strategy-brief.md` | `weekly-recommendations` |
+| `*-strategy-brief.md` | `weekly-brief` |
 | `*-recommendations.md` | `weekly-recommendations` |
 | `deep-dives/*.md` | `deep-dive` |
 

@@ -1,6 +1,6 @@
 # PM
 
-A backlog lifecycle plugin for [Claude Code](https://code.claude.com). Takes raw research and ideas from ingestion through triage, speccing, sprint execution, and reconciliation -- all backed by GitHub Issues.
+A backlog lifecycle plugin for [Claude Code](https://code.claude.com). Takes raw research and ideas from ingestion through triage, speccing, sprint execution, and reconciliation -- backed by GitHub Issues or a local YAML tracker.
 
 [![skills.sh](https://skills.sh/b/Studio-Moser/skills-n-stuff)](https://skills.sh/Studio-Moser/skills-n-stuff)
 
@@ -80,7 +80,7 @@ This detects your workspace layout, interviews you about issue tracking preferen
 ├── config.yml                # PM-specific config
 ├── out-of-scope/             # Rejection knowledge base
 │   └── {slug}.md             # Why something was rejected (prevents re-filing)
-└── watermarks.yml            # Ingestion progress tracking
+└── state.yml                 # Ingestion watermarks and reconcile state
 
 CONTEXT.md                    # Domain glossary — agents read this before working
 docs/adr/

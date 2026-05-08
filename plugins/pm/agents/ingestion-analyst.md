@@ -24,9 +24,9 @@ Return a structured list of extracted items. For each item:
 
 ## Rules
 
-- Extract from **Action Items** tables in daily and deep-dive reports
-- Extract from **Suggested for Speccing** tables in weekly recommendations
-- Extract from **Monitor Alerts** in weekly briefs (these become monitor-type items)
+- Extract from **Action Items** tables in daily-research and deep-dive reports
+- Extract from **Suggested for Speccing** tables in weekly-recommendations reports
+- Extract from **Monitor Alerts** in weekly-brief reports (these become monitor-type items)
 - Do NOT fabricate items not present in the report
 - Do NOT combine multiple items into one — keep them granular
 - Do NOT editorialize — use the report's own language and assessments

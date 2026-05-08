@@ -6,7 +6,7 @@
 **Product**: {product name}
 **Weekly theme**: {theme or "No weekly brief"}
 **Domains scanned**: {N}
-**Findings**: {N} total, {N} added to backlog
+**Findings**: {N} total, {N} actionable
 **Always Check items scanned**: {N}
 **Escalations**: {N}
 
@@ -33,7 +33,7 @@
 - **Summary**: {2-3 sentences}
 - **Impact**: {H/M/L} | **Effort**: {H/M/L} | **Confidence**: {H/M/L}
 - **Relevance**: {why this matters to the product}
-- **Status**: Added to backlog | Noted
+- **Status**: Actionable | Noted
 
 {Repeat for each finding in this domain, max 5}
 
@@ -45,7 +45,7 @@
 
 ---
 
-## Action Items Added to Backlog
+## Action Items
 
 ### Ideas
 
@@ -57,7 +57,7 @@
 | # | Item | Trigger | Deadline |
 |---|------|---------|----------|
 
-## Noted (Not Added to Backlog)
+## Noted (Not Actionable)
 
 {Findings that were interesting but didn't make the top 5 cut, with brief reason}
 
