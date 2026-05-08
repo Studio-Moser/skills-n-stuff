@@ -1,0 +1,7 @@
+backend: github
+github:
+  owner: acme
+  repo:  widgets
+context_md: CONTEXT.md
+research_dirs: ["Research"]
+triage: { stale_threshold_days: 30 }

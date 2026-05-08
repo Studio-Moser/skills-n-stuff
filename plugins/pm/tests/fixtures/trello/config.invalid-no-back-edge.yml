@@ -1,0 +1,26 @@
+backend: trello
+
+trello:
+  boards:
+    - id: "TEST_BOARD_1"
+      name: "Moby App"
+      lists:
+        needs_triage:    "Needs Triage"
+        ready_for_agent: "Ready"
+        in_progress:     "In Progress"
+        review:          "Review"
+        done:            "Done"
+        needs_changes:   "Needs Changes"
+        blocked:         "Blocked"
+      approval_steps: []
+      review_policy: "self"
+      worker_instructions: ""
+
+  statuses:
+    needs_triage:    [ready_for_agent, rejected]
+    ready_for_agent: [in_progress]
+    in_progress:     [review, blocked, needs_changes]
+    review:          [done, needs_changes]
+    done:            []   # MISSING the needs_changes back-edge — must fail validation
+    needs_changes:   [in_progress]
+    blocked:         [in_progress, cancelled]
