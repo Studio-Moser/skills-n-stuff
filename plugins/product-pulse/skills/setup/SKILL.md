@@ -3,10 +3,10 @@ name: setup
 description: >-
   Onboard Product Pulse to a new project. Interviews you about your product,
   competitors, target audiences, and strategic priorities, then scaffolds
-  the research directory, backlog, spec system, source config, and product
-  context file. Run this once when you first install the plugin. Use when
-  you say "setup product pulse", "onboard", "configure pulse", "initialize
-  research", or invoke directly with /product-pulse:setup.
+  the research directory, pulse-config.yaml, planning/ folder, sources file,
+  and product context file. Run this once when you first install the plugin.
+  Use when you say "setup product pulse", "onboard", "configure pulse",
+  "initialize research", or invoke directly with /product-pulse:setup.
 ---
 
 # Product Pulse — Setup
@@ -61,7 +61,12 @@ Ask these together:
 1. **Where should research files live?** (default: `docs/research/`, or use the `research_dir` userConfig value if set)
 2. **Which git branch should research be committed to?** (default: `main` — some projects use `master`, `develop`, etc.)
 3. **Is this a monorepo or multi-repo project?** If multi-repo, which repos and what does each one do?
-4. **Do you have any existing research, competitive analysis, or strategy docs?** (we can seed from them)
+4. **Auto-merge research PRs?** (default: yes — research output PRs are auto-merged when mergeable; you can review the PR if you want by setting this to no)
+5. **Memory connector?** Some users want the plugin to capture briefs and decisions to a memory MCP. Options:
+   - `shelby` (default — looks for tools matching `mcp__shelby-memory__*` or similar)
+   - `null` (skip memory ops entirely)
+   - Any other prefix matching your memory MCP's tool names
+6. **Do you have any existing research, competitive analysis, or strategy docs?** (we can seed from them)
 
 ---
 
@@ -124,12 +129,6 @@ Format each item as:
 ```
 
 {Populate with the items gathered in Batch 3, or leave as an empty "_(none yet)_" placeholder.}
-
-## Configuration
-
-- **Research directory**: {research_dir}
-- **Git branch**: {branch} (branch to commit research into)
-- **Multi-repo**: {yes/no, with repo list if yes}
 ```
 
 ---
@@ -140,19 +139,20 @@ Create the following structure:
 
 ```
 {research_dir}/
-├── research-context.md         # From Phase 2
-├── research-sources.json       # Curated sources per domain
+├── pulse-config.yaml           # Operational config (NEW)
+├── research-context.md         # Product prose
+├── research-sources.yaml       # Curated sources per domain (was .json)
 ├── deep-dives/                 # Standalone research reports
-todos/
-├── backlog.md                  # Live work queue (Roadmap, Ready, Monitor, Manual, Done, Dismissed)
-├── backlog-ideas.md            # Incoming ideas staging (per-domain Ideas + Expired)
+planning/
+├── todos.md                    # Live work queue (was backlog.md)
+├── ideas.md                    # Incoming ideas staging (was backlog-ideas.md)
 ├── WORKFLOW.md                 # Lifecycle documentation
 ├── archive/                    # Done rows older than 7 days, partitioned by quarter
 └── specs/
     └── _TEMPLATE.md            # Spec template for ready items
 ```
 
-The two-file backlog separates the live sprint queue (`backlog.md`) from the incoming-idea staging area (`backlog-ideas.md`) so daily research adds to one file without bloating the other. The archive directory holds quarterly done-rows (`done-YYYY-QN.md`) once they age out of the 7-day rolling window in `backlog.md`.
+The two-file backlog separates the live sprint queue (`planning/todos.md`) from the incoming-idea staging area (`planning/ideas.md`) so daily research adds to one file without bloating the other. The archive directory holds quarterly done-rows (`done-YYYY-QN.md`) once they age out of the 7-day rolling window in `planning/todos.md`.
 
 ### Folder Organization
 
@@ -174,47 +174,67 @@ Reports are organized by month and week. Each week folder contains that week's s
 
 The daily and weekly skills create the month/week subdirectories automatically as they run. The setup skill creates the top-level structure.
 
-### Generate research-sources.json
+### Generate pulse-config.yaml
+
+This is the operational config the daily-research, weekly-strategist, and sprint-dev skills will discover at runtime. Place at `{research_dir}/pulse-config.yaml`:
+
+```yaml
+project_id: {slug derived from product name, lowercase with hyphens}
+
+repos:
+  - name: {primary repo name}
+    path: .
+    role: primary
+  # If multi-repo, add entries for each additional repo with `path: ../{repo-name}`:
+  # - name: {sibling repo name}
+  #   path: ../{sibling repo name}
+
+default_branch: {branch from interview, default main}
+auto_merge: {true if user said yes, else false}
+
+memory:
+  connector: {connector value from interview, or null if user opted out}
+
+backlog:
+  active: planning/todos.md
+  ideas: planning/ideas.md
+```
+
+The location of this file (its parent directory) IS the research directory — operational skills walk up from cwd to find it.
+
+### Generate research-sources.yaml
 
 Build a starter source config based on the interview. For each research domain, generate 3-5 seed sources:
 
-```json
-{
-  "domains": {
-    "{domain-slug}": {
-      "name": "{Domain Name}",
-      "description": "{why this domain matters}",
-      "sources": [
-        {
-          "name": "{source name}",
-          "url": "{source URL}",
-          "type": "website|github|youtube|rss|api|social",
-          "qualityScore": 50,
-          "notes": "{any special instructions}"
-        }
-      ],
-      "searchTerms": [
-        "{term 1}",
-        "{term 2}",
-        "{term 3}",
-        "{term 4}",
-        "{term 5}"
-      ]
-    }
-  },
-  "meta": {
-    "generatedBy": "product-pulse:setup",
-    "generatedAt": "{ISO date}",
-    "version": "1.0.0"
-  }
-}
+```yaml
+domains:
+  {domain-slug}:
+    name: {Domain Name}
+    description: {why this domain matters}
+    sources:
+      - name: {source name}
+        url: {source URL}
+        type: {website|github|youtube|rss|api|social}
+        qualityScore: 50
+        notes: {any special instructions}
+    searchTerms:
+      - {term 1}
+      - {term 2}
+      - {term 3}
+      - {term 4}
+      - {term 5}
+
+meta:
+  generatedBy: product-pulse:setup
+  generatedAt: {ISO date}
+  version: "1.0.0"
 ```
 
-Use web search to find real, relevant sources for each domain. Don't fabricate URLs. If you can't find good sources for a domain, include fewer and note "sources need manual curation" in the domain description.
+Use web search to find real, relevant sources for each domain. Don't fabricate URLs.
 
-### Generate todos/backlog.md (live work queue)
+### Generate planning/todos.md (live work queue)
 
-`backlog.md` holds everything sprint-dev acts on. Ideas live in the sibling file `backlog-ideas.md` (next section).
+`todos.md` holds everything sprint-dev acts on. Ideas live in the sibling file `ideas.md` (next section).
 
 ```markdown
 # Backlog
@@ -258,7 +278,7 @@ Items that require human judgment or external action (no code change).
 
 ## Done (last 7 days)
 
-Recently merged items. Sprint-dev moves rows here on merge and archives anything older than 7 days into `todos/archive/done-YYYY-QN.md`.
+Recently merged items. Sprint-dev moves rows here on merge and archives anything older than 7 days into `planning/archive/done-YYYY-QN.md`.
 
 | # | Item | PR | Merged |
 |---|------|----|--------|
@@ -269,7 +289,7 @@ Recently merged items. Sprint-dev moves rows here on merge and archives anything
 |---|------|--------|------|
 ```
 
-### Generate todos/backlog-ideas.md (incoming ideas staging)
+### Generate planning/ideas.md (incoming ideas staging)
 
 Daily research writes new actionable findings into the per-domain Ideas subsections here. Use the domain names from the interview to create the subsections.
 
@@ -279,9 +299,9 @@ Daily research writes new actionable findings into the per-domain Ideas subsecti
 **Product**: {product name}
 **Last updated**: {DATE}
 
-Incoming ideas staged for triage. Daily research adds rows here (max 5/day). Weekly strategist removes rows on dismissal or Monitor promotion. The user promotes idea rows to `backlog.md` Ready when ready to implement.
+Incoming ideas staged for triage. Daily research adds rows here (max 5/day). Weekly strategist removes rows on dismissal or Monitor promotion. The user promotes idea rows to `planning/todos.md` Ready when ready to implement.
 
-All items here carry status `idea`. Item numbers are sequential across BOTH this file and `backlog.md`.
+All items here carry status `idea`. Item numbers are sequential across BOTH this file and `planning/todos.md`.
 
 ## Ideas
 
@@ -308,20 +328,20 @@ Recovery surface — Monitor items whose deadline closed without the trigger fir
 |---|------|------------------|--------|-------|
 ```
 
-### Create todos/archive/
+### Create planning/archive/
 
-Create the directory `todos/archive/` (empty for now). Sprint-dev will create quarterly files (e.g. `done-2026-Q2.md`) when it archives rows older than 7 days out of `backlog.md`'s Done section.
+Create the directory `planning/archive/` (empty for now). Sprint-dev will create quarterly files (e.g. `done-2026-Q2.md`) when it archives rows older than 7 days out of `planning/todos.md`'s Done section.
 
-### Generate todos/WORKFLOW.md
+### Generate planning/WORKFLOW.md
 
 ```markdown
 # Backlog Workflow
 
 The backlog is split across two files:
 
-- `todos/backlog.md` — live work queue (Roadmap, Ready, Monitor, Manual, Done last 7 days, Dismissed). This is what sprint-dev acts on.
-- `todos/backlog-ideas.md` — incoming ideas staging (per-domain Ideas subsections plus an Expired / passed-deadline table). This is where daily research writes new findings.
-- `todos/archive/done-YYYY-QN.md` — append-only history of merged items older than 7 days, partitioned by quarter.
+- `planning/todos.md` — live work queue (Roadmap, Ready, Monitor, Manual, Done last 7 days, Dismissed). This is what sprint-dev acts on.
+- `planning/ideas.md` — incoming ideas staging (per-domain Ideas subsections plus an Expired / passed-deadline table). This is where daily research writes new findings.
+- `planning/archive/done-YYYY-QN.md` — append-only history of merged items older than 7 days, partitioned by quarter.
 
 Item IDs are sequential across both files. Roadmap items use an `R{N}` prefix.
 
@@ -335,20 +355,20 @@ idea → specced → ready → in-progress → awaiting-pr → done
 
 | Status | Where | Meaning |
 |--------|-------|---------|
-| `idea` | `backlog-ideas.md` Ideas subsections | Raw finding from research or manual entry. Not yet evaluated. |
-| `specced` | `backlog-ideas.md` Ideas subsections | Has a spec in `todos/specs/`. Needs user review before promotion. |
-| `ready` | `backlog.md` Ready (sprint subsection) | Spec reviewed, item approved for implementation. |
-| `in-progress` | `backlog.md` Ready (status inline on row) | Currently being worked on by sprint-dev. |
-| `awaiting-pr` | `backlog.md` Ready (status inline on row, PR link embedded) | PR created, waiting for merge. No standalone section. |
-| `done` | `backlog.md` Done (last 7 days), then `todos/archive/done-YYYY-QN.md` | PR merged. |
-| `monitor` | `backlog.md` Monitor table | Watch-and-wait. Not actionable yet. |
-| `manual` | `backlog.md` Manual table | Requires human action, not code. |
-| `expired` | `backlog-ideas.md` Expired / passed-deadline | Monitor item whose deadline closed without trigger firing — kept for context. |
-| `dismissed` | `backlog.md` Dismissed table | No longer relevant. Kept for audit trail. |
+| `idea` | `planning/ideas.md` Ideas subsections | Raw finding from research or manual entry. Not yet evaluated. |
+| `specced` | `planning/ideas.md` Ideas subsections | Has a spec in `planning/specs/`. Needs user review before promotion. |
+| `ready` | `planning/todos.md` Ready (sprint subsection) | Spec reviewed, item approved for implementation. |
+| `in-progress` | `planning/todos.md` Ready (status inline on row) | Currently being worked on by sprint-dev. |
+| `awaiting-pr` | `planning/todos.md` Ready (status inline on row, PR link embedded) | PR created, waiting for merge. No standalone section. |
+| `done` | `planning/todos.md` Done (last 7 days), then `planning/archive/done-YYYY-QN.md` | PR merged. |
+| `monitor` | `planning/todos.md` Monitor table | Watch-and-wait. Not actionable yet. |
+| `manual` | `planning/todos.md` Manual table | Requires human action, not code. |
+| `expired` | `planning/ideas.md` Expired / passed-deadline | Monitor item whose deadline closed without trigger firing — kept for context. |
+| `dismissed` | `planning/todos.md` Dismissed table | No longer relevant. Kept for audit trail. |
 
 ### Who Does What
 
-| Role | Adds Ideas (`backlog-ideas.md`) | Adds Monitor (`backlog.md`) | Promotes to Ready | Implements | Dismisses |
+| Role | Adds Ideas (`planning/ideas.md`) | Adds Monitor (`planning/todos.md`) | Promotes to Ready | Implements | Dismisses |
 |------|---------------------------------|-----------------------------|-------------------|------------|-----------|
 | Daily Research | Yes (max 5/day) | Yes (watch-and-wait items) | Never | Never | Never |
 | Weekly Strategist | Never | Yes (moves Ideas → Monitor) | Never (recommends only) | Never | Yes (Ideas → Dismissed) |
@@ -367,11 +387,11 @@ idea → specced → ready → in-progress → awaiting-pr → done
 ### Spec Requirement
 
 - **S/M items**: Spec optional. Can go straight to Ready if straightforward.
-- **L/XL items**: Spec required before promotion to Ready. Use `todos/specs/_TEMPLATE.md`.
-- **Specs live at**: `todos/specs/{item-number}-{slug}.md`
+- **L/XL items**: Spec required before promotion to Ready. Use `planning/specs/_TEMPLATE.md`.
+- **Specs live at**: `planning/specs/{item-number}-{slug}.md`
 ```
 
-### Generate todos/specs/_TEMPLATE.md
+### Generate planning/specs/_TEMPLATE.md
 
 ```markdown
 # Spec: {Item Title}
@@ -460,10 +480,11 @@ Product Pulse — Setup Complete
 
 Project: {product name}
 Research directory: {research_dir}/
-Backlog (live): todos/backlog.md
-Backlog (ideas): todos/backlog-ideas.md
-Archive: todos/archive/
-Specs directory: todos/specs/
+Pulse config: {research_dir}/pulse-config.yaml
+Active todos: planning/todos.md
+Ideas: planning/ideas.md
+Archive: planning/archive/
+Specs directory: planning/specs/
 Domains configured: {N} ({list})
 Sources seeded: {N} across all domains
 Backlog initialized: empty, ready for first research run
@@ -471,11 +492,12 @@ Backlog initialized: empty, ready for first research run
 --- Next Steps ---
 
 1. Review the generated files:
+   - {research_dir}/pulse-config.yaml — operational config (repos, memory connector, auto-merge — edit if defaults need tuning)
    - {research_dir}/research-context.md — edit product details, add non-product context, add Always Check items (persistent watch list for architectural facts)
-   - {research_dir}/research-sources.json — add/remove sources per domain
-   - todos/backlog.md — add any known Roadmap or Ready items manually
-   - todos/backlog-ideas.md — add any pre-existing ideas you want triaged
-   - todos/WORKFLOW.md — review the lifecycle and two-file split
+   - {research_dir}/research-sources.yaml — add/remove sources per domain
+   - planning/todos.md — add any known Roadmap or Ready items manually
+   - planning/ideas.md — add any pre-existing ideas you want triaged
+   - planning/WORKFLOW.md — review the lifecycle and two-file split
 
 2. Run your first weekly strategy brief:
    /product-pulse:weekly-strategist
@@ -489,6 +511,8 @@ Backlog initialized: empty, ready for first research run
 --- Scheduling (Optional) ---
 
 To automate the weekly and daily skills, create scheduled tasks in Claude Code:
+
+Use the same `project_id` you set in pulse-config.yaml for the task ID prefix.
 
 Weekly strategist (runs Monday mornings):
   Task ID: {project-slug}-weekly-strategist
@@ -511,5 +535,6 @@ Sprint dev is manual-only — run /product-pulse:sprint-dev when you're ready to
 - **User doesn't know competitors**: That's fine — leave the table sparse and note "competitor discovery" as a priority for the first weekly run.
 - **User has existing research**: Offer to read their existing docs and seed the backlog from them.
 - **Multi-repo project**: Note all repos in research-context.md. The sprint-dev skill will use this for routing.
-- **Migrating from research-tracker.md**: If a `research-tracker.md` exists, offer to migrate items into the two-file backlog: actionable findings → `todos/backlog-ideas.md` Ideas subsections, watch-and-wait → `todos/backlog.md` Monitor.
-- **Migrating from a single-file backlog.md**: If `todos/backlog.md` exists with an Ideas section, offer to extract those rows into `todos/backlog-ideas.md` and trim `backlog.md` to the live-queue layout above. Drop any standalone Awaiting PR section — those rows now carry inline `awaiting-pr` status in their sprint-section row.
+- **Migrating from research-tracker.md**: If a `research-tracker.md` exists, offer to migrate items into the two-file backlog: actionable findings → `planning/ideas.md` Ideas subsections, watch-and-wait → `planning/todos.md` Monitor.
+- **Migrating from a single-file backlog.md**: If `planning/todos.md` exists with an Ideas section, offer to extract those rows into `planning/ideas.md` and trim `planning/todos.md` to the live-queue layout above. Drop any standalone Awaiting PR section — those rows now carry inline `awaiting-pr` status in their sprint-section row.
+- **Migrating from product-pulse 0.1.0**: If the project was set up with a previous version of this plugin, hand-migration may be needed: rename `todos/` → `planning/`, rename `backlog.md` → `todos.md`, rename `backlog-ideas.md` → `ideas.md`, convert `research-sources.json` → `research-sources.yaml`, create `pulse-config.yaml` from the old "Configuration section" of `research-context.md`. See the spec at `docs/superpowers/specs/2026-05-07-product-pulse-config-and-defork-design.md` in the skills-n-stuff repo for the full migration plan.
