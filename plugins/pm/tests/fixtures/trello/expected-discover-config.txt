@@ -1,0 +1,4 @@
+backend=trello
+trello_webhook_url=
+trello_boards_json=[{"id":"TEST_BOARD_1","name":"Moby App","lists":{"needs_triage":"Needs Triage","ready_for_agent":"Ready","in_progress":"In Progress","review":"Review","done":"Done","needs_changes":"Needs Changes","blocked":"Blocked"},"approval_steps":["tech_lead"],"review_policy":"self","worker_instructions":"Follow CONTRIBUTING.md and the project ADR style."}]
+trello_statuses_json={"needs_triage":["ready_for_agent","rejected"],"ready_for_agent":["in_progress"],"in_progress":["review","blocked","needs_changes"],"review":["done","needs_changes"],"done":["needs_changes"],"needs_changes":["in_progress"],"blocked":["in_progress","cancelled"]}

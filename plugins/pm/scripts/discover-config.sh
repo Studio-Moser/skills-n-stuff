@@ -51,13 +51,27 @@ adr_dir="$(yq '.adr_dir // "docs/adr"' "$pm_config" 2>/dev/null || echo "docs/ad
 oos_dir="$(yq '.out_of_scope_dir // ".pm/out-of-scope"' "$pm_config" 2>/dev/null || echo ".pm/out-of-scope")"
 stale_threshold="$(yq '.triage.stale_threshold_days // 30' "$pm_config" 2>/dev/null || echo "30")"
 
-# GitHub backend
+# ── Backend-specific extraction ─────────────────────────────────────
 gh_owner=""
 gh_repo=""
-if [ "$backend" = "github" ]; then
-  gh_owner="$(yq '.github.owner // ""' "$pm_config" 2>/dev/null || echo "")"
-  gh_repo="$(yq '.github.repo // ""' "$pm_config" 2>/dev/null || echo "")"
-fi
+trello_webhook_url=""
+trello_boards_json="[]"
+trello_statuses_json="{}"
+
+case "$backend" in
+  github)
+    gh_owner="$(yq '.github.owner // ""' "$pm_config" 2>/dev/null || echo "")"
+    gh_repo="$(yq '.github.repo  // ""' "$pm_config" 2>/dev/null || echo "")"
+    ;;
+  trello)
+    trello_webhook_url="$(yq '.trello.webhook_url // ""' "$pm_config" 2>/dev/null || echo "")"
+    trello_boards_json="$(yq -o=json -I=0 '.trello.boards // []' "$pm_config" 2>/dev/null || echo "[]")"
+    trello_statuses_json="$(yq -o=json -I=0 '.trello.statuses // {}' "$pm_config" 2>/dev/null || echo "{}")"
+    ;;
+  local)
+    : # nothing to add
+    ;;
+esac
 
 # Research directories
 research_dirs_raw="$(yq '.research_dirs[]' "$pm_config" 2>/dev/null || echo "")"
@@ -101,6 +115,9 @@ oos_dir=$primary_repo_root/$oos_dir
 stale_threshold_days=$stale_threshold
 gh_owner=$gh_owner
 gh_repo=$gh_repo
+trello_webhook_url=$trello_webhook_url
+trello_boards_json=$trello_boards_json
+trello_statuses_json=$trello_statuses_json
 research_dirs=$research_dirs
 state_file=$state_file
 repos_json=$repos_yaml
