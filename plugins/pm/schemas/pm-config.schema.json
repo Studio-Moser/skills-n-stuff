@@ -1,0 +1,82 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/Studio-Moser/skills-n-stuff/plugins/pm/schemas/pm-config.schema.json",
+  "title": "PM Plugin Configuration",
+  "type": "object",
+  "required": ["backend"],
+  "properties": {
+    "backend": { "enum": ["github", "local", "trello"] },
+    "context_md": { "type": "string", "default": "CONTEXT.md" },
+    "adr_dir": { "type": "string", "default": "docs/adr" },
+    "out_of_scope_dir": { "type": "string", "default": ".pm/out-of-scope" },
+    "research_dirs": { "type": "array", "items": { "type": "string" } },
+    "triage": {
+      "type": "object",
+      "properties": {
+        "stale_threshold_days": { "type": "integer", "default": 30 }
+      }
+    },
+    "github": {
+      "type": "object",
+      "required": ["owner", "repo"],
+      "properties": {
+        "owner": { "type": "string" },
+        "repo": { "type": "string" },
+        "target_repos": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "local": {
+      "type": "object",
+      "properties": {
+        "items_dir": { "type": "string", "default": ".pm/items" }
+      }
+    },
+    "trello": {
+      "type": "object",
+      "required": ["boards", "statuses"],
+      "properties": {
+        "webhook_url": { "type": "string", "format": "uri", "description": "Public URL where Trello sends events. Registered by /pm:setup. The receiving route lives in Shelby (W1e)." },
+        "boards": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["id", "name", "lists"],
+            "properties": {
+              "id": { "type": "string", "description": "Trello board id" },
+              "name": { "type": "string" },
+              "lists": {
+                "type": "object",
+                "required": ["needs_triage", "ready_for_agent", "in_progress", "review", "done", "needs_changes", "blocked"],
+                "additionalProperties": false,
+                "properties": {
+                  "needs_triage":     { "type": "string" },
+                  "ready_for_agent":  { "type": "string" },
+                  "in_progress":      { "type": "string" },
+                  "review":           { "type": "string" },
+                  "done":             { "type": "string" },
+                  "needs_changes":    { "type": "string" },
+                  "blocked":          { "type": "string" }
+                }
+              },
+              "approval_steps":     { "type": "array", "items": { "type": "string" }, "default": [] },
+              "review_policy":      { "enum": ["self", "judge", "auto"], "default": "self" },
+              "worker_instructions": { "type": "string" }
+            }
+          }
+        },
+        "statuses": {
+          "type": "object",
+          "required": ["needs_triage", "ready_for_agent", "in_progress", "review", "done", "needs_changes", "blocked"],
+          "additionalProperties": { "type": "array", "items": { "type": "string" } },
+          "description": "Bidirectional transition map. Each key lists statuses it can move to. done MUST include needs_changes; needs_changes MUST include in_progress."
+        }
+      }
+    }
+  },
+  "allOf": [
+    { "if": { "properties": { "backend": { "const": "github" } } }, "then": { "required": ["github"] } },
+    { "if": { "properties": { "backend": { "const": "local" } } },  "then": { "required": ["local"] } },
+    { "if": { "properties": { "backend": { "const": "trello" } } }, "then": { "required": ["trello"] } }
+  ]
+}
