@@ -34,17 +34,21 @@ You are NOT a research scanner (that's the daily skill). You are a strategic **a
 
 ### 0.0 Discover Configuration
 
-Walk up from cwd until you find `pulse-config.yaml`. That file's parent directory is the **research directory** (referred to below as `{research_dir}`). Load the YAML config; the rest of the skill uses values from it.
+Walk up from cwd, checking each directory for `pulse-config.yaml` directly and in common research-dir subdirs (`research/`, `Research/`, `docs/research/`). The first match wins; that file's parent directory is the **research directory** (`{research_dir}`). Load the YAML config; the rest of the skill uses values from it.
 
 ```bash
 config_path=""
+research_dir=""
 dir="$PWD"
 while [ "$dir" != "/" ]; do
-  if [ -f "$dir/pulse-config.yaml" ]; then
-    config_path="$dir/pulse-config.yaml"
-    research_dir="$dir"
-    break
-  fi
+  for sub in "" "research/" "Research/" "docs/research/"; do
+    candidate="$dir/${sub}pulse-config.yaml"
+    if [ -f "$candidate" ]; then
+      config_path="$candidate"
+      research_dir="$(cd "$(dirname "$candidate")" && pwd)"
+      break 2
+    fi
+  done
   dir="$(dirname "$dir")"
 done
 
