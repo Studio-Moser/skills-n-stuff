@@ -7,6 +7,8 @@ description: >-
   with self-review and full testing. Reads CONTEXT.md for domain terminology
   and .pm/out-of-scope/ for negative constraints. Trigger: "let's build",
   "work the backlog", "what can we ship", "sprint", or /pm:sprint-dev.
+effort: high
+allowed-tools: "Bash Read Write Edit Agent Skill"
 ---
 
 # PM — Sprint Dev
@@ -30,65 +32,15 @@ Interactive skill that reads ready items from GitHub Issues (or local backlog), 
 
 ## Phase 0: Sync & Reconcile
 
-### 0.0 Discover Configuration
+### 0.0 Pre-resolved Configuration
 
-Walk up from cwd, checking each directory for `pulse-config.yaml` directly and in common research-dir subdirs (`research/`, `Research/`, `docs/research/`). The first match wins; that file's parent directory is the **research directory** (`{research_dir}`). Load the YAML config; the rest of the skill uses values from it.
+All config values are pre-resolved at skill load time. If you see `ERROR:` in the output below, stop and tell the user.
 
-```bash
-config_path=""
-research_dir=""
-dir="$PWD"
-while [ "$dir" != "/" ]; do
-  for sub in "" "research/" "Research/" "docs/research/"; do
-    candidate="$dir/${sub}pulse-config.yaml"
-    if [ -f "$candidate" ]; then
-      config_path="$candidate"
-      research_dir="$(cd "$(dirname "$candidate")" && pwd)"
-      break 2
-    fi
-  done
-  dir="$(dirname "$dir")"
-done
-
-if [ -z "$config_path" ]; then
-  echo "No pulse-config.yaml found. Run /pm:setup first." >&2
-  exit 1
-fi
-
-primary_repo_root="$(cd "$research_dir" && git rev-parse --show-toplevel)"
-
-backlog_active="$primary_repo_root/$(yq '.backlog.active // "planning/todos.md"' "$config_path")"
-backlog_ideas="$primary_repo_root/$(yq '.backlog.ideas // "planning/ideas.md"' "$config_path")"
-default_branch="$(yq '.default_branch // "main"' "$config_path")"
-auto_merge="$(yq '.auto_merge // true' "$config_path")"
-project_id="$(yq '.project_id' "$config_path")"
-memory_connector="$(yq '.memory.connector // "shelby"' "$config_path")"
-
-echo "Using config: $config_path"
-echo "Research dir: $research_dir"
+```
+!`${CLAUDE_PLUGIN_ROOT}/scripts/discover-config.sh`
 ```
 
-Parse the YAML. Required fields: `project_id`, `repos`. Optional with defaults: `default_branch` (default `main`), `auto_merge` (default `true`), `memory.connector` (default `shelby`; set to `null` to disable), `backlog.active` (default `planning/todos.md`), `backlog.ideas` (default `planning/ideas.md`).
-
-Find the entry in `repos:` with `role: primary`. Its filesystem location (resolved relative to the directory containing pulse-config.yaml's parent) is the **primary repo root** (`{primary_repo_root}`) for backlog and git operations.
-
-Now discover the PM config:
-
-```bash
-pm_config="$primary_repo_root/.pm/config.yml"
-if [ ! -f "$pm_config" ]; then
-  echo "No .pm/config.yml found. Run /pm:setup first." >&2
-  exit 1
-fi
-backend="$(yq '.backend // "github"' "$pm_config")"
-
-if [ "$backend" = "github" ]; then
-  gh_owner="$(yq '.github.owner' "$pm_config")"
-  gh_repo="$(yq '.github.repo' "$pm_config")"
-fi
-```
-
-The `backend` value (`github` or `local`) determines how items are loaded and updated throughout the rest of this skill. When using the GitHub backend, `gh_owner` and `gh_repo` identify the target repository for all `gh` CLI commands.
+Parse the key=value pairs above. The `backend` value (`github` or `local`) determines how items are loaded and updated throughout the rest of this skill. When using the GitHub backend, `gh_owner` and `gh_repo` identify the target repository for all `gh` CLI commands.
 
 ### 0.1 Read Product Context
 

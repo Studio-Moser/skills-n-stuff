@@ -1,6 +1,6 @@
 {
   "name": "pm",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Backend-agnostic project management for AI-native teams. Ingests research reports, triages and specs work items, manages sprint execution with sub-agents, syncs with GitHub Issues. Pairs with product-pulse for automated intelligence gathering.",
   "author": {
     "name": "Studio Moser",
@@ -16,5 +16,18 @@
     "backlog",
     "issue-tracker",
     "multi-repo"
-  ]
+  ],
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/check-prereqs.sh $(yq '.backend // \"github\"' \"$(git rev-parse --show-toplevel 2>/dev/null || echo .)/.pm/config.yml\" 2>/dev/null || echo github)"
+          }
+        ]
+      }
+    ]
+  }
 }

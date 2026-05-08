@@ -7,6 +7,9 @@ description: >-
   If product-pulse is installed, reads shared config from pulse-config.yaml.
   Run once per workspace. Trigger: "setup pm", "initialize project management",
   "configure issue tracking", or /pm:setup.
+disable-model-invocation: true
+effort: medium
+allowed-tools: "Bash Read Write Edit"
 ---
 
 # PM — Setup
@@ -202,41 +205,7 @@ last_reconcile: null
 
 ### Generate .pm/out-of-scope/README.md
 
-```markdown
-# Out-of-Scope Rejection KB
-
-This directory holds rejection records for features, ideas, and requests that have
-been evaluated and deliberately excluded from the project's scope.
-
-## Purpose
-
-When an agent encounters a request or idea that has been previously rejected,
-it can check this directory to find the decision record. This prevents:
-
-- Re-litigating settled decisions
-- Wasting triage time on known rejections
-- Losing the reasoning behind past rejections
-
-## Format
-
-Each file is a markdown document named `{slug}.md` with this structure:
-
-- **Feature/Concept Name** — what was rejected
-- **Decided date** — when the decision was made
-- **Status** — always "Rejected"
-- **Decision** — one paragraph on what was rejected and why
-- **Reasoning** — trade-offs considered
-- **Prior requests** — log of each time this was requested, with date and context
-
-## Usage
-
-- Triage adds entries here when dismissing items with reusable reasoning.
-- Agents check this directory before promoting similar ideas.
-- If circumstances change, move the file to an `archived/` subdirectory and
-  re-evaluate the request.
-
-See the entry template at `plugins/pm/templates/out-of-scope-entry.md`.
-```
+Read the template from `templates/oos-readme.md` (relative to this skill's plugin directory at `plugins/pm/`). Write it to `.pm/out-of-scope/README.md`.
 
 ### Create or update pulse-config.yaml (if it doesn't exist)
 
@@ -391,161 +360,19 @@ planning/
 
 #### Generate planning/todos.md
 
-```markdown
-# Backlog
-
-**Project**: {project name or project_id}
-**Last updated**: {DATE}
-
-## Roadmap
-
-Strategic items with long-term timelines. Use `R{N}` IDs.
-
-| # | Item | Size | Priority | Owner | Target | Status | Notes |
-|---|------|------|----------|-------|--------|--------|-------|
-
-## Ready
-
-Items approved for implementation. Group related items into named sprint subsections (`### Sprint: ...`). Items in flight carry `awaiting-pr` or `in-progress` status inline.
-
-### Sprint: Unassigned
-
-| # | Item | Size | Priority | Status | Spec | Freshness | Notes |
-|---|------|------|----------|--------|------|-----------|-------|
-
-## Monitor
-
-Watch-and-wait items — not actionable yet, but may become relevant.
-
-| # | Item | Trigger | Deadline | Found |
-|---|------|---------|----------|-------|
-
-## Manual
-
-Items that require human judgment or external action (no code change).
-
-| # | Item | Owner | Context | Added |
-|---|------|-------|---------|-------|
-
-## Done (last 7 days)
-
-| # | Item | PR | Merged |
-|---|------|----|--------|
-
-## Dismissed
-
-| # | Item | Reason | Date |
-|---|------|--------|------|
-```
+Read the template from `templates/todos-md.md` (relative to this skill's plugin directory at `plugins/pm/`). Replace `{project name or project_id}` with the actual project identifier and `{DATE}` with today's date. Write to `{planning_dir}/todos.md`.
 
 #### Generate planning/ideas.md
 
-```markdown
-# Backlog -- Ideas
-
-**Project**: {project name or project_id}
-**Last updated**: {DATE}
-
-Incoming ideas staged for triage. Research adds rows here. The user promotes
-idea rows to `planning/todos.md` Ready when ready to implement.
-
-## Ideas
-
-### General
-
-| # | Item | Size | Priority | Source | Found |
-|---|------|------|----------|--------|-------|
-
-## Expired / passed-deadline
-
-| # | Item | Original Trigger | Closed | Notes |
-|---|------|------------------|--------|-------|
-```
+Read the template from `templates/ideas-md.md`. Apply the same placeholder substitutions. Write to `{planning_dir}/ideas.md`.
 
 #### Generate planning/WORKFLOW.md
 
-```markdown
-# Backlog Workflow
-
-The backlog is split across two files:
-
-- `planning/todos.md` -- live work queue (Roadmap, Ready, Monitor, Manual, Done, Dismissed)
-- `planning/ideas.md` -- incoming ideas staging
-- `planning/archive/done-YYYY-QN.md` -- merged items older than 7 days
-
-Item IDs are sequential across both files. Roadmap items use `R{N}` prefix.
-
-## Lifecycle
-
-```
-idea -> specced -> ready -> in-progress -> awaiting-pr -> done
-```
-
-## Statuses
-
-| Status | Where | Meaning |
-|--------|-------|---------|
-| idea | ideas.md | Raw finding, not yet evaluated |
-| specced | ideas.md | Has a spec, needs user review |
-| ready | todos.md Ready | Approved for implementation |
-| in-progress | todos.md Ready | Currently being worked on |
-| awaiting-pr | todos.md Ready | PR created, waiting for merge |
-| done | todos.md Done | PR merged |
-| monitor | todos.md Monitor | Watch-and-wait |
-| manual | todos.md Manual | Requires human action |
-| dismissed | todos.md Dismissed | No longer relevant |
-
-## Size Guide
-
-| Size | Meaning | Typical Effort |
-|------|---------|---------------|
-| S | Small / trivial | < 1 hour |
-| M | Medium | 1-4 hours |
-| L | Large -- needs a spec | 4+ hours |
-| XL | Extra large -- needs spec + chunking | Multi-day |
-```
+Read the template from `templates/workflow-md.md`. Write to `{planning_dir}/WORKFLOW.md` (no placeholder substitution needed — this is reference documentation).
 
 #### Generate planning/specs/_TEMPLATE.md
 
-```markdown
-# Spec: {Item Title}
-
-**Backlog #**: {number}
-**Size**: {S|M|L|XL}
-**Priority**: {P0|P1|P2|P3}
-**Created**: {DATE}
-**Status**: draft | reviewed | approved
-
----
-
-## Goal
-
-{What this item achieves. One paragraph max.}
-
-## Context
-
-{Why this matters now. Link to research report or strategic brief if applicable.}
-
-## Approach
-
-{How to implement. Be specific enough that an agent can follow without ambiguity.}
-
-## Chunks
-
-For L/XL items, break into ordered chunks that can be committed independently.
-
-1. {Chunk 1}
-2. {Chunk 2}
-
-## Acceptance Criteria
-
-- [ ] {Criterion 1}
-- [ ] {Criterion 2}
-
-## Open Questions
-
-- {Question 1}
-```
+Read the template from `templates/spec-template.md`. Write to `{planning_dir}/specs/_TEMPLATE.md` (no placeholder substitution — agents copy this file and fill in placeholders when creating new specs).
 
 #### Create planning/archive/
 

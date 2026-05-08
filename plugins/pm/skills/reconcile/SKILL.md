@@ -7,6 +7,8 @@ description: >-
   merges, or periodically.
   Trigger: "reconcile", "sync issues", "clean up backlog", "check progress",
   or /pm:reconcile.
+effort: medium
+allowed-tools: "Bash Read Write Edit"
 ---
 
 # PM -- Reconcile
@@ -30,50 +32,15 @@ You are NOT the triage agent -- that's `/pm:triage`. You sync state; others clas
 
 ## Phase 0: Discover Config
 
-### 0.0 Discover Configuration
+### 0.0 Pre-resolved Configuration
 
-**Shared config (pulse-config.yaml):**
+All config values are pre-resolved at skill load time. If you see `ERROR:` in the output below, stop and tell the user.
 
-Walk up from cwd, checking each directory for `pulse-config.yaml` directly and in common research-dir subdirs (`research/`, `Research/`, `docs/research/`). The first match wins; that file's parent directory is the **research directory** (`{research_dir}`).
-
-```bash
-config_path=""
-research_dir=""
-dir="$PWD"
-while [ "$dir" != "/" ]; do
-  for sub in "" "research/" "Research/" "docs/research/"; do
-    candidate="$dir/${sub}pulse-config.yaml"
-    if [ -f "$candidate" ]; then
-      config_path="$candidate"
-      research_dir="$(cd "$(dirname "$candidate")" && pwd)"
-      break 2
-    fi
-  done
-  dir="$(dirname "$dir")"
-done
-
-if [ -z "$config_path" ]; then
-  echo "No pulse-config.yaml found. Run /product-pulse:setup or /pm:setup first." >&2
-  exit 1
-fi
-
-primary_repo_root="$(cd "$research_dir" && git rev-parse --show-toplevel)"
-default_branch="$(yq '.default_branch // "main"' "$config_path")"
-project_id="$(yq '.project_id' "$config_path")"
-memory_connector="$(yq '.memory.connector // "shelby"' "$config_path")"
+```
+!`${CLAUDE_PLUGIN_ROOT}/scripts/discover-config.sh`
 ```
 
-**PM config (.pm/config.yml):**
-
-```bash
-pm_config="$primary_repo_root/.pm/config.yml"
-if [ ! -f "$pm_config" ]; then
-  echo "No .pm/config.yml found. Run /pm:setup first." >&2
-  exit 1
-fi
-
-backend="$(yq '.backend // "github"' "$pm_config")"
-```
+Parse the key=value pairs above. The `research_dirs` value is colon-separated (split on `:`). The `repos_json` value is a JSON array of repo objects.
 
 ### 0.1 Load State and Repos
 
@@ -468,24 +435,12 @@ gh issue edit "$num" \
   --add-label "blocker" \
   --repo "$gh_owner/$gh_repo"
 
-# Link to parent via sub-issue API
+# Link to parent via sub-issue API — see references/github-sub-issues.md
+# for the full GraphQL mutation with comment-based fallback.
 parent_id=$(gh issue view "$parent_num" --json id --jq '.id' --repo "$gh_owner/$gh_repo")
 child_id=$(gh issue view "$num" --json id --jq '.id' --repo "$gh_owner/$gh_repo")
-
-gh api graphql -f query='
-  mutation {
-    addSubIssue(input: {
-      issueId: "'"$parent_id"'"
-      subIssueId: "'"$child_id"'"
-    }) {
-      issue { id }
-      subIssue { id }
-    }
-  }
-' 2>/dev/null || \
-  gh issue comment "$num" \
-    --body "Blocking: parent #{parent_num} cannot ship without this." \
-    --repo "$gh_owner/$gh_repo"
+gh api graphql -f query='mutation{addSubIssue(input:{issueId:"'"$parent_id"'",subIssueId:"'"$child_id"'"}){issue{id}subIssue{id}}}' 2>/dev/null || \
+  gh issue comment "$num" --body "Blocking: parent #$parent_num cannot ship without this." --repo "$gh_owner/$gh_repo"
 ```
 
 **Blocking items (local):**

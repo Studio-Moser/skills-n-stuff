@@ -42,7 +42,7 @@
       "name": "pm",
       "source": "./plugins/pm",
       "description": "Backend-agnostic project management for AI-native teams. Ingests research, triages and specs work items, manages sprint execution with sub-agents, syncs with GitHub Issues.",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "author": {
         "name": "Studio Moser"
       },
