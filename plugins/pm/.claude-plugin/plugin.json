@@ -1,0 +1,20 @@
+{
+  "name": "pm",
+  "version": "0.1.0",
+  "description": "Backend-agnostic project management for AI-native teams. Ingests research reports, triages and specs work items, manages sprint execution with sub-agents, syncs with GitHub Issues. Pairs with product-pulse for automated intelligence gathering.",
+  "author": {
+    "name": "Studio Moser",
+    "url": "https://github.com/Studio-Moser"
+  },
+  "repository": "https://github.com/Studio-Moser/skills-n-stuff",
+  "license": "MIT",
+  "keywords": [
+    "project-management",
+    "github-issues",
+    "triage",
+    "sprint",
+    "backlog",
+    "issue-tracker",
+    "multi-repo"
+  ]
+}
