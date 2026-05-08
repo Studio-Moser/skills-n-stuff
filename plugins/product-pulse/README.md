@@ -37,6 +37,20 @@ idea → specced → ready → in-progress → awaiting-pr → done
 - **You** write specs and promote items to Ready
 - **Sprint Dev** implements Ready items, checks spec freshness first
 
+## Prerequisites
+
+Product Pulse skills shell out to `yq` to parse `pulse-config.yaml` at runtime. Install it before running any skill:
+
+```bash
+# macOS
+brew install yq
+
+# Linux
+sudo snap install yq    # or use your distro's package manager
+```
+
+`gh` (GitHub CLI) is also required for the PR-based output flow used by `weekly-strategist` and `daily-research`. Install with `brew install gh` or follow [cli.github.com](https://cli.github.com).
+
 ## Setup
 
 After installing, run the onboarding wizard:
