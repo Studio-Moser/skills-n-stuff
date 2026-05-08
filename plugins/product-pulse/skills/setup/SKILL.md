@@ -58,15 +58,16 @@ Ask these together:
 
 ### Batch 4: Configuration
 
-1. **Where should research files live?** (default: `docs/research/`, or use the `research_dir` userConfig value if set)
-2. **Which git branch should research be committed to?** (default: `main` — some projects use `master`, `develop`, etc.)
-3. **Is this a monorepo or multi-repo project?** If multi-repo, which repos and what does each one do?
-4. **Auto-merge research PRs?** (default: yes — research output PRs are auto-merged when mergeable; you can review the PR if you want by setting this to no)
-5. **Memory connector?** Some users want the plugin to capture briefs and decisions to a memory MCP. Options:
+1. **What's your project_id slug?** (suggested: `{lowercased-hyphenated-product-name}` — e.g. `shelby` or `the-crooked-line`. Used to tag memory entries and as a prefix for scheduled-task names. Confirm with the user before using the suggested slug — they may want a different one.)
+2. **Where should research files live?** (default: `docs/research/`, or use the `research_dir` userConfig value if set)
+3. **Which git branch should research be committed to?** (default: `main` — some projects use `master`, `develop`, etc.)
+4. **Is this a monorepo or multi-repo project?** If multi-repo, which repos and what does each one do?
+5. **Auto-merge research PRs?** (default: yes — research output PRs are auto-merged when mergeable; you can review the PR if you want by setting this to no)
+6. **Memory connector?** Some users want the plugin to capture briefs and decisions to a memory MCP. Options:
    - `shelby` (default — looks for tools matching `mcp__shelby-memory__*` or similar)
    - `null` (skip memory ops entirely)
    - Any other prefix matching your memory MCP's tool names
-6. **Do you have any existing research, competitive analysis, or strategy docs?** (we can seed from them)
+7. **Do you have any existing research, competitive analysis, or strategy docs?** (we can seed from them)
 
 ---
 
