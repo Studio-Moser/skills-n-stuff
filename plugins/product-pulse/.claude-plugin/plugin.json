@@ -1,6 +1,6 @@
 {
   "name": "product-pulse",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Strategic intelligence system for product teams. Weekly strategy briefs, daily market research, and interactive sprint development — a three-cadence system that keeps you focused on what matters.",
   "author": {
     "name": "Studio Moser",
@@ -21,7 +21,7 @@
     "research_dir": {
       "type": "string",
       "title": "Research directory",
-      "description": "Relative path for research output (e.g., docs/research or research)",
+      "description": "Fallback hint used by /product-pulse:setup when no pulse-config.yaml exists yet. Runtime resolution uses pulse-config.yaml discovery (walks up from cwd). Default: research",
       "sensitive": false
     }
   }

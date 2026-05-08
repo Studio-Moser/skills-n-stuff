@@ -3,9 +3,10 @@ name: weekly-strategist
 description: >-
   Weekly strategic intelligence. Dispatches 5 analyst agents (Market Scout,
   Competitor Tracker, Audience Analyst, Growth Analyst, Product Scout), reads
-  the last 7 daily reports, reviews the backlog, and produces a strategy
-  brief with the week's theme, top 3 priorities, and recommendations for
-  speccing. Run Monday mornings or whenever you need strategic direction.
+  the last 7 daily reports, reviews the backlog, and produces a strategy brief
+  + recommendations PR with the week's theme, top 3 priorities, and items
+  recommended for speccing. Reads pulse-config.yaml from the nearest research
+  directory. Run Monday mornings or whenever you need strategic direction.
   Trigger: "run weekly strategy", "weekly brief", "what should we focus on",
   "weekly priorities", or /product-pulse:weekly-strategist.
 ---
@@ -25,25 +26,69 @@ You are NOT a research scanner (that's the daily skill). You are a strategic **a
 - **Advisor, not executor** — Recommend items for speccing, don't promote them yourself.
 - **Brevity over comprehensiveness** — The brief should be readable in 5 minutes. Each analyst produces max 500 words.
 - **Opinionated** — Make recommendations. Say "do X" not "you could do X or Y."
-- **Error tolerant** — If an analyst agent fails, continue with the others. If no daily reports exist, use web research. If memory is unavailable, use file-based data. If either backlog file (`todos/backlog.md` or `todos/backlog-ideas.md`) is missing/unparseable, skip the triage section for that file and focus on market analysis. Do NOT auto-recreate — a stripped backlog suggests an unresolved merge conflict.
+- **Error tolerant** — If an analyst agent fails, continue with the others. If no daily reports exist, use web research. If memory is unavailable, use file-based data. If either backlog file (`{backlog.active}` or `{backlog.ideas}`) is missing/unparseable, skip the triage section for that file and focus on market analysis. Do NOT auto-recreate — a stripped backlog suggests an unresolved merge conflict.
 
 ---
 
 ## Phase 0: Load Context
 
+### 0.0 Discover Configuration
+
+Walk up from cwd until you find `pulse-config.yaml`. That file's parent directory is the **research directory** (referred to below as `{research_dir}`). Load the YAML config; the rest of the skill uses values from it.
+
+```bash
+config_path=""
+dir="$PWD"
+while [ "$dir" != "/" ]; do
+  if [ -f "$dir/pulse-config.yaml" ]; then
+    config_path="$dir/pulse-config.yaml"
+    research_dir="$dir"
+    break
+  fi
+  dir="$(dirname "$dir")"
+done
+
+if [ -z "$config_path" ]; then
+  echo "No pulse-config.yaml found. Run /product-pulse:setup first." >&2
+  exit 1
+fi
+
+primary_repo_root="$(cd "$research_dir" && git rev-parse --show-toplevel)"
+
+backlog_active="$primary_repo_root/$(yq '.backlog.active // "planning/todos.md"' "$config_path")"
+backlog_ideas="$primary_repo_root/$(yq '.backlog.ideas // "planning/ideas.md"' "$config_path")"
+default_branch="$(yq '.default_branch // "main"' "$config_path")"
+auto_merge="$(yq '.auto_merge // true' "$config_path")"
+project_id="$(yq '.project_id' "$config_path")"
+memory_connector="$(yq '.memory.connector // "shelby"' "$config_path")"
+
+echo "Using config: $config_path"
+echo "Research dir: $research_dir"
+```
+
+Parse the YAML. Required fields: `project_id`, `repos`. Optional with defaults: `default_branch` (default `main`), `auto_merge` (default `true`), `memory.connector` (default `shelby`; set to `null` to disable), `backlog.active` (default `planning/todos.md`), `backlog.ideas` (default `planning/ideas.md`).
+
+Find the entry in `repos:` with `role: primary`. Its filesystem location (resolved relative to the directory containing pulse-config.yaml's parent) is the **primary repo root** (`{primary_repo_root}`) for backlog and git operations.
+
 ### 0.1 Read Product Context
 
 Read `{research_dir}/research-context.md` to understand the product, competitors, audiences, and domains. This is your foundation — every recommendation must be relevant to this product.
 
-Extract the **Git branch** from the Configuration section (default: `main` if not specified). Use this as `{branch}` for all git operations.
-
 If the file doesn't exist, stop and tell the user to run `/product-pulse:setup` first.
 
-### 0.2 Pull Latest (if in a git repo)
+### 0.2 Pull Latest (all configured repos)
+
+Iterate `repos:` from `pulse-config.yaml`. For each repo, resolve its absolute path relative to `{primary_repo_root}`'s parent directory, then pull the default branch:
 
 ```bash
-git pull origin main 2>/dev/null || true
+for repo_path in $(yq '.repos[].path' pulse-config.yaml); do
+  abs="$(realpath "$primary_repo_root/$repo_path")"
+  echo "=== Pulling $abs ==="
+  cd "$abs" && git checkout "$default_branch" && git pull origin "$default_branch" || echo "pull failed for $abs"
+done
 ```
+
+If any pull fails, note it and continue. Single-element `repos:` is the monorepo case — same loop, one iteration.
 
 ### 0.3 Read Last Weekly Brief
 
@@ -67,17 +112,17 @@ Extract:
 
 ### 0.5 Read the Backlog (both files)
 
-Read BOTH `todos/backlog.md` AND `todos/backlog-ideas.md` — the active backlog is split across two files.
+Read BOTH `{backlog.active}` AND `{backlog.ideas}` — the active backlog is split across two files. The actual file paths are configurable via `backlog.active` and `backlog.ideas` in `pulse-config.yaml` (defaults: `planning/todos.md` and `planning/ideas.md`). Resolve both paths relative to `{primary_repo_root}`.
 
-From `todos/backlog.md`, parse:
+From `{backlog.active}`, parse:
 - **Roadmap** — big-ticket items the user controls
 - **Ready** — sprint subsections (`### Sprint: ...`) with items the user has approved for sprint-dev
 - **Monitor** — watch-and-wait items
 - **Manual** — human-blocked actions
-- **Done (last 7 days)** — rolling window of recent merges (older items are archived under `todos/archive/done-YYYY-QN.md`)
+- **Done (last 7 days)** — rolling window of recent merges (older items are archived under `{primary_repo_root}/planning/archive/done-YYYY-QN.md`)
 - **Dismissed** — items ruled out
 
-From `todos/backlog-ideas.md`, parse:
+From `{backlog.ideas}`, parse:
 - **All Ideas subsections** (per-domain incoming ideas)
 - **Expired / passed-deadline** — items whose deadline has closed; kept as recovery context, no action expected
 
@@ -88,9 +133,16 @@ Build a health snapshot across both files:
 - Monitor items with approaching deadlines
 - Ready items awaiting implementation
 
-### 0.6 Search Memory
+### 0.6 Search Memory (if configured)
 
-Search for prior weekly strategist decisions, overnight worker results, and any strategic insights from previous sessions. Use whatever memory system is available.
+If `memory.connector` is set in `pulse-config.yaml` (not `null`), look for MCP tools whose names contain that prefix (e.g., `shelby` matches `mcp__shelby-memory__*`). If matching tools are available, search for prior weekly strategist decisions and overnight worker results from previous sessions:
+
+```
+search_thoughts(query="weekly-strategist {project_id}", limit=10)
+search_thoughts(query="{project_id}-daily-research", limit=20)
+```
+
+If `memory.connector: null` or no matching tools are found, skip this phase.
 
 ### 0.7 Build Context Package
 
@@ -130,33 +182,33 @@ Exactly 3. Each must be: specific, achievable in a week, tied to evidence, and h
 
 Go through both backlog files as an advisor. Your job is to **recommend**, not to move items yourself (except dismissals and Monitor moves).
 
-**Recommend for speccing** (max 5 items, drawn from `backlog-ideas.md`):
+**Recommend for speccing** (max 5 items, drawn from `{backlog.ideas}`):
 - Select up to 5 Ideas items that align with this week's priorities
-- These are recommendations for the user to spec and promote into `backlog.md` Ready — you do NOT set status to `ready`
+- These are recommendations for the user to spec and promote into `{backlog.active}` Ready — you do NOT set status to `ready`
 - Explain why each item is recommended and which priority it serves
 - Note the suggested size and any spec considerations
 
-**Review Monitor section** (in `backlog.md`):
+**Review Monitor section** (in `{backlog.active}`):
 - Flag items with approaching deadlines or triggers that may have fired
 - Recommend promoting any that have become actionable
-- If a Monitor item's deadline has passed AND its trigger never fired, plan to move it to the `Expired / passed-deadline` table at the bottom of `backlog-ideas.md` (recovery surface — preserves context if the topic reopens)
+- If a Monitor item's deadline has passed AND its trigger never fired, plan to move it to the `Expired / passed-deadline` table at the bottom of `{backlog.ideas}` (recovery surface — preserves context if the topic reopens)
 
-**Review Expired / passed-deadline** (bottom of `backlog-ideas.md`):
+**Review Expired / passed-deadline** (bottom of `{backlog.ideas}`):
 - If any underlying topic has reopened (e.g., a regulator reopened a comment period), recommend promoting the item back to an active Ideas subsection
 
-**Comment on Roadmap** (in `backlog.md`):
+**Comment on Roadmap** (in `{backlog.active}`):
 - Note if any Roadmap items should be prioritized or deprioritized based on this week's intelligence
 
-**Dismiss stale items** (from `backlog-ideas.md` Ideas):
+**Dismiss stale items** (from `{backlog.ideas}` Ideas):
 - Items older than 30 days with no activity → evaluate for dismissal
 - Items superseded by newer findings → dismiss with reason
-- Move dismissed items to the Dismissed table in `backlog.md` with reason and date
+- Move dismissed items to the Dismissed table in `{backlog.active}` with reason and date
 
 **Update priorities**:
-- Adjust priority levels on Ideas rows (`backlog-ideas.md`) or Roadmap/Monitor rows (`backlog.md`) if new intelligence warrants it
+- Adjust priority levels on Ideas rows (`{backlog.ideas}`) or Roadmap/Monitor rows (`{backlog.active}`) if new intelligence warrants it
 
 **Move watch-and-wait items**:
-- If any Ideas items in `backlog-ideas.md` are actually watch-and-wait (not actionable yet), remove them from Ideas and append to the Monitor table in `backlog.md`
+- If any Ideas items in `{backlog.ideas}` are actually watch-and-wait (not actionable yet), remove them from Ideas and append to the Monitor table in `{backlog.active}`
 
 ### 3.4 Spot Opportunities
 
@@ -227,37 +279,75 @@ S-sized Ideas that could be fast wins if capacity allows.
 
 ---
 
-## Phase 5: Update Backlog & Persist
+## Phase 5: Update Backlog and Persist
 
-Edits land in different files depending on what's moving.
+### 5.1 Backlog edits
 
-**In `todos/backlog-ideas.md`:**
-- Remove rows you're dismissing (they'll land in the Dismissed table in `backlog.md`)
-- Remove rows you're moving to Monitor (they'll land in the Monitor table in `backlog.md`)
+Edits go to the configured backlog files. In `{backlog.ideas}`:
+- Remove rows you're dismissing (they'll land in the Dismissed table in `{backlog.active}`)
+- Remove rows you're moving to Monitor (they'll land in the Monitor table in `{backlog.active}`)
 - Update priority levels on Ideas rows where warranted
-- Append rows to the `Expired / passed-deadline` table for any Monitor items in `backlog.md` whose deadline passed without the trigger firing
+- Append rows to the `Expired / passed-deadline` table for any Monitor items in `{backlog.active}` whose deadline passed without the trigger firing
 - Update the `Last updated:` date
 
-**In `todos/backlog.md`:**
+In `{backlog.active}`:
 - Append dismissed Ideas items to the **Dismissed** table with reason and date
 - Append watch-and-wait Ideas items to the **Monitor** table with trigger/deadline
-- Remove rows from Monitor that have moved to Expired in `backlog-ideas.md`
+- Remove rows from Monitor that have moved to Expired in `{backlog.ideas}`
 - Update priority levels on Roadmap/Monitor rows where warranted
 - Update the `Last updated:` date
 
 Rules:
 - Do NOT add new Ideas — that's daily-research's job
 - Do NOT mark items as `ready` or `specced` — that's the user's job
-- Do NOT move items to Done — that's sprint-dev's job (it also archives rows older than 7 days to `todos/archive/done-YYYY-QN.md`)
-- Do NOT touch `todos/archive/` — that's append-only history
+- Do NOT move items to Done — that's sprint-dev's job (it also archives rows older than 7 days to `{primary_repo_root}/planning/archive/done-YYYY-QN.md`)
+- Do NOT touch `{primary_repo_root}/planning/archive/` — that's append-only history
 
-Save the weekly brief summary to memory and commit:
+### 5.2 Save to memory (if configured)
 
-```bash
-git checkout {branch} && git add {research_dir}/ todos/backlog.md todos/backlog-ideas.md && git commit -m "strategy: weekly brief W{NN} — {theme short}" && git push origin {branch}
+If `memory.connector` is set, capture the brief summary. Tool names match the connector prefix:
+
+```
+capture_thought({
+  content: "{full weekly brief summary with priorities, theme, and key decisions}",
+  summary: "Weekly strategy W{NN}: {theme in <80 chars}",
+  type: "decision",
+  topics: ["weekly-strategist", "{project_id}-research", "{project_id}", "strategy"],
+  source: "weekly-strategist-{YYYY}-W{NN}",
+  project: "{project_id}",
+  metadata: { week: "W{NN}", year: "{YYYY}", theme: "{theme}", priorities: ["{p1}","{p2}","{p3}"] }
+})
 ```
 
-Include both backlog files in `git add` even if one wasn't modified — `git add` is a no-op on unchanged files.
+### 5.3 Branch + commit + PR (always)
+
+Inside the primary repo:
+
+```bash
+cd "$primary_repo_root"
+branch="weekly-brief/W{NN}"
+git checkout -b "$branch"
+git add "$research_dir" "$backlog_active" "$backlog_ideas"
+git commit -m "strategy: weekly brief W{NN} — {theme short}"
+git push -u origin "$branch"
+pr_url=$(gh pr create --base "$default_branch" --head "$branch" \
+  --title "strategy: weekly brief W{NN} — {theme short}" \
+  --body "Weekly strategy brief and recommendations for W{NN}. Auto-generated by product-pulse weekly-strategist." \
+  | tail -n1)
+echo "PR opened: $pr_url"
+```
+
+### 5.4 Auto-merge (if enabled and mergeable)
+
+If `auto_merge: true` in config:
+
+```bash
+sleep 8  # let GitHub finalize mergeability check
+gh pr merge "$pr_url" --squash --delete-branch --auto || \
+  echo "Auto-merge declined; PR sits for human review at $pr_url"
+```
+
+`--auto` queues the merge if checks are still running. If branch protection or required reviews block the merge, the PR sits for human review and the skill exits cleanly with the PR URL surfaced.
 
 ---
 
@@ -269,10 +359,11 @@ Product Pulse — Weekly Strategy W{NN}
 Theme: {theme}
 Priorities: {p1} | {p2} | {p3}
 Recommended for speccing: {N} items
-Dismissed: {N} items removed from backlog-ideas.md
+Dismissed: {N} items removed from {backlog.ideas}
 Monitor alerts: {N}
 Opportunities: {N} identified
 Backlog: {roadmap} roadmap | {ready} ready | {ideas} ideas | {monitor} monitoring | {done7d} done (last 7d)
+PR: {pr_url} ({merged | open})
 ```
 
-`roadmap` + `ready` + `monitor` + `done7d` are counts from `backlog.md`; `ideas` is the count across all subsections of `backlog-ideas.md` (excluding the Expired / passed-deadline table).
+`roadmap` + `ready` + `monitor` + `done7d` are counts from `{backlog.active}`; `ideas` is the count across all subsections of `{backlog.ideas}` (excluding the Expired / passed-deadline table).
