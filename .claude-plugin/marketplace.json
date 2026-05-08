@@ -13,8 +13,8 @@
     {
       "name": "product-pulse",
       "source": "./plugins/product-pulse",
-      "description": "Strategic intelligence system for product teams. Weekly strategy briefs, daily market research, and interactive sprint development — a three-cadence system that keeps you focused on what matters.",
-      "version": "0.1.0",
+      "description": "Strategic intelligence system for product teams. Weekly strategy briefs, daily market research, and deep-dive analysis — a three-cadence intelligence system that keeps you focused on what matters.",
+      "version": "0.3.0",
       "author": {
         "name": "Studio Moser"
       },
@@ -25,7 +25,8 @@
         "competitive-analysis",
         "product-management",
         "growth",
-        "multi-agent"
+        "multi-agent",
+        "deep-dive"
       ],
       "category": "productivity",
       "tags": [
@@ -33,14 +34,43 @@
         "research",
         "competitive-analysis",
         "product",
-        "growth"
+        "growth",
+        "deep-dive"
+      ]
+    },
+    {
+      "name": "pm",
+      "source": "./plugins/pm",
+      "description": "Backend-agnostic project management for AI-native teams. Ingests research, triages and specs work items, manages sprint execution with sub-agents, syncs with GitHub Issues.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Studio Moser"
+      },
+      "license": "MIT",
+      "keywords": [
+        "project-management",
+        "github-issues",
+        "triage",
+        "sprint",
+        "backlog",
+        "issue-tracker",
+        "multi-repo"
+      ],
+      "category": "productivity",
+      "tags": [
+        "project-management",
+        "github-issues",
+        "triage",
+        "sprint"
       ]
     },
     {
       "name": "research-scout",
       "source": "./plugins/research-scout",
-      "description": "Deep-dive research and analysis of external reference materials (YouTube videos, articles, GitHub repos, docs) against your current project. Cross-references multiple sources, rates confidence levels, tracks prior research, saves structured reports, and integrates with your backlog.",
+      "description": "(Deprecated — use /product-pulse:deep-dive instead) Deep-dive research and analysis of external reference materials against your current project.",
       "version": "0.2.0",
+      "deprecated": true,
+      "successor": "product-pulse",
       "author": {
         "name": "Studio Moser"
       },

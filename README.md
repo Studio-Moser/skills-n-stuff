@@ -36,15 +36,28 @@ Note: subagents, hooks, and bundled scripts (e.g., the `transcribe` CLI) are Cla
 
 ### Product Pulse
 
-Strategic intelligence system for product teams. Weekly strategy briefs, daily market research, and interactive sprint development.
+Strategic intelligence system for product teams. Weekly strategy briefs, daily market research, and deep-dive analysis — a three-cadence intelligence system.
 
 **Skills:**
 - `/product-pulse:setup` — Onboard a new project (run once)
 - `/product-pulse:weekly-strategist` — Monday morning strategic analysis with 5 analyst agents
 - `/product-pulse:daily-research` — Daily domain-specific research filtered through weekly strategy
-- `/product-pulse:sprint-dev` — Interactive implementation with code review and testing
+- `/product-pulse:deep-dive` — Deep-dive research on external resources (videos, articles, repos, docs)
 
 [Full documentation](plugins/product-pulse/README.md)
+
+### PM
+
+Backend-agnostic project management for AI-native teams. Ingests research reports, triages and specs work items, manages sprint execution with sub-agents, syncs with GitHub Issues.
+
+**Skills:**
+- `/pm:setup` — Onboard a project (run once)
+- `/pm:ingest` — Read research reports and create tracked issues
+- `/pm:triage` — Spec, score, and promote items to ready-for-agent
+- `/pm:reconcile` — Sync reality with the tracker (completion, stale, blockers)
+- `/pm:sprint-dev` — Pick ready work and execute with sub-agents
+
+[Full documentation](plugins/pm/README.md)
 
 ### Site Capture
 
@@ -56,14 +69,11 @@ Capture full-page screenshots of websites with scroll-triggered animation suppor
 
 [Full documentation](plugins/site-capture/README.md)
 
-### Research Scout
+### Research Scout (Deprecated)
 
-Deep-dive research and analysis of external reference materials against your current project. Analyzes YouTube videos, articles, GitHub repos, documentation, and code sources — then compares findings to your codebase with specific, actionable recommendations.
+> **Deprecated:** Use `/product-pulse:deep-dive` instead.
 
-**Skills:**
-- `/research-scout:research-scout` — Research and analyze external sources against your project
-
-[Full documentation](plugins/research-scout/README.md)
+Deep-dive research and analysis. Now integrated into Product Pulse.
 
 ### Transcribe
 
