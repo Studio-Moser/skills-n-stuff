@@ -26,18 +26,27 @@ case "$backend" in
   trello)
     # boards[] non-empty
     n_boards="$(yq '.trello.boards | length' "$cfg")"
-    [ "${n_boards:-0}" -lt 1 ] && errors+=("trello.boards must have at least one entry")
+    n_boards="${n_boards:-0}"
 
-    # Each board has all required list keys.
     REQUIRED_LISTS=(needs_triage ready_for_agent in_progress review done needs_changes blocked)
-    for i in $(seq 0 $((n_boards - 1))); do
-      for k in "${REQUIRED_LISTS[@]}"; do
-        v="$(yq ".trello.boards[$i].lists.$k // \"\"" "$cfg")"
-        if [ -z "$v" ]; then
-          errors+=("board[$i] missing required list key: $k")
-        fi
+
+    if [ "$n_boards" -lt 1 ]; then
+      # Surface the friendly error and skip per-board iteration entirely —
+      # otherwise `seq 0 -1` calls into yq with index [-1], which raises
+      # "out of range" and (under set -euo pipefail) aborts the script
+      # before this user-facing error is ever emitted.
+      errors+=("trello.boards must have at least one entry")
+    else
+      # Each board has all required list keys.
+      for i in $(seq 0 $((n_boards - 1))); do
+        for k in "${REQUIRED_LISTS[@]}"; do
+          v="$(yq ".trello.boards[$i].lists.$k // \"\"" "$cfg")"
+          if [ -z "$v" ]; then
+            errors+=("board[$i] missing required list key: $k")
+          fi
+        done
       done
-    done
+    fi
 
     # statuses map: required keys present.
     for k in "${REQUIRED_LISTS[@]}"; do

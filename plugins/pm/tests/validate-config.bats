@@ -27,6 +27,16 @@ setup() {
   [[ "$output" == *"done -> needs_changes"* ]]
 }
 
+@test "trello fixture with empty boards array surfaces friendly error (no yq crash)" {
+  # `run` merges stdout+stderr so we can assert on both.
+  run "$SCRIPT" "$FIX/trello/config.empty-boards.yml"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"trello.boards must have at least one entry"* ]]
+  # Must NOT leak yq's cryptic message.
+  [[ "$output" != *"out of range"* ]]
+  [[ "$output" != *"Error: index"* ]]
+}
+
 @test "missing file gives usage" {
   run "$SCRIPT" /tmp/does-not-exist-$$.yml
   [ "$status" -eq 2 ]
