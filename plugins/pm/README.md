@@ -61,6 +61,20 @@ brew install gh
 brew install yq
 ```
 
+**For the Trello backend (optional, in addition to yq):**
+
+```bash
+# jq — JSON processing for Trello config
+brew install jq
+
+# Trello API credentials
+# Get a key at https://trello.com/app-key, then click "Token" on that page.
+export TRELLO_API_KEY=...
+export TRELLO_TOKEN=...
+```
+
+The `@delorenj/mcp-server-trello` server is fetched on demand by `npx -y` — no manual install required.
+
 **Recommended:**
 
 - [Product Pulse](../product-pulse/) -- provides the research reports that `/pm:ingest` reads. PM works without it (you can create `needs-triage` issues manually), but the two plugins are designed as a pair.
@@ -88,6 +102,20 @@ docs/adr/
 ```
 
 If `pulse-config.yaml` already exists (from Product Pulse setup), PM reads shared infrastructure from it. If not, setup creates a minimal one.
+
+## Backends
+
+PM supports three issue-tracking backends. Choose one in `/pm:setup`; switching later requires manual migration.
+
+| Backend | Use when | What it stores | External deps |
+|---|---|---|---|
+| **GitHub Issues** (`github`) | You already use GitHub for code review and want issues alongside PRs | Issues, labels, sub-issues in your repo | `gh` CLI, `gh auth login` |
+| **Trello** (`trello`) | Stakeholders work from a visual board, items are conversations not tickets, multi-board workspaces | Cards across one or more Trello boards with bidirectional status moves (e.g. done -> needs_changes -> in_progress) | `TRELLO_API_KEY`, `TRELLO_TOKEN`, `@delorenj/mcp-server-trello` (auto-fetched) |
+| **Local markdown** (`local`) | Private/offline projects | YAML files in `.pm/items/` | none |
+
+The Trello backend explicitly handles the moves Marv (moby_assistant) couldn't — `done -> needs_changes` and `needs_changes -> in_progress` are first-class via the `statuses` block in `.pm/config.yml`. See `plugins/pm/schemas/pm-config.trello.example.yml` for an annotated example.
+
+Multi-board: Trello's `boards[]` array supports per-board `lists` mappings, `approval_steps`, `review_policy` (`self` / `judge` / `auto`), and `worker_instructions`. Cards stay on their home board; sprint-dev iterates every configured board on each pass.
 
 ## Configuration
 

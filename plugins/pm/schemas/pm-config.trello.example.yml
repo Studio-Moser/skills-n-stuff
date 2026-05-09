@@ -1,0 +1,54 @@
+# PM Configuration — Trello backend example
+# Copy this file to .pm/config.yml and edit values, or run /pm:setup.
+
+backend: trello
+
+# Where domain glossary, ADRs, and rejection KB live
+context_md: CONTEXT.md
+adr_dir: docs/adr
+out_of_scope_dir: .pm/out-of-scope
+
+research_dirs:
+  - Research
+
+triage:
+  stale_threshold_days: 30
+
+trello:
+  # Public URL where Trello posts card events. Required for live sessions.
+  # Provided by the receiving capability (Shelby webhook ingress, W1e).
+  # Setup writes this here; reconcile/setup re-register it if missing.
+  webhook_url: "https://shelby.example.com/webhooks/trello"
+
+  boards:
+    - id: "abc123def456"             # Trello board id (find via list_boards)
+      name: "Moby App"
+      lists:
+        needs_triage:    "Needs Triage"
+        ready_for_agent: "Ready"
+        in_progress:     "In Progress"
+        review:          "Review"
+        done:            "Done"
+        needs_changes:   "Needs Changes"
+        blocked:         "Blocked"
+      approval_steps: ["tech_lead"]
+      review_policy: "self"          # self | judge | auto
+      worker_instructions: "Follow CONTRIBUTING.md and the project ADR style."
+
+    # Multi-board: add more boards with the same shape.
+    # - id: "xyz789..."
+    #   name: "Moby Website"
+    #   lists: { ... }
+    #   ...
+
+  # Bidirectional status transitions.
+  # Solves Marv's "no backwards moves" gap: done can step back to
+  # needs_changes, which can step forward again to in_progress.
+  statuses:
+    needs_triage:    [ready_for_agent, rejected]
+    ready_for_agent: [in_progress]
+    in_progress:     [review, blocked, needs_changes]
+    review:          [done, needs_changes]
+    done:            [needs_changes]
+    needs_changes:   [in_progress]
+    blocked:         [in_progress, cancelled]
