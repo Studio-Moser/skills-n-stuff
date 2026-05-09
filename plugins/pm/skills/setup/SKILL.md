@@ -474,21 +474,57 @@ Track which lists were created (for the summary) vs already existed.
 
 After list creation, call `mcp__trello__get_active_board_info({})` and confirm the response. If it errors with "board not found" or auth failure, instruct the user to verify their token's read/write scopes for the board and stop.
 
-### 6T.3 Register webhook
+### 6T.3 Register webhook (idempotent)
 
-If `trello.webhook_url` is non-empty, register a webhook for the board:
+If `trello.webhook_url` is non-empty, register a webhook for the board.
+
+**This step is idempotent.** Trello's `POST /1/webhooks` does NOT dedupe by `(idModel, callbackURL)` — re-running `/pm:setup` would otherwise create one duplicate webhook per board per run, and your receiver would see N copies of every event. Always list-then-create:
+
+**Step 1 — List existing webhooks for this token (once, outside the per-board loop):**
 
 ```bash
-curl -fsS -X POST "https://api.trello.com/1/webhooks/" \
-  -d "key=$TRELLO_API_KEY" \
-  -d "token=$TRELLO_TOKEN" \
-  -d "callbackURL=$webhook_url" \
-  -d "idModel=$BOARD_ID" \
-  -d "description=Shelby PM webhook for $BOARD_NAME" \
-  || echo "warning: webhook registration failed for $BOARD_NAME (board id $BOARD_ID). Re-run /pm:setup once the webhook URL is reachable."
+existing_webhooks_json="$(curl -fsS \
+  "https://api.trello.com/1/tokens/$TRELLO_TOKEN/webhooks?key=$TRELLO_API_KEY&token=$TRELLO_TOKEN")"
 ```
 
-Trello does a HEAD request against `callbackURL` before accepting the webhook — if the URL is not reachable yet (the receiving route is owned by Shelby's W1e workstream), this call returns an error. That is expected; the warning above tells the user how to retry. The card-as-conversation flow only activates once the webhook is live, but all other PM operations work today using direct MCP calls.
+The response is a JSON array of webhook objects, each with at least `id`, `idModel`, `callbackURL`, and `active`.
+
+**Step 2 — Per board, check whether a matching webhook already exists:**
+
+A webhook is considered a match when `idModel == $BOARD_ID` AND `callbackURL == $webhook_url` (active OR inactive — re-using inactive webhooks avoids hitting Trello's per-token webhook cap).
+
+```bash
+match="$(echo "$existing_webhooks_json" \
+  | jq -c --arg board "$BOARD_ID" --arg url "$webhook_url" \
+      '.[] | select(.idModel == $board and .callbackURL == $url)' \
+  | head -n1)"
+```
+
+**Step 3 — Create only if no match:**
+
+```bash
+if [ -n "$match" ]; then
+  echo "skipped webhook for $BOARD_NAME (already registered: id=$(echo "$match" | jq -r .id))"
+  skipped=$((skipped + 1))
+else
+  curl -fsS -X POST "https://api.trello.com/1/webhooks/" \
+    -d "key=$TRELLO_API_KEY" \
+    -d "token=$TRELLO_TOKEN" \
+    -d "callbackURL=$webhook_url" \
+    -d "idModel=$BOARD_ID" \
+    -d "description=Shelby PM webhook for $BOARD_NAME" \
+    && created=$((created + 1)) \
+    || echo "warning: webhook registration failed for $BOARD_NAME (board id $BOARD_ID). Re-run /pm:setup once the webhook URL is reachable."
+fi
+```
+
+**Step 4 — After the loop, report:**
+
+```
+Webhooks: created $created new; skipped $skipped (already registered).
+```
+
+Trello does a HEAD request against `callbackURL` before accepting a new webhook — if the URL is not reachable yet (the receiving route is owned by Shelby's W1e workstream), POST returns an error. That is expected; the warning above tells the user how to retry. The card-as-conversation flow only activates once the webhook is live, but all other PM operations work today using direct MCP calls. Re-running `/pm:setup` after the URL is live will create only the missing webhooks (idempotent).
 
 If `trello.webhook_url` is empty, skip this step and emit:
 
