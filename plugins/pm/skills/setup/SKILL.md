@@ -609,7 +609,7 @@ If **1 or 2**: continue to 6P.2.
 Try to load the github MCP tool via ToolSearch:
 
 ```
-ToolSearch query: "select:mcp__plugin_github_github__projects_write"
+ToolSearch query: "select:mcp__github__projects_write"
 ```
 
 If the tool does NOT load successfully, print:
@@ -639,8 +639,8 @@ If the tool loads: continue.
 
 1. Ask: `"Project title? [default: {gh_owner} — Backlog]"`
 2. Ask: `"Make it private? [Y/n]"` — default yes.
-3. Call `mcp__plugin_github_github__projects_write` with method `create_project`, passing `owner` (from `github.owner` in config), `title`, and the privacy flag. The response includes the project's `number` and `node_id` — store both.
-4. Add custom fields. Call `mcp__plugin_github_github__projects_write` with the appropriate "add field" method for each:
+3. Call `mcp__github__projects_write` with method `create_project`, passing `owner` (from `github.owner` in config), `title`, and the privacy flag. The response includes the project's `number` and `node_id` — store both.
+4. Add custom fields. Call `mcp__github__projects_write` with the appropriate "add field" method for each:
    - `Target date` — type `DATE`
    - `Epic` — type `TEXT`
    (Status is already a default field on every Projects v2 project — do not create a second one.)
@@ -650,8 +650,8 @@ If the tool loads: continue.
    gh issue list --repo "{owner}/{repo}" --state open \
      --json url,number,labels --limit 1000
    ```
-   For each issue returned, call `mcp__plugin_github_github__projects_write` with the "add item" method, passing the issue's URL or node ID. Capture each item's project item ID for the Status assignment in step 8.
-7. Configure the Status field options. Call `mcp__plugin_github_github__projects_list` with method `list_project_fields` (or equivalent) to find the existing Status field ID. Then call `projects_write` to set the Status field options, in order, to:
+   For each issue returned, call `mcp__github__projects_write` with the "add item" method, passing the issue's URL or node ID. Capture each item's project item ID for the Status assignment in step 8.
+7. Configure the Status field options. Call `mcp__github__projects_list` with method `list_project_fields` (or equivalent) to find the existing Status field ID. Then call `projects_write` to set the Status field options, in order, to:
    1. `Needs Triage`
    2. `Ready`
    3. `In Progress`
@@ -670,7 +670,7 @@ If the tool loads: continue.
    | `status/done` | Done |
    | (none / `blocker`) | (leave unset, or Blocked if `blocker` label present) |
 
-   Call `mcp__plugin_github_github__projects_write` with the "update item field value" method to set Status. Batch when the MCP supports it.
+   Call `mcp__github__projects_write` with the "update item field value" method to set Status. Batch when the MCP supports it.
 
 9. Persist to `.pm/config.yml` under `github.project_sync`:
    ```yaml
@@ -711,8 +711,8 @@ If the tool loads: continue.
 
 1. Ask: `"Project number? (e.g. for https://github.com/orgs/Foo/projects/2 enter 2)"`
 2. Ask: `"Is this an org-owned or user-owned project? [org/user]"` (default org).
-3. Call `mcp__plugin_github_github__projects_get` passing `owner` and `number`. If the call fails (not found, no permission), print the error and ask if the user wants to retry or skip. On skip, write no `project_sync` section and continue.
-4. Call `mcp__plugin_github_github__projects_list` with method `list_project_fields` to read the Status field's current options. Compare against the canonical set: `Needs Triage`, `Ready`, `In Progress`, `In Review`, `Blocked`, `Done`.
+3. Call `mcp__github__projects_get` passing `owner` and `number`. If the call fails (not found, no permission), print the error and ask if the user wants to retry or skip. On skip, write no `project_sync` section and continue.
+4. Call `mcp__github__projects_list` with method `list_project_fields` to read the Status field's current options. Compare against the canonical set: `Needs Triage`, `Ready`, `In Progress`, `In Review`, `Blocked`, `Done`.
 
    If they don't match, ask:
    ```

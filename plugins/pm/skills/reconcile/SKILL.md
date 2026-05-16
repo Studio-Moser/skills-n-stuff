@@ -403,7 +403,7 @@ gh issue edit "$num" \
 After the label edit succeeds, mirror the change to the Project Status field if `github.project_sync.enabled: true` AND `github.project_sync.status_field_sync: true`. Use the detection pattern:
 
 ```
-ToolSearch query: "select:mcp__plugin_github_github__projects_write,mcp__plugin_github_github__projects_list"
+ToolSearch query: "select:mcp__github__projects_write,mcp__github__projects_list"
 ```
 
 If the tools do NOT load, print ONCE per `/pm:reconcile` session:
@@ -418,9 +418,9 @@ Track the warning state so it doesn't repeat per item. Skip the MCP call and con
 
 If the tools load:
 
-1. Find the project item ID via `mcp__plugin_github_github__projects_list` (method `list_project_items`, filter by the issue URL). If the issue isn't a project item, call `projects_write` `add_item` first.
+1. Find the project item ID via `mcp__github__projects_list` (method `list_project_items`, filter by the issue URL). If the issue isn't a project item, call `projects_write` `add_item` first.
 2. Resolve the Status option ID for `status_map["status/needs-triage"]` (typically `"Needs Triage"`).
-3. Call `mcp__plugin_github_github__projects_write` method `update_item_field_value` with the item ID, the cached `status_field_id`, and the resolved option ID.
+3. Call `mcp__github__projects_write` method `update_item_field_value` with the item ID, the cached `status_field_id`, and the resolved option ID.
 
 On error, log and continue — labels are canonical, mirror failures are non-blocking.
 

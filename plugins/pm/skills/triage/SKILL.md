@@ -565,10 +565,10 @@ Where `{owner_label}` is `owner/ai` (6/6 verdict) or `owner/human` (4-5/6 verdic
 
 After the `gh issue edit` calls above succeed, if `github.project_sync.enabled: true` AND `github.project_sync.status_field_sync: true` in `.pm/config.yml`, mirror the new `status/ready` value onto the project's Status field.
 
-Use the detection pattern: try to load `mcp__plugin_github_github__projects_write` via:
+Use the detection pattern: try to load `mcp__github__projects_write` via:
 
 ```
-ToolSearch query: "select:mcp__plugin_github_github__projects_write,mcp__plugin_github_github__projects_list"
+ToolSearch query: "select:mcp__github__projects_write,mcp__github__projects_list"
 ```
 
 If the tools do NOT load, print ONCE per `/pm:triage` session:
@@ -583,13 +583,13 @@ Track that you've warned so you don't repeat per item. Skip the MCP calls and co
 
 If the tools load:
 
-1. Look up the project item ID for this issue. Call `mcp__plugin_github_github__projects_list` with method `list_project_items`, scoped to `project_owner`/`project_number` from config, filtered by the issue's URL (`https://github.com/{gh_owner}/{gh_repo}/issues/{number}`). The response gives an item ID.
+1. Look up the project item ID for this issue. Call `mcp__github__projects_list` with method `list_project_items`, scoped to `project_owner`/`project_number` from config, filtered by the issue's URL (`https://github.com/{gh_owner}/{gh_repo}/issues/{number}`). The response gives an item ID.
 
-   If the issue is not yet a project item (e.g. created after `/pm:setup`), call `mcp__plugin_github_github__projects_write` with method `add_item` first, then read back the new item ID.
+   If the issue is not yet a project item (e.g. created after `/pm:setup`), call `mcp__github__projects_write` with method `add_item` first, then read back the new item ID.
 
 2. Look up the Status field option ID for the target status. Use the cached `status_field_id` from config; resolve the option ID for `status_map["status/ready"]` (e.g. `"Ready"`) — query field options via `projects_list` if you don't have them cached.
 
-3. Call `mcp__plugin_github_github__projects_write` with method `update_item_field_value`, passing the item ID, field ID, and option ID.
+3. Call `mcp__github__projects_write` with method `update_item_field_value`, passing the item ID, field ID, and option ID.
 
 On any MCP error, log it and continue — never block the canonical label update on a Project mirror failure.
 
