@@ -1,0 +1,53 @@
+# PM Configuration — GitHub backend example
+#
+# This file shows every field PM understands for the GitHub Issues backend.
+# Copy what you need into .pm/config.yml. /pm:setup generates this for you.
+
+backend: github
+
+context_md: CONTEXT.md
+adr_dir: docs/adr
+out_of_scope_dir: .pm/out-of-scope
+
+research_dirs:
+  - Research
+  # - Research/deep-dives
+
+triage:
+  stale_threshold_days: 30
+
+github:
+  owner: Studio-Moser
+  repo:  Shelby-Strategy
+
+  # Multi-repo workspaces: list target repos that may receive PRs.
+  # Issues still live in {owner}/{repo}; labels indicate the target.
+  # target_repos:
+  #   - Studio-Moser/Shelby-MacOS
+  #   - Studio-Moser/Shelby-Web
+
+  # OPTIONAL — GitHub Projects v2 integration.
+  #
+  # When enabled, the plugin mirrors `status/*` label changes onto the
+  # Project's Status field. Labels remain canonical; the project is
+  # downstream. Requires the github MCP server
+  # (/plugin install github@claude-plugins-official) and a PAT with
+  # scopes `repo`, `project`, `read:org`.
+  #
+  # /pm:setup creates this section automatically if you opt in to the
+  # "Create project" or "Link existing project" flow during Phase 7.
+  # Remove or set `enabled: false` to run in label-only mode.
+  #
+  # project_sync:
+  #   enabled: true
+  #   project_number: 2
+  #   project_owner: Studio-Moser
+  #   project_owner_type: org          # or "user"
+  #   status_field_sync: true          # mirror status/* labels to Status field
+  #   status_map:
+  #     status/needs-triage: "Needs Triage"
+  #     status/ready:        "Ready"
+  #     status/in-progress:  "In Progress"
+  #     status/in-review:    "In Review"
+  #     status/blocked:      "Blocked"
+  #     status/done:         "Done"

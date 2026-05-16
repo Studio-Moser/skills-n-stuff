@@ -22,7 +22,26 @@
       "properties": {
         "owner": { "type": "string" },
         "repo": { "type": "string" },
-        "target_repos": { "type": "array", "items": { "type": "string" } }
+        "target_repos": { "type": "array", "items": { "type": "string" } },
+        "project_sync": {
+          "type": ["object", "null"],
+          "description": "Optional GitHub Projects v2 integration. Requires the github MCP server. Labels remain canonical; Status field is mirrored downstream.",
+          "required": ["enabled", "project_number", "project_owner"],
+          "properties": {
+            "enabled": { "type": "boolean", "default": false },
+            "project_number": { "type": "integer", "minimum": 1 },
+            "project_owner": { "type": "string", "description": "Org login or user login that owns the project" },
+            "project_owner_type": { "enum": ["org", "user"], "default": "org" },
+            "project_node_id": { "type": "string", "description": "GraphQL node ID for the project (optional, cached for fast lookup)" },
+            "status_field_sync": { "type": "boolean", "default": true, "description": "Mirror status/* label changes to the Project Status field" },
+            "status_field_id": { "type": "string", "description": "Cached field ID for the Status field" },
+            "status_map": {
+              "type": "object",
+              "description": "Maps status/* labels to Project Status field option names",
+              "additionalProperties": { "type": "string" }
+            }
+          }
+        }
       }
     },
     "local": {

@@ -201,6 +201,116 @@ Triage and reconcile use the GitHub sub-issues API to link child items to epics.
 
 Labels are the single source of truth for item state. Skills add and remove labels as items move through the pipeline -- you never need to manage labels manually.
 
+## GitHub Project integration (optional)
+
+PM can OPTIONALLY mirror your backlog into a [GitHub Projects v2](https://docs.github.com/en/issues/planning-and-tracking-with-projects) board. **Labels remain canonical** — the project is a downstream visualization that mirrors the `status/*` label set to a Project Status field. The plugin works perfectly without this; turn it on when you want a board/table UI with custom fields, timelines, and aggregated views across repos.
+
+### What it gives you
+
+- One board that shows every open backlog item, with a Status column matching the `status/*` taxonomy
+- Custom fields (`Target date`, `Epic`) that GitHub Issues alone don't offer
+- Multi-repo aggregation in a single view
+- Saved views: Board by Status, Table by sprint label, P0 filter, triage queue, AI workspace, etc.
+
+### Prerequisites
+
+1. **Install the github MCP plugin** (Claude marketplace):
+
+   ```
+   /plugin install github@claude-plugins-official
+   ```
+
+2. **Generate a Personal Access Token** at https://github.com/settings/tokens. Required scopes:
+   - `repo` — read issues
+   - `project` — read/write Projects v2
+   - `read:org` — needed for org-owned projects
+
+3. **Add the token to `~/.claude/settings.json`** under the env section:
+
+   ```json
+   {
+     "env": {
+       "GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_..."
+     }
+   }
+   ```
+
+4. **Reload Claude Code** (or restart the CLI) so the env var is picked up by the MCP server.
+
+### What `/pm:setup` automates
+
+When you opt in to the project step during `/pm:setup` Phase 6P (offered only when `backend: github`), the wizard:
+
+- Creates a new Project (or links an existing one)
+- Adds custom fields: `Target date` (DATE), `Epic` (TEXT)
+- Links each repo in `target_repos`
+- Bulk-adds every open issue from those repos as a project item
+- Sets the Status field options to: `Needs Triage`, `Ready`, `In Progress`, `In Review`, `Blocked`, `Done`
+- Sets each item's initial Status based on its current `status/*` label
+- Writes the `github.project_sync` block to `.pm/config.yml`
+
+### What you still do by hand
+
+The MCP can't fully drive GitHub's Project UI. After setup, spend ~5 minutes in the project's web UI to:
+
+#### 1. Enable built-in workflows
+
+Project settings → Workflows. Turn on:
+
+- **Auto-add to project** — choose your target repos so new issues land on the board automatically. Use a filter like `is:issue is:open` to skip PRs.
+- **Item added to project** — set Status to `Needs Triage` (matches the default `status/needs-triage` label that `/pm:ingest` applies).
+- **Item closed** — set Status to `Done`.
+- **Pull request linked / merged** — these handle the `Ready → In Progress` and `In Review → Done` transitions automatically when a PR references the issue. This is the reason `/pm:sprint-dev` makes no MCP calls — GitHub does the right thing on its own.
+
+#### 2. Create useful views
+
+The default Board view comes free. Add these as saved views (click "+ New view"):
+
+| View | Type | Filter / group |
+|------|------|----------------|
+| Board by Status | Board | Group by Status |
+| Triage queue | Table | Filter `Status:"Needs Triage"`, sort by Created |
+| AI workspace | Board | Filter `label:owner/ai`, group by Status |
+| Operator tasks | Table | Filter `label:owner/operator`, group by Status |
+| P0 / blockers | Table | Filter `label:priority/p0 OR label:blocker` |
+| Current sprint | Board | Filter `label:sprint/{current}`, group by Status |
+| Roadmap | Roadmap | Date field: `Target date`, group by Epic |
+
+Adjust to taste — the views are personal and don't affect any plugin behavior.
+
+### Day-to-day behavior
+
+Once configured, `/pm:triage` and `/pm:reconcile` mirror `status/*` label changes to the Project's Status field automatically. The mirror is non-blocking — if the MCP server is unavailable for any reason, the label change still succeeds and the skill prints a one-time warning per session.
+
+### Disabling sync
+
+Either delete the `project_sync` block from `.pm/config.yml` or set `enabled: false`. The plugin reverts to label-only mode immediately.
+
+### Config schema
+
+```yaml
+github:
+  owner: Studio-Moser
+  repo:  Shelby-Strategy
+  project_sync:                 # entire block is optional
+    enabled: true               # set to false to pause without deleting the block
+    project_number: 2           # number from the project URL: /projects/{N}
+    project_owner: Studio-Moser # org login or user login
+    project_owner_type: org     # or "user"
+    project_node_id: PVT_...    # cached GraphQL node id
+    status_field_sync: true     # mirror status/* labels onto the Status field
+    status_field_id: PVTSSF_... # cached field id
+    status_map:
+      status/needs-triage: "Needs Triage"
+      status/ready:        "Ready"
+      status/in-progress:  "In Progress"
+      status/in-review:    "In Review"
+      status/blocked:      "Blocked"
+      status/done:         "Done"
+```
+
+See `plugins/pm/schemas/pm-config.github.example.yml` for the annotated reference.
+
 ## Domain Knowledge
 
 PM maintains three types of domain knowledge that agents read before doing work:

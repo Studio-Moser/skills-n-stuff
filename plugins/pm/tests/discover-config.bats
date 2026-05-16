@@ -31,6 +31,21 @@ teardown() { rm -rf "$TMP"; }
   [[ "$output" == *"gh_owner=acme"* ]]
   [[ "$output" == *"gh_repo=widgets"* ]]
   [[ "$output" != *'trello_boards_json=[{'* ]]
+  # project_sync defaults to off when not specified
+  [[ "$output" == *"gh_project_sync_enabled=false"* ]]
+}
+
+@test "github backend with project_sync emits project fields" {
+  cp "$BATS_TEST_DIRNAME/fixtures/github/config.with-project-sync.yml" "$TMP/.pm/config.yml"
+  run bash -c "cd '$TMP' && '$SCRIPT'"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"backend=github"* ]]
+  [[ "$output" == *"gh_project_sync_enabled=true"* ]]
+  [[ "$output" == *"gh_project_number=7"* ]]
+  [[ "$output" == *"gh_project_owner=acme"* ]]
+  [[ "$output" == *"gh_project_owner_type=org"* ]]
+  [[ "$output" == *"gh_project_status_field_sync=true"* ]]
+  [[ "$output" == *'"status/ready":"Ready"'* ]]
 }
 
 @test "trello backend emits boards_json and statuses_json" {

@@ -10,6 +10,11 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
+@test "github fixture with optional project_sync block validates" {
+  run "$SCRIPT" "$FIX/github/config.with-project-sync.yml"
+  [ "$status" -eq 0 ]
+}
+
 @test "valid trello fixture validates" {
   run "$SCRIPT" "$FIX/trello/config.yml"
   [ "$status" -eq 0 ]

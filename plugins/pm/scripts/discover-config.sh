@@ -54,6 +54,14 @@ stale_threshold="$(yq '.triage.stale_threshold_days // 30' "$pm_config" 2>/dev/n
 # ── Backend-specific extraction ─────────────────────────────────────
 gh_owner=""
 gh_repo=""
+gh_project_sync_enabled="false"
+gh_project_number=""
+gh_project_owner=""
+gh_project_owner_type=""
+gh_project_node_id=""
+gh_project_status_field_sync="false"
+gh_project_status_field_id=""
+gh_project_status_map_json="{}"
 trello_webhook_url=""
 trello_boards_json="[]"
 trello_statuses_json="{}"
@@ -62,6 +70,14 @@ case "$backend" in
   github)
     gh_owner="$(yq '.github.owner // ""' "$pm_config" 2>/dev/null || echo "")"
     gh_repo="$(yq '.github.repo  // ""' "$pm_config" 2>/dev/null || echo "")"
+    gh_project_sync_enabled="$(yq '.github.project_sync.enabled // false' "$pm_config" 2>/dev/null || echo "false")"
+    gh_project_number="$(yq '.github.project_sync.project_number // ""' "$pm_config" 2>/dev/null || echo "")"
+    gh_project_owner="$(yq '.github.project_sync.project_owner // ""' "$pm_config" 2>/dev/null || echo "")"
+    gh_project_owner_type="$(yq '.github.project_sync.project_owner_type // "org"' "$pm_config" 2>/dev/null || echo "org")"
+    gh_project_node_id="$(yq '.github.project_sync.project_node_id // ""' "$pm_config" 2>/dev/null || echo "")"
+    gh_project_status_field_sync="$(yq '.github.project_sync.status_field_sync // false' "$pm_config" 2>/dev/null || echo "false")"
+    gh_project_status_field_id="$(yq '.github.project_sync.status_field_id // ""' "$pm_config" 2>/dev/null || echo "")"
+    gh_project_status_map_json="$(yq -o=json -I=0 '.github.project_sync.status_map // {}' "$pm_config" 2>/dev/null || echo "{}")"
     ;;
   trello)
     trello_webhook_url="$(yq '.trello.webhook_url // ""' "$pm_config" 2>/dev/null || echo "")"
@@ -115,6 +131,14 @@ oos_dir=$primary_repo_root/$oos_dir
 stale_threshold_days=$stale_threshold
 gh_owner=$gh_owner
 gh_repo=$gh_repo
+gh_project_sync_enabled=$gh_project_sync_enabled
+gh_project_number=$gh_project_number
+gh_project_owner=$gh_project_owner
+gh_project_owner_type=$gh_project_owner_type
+gh_project_node_id=$gh_project_node_id
+gh_project_status_field_sync=$gh_project_status_field_sync
+gh_project_status_field_id=$gh_project_status_field_id
+gh_project_status_map_json=$gh_project_status_map_json
 trello_webhook_url=$trello_webhook_url
 trello_boards_json=$trello_boards_json
 trello_statuses_json=$trello_statuses_json

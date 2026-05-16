@@ -400,6 +400,32 @@ gh issue edit "$num" \
   --repo "$gh_owner/$gh_repo"
 ```
 
+After the label edit succeeds, mirror the change to the Project Status field if `github.project_sync.enabled: true` AND `github.project_sync.status_field_sync: true`. Use the detection pattern:
+
+```
+ToolSearch query: "select:mcp__plugin_github_github__projects_write,mcp__plugin_github_github__projects_list"
+```
+
+If the tools do NOT load, print ONCE per `/pm:reconcile` session:
+
+```
+warning: project_sync is enabled in config but the github MCP server is
+         not available. Install /plugin install github@claude-plugins-official
+         and set GITHUB_PERSONAL_ACCESS_TOKEN. Continuing in label-only mode.
+```
+
+Track the warning state so it doesn't repeat per item. Skip the MCP call and continue.
+
+If the tools load:
+
+1. Find the project item ID via `mcp__plugin_github_github__projects_list` (method `list_project_items`, filter by the issue URL). If the issue isn't a project item, call `projects_write` `add_item` first.
+2. Resolve the Status option ID for `status_map["status/needs-triage"]` (typically `"Needs Triage"`).
+3. Call `mcp__plugin_github_github__projects_write` method `update_item_field_value` with the item ID, the cached `status_field_id`, and the resolved option ID.
+
+On error, log and continue — labels are canonical, mirror failures are non-blocking.
+
+The other reconcile actions (close, demote, skip) either close the issue (built-in GitHub workflow handles Status → Done automatically when configured) or don't touch status, so no mirror call is needed.
+
 **retriage (local):**
 ```bash
 yq -i '.labels -= ["status/ready","status/in-progress","status/in-review","owner/ai","owner/human","owner/operator"] | .labels += ["status/needs-triage"]' "$item_file"
@@ -546,6 +572,8 @@ gh issue edit "$num" \
   --add-label "status/needs-triage" \
   --repo "$gh_owner/$gh_repo"
 ```
+
+If `github.project_sync.enabled` AND `status_field_sync: true`, mirror the Status field change to `"Needs Triage"` using the same detection pattern and MCP call sequence as section 2.x retriage above. Reuse the one-time warning state for this run.
 
 **Independent items (local):**
 ```bash

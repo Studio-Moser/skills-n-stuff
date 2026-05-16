@@ -1,0 +1,20 @@
+backend: github
+github:
+  owner: acme
+  repo:  widgets
+  project_sync:
+    enabled: true
+    project_number: 7
+    project_owner: acme
+    project_owner_type: org
+    status_field_sync: true
+    status_map:
+      status/needs-triage: "Needs Triage"
+      status/ready: "Ready"
+      status/in-progress: "In Progress"
+      status/in-review: "In Review"
+      status/blocked: "Blocked"
+      status/done: "Done"
+context_md: CONTEXT.md
+research_dirs: ["Research"]
+triage: { stale_threshold_days: 30 }

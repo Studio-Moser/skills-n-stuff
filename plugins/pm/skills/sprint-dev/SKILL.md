@@ -17,6 +17,8 @@ Interactive skill that reads ready items from GitHub Issues (or local backlog), 
 
 **Manual only.** You decide when to run this and what to build.
 
+**Note on GitHub Project sync.** If `github.project_sync.enabled` is set in `.pm/config.yml`, sprint-dev relies on the project's built-in workflows to handle Status transitions when PRs are linked or merged (`Ready → In Progress` when a PR draft is linked, `In Progress → In Review` when the PR is opened for review, `In Review → Done` when merged). No MCP calls are made from this skill — the GitHub-side workflows do the work. Status field bootstrapping for items spawned during sprint execution happens later, via `/pm:triage` or `/pm:reconcile`.
+
 ---
 
 ## Ground Rules
