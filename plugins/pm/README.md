@@ -11,7 +11,7 @@ PM is a **five-skill pipeline** that manages the full lifecycle of work items, f
 | Skill | Role | When | What |
 |-------|------|------|------|
 | `/pm:setup` | Scaffolder | Once per workspace | Detects workspace layout, wires GitHub Issues, creates `.pm/` config and domain knowledge files |
-| `/pm:ingest` | Discoverer | After new research lands | Reads product-pulse reports, extracts actionable items, deduplicates, files `needs-triage` issues |
+| `/pm:ingest` | Discoverer | After new research lands | Reads product-pulse reports, extracts actionable items, deduplicates, files `status/needs-triage` issues |
 | `/pm:triage` | Classifier | When items need decisions | Sort (reject/dedup), spec (brainstorm + write plans), score (6-point checklist), promote |
 | `/pm:sprint-dev` | Builder | When you're ready to ship | Picks ready items, groups into PRs, dispatches sub-agents with self-review and testing |
 | `/pm:reconcile` | Janitor | After sprints or merges | Completion tracking, stale detection, blocker classification, CONTEXT.md and ADR proposals |
@@ -21,12 +21,12 @@ PM is a **five-skill pipeline** that manages the full lifecycle of work items, f
 ```
 product-pulse                PM pipeline
 ─────────────                ───────────
-daily-research ──reports──▸  /pm:ingest ──needs-triage──▸  /pm:triage
-weekly-strategist ────────▸       │                            │
-deep-dives ───────────────▸       │              reject ◂──────┤
-                                  │              spec + score ─┤
-                                  │                            │
-                                  │              ready-for-agent──▸  /pm:sprint-dev
+daily-research ──reports──▸  /pm:ingest ──status/needs-triage──▸  /pm:triage
+weekly-strategist ────────▸       │                                  │
+deep-dives ───────────────▸       │              reject ◂────────────┤
+                                  │              spec + score ───────┤
+                                  │                                  │
+                                  │            status/ready+owner/ai──▸  /pm:sprint-dev
                                   │                                       │
                                   │                              PRs ◂────┘
                                   │                               │
@@ -40,13 +40,13 @@ deep-dives ───────────────▸       │           
 ### Item Lifecycle
 
 ```
-needs-triage → [reject → out-of-scope/]
-             → [spec → score → ready-for-agent] → in-progress → awaiting-pr → done
+status/needs-triage → [reject → out-of-scope/]
+                    → [spec → score → status/ready + owner/ai] → status/in-progress → status/in-review → status/done
 ```
 
-- **Ingest** creates `needs-triage` items only -- never promotes beyond that
+- **Ingest** creates `status/needs-triage` items only -- never promotes beyond that
 - **Triage** sorts, specs, scores, and promotes (or rejects) with your approval
-- **Sprint-dev** moves items to `in-progress`, dispatches agents, creates PRs
+- **Sprint-dev** moves items to `status/in-progress`, dispatches agents, creates PRs
 - **Reconcile** detects merged PRs and closes done items automatically
 
 ## Prerequisites
@@ -77,7 +77,7 @@ The `@delorenj/mcp-server-trello` server is fetched on demand by `npx -y` — no
 
 **Recommended:**
 
-- [Product Pulse](../product-pulse/) -- provides the research reports that `/pm:ingest` reads. PM works without it (you can create `needs-triage` issues manually), but the two plugins are designed as a pair.
+- [Product Pulse](../product-pulse/) -- provides the research reports that `/pm:ingest` reads. PM works without it (you can create `status/needs-triage` issues manually), but the two plugins are designed as a pair.
 
 ## Setup
 
@@ -152,7 +152,7 @@ research_dirs:                  # Where to look for product-pulse reports
   - Research
   - Research/deep-dives
 triage:
-  stale_threshold_days: 30      # Days before an in-progress item is flagged stale
+  stale_threshold_days: 30      # Days before a status/in-progress item is flagged stale
 context_md: CONTEXT.md          # Path to domain glossary (relative to repo root)
 adr_dir: docs/adr               # Path to ADR directory
 out_of_scope_dir: .pm/out-of-scope  # Rejection knowledge base
@@ -168,18 +168,30 @@ PM uses GitHub Issues as its backend, with labels driving the workflow state mac
 
 Setup creates these labels automatically via `gh label create`:
 
+PM uses a namespaced label taxonomy split across **status**, **owner**, **priority**, **size**, and **flags**. Status and owner together describe an item's position in the pipeline; the rest are orthogonal.
+
 | Label | Purpose |
 |-------|---------|
-| `needs-triage` | New issue awaiting classification |
-| `ready-for-agent` | Triaged, specced, scored -- agent can pick up |
-| `ready-for-human` | Requires human judgment or manual work |
-| `blocker` | Blocking other work -- escalate |
+| `status/needs-triage` | New issue awaiting classification |
+| `status/ready` | Triaged, specced, scored -- ready to be picked up (pair with an `owner/*` label) |
+| `status/in-progress` | Currently being worked on |
+| `status/in-review` | PR open, awaiting merge |
+| `status/done` | Shipped and closed |
+| `owner/ai` | An AI agent (via `/pm:sprint-dev`) is the intended worker |
+| `owner/human` | A human is the intended worker (judgment, design call, manual work) |
+| `owner/operator` | Needs Tim's hands -- ops/manual steps (not automatable) |
+| `priority/p0` | Drop-everything blocker |
+| `priority/p1` | High priority, this sprint |
+| `priority/p2` | Normal |
+| `priority/p3` | Low / someday |
+| `blocker` | Blocks other work -- escalate (urgency flag, orthogonal to status) |
 | `spawned-during-sprint` | Filed by a sub-agent during sprint execution |
 | `epic` | Groups related issues under a parent |
 | `size/S` | Small: < 1 hour |
 | `size/M` | Medium: 1--4 hours |
 | `size/L` | Large: 4+ hours, needs spec |
 | `size/XL` | Extra large: multi-day, needs spec + chunking |
+| `sprint/*` | Optional sprint cohort tags (e.g. `sprint/2026-05-12`) -- documented for convention but not auto-set by the plugin |
 
 ### Sub-issues
 
@@ -257,14 +269,14 @@ PM and Product Pulse are designed as a pair. Product Pulse handles intelligence 
 
 ### Without Product Pulse
 
-PM works standalone. Instead of running `/pm:ingest` to process research reports, create `needs-triage` issues manually in GitHub. The rest of the pipeline (triage, sprint-dev, reconcile) operates the same way.
+PM works standalone. Instead of running `/pm:ingest` to process research reports, create `status/needs-triage` issues manually in GitHub. The rest of the pipeline (triage, sprint-dev, reconcile) operates the same way.
 
 ### The combined flow
 
 ```
 Mon     /product-pulse:weekly-strategist → strategy brief
 Tue-Sun /product-pulse:daily-research    → daily reports
-        /pm:ingest                       → needs-triage issues
+        /pm:ingest                       → status/needs-triage issues
         /pm:triage                       → reject, spec, score, promote
         /pm:sprint-dev                   → PRs
         /pm:reconcile                    → close done, flag stale, propose ADRs
@@ -273,7 +285,7 @@ Next Mon  cycle repeats
 
 ## Agent-Ready Scorecard
 
-Before an item can be promoted to `ready-for-agent`, triage scores it against a 6-point checklist:
+Before an item can be promoted to `status/ready` + `owner/ai`, triage scores it against a 6-point checklist:
 
 1. **Clear description** -- states what, not how
 2. **Explicit acceptance criteria** -- measurable conditions for done
@@ -282,7 +294,7 @@ Before an item can be promoted to `ready-for-agent`, triage scores it against a 
 5. **Bounded scope** -- single deliverable, one repo
 6. **No open design questions** -- all ambiguity resolved before execution
 
-Items that fail any criterion can be fixed inline during triage and re-scored. Items that pass all six are promoted. Items with unfixable failures stay as `ready-for-human`.
+Items that fail any criterion can be fixed inline during triage and re-scored. Items that pass all six are promoted to `status/ready` + `owner/ai`. Items with unfixable failures are promoted to `status/ready` + `owner/human` instead.
 
 ## License
 

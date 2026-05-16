@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Claude Code plugins by Studio Moser — strategy, research, and product development tools.",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "pluginRoot": "./plugins"
   },
   "plugins": [
@@ -14,7 +14,6 @@
       "name": "product-pulse",
       "source": "./plugins/product-pulse",
       "description": "Strategic intelligence system for product teams. Weekly strategy briefs, daily market research, and deep-dive analysis — a three-cadence intelligence system that keeps you focused on what matters.",
-      "version": "0.3.0",
       "author": {
         "name": "Studio Moser"
       },
@@ -42,7 +41,6 @@
       "name": "pm",
       "source": "./plugins/pm",
       "description": "Backend-agnostic project management for AI-native teams. Ingests research, triages and specs work items, manages sprint execution with sub-agents, syncs with GitHub Issues.",
-      "version": "0.2.0",
       "author": {
         "name": "Studio Moser"
       },
@@ -68,7 +66,6 @@
       "name": "research-scout",
       "source": "./plugins/research-scout",
       "description": "(Deprecated — use /product-pulse:deep-dive instead) Deep-dive research and analysis of external reference materials against your current project.",
-      "version": "0.2.0",
       "deprecated": true,
       "successor": "product-pulse",
       "author": {
@@ -95,7 +92,6 @@
       "name": "site-capture",
       "source": "./plugins/site-capture",
       "description": "Capture full-page screenshots of websites with scroll-triggered animation support. Handles bot-protected sites, cookie banners, and lazy-loaded content.",
-      "version": "0.1.0",
       "author": {
         "name": "Studio Moser"
       },
@@ -120,7 +116,6 @@
       "name": "transcribe",
       "source": "./plugins/transcribe",
       "description": "Transcribe spoken-word audio from YouTube, Shorts, Instagram, TikTok, and Threads. YouTube captions fetched directly (fast, no model). Falls through to local mlx-whisper on Apple Silicon, with a headless-Playwright fallback for Threads.",
-      "version": "0.2.0",
       "author": {
         "name": "Studio Moser"
       },

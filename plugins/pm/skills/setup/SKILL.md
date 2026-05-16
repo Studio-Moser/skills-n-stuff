@@ -415,8 +415,27 @@ Use the `gh` CLI to create PM labels in the primary repo. These labels are used 
 ### Create labels
 
 ```bash
-for label in "needs-triage:d4c5f9" "ready-for-agent:0e8a16" "ready-for-human:fbca04" "blocker:d93f0b" "spawned-during-sprint:c2e0c6" "epic:5319e7" "size/S:e6e6e6" "size/M:e6e6e6" "size/L:e6e6e6" "size/XL:e6e6e6"; do
-  name="${label%%:*}"
+for label in \
+  "status/needs-triage:d4c5f9" \
+  "status/ready:0e8a16" \
+  "status/in-progress:1d76db" \
+  "status/in-review:0052cc" \
+  "status/done:6f42c1" \
+  "owner/ai:c5def5" \
+  "owner/human:fbca04" \
+  "owner/operator:f9d0c4" \
+  "priority/p0:b60205" \
+  "priority/p1:d93f0b" \
+  "priority/p2:fbca04" \
+  "priority/p3:c5def5" \
+  "blocker:d93f0b" \
+  "spawned-during-sprint:c2e0c6" \
+  "epic:5319e7" \
+  "size/S:e6e6e6" \
+  "size/M:e6e6e6" \
+  "size/L:e6e6e6" \
+  "size/XL:e6e6e6"; do
+  name="${label%:*}"
   color="${label##*:}"
   gh label create "$name" --color "$color" --force 2>/dev/null || true
 done
@@ -424,18 +443,31 @@ done
 
 ### Label descriptions
 
+The taxonomy is namespaced: an item's pipeline position is described by a `status/*` label plus an `owner/*` label. `priority/*`, `size/*`, and flags like `blocker` are orthogonal.
+
 | Label | Color | Purpose |
 |-------|-------|---------|
-| `needs-triage` | `#d4c5f9` (lavender) | New issue awaiting triage classification |
-| `ready-for-agent` | `#0e8a16` (green) | Triaged and specced — agent can pick up |
-| `ready-for-human` | `#fbca04` (yellow) | Requires human judgment or approval |
-| `blocker` | `#d93f0b` (red) | Blocking other work — escalate |
+| `status/needs-triage` | `#d4c5f9` (lavender) | New issue awaiting triage classification |
+| `status/ready` | `#0e8a16` (green) | Triaged and specced — ready to be picked up (pair with an `owner/*` label) |
+| `status/in-progress` | `#1d76db` (blue) | Currently being worked on |
+| `status/in-review` | `#0052cc` (dark blue) | PR open, awaiting merge |
+| `status/done` | `#6f42c1` (purple) | Shipped and closed |
+| `owner/ai` | `#c5def5` (light blue) | An AI agent is the intended worker |
+| `owner/human` | `#fbca04` (yellow) | A human is the intended worker |
+| `owner/operator` | `#f9d0c4` (peach) | Needs Tim's hands — ops/manual steps |
+| `priority/p0` | `#b60205` (dark red) | Drop-everything blocker |
+| `priority/p1` | `#d93f0b` (red) | High priority, this sprint |
+| `priority/p2` | `#fbca04` (yellow) | Normal |
+| `priority/p3` | `#c5def5` (light blue) | Low / someday |
+| `blocker` | `#d93f0b` (red) | Blocks other work — escalate (urgency flag, orthogonal to status) |
 | `spawned-during-sprint` | `#c2e0c6` (light green) | Created by an agent during sprint execution |
 | `epic` | `#5319e7` (purple) | Groups related issues under a parent |
 | `size/S` | `#e6e6e6` (gray) | Small: < 1 hour |
 | `size/M` | `#e6e6e6` (gray) | Medium: 1-4 hours |
 | `size/L` | `#e6e6e6` (gray) | Large: 4+ hours, needs spec |
 | `size/XL` | `#e6e6e6` (gray) | Extra large: multi-day, needs spec + chunking |
+
+**Note on `sprint/*`**: optional sprint cohort labels (e.g. `sprint/2026-05-12`) are a convention the plugin documents but doesn't auto-create. Add them by hand or via your own automation when you start a sprint.
 
 ### Multi-repo label sync
 
@@ -626,8 +658,10 @@ Files created:
 
 {If GitHub backend:}
 GitHub labels created: {N} labels in {owner}/{repo}
-  needs-triage, ready-for-agent, ready-for-human, blocker,
-  spawned-during-sprint, epic, size/S, size/M, size/L, size/XL
+  status/needs-triage, status/ready, status/in-progress, status/in-review, status/done,
+  owner/ai, owner/human, owner/operator,
+  priority/p0, priority/p1, priority/p2, priority/p3,
+  blocker, spawned-during-sprint, epic, size/S, size/M, size/L, size/XL
 
 {If Trello backend:}
 Trello configuration:
@@ -647,7 +681,7 @@ Trello configuration:
 2. Populate the backlog:
    - If you have research reports: run /pm:ingest
    - To add items manually: run /pm:triage
-   - To add items via GitHub: create issues with the "needs-triage" label
+   - To add items via GitHub: create issues with the "status/needs-triage" label
 
 3. Triage and prioritize:
    - /pm:triage — classify, size, and prioritize backlog items

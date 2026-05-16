@@ -30,6 +30,6 @@ Score each criterion as PASS or FAIL with a one-line explanation:
 
 Return:
 - **Score**: X/6
-- **Verdict**: ready-for-agent (6/6), ready-for-human (4-5/6), needs-info (0-3/6)
+- **Verdict**: `status/ready` + `owner/ai` (6/6), `status/ready` + `owner/human` (4-5/6), `needs-info` (0-3/6 — stays as `status/needs-triage`)
 - **Per-criterion results**: PASS/FAIL with explanation for each
 - **Suggested fixes**: For each FAIL, what specifically needs to be added or changed

@@ -1,10 +1,10 @@
 ---
 name: triage
 description: >-
-  Process needs-triage items through the full pipeline: sort (reject/dedup),
+  Process status/needs-triage items through the full pipeline: sort (reject/dedup),
   spec (brainstorming + writing-plans for M/L/XL items), score against the
-  agent-ready checklist, and promote to ready-for-agent or reject to
-  out-of-scope. Interactive — you confirm every decision.
+  agent-ready checklist, and promote to status/ready (with owner/ai or owner/human)
+  or reject to out-of-scope. Interactive — you confirm every decision.
   Trigger: "triage", "process backlog", "review incoming items", "spec items",
   or /pm:triage.
 effort: high
@@ -14,7 +14,7 @@ paths: ["**/.pm/**", "**/planning/todos.md"]
 
 # PM — Triage
 
-You are the triage pipeline. Your job is to take raw `needs-triage` items and walk each one through a decision funnel: sort (keep, reject, or dedup), spec (brainstorm and write implementation plans for non-trivial items), score (evaluate agent-readiness), and promote (apply final labels and update the backlog).
+You are the triage pipeline. Your job is to take raw `status/needs-triage` items and walk each one through a decision funnel: sort (keep, reject, or dedup), spec (brainstorm and write implementation plans for non-trivial items), score (evaluate agent-readiness), and promote (apply final labels and update the backlog).
 
 You are NOT the ingestion agent — that's `/pm:ingest`. You receive items that already exist in the tracker; you classify and prepare them for execution.
 
@@ -25,7 +25,7 @@ You are NOT the ingestion agent — that's `/pm:ingest`. You receive items that 
 - **Interactive.** You present recommendations; the user confirms every decision. Never reject, promote, or modify an item without explicit user approval.
 - **One item at a time for speccing.** Phase 2 (Spec) is the most time-intensive phase. Process one item through brainstorming and spec writing before asking the user if they want to continue to the next.
 - **Batch-friendly for sorting and scoring.** Phases 1 and 3 can present items in quick succession since decisions are lightweight.
-- **Idempotent.** Running triage on an already-triaged item (no `needs-triage` label) is a no-op. Never re-process promoted items.
+- **Idempotent.** Running triage on an already-triaged item (no `status/needs-triage` label) is a no-op. Never re-process promoted items.
 - **No fabrication.** Size, priority, and recommendations are based on the item's content, domain context, and out-of-scope history. Do not invent requirements.
 - **Error tolerant.** If one item fails to process, log it and continue with others.
 
@@ -78,7 +78,7 @@ gh_owner="$(yq '.github.owner' "$pm_config")"
 gh_repo="$(yq '.github.repo' "$pm_config")"
 
 triage_items=$(gh issue list \
-  --label "needs-triage" \
+  --label "status/needs-triage" \
   --state open \
   --json number,title,body,labels,assignees \
   --limit 100 \
@@ -93,7 +93,7 @@ triage_items=()
 for item_file in "$items_dir"/*.yml; do
   [ -f "$item_file" ] || continue
   labels="$(yq '.labels[]' "$item_file" 2>/dev/null)"
-  echo "$labels" | grep -q "needs-triage" && triage_items+=("$item_file")
+  echo "$labels" | grep -q "status/needs-triage" && triage_items+=("$item_file")
 done
 ```
 
@@ -114,19 +114,19 @@ echo "$trello_boards_json" | jq -c '.[]' | while read -r board_json; do
 done
 ```
 
-If zero items across all boards, print `"No needs-triage items found across {N} configured board(s). Nothing to do."` and exit cleanly.
+If zero items across all boards, print `"No status/needs-triage items found across {N} configured board(s). Nothing to do."` and exit cleanly.
 
-If zero items are found, print `"No needs-triage items found. Nothing to do."` and exit cleanly.
+If zero items are found, print `"No status/needs-triage items found. Nothing to do."` and exit cleanly.
 
-Otherwise print: `"Found {N} needs-triage item(s). Starting triage pipeline."`
+Otherwise print: `"Found {N} status/needs-triage item(s). Starting triage pipeline."`
 
 ### 0.3 Load Existing Open Items (for dedup)
 
-Also fetch all open items WITHOUT `needs-triage` — these are the dedup targets for Phase 1.
+Also fetch all open items WITHOUT `status/needs-triage` — these are the dedup targets for Phase 1.
 
-**GitHub:** Same `gh issue list` call but without `--label` filter, piped through `jq` to exclude `needs-triage` items.
+**GitHub:** Same `gh issue list` call but without `--label` filter, piped through `jq` to exclude `status/needs-triage` items.
 
-**Local:** Same loop over `$items_dir/*.yml`, skipping files whose labels include `needs-triage`.
+**Local:** Same loop over `$items_dir/*.yml`, skipping files whose labels include `status/needs-triage`.
 
 **Trello dedup pool:** the same loop as 0.2 but reads cards from every list **except** `LIST_NEEDS_TRIAGE` and the `done` list. Cards in `done` are excluded so previously-completed work doesn't suppress fresh requests.
 
@@ -134,7 +134,7 @@ Also fetch all open items WITHOUT `needs-triage` — these are the dedup targets
 
 ## Phase 1: Sort
 
-Present each `needs-triage` item to the user one at a time with your recommendation.
+Present each `status/needs-triage` item to the user one at a time with your recommendation.
 
 ### For each item, evaluate and recommend one of:
 
@@ -176,7 +176,7 @@ Ask the user: `"Confirm? (yes / reject / keep / duplicate / skip)"`
 - **reject** — override to reject (prompts for reason)
 - **keep** — override to keep
 - **duplicate** — override to duplicate (prompts for which item it matches)
-- **skip** — skip this item entirely, leave as `needs-triage`
+- **skip** — skip this item entirely, leave as `status/needs-triage`
 
 ### Process rejections
 
@@ -218,16 +218,16 @@ gh issue close {number} \
   --repo "$gh_owner/$gh_repo"
 
 gh issue edit {number} \
-  --remove-label "needs-triage" \
+  --remove-label "status/needs-triage" \
   --repo "$gh_owner/$gh_repo"
 ```
 
 **Local backend:**
 
-Update the item's YAML file — replace `needs-triage` in labels with `rejected`, add `closed_at` timestamp:
+Update the item's YAML file — replace `status/needs-triage` in labels with `rejected`, add `closed_at` timestamp:
 
 ```bash
-yq -i '.labels -= ["needs-triage"] | .labels += ["rejected"] | .closed_at = "{ISO 8601 timestamp}"' "$item_file"
+yq -i '.labels -= ["status/needs-triage"] | .labels += ["rejected"] | .closed_at = "{ISO 8601 timestamp}"' "$item_file"
 ```
 
 **Trello backend:**
@@ -257,7 +257,7 @@ gh issue close {number} \
   --repo "$gh_owner/$gh_repo"
 
 gh issue edit {number} \
-  --remove-label "needs-triage" \
+  --remove-label "status/needs-triage" \
   --add-label "duplicate" \
   --repo "$gh_owner/$gh_repo"
 ```
@@ -265,7 +265,7 @@ gh issue edit {number} \
 **Local backend:**
 
 ```bash
-yq -i '.labels -= ["needs-triage"] | .labels += ["duplicate"] | .duplicate_of = {duplicate_number} | .closed_at = "{ISO 8601 timestamp}"' "$item_file"
+yq -i '.labels -= ["status/needs-triage"] | .labels += ["duplicate"] | .duplicate_of = {duplicate_number} | .closed_at = "{ISO 8601 timestamp}"' "$item_file"
 ```
 
 **Trello backend:**
@@ -483,20 +483,20 @@ Score: {X}/6
 5. {PASS|FAIL} Bounded scope             — {explanation}
 6. {PASS|FAIL} No open design questions  — {explanation}
 
-Verdict: {ready-for-agent | ready-for-human | needs-info}
+Verdict: {status/ready+owner/ai | status/ready+owner/human | needs-info}
 ```
 
 ### Verdict thresholds
 
 | Score | Verdict | Meaning |
 |-------|---------|---------|
-| 6/6 | `ready-for-agent` | Fully specced, agent can pick up immediately |
-| 4-5/6 | `ready-for-human` | Minor gaps — human should review before agent work |
-| 0-3/6 | `needs-info` | Major gaps — not ready for anyone |
+| 6/6 | `status/ready` + `owner/ai` | Fully specced, agent can pick up immediately |
+| 4-5/6 | `status/ready` + `owner/human` | Minor gaps — human should review before agent work |
+| 0-3/6 | `needs-info` (stays as `status/needs-triage`) | Major gaps — not ready for anyone |
 
 ### User decision
 
-For items scoring 6/6, recommend `ready-for-agent`. For 4-5/6, recommend `ready-for-human`. For 0-3/6, recommend `needs-info`.
+For items scoring 6/6, recommend `status/ready` + `owner/ai`. For 4-5/6, recommend `status/ready` + `owner/human`. For 0-3/6, recommend `needs-info`.
 
 Ask the user:
 
@@ -506,8 +506,8 @@ Accept verdict? (yes / fix / human / info / skip)
 
 - **yes** — accept the recommended verdict
 - **fix** — fix the failing criteria now. For each FAIL, present the suggested fix from the scorecard evaluator and apply it to the spec inline. After fixing, re-score (loop back through the scorecard for changed criteria only).
-- **human** — override to `ready-for-human` regardless of score
-- **info** — override to `needs-info` (leave as `needs-triage` for later)
+- **human** — override to `status/ready` + `owner/human` regardless of score
+- **info** — override to `needs-info` (leave as `status/needs-triage` for later)
 - **skip** — skip this item, leave unchanged
 
 #### Fixing inline
@@ -532,14 +532,15 @@ After all fixes are applied, update the spec in the backend (same write path as 
 
 ## Phase 4: Promote
 
-For items the user approved with a verdict of `ready-for-agent` or `ready-for-human`, apply final labels and update the backlog.
+For items the user approved with a verdict of `status/ready` + `owner/ai` or `status/ready` + `owner/human`, apply final labels and update the backlog.
 
 ### 4.1 Determine labels
 
 For each promoted item, gather:
-- **Status label**: `ready-for-agent` or `ready-for-human`
+- **Status label**: always `status/ready` when promoting (anything else stays as `status/needs-triage` or gets rejected)
+- **Owner label**: `owner/ai` for 6/6 verdicts, `owner/human` for 4-5/6 verdicts
 - **Size label**: `size/S`, `size/M`, `size/L`, or `size/XL` (from the spec or your estimate)
-- **Priority label**: if the project uses priority labels (check if `P0`/`P1`/`P2`/`P3` labels exist)
+- **Priority label**: `priority/p0` / `priority/p1` / `priority/p2` / `priority/p3` (set if known; otherwise leave to the user)
 - **Target repo label**: `repo/{repo-name}` for multi-repo workspaces
 
 ### 4.2 Update backend
@@ -549,19 +550,21 @@ For each promoted item, gather:
 ```bash
 # Combine all labels into one edit call
 gh issue edit {number} \
-  --remove-label "needs-triage" \
-  --add-label "{status_label},{size_label}" \
+  --remove-label "status/needs-triage" \
+  --add-label "status/ready,{owner_label},{size_label}" \
   --repo "$gh_owner/$gh_repo"
 
 # Add priority and target-repo labels if applicable
-gh issue edit {number} --add-label "P{priority}" --repo "$gh_owner/$gh_repo"
+gh issue edit {number} --add-label "priority/p{priority}" --repo "$gh_owner/$gh_repo"
 gh issue edit {number} --add-label "repo/{target_repo_name}" --repo "$gh_owner/$gh_repo"
 ```
+
+Where `{owner_label}` is `owner/ai` (6/6 verdict) or `owner/human` (4-5/6 verdict).
 
 **Local backend:**
 
 ```bash
-yq -i '.labels -= ["needs-triage"] | .labels += ["{status_label}", "{size_label}", "P{priority}"]' "$item_file"
+yq -i '.labels -= ["status/needs-triage"] | .labels += ["status/ready", "{owner_label}", "{size_label}", "priority/p{priority}"]' "$item_file"
 ```
 
 **Trello backend:**
@@ -589,7 +592,7 @@ mcp__trello__move_card({
 # Apply size/priority labels via update_card_details (Trello labels are board-scoped strings):
 mcp__trello__update_card_details({
   cardId: $card_id,
-  labels: ["{size_label}", "P{priority}"]   # combined with any existing labels — preserve "ready-for-agent" if the board uses status labels too
+  labels: ["{size_label}", "priority/p{priority}"]   # combined with any existing labels — preserve "status/ready" + "{owner_label}" if the board uses status/owner labels too
 })
 ```
 
@@ -627,13 +630,13 @@ If the project maintains the markdown backlog (`planning/todos.md` exists), add 
 Read the current `planning/todos.md`. Find the `## Ready` section and the `### Sprint: Unassigned` subsection. Append a row for each promoted item:
 
 ```markdown
-| #{number} | {title} | {size} | P{priority} | {status_label} | {spec path or "—"} | {TODAY} | — |
+| #{number} | {title} | {size} | priority/p{priority} | status/ready ({owner_label}) | {spec path or "—"} | {TODAY} | — |
 ```
 
-For `needs-info` items, do NOT add to Ready — they stay in triage. For `ready-for-human` items, add to Ready with status `ready-for-human` (these still need code work, but a human should review the spec gaps first):
+For `needs-info` items, do NOT add to Ready — they stay in triage. For items promoted with `owner/human`, add to Ready with status `status/ready` and the `owner/human` label (these still need code work, but a human should review the spec gaps first):
 
 ```markdown
-| #{number} | {title} | {size} | P{priority} | ready-for-human | {spec path or "—"} | {TODAY} | {failing criteria} |
+| #{number} | {title} | {size} | priority/p{priority} | status/ready (owner/human) | {spec path or "—"} | {TODAY} | {failing criteria} |
 ```
 
 ---
@@ -650,14 +653,14 @@ Rejected (out-of-scope):  {X}
 Duplicates closed:        {Y}
 Skipped:                  {Z}
 Specced:                  {W}
-Promoted to ready-for-agent:  {A}
-Promoted to ready-for-human:  {B}
-Left as needs-info:           {C}
+Promoted to status/ready + owner/ai:    {A}
+Promoted to status/ready + owner/human: {B}
+Left as needs-info (status/needs-triage): {C}
 
 {If GitHub: "Issues updated in {owner}/{repo}"}
 {If local: "Items updated in {items_dir}"}
 
-{If A > 0: "Next: Run /pm:sprint-dev to pick up ready-for-agent items."}
+{If A > 0: "Next: Run /pm:sprint-dev to pick up status/ready + owner/ai items."}
 {If B > 0: "{B} item(s) need human review before agent work."}
 {If C > 0: "{C} item(s) need more information — re-run /pm:triage after adding details."}
 ```
@@ -668,7 +671,7 @@ Left as needs-info:           {C}
 
 - **pulse-config.yaml missing**: Stop — run `/product-pulse:setup` or `/pm:setup`.
 - **.pm/config.yml missing**: Stop — run `/pm:setup`.
-- **No needs-triage items**: Exit cleanly with message. Not an error.
+- **No status/needs-triage items**: Exit cleanly with message. Not an error.
 - **CONTEXT.md missing**: Warn, continue without domain context. Recommend running `/pm:setup`.
 - **out-of-scope directory missing**: Warn, continue without rejection checking. Create the directory.
 - **gh CLI unavailable or unauthenticated**: Stop for GitHub backend — install `gh` and run `gh auth login`.
@@ -676,7 +679,7 @@ Left as needs-info:           {C}
 - **Scorecard evaluator failure**: Fall back to manual scoring — present the 6-point checklist and ask the user to score each criterion.
 - **GitHub sub-issue API unavailable**: Fall back to comment-based linking.
 - **planning/todos.md missing**: Skip the backlog update step. Warn: `"planning/todos.md not found — skipping backlog row insertion. Run /pm:setup to create the backlog."`.
-- **User stops mid-pipeline**: This is expected and fine. Items that haven't been processed remain as `needs-triage`. Print a partial summary of what was completed.
+- **User stops mid-pipeline**: This is expected and fine. Items that haven't been processed remain as `status/needs-triage`. Print a partial summary of what was completed.
 - **Item body is empty or malformed**: Flag it to the user during sorting. Recommend reject or keep with a note that it needs a description before speccing.
 - **Trello card moved by user mid-skill**: If the skill loaded a card from `LIST_NEEDS_TRIAGE` and the user moved it to another list during the run, the move-to-target call from this skill will fail with "card already in list X". Surface the error, skip the item, and continue. Reconcile will catch up next run.
 - **Approval cue ambiguous**: When neither a clear approval cue nor an explicit user response is available, ALWAYS ask. Do not infer.

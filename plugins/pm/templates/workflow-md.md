@@ -11,7 +11,7 @@ Item IDs are sequential across both files. Roadmap items use `R{N}` prefix.
 ## Lifecycle
 
 ```
-idea -> specced -> ready -> in-progress -> awaiting-pr -> done
+idea -> specced -> status/ready -> status/in-progress -> status/in-review -> status/done
 ```
 
 ## Statuses
@@ -20,10 +20,10 @@ idea -> specced -> ready -> in-progress -> awaiting-pr -> done
 |--------|-------|---------|
 | idea | ideas.md | Raw finding, not yet evaluated |
 | specced | ideas.md | Has a spec, needs user review |
-| ready | todos.md Ready | Approved for implementation |
-| in-progress | todos.md Ready | Currently being worked on |
-| awaiting-pr | todos.md Ready | PR created, waiting for merge |
-| done | todos.md Done | PR merged |
+| status/ready | todos.md Ready | Approved for implementation (pair with `owner/ai` or `owner/human`) |
+| status/in-progress | todos.md Ready | Currently being worked on |
+| status/in-review | todos.md Ready | PR created, waiting for merge |
+| status/done | todos.md Done | PR merged |
 | monitor | todos.md Monitor | Watch-and-wait |
 | manual | todos.md Manual | Requires human action |
 | dismissed | todos.md Dismissed | No longer relevant |

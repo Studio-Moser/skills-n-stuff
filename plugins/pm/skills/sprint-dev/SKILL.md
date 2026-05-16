@@ -1,7 +1,7 @@
 ---
 name: sprint-dev
 description: >-
-  Interactive sprint worker. Reads ready-for-agent items from GitHub Issues
+  Interactive sprint worker. Reads status/ready + owner/ai items from GitHub Issues
   (or local backlog), presents them with context, groups into proposed PRs,
   and waits for your approval before building. Dispatches parallel sub-agents
   with self-review and full testing. Reads CONTEXT.md for domain terminology
@@ -80,22 +80,22 @@ git branch -a | grep pulse/ 2>/dev/null
 
 Note any in-flight branches with open PRs.
 
-### 0.5 Reconcile items with `awaiting-pr` status
+### 0.5 Reconcile items with `status/in-review` status
 
-The standalone **Awaiting PR** section was retired — items in flight now carry the `awaiting-pr` (or `in-progress`) status inline in their sprint-section row. Scan both backlog files:
+The standalone **Awaiting PR** section was retired — items in flight now carry the `status/in-review` (or `status/in-progress`) status inline in their sprint-section row. Scan both backlog files:
 
 ```bash
-grep -E '\| (awaiting-pr|in-progress) \|' "$backlog_active" "$backlog_ideas"
+grep -E '\| (status/in-review|status/in-progress) \|' "$backlog_active" "$backlog_ideas"
 ```
 
-For each row with `awaiting-pr`, find its PR URL (the row should embed a `[#N](https://github.com/...)` link) and check the PR state:
+For each row with `status/in-review`, find its PR URL (the row should embed a `[#N](https://github.com/...)` link) and check the PR state:
 
 ```bash
 gh pr view <PR-URL> --json state,mergedAt 2>/dev/null
 ```
 
 - **merged** -> add a row to `## Done (last 7 days)` in `$backlog_active` and remove the row from its sprint section
-- **closed** (rejected) -> flip the status back to `ready` in its sprint-section row (or move the row back into `$backlog_ideas` if it was originally an idea the user promoted)
+- **closed** (rejected) -> flip the status back to `status/ready` in its sprint-section row (or move the row back into `$backlog_ideas` if it was originally an idea the user promoted)
 - **open** -> leave as-is
 
 Commit any moves:
@@ -142,7 +142,7 @@ Load items based on the configured backend.
 
 **GitHub backend:**
 ```bash
-gh issue list --label "ready-for-agent" --state open --json number,title,body,labels --limit 50 --repo "$gh_owner/$gh_repo"
+gh issue list --label "status/ready" --label "owner/ai" --state open --json number,title,body,labels --limit 50 --repo "$gh_owner/$gh_repo"
 ```
 Parse each issue. Extract from the body:
 - Acceptance criteria (look for `## Acceptance Criteria` header)
@@ -152,7 +152,7 @@ Parse each issue. Extract from the body:
 - Priority (from body or label)
 
 **Local backend:**
-Scan `.pm/items/` for files with `labels: [ready-for-agent]`. Parse YAML.
+Scan `.pm/items/` for files whose `labels:` contain BOTH `status/ready` AND `owner/ai`. Parse YAML.
 
 **Trello backend:**
 
@@ -208,12 +208,12 @@ If a spec has no Code References table or no Base SHA, treat as Yellow with a no
 
 ### 1.4 Filter Eligible Items
 
-Primary pool: items from the configured backend with `ready-for-agent` label/status and Green or Yellow freshness.
+Primary pool: items from the configured backend with `status/ready` + `owner/ai` labels and Green or Yellow freshness.
 
 Quick wins pool: S-sized items from `{backlog.ideas}` Ideas subsections (present separately as available for user promotion).
 
 Exclusions:
-- Items already carrying `awaiting-pr` or `in-progress` status inline
+- Items already carrying `status/in-review` or `status/in-progress` status inline
 - Items with active `pulse/*` branches
 - Items with Red freshness (flag for re-spec)
 - Monitor, Manual, and Dismissed items
@@ -406,7 +406,7 @@ gh issue close {number} --repo "$gh_owner/$gh_repo"
 ```
 
 **Local backend:**
-Update `.pm/items/{number}-{slug}.yml` with `status: done` and `pr: {pr_url}`.
+Update `.pm/items/{number}-{slug}.yml` with `status: status/done` and `pr: {pr_url}`.
 
 **Trello backend:**
 
@@ -465,19 +465,19 @@ For each item in the batch:
 - **Skipped/failed** -> leave the issue open with status unchanged
 
 **Local backend:**
-- **PR open, not yet merged** -> update `.pm/items/{number}-{slug}.yml` with `status: awaiting-pr` and `pr: {pr_url}`
-- **PR already merged** -> update `.pm/items/{number}-{slug}.yml` with `status: done` and `pr: {pr_url}`
+- **PR open, not yet merged** -> update `.pm/items/{number}-{slug}.yml` with `status: status/in-review` and `pr: {pr_url}`
+- **PR already merged** -> update `.pm/items/{number}-{slug}.yml` with `status: status/done` and `pr: {pr_url}`
 - **Skipped/failed** -> leave the item file unchanged
 
 > For Trello, the `#{number}` token in `planning/todos.md` rows is the Trello card's short id (e.g. `t-AbCdEfGh`) and the embedded PR link is the same `[#N](https://github.com/...)` form. The sync logic is otherwise identical.
 
 **Backlog file sync (both backends):**
 If `$backlog_active` and `$backlog_ideas` exist (backward-compatible with product-pulse workflow):
-- **PR open, not yet merged** -> flip the status in its sprint-section row from `ready` -> `awaiting-pr` and embed the PR link inline in the item description
+- **PR open, not yet merged** -> flip the status in its sprint-section row from `status/ready` -> `status/in-review` and embed the PR link inline in the item description
 - **PR already merged** before the sub-agent returned -> remove the row from its sprint section and add a row to `## Done (last 7 days)` in `$backlog_active`
 - **Skipped/failed** -> leave in its current section with status unchanged
 
-If a sprint subsection now has zero `ready` rows left, leave the section header in place unless the whole sprint is complete; in that case delete the entire subsection and summarize it in the commit message.
+If a sprint subsection now has zero `status/ready` rows left, leave the section header in place unless the whole sprint is complete; in that case delete the entire subsection and summarize it in the commit message.
 
 Commit:
 ```bash

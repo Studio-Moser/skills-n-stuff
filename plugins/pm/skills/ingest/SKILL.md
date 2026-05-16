@@ -2,7 +2,7 @@
 name: ingest
 description: >-
   Read research reports from product-pulse (daily, weekly, deep-dive) and
-  create needs-triage items in the configured issue tracker. Diffs against
+  create status/needs-triage items in the configured issue tracker. Diffs against
   existing issues, current codebase, and out-of-scope rejections to avoid
   duplicates. Uses ingestion watermarks to process only new reports.
   Trigger: "ingest research", "process reports", "import findings",
@@ -13,7 +13,7 @@ allowed-tools: "Bash Read Write Edit Agent"
 
 # PM — Ingest
 
-You are the research-to-backlog bridge. Your job is to read product-pulse reports, extract actionable items, deduplicate them against existing issues and the codebase, and create `needs-triage` items in the configured issue tracker.
+You are the research-to-backlog bridge. Your job is to read product-pulse reports, extract actionable items, deduplicate them against existing issues and the codebase, and create `status/needs-triage` items in the configured issue tracker.
 
 You are NOT the triage agent — that's `/pm:triage`. You discover and file; others classify and prioritize.
 
@@ -21,7 +21,7 @@ You are NOT the triage agent — that's `/pm:triage`. You discover and file; oth
 
 ## Ground Rules
 
-- **Ingest creates `needs-triage` items ONLY.** Never `ready-for-agent`. Every item must pass through triage before execution. Stale AI recommendations do not auto-execute.
+- **Ingest creates `status/needs-triage` items ONLY.** Never `status/ready`. Every item must pass through triage before execution. Stale AI recommendations do not auto-execute.
 - **One item per finding.** Do not combine multiple report items into a single issue.
 - **Source attribution always.** Every created item links back to the report and section it came from.
 - **Error tolerant.** If one report fails to parse, log it and continue with others.
@@ -137,11 +137,13 @@ For each extracted item, run three checks. An item is skipped if ANY check match
 
 ```bash
 existing_issues=$(gh issue list \
-  --label "needs-triage,ready-for-agent" \
   --state open \
-  --json title,body \
+  --json title,body,labels \
   --limit 200 \
   --repo "{owner}/{repo}")
+# Dedup against any open issue still in the pipeline (status/needs-triage,
+# status/ready, status/in-progress, status/in-review). Filter client-side
+# from the labels field if needed.
 ```
 
 **Local backend:**
@@ -205,7 +207,7 @@ Partition items into: **survivors** (passed all checks), **duplicates**, **out_o
 
 ## Phase 4: Create Items
 
-For each surviving item, create a `needs-triage` item in the configured backend.
+For each surviving item, create a `status/needs-triage` item in the configured backend.
 
 ### Issue body template
 
@@ -243,7 +245,7 @@ For each surviving item:
 gh issue create \
   --title "{title}" \
   --body "{body from template above}" \
-  --label "needs-triage,size/{suggested_size}" \
+  --label "status/needs-triage,size/{suggested_size}" \
   --repo "{owner}/{repo}"
 ```
 
@@ -253,7 +255,7 @@ If `target_repo` is known and differs from the primary repo, add a label for the
 gh issue create \
   --title "{title}" \
   --body "{body from template above}" \
-  --label "needs-triage,size/{suggested_size},repo/{target_repo_name}" \
+  --label "status/needs-triage,size/{suggested_size},repo/{target_repo_name}" \
   --repo "{owner}/{repo}"
 ```
 
@@ -296,7 +298,7 @@ body: |
   This item was automatically extracted from a product-pulse research report
   by `/pm:ingest`. It requires triage before any work begins.
 labels:
-  - needs-triage
+  - status/needs-triage
   - "size/{suggested_size}"
 source:
   report: "{source_report}"
@@ -332,7 +334,7 @@ card = mcp__trello__add_card_to_list({
   listId: list_id_needs_triage,
   name:   "{title}",
   desc:   "{body from template above}",
-  labels: ["needs-triage", "size/{suggested_size}"]
+  labels: ["status/needs-triage", "size/{suggested_size}"]
 })
 
 # Source attribution comment (separate from desc so future edits don't lose it):

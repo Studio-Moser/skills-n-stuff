@@ -192,7 +192,7 @@ done
 On user confirmation for local backend:
 
 ```bash
-yq -i '.labels -= ["ready-for-agent","ready-for-human","in-progress","awaiting-pr"] | .labels += ["done"] | .closed_at = "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"' "$item_file"
+yq -i '.labels -= ["status/ready","status/in-progress","status/in-review","owner/ai","owner/human","owner/operator"] | .labels += ["status/done"] | .closed_at = "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"' "$item_file"
 ```
 
 ### 1.2T Trello backend completion tracking
@@ -385,7 +385,7 @@ Stale: #{number} — {title}
   Action? (retriage / close / demote / skip)
 ```
 
-- **retriage** -- Add `needs-triage` label, remove current status labels. The item re-enters the triage pipeline.
+- **retriage** -- Add `status/needs-triage` label, remove current status/owner labels. The item re-enters the triage pipeline.
 - **close** -- Close the issue with a comment noting it was closed as stale.
 - **demote** -- Lower priority (e.g., P1 to P2, or move from Ready to Monitor in `planning/todos.md`).
 - **skip** -- Leave as-is. The item will be flagged again on the next reconcile unless it gets activity.
@@ -395,14 +395,14 @@ Process the user's choice:
 **retriage (GitHub):**
 ```bash
 gh issue edit "$num" \
-  --add-label "needs-triage" \
-  --remove-label "ready-for-agent,ready-for-human" \
+  --add-label "status/needs-triage" \
+  --remove-label "status/ready,status/in-progress,status/in-review,owner/ai,owner/human,owner/operator" \
   --repo "$gh_owner/$gh_repo"
 ```
 
 **retriage (local):**
 ```bash
-yq -i '.labels -= ["ready-for-agent","ready-for-human"] | .labels += ["needs-triage"]' "$item_file"
+yq -i '.labels -= ["status/ready","status/in-progress","status/in-review","owner/ai","owner/human","owner/operator"] | .labels += ["status/needs-triage"]' "$item_file"
 ```
 
 **close (GitHub):**
@@ -543,13 +543,13 @@ yq -i '.labels += ["blocker"] | .parent_epic = '"$parent_num"'' "$item_file"
 ```bash
 gh issue edit "$num" \
   --remove-label "spawned-during-sprint" \
-  --add-label "needs-triage" \
+  --add-label "status/needs-triage" \
   --repo "$gh_owner/$gh_repo"
 ```
 
 **Independent items (local):**
 ```bash
-yq -i '.labels -= ["spawned-during-sprint"] | .labels += ["needs-triage"]' "$item_file"
+yq -i '.labels -= ["spawned-during-sprint"] | .labels += ["status/needs-triage"]' "$item_file"
 ```
 
 ### 3.3 Report blocking chains

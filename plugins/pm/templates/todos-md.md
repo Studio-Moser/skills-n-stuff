@@ -12,7 +12,7 @@ Strategic items with long-term timelines. Use `R{N}` IDs.
 
 ## Ready
 
-Items approved for implementation. Group related items into named sprint subsections (`### Sprint: ...`). Items in flight carry `awaiting-pr` or `in-progress` status inline.
+Items approved for implementation. Group related items into named sprint subsections (`### Sprint: ...`). Items in flight carry `status/in-review` or `status/in-progress` status inline.
 
 ### Sprint: Unassigned
 
