@@ -34,6 +34,15 @@ Note: subagents, hooks, and bundled scripts (e.g., the `transcribe` CLI) are Cla
 
 ## Plugins
 
+### Figma Design
+
+Author high-quality designs directly into Figma via the Dev Mode MCP. Fuses Claude's `frontend-design` aesthetic engine with a `DESIGN.md` token contract and `figma-use` authoring discipline so code-to-design output matches the quality you get from Claude in HTML/CSS. Branches across existing Figma systems, code-only systems, and greenfield.
+
+**Skills:**
+- `/figma-design:designing-in-figma` — Build screens, UIs, mockups, and components into Figma (code-to-design) with the full aesthetic + token + auto-layout workflow
+
+[Full documentation](plugins/figma-design/README.md)
+
 ### Product Pulse
 
 Strategic intelligence system for product teams. Weekly strategy briefs, daily market research, and deep-dive analysis — a three-cadence intelligence system.

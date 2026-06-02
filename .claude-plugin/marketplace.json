@@ -5,11 +5,38 @@
     "email": "tim@studiomoser.com"
   },
   "metadata": {
-    "description": "Claude Code plugins by Studio Moser — strategy, research, and product development tools.",
-    "version": "0.4.0",
+    "description": "Claude Code plugins by Studio Moser — strategy, research, design, and product development tools.",
+    "version": "0.5.0",
     "pluginRoot": "./plugins"
   },
   "plugins": [
+    {
+      "name": "figma-design",
+      "source": "./plugins/figma-design",
+      "description": "Author high-quality designs directly into Figma via the Dev Mode MCP. Fuses Claude's frontend-design aesthetic engine with a DESIGN.md token contract and figma-use authoring discipline so code-to-design output matches Claude's HTML/CSS quality. Branches across existing Figma systems, code-only systems, and greenfield.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Studio Moser"
+      },
+      "license": "MIT",
+      "keywords": [
+        "figma",
+        "figma-mcp",
+        "code-to-design",
+        "design-system",
+        "design-md",
+        "design-tokens",
+        "auto-layout",
+        "ui-design"
+      ],
+      "category": "productivity",
+      "tags": [
+        "figma",
+        "design",
+        "design-system",
+        "code-to-design"
+      ]
+    },
     {
       "name": "product-pulse",
       "source": "./plugins/product-pulse",
