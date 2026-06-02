@@ -1,5 +1,8 @@
 # DESIGN.md — the token contract (Figma-optimized)
 
+**Contents:** What DESIGN.md is · How it drives Figma output · Template · Spec details
+worth knowing · Branch B: generating DESIGN.md from existing code tokens.
+
 `DESIGN.md` is an open spec from Google Labs (born out of Stitch, Apache-2.0:
 [google-labs-code/design.md](https://github.com/google-labs-code/design.md)). It is the
 *design* sibling of `CLAUDE.md`/`AGENTS.md`: a portable contract that grounds AI design
