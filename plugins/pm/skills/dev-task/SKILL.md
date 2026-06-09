@@ -44,7 +44,7 @@ Guide ONE person through ONE development task, foreground and interactive, the S
 
 ### 5. Review
 - Self-review the diff against the pm:house-rules security + quality checklist.
-- Then run the `/code-review` skill on the change. Fix anything it flags with reasonable confidence.
+- Then run `/code-review`, or dispatch the `code-reviewer` subagent for a deeper read. Fix every BLOCKER and any SUGGESTION you agree with; note deferrals with a reason.
 
 ### 6. Verify — GATE
 - Run the project's tests/build/lint. **REQUIRED SUB-SKILL:** Use superpowers:verification-before-completion.
@@ -80,6 +80,5 @@ All of these mean: stop, return to the relevant gate.
 
 ## Common mistakes
 
-- Restating house-rules inline instead of deferring (drift). Defer.
-- Dumping everything you read in the plan. The plan is what you'll DO, not what you saw.
-- Treating dev-task like sprint-dev (it's one task, foreground, no batching).
+- Restating house-rules inline instead of deferring — defer.
+- Dumping everything you read into the plan — the plan is what you'll DO, not what you saw.
