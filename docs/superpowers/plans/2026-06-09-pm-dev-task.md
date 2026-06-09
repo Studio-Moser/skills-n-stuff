@@ -276,7 +276,7 @@ All of these mean: stop, return to the relevant gate.
 - [ ] **Step 3: Word-count check**
 
 Run: `wc -w plugins/pm/skills/dev-task/SKILL.md`
-Expected: < 550 words. Trim prose if over; keep the tables and gate markers.
+Expected: < 750 words. This is a trigger-loaded discipline skill, so the strict <500 always-loaded target does not apply; the rationalization table and red-flags content are REQUIRED by writing-skills and must not be cut to hit a number. Trim only genuine prose redundancy.
 
 - [ ] **Step 4: GREEN — re-run baseline scenarios with the skill present**
 
@@ -455,7 +455,7 @@ Replace the second bullet of `### 5. Review` with:
 
 - [ ] **Step 3: GREEN — verify + word count**
 
-Run: `wc -w plugins/pm/skills/dev-task/SKILL.md` (still < 600). Re-run Scenario A from Task 2; confirm the review step now invokes the reviewer and acts on tiers.
+Run: `wc -w plugins/pm/skills/dev-task/SKILL.md` (still < 750). Re-run Scenario A from Task 2; confirm the review step now invokes the reviewer and acts on tiers.
 
 - [ ] **Step 4: Commit**
 
@@ -630,7 +630,7 @@ cat .claude-plugin/marketplace.json | python3 -m json.tool >/dev/null && echo "m
 cat plugins/pm/.claude-plugin/plugin.json | python3 -m json.tool >/dev/null && echo "plugin OK"
 wc -w plugins/pm/skills/dev-task/SKILL.md plugins/pm/skills/house-rules/SKILL.md
 ```
-Expected: both `OK`; dev-task < 600 words, house-rules < 400 words.
+Expected: both `OK`; dev-task < 750 words, house-rules < 400 words.
 
 - [ ] **Step 3: Finish the development branch**
 
