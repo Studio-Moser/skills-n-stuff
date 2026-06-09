@@ -1,6 +1,6 @@
 ---
 name: dev-task
-description: Use when someone wants to implement a feature, fix a bug, or make a focused code change in the current repo and be guided through it step by step — especially a teammate newer to the codebase or to dev workflow. Triggers include "implement…", "fix this bug", "help me build…", "add…", or /pm:dev-task. Not for backlog batches (use pm:sprint-dev) or open-ended ideation (use brainstorming).
+description: Use when someone wants to implement a feature, fix a known bug, or make a focused code change in the current repo and be guided through it — including small or quick changes (a button, a one-line fix), which still go through the guided workflow rather than being done ad hoc. Especially for teammates newer to the codebase or to dev workflow. Triggers include "implement…", "fix this…", "add…", "build…", "patch…", "wire up…", "refactor this…", or /pm:dev-task. Do NOT use for: batching a backlog or sprint (use pm:sprint-dev), open-ended design or ideation (use brainstorming), reviewing an existing PR (use /code-review), or diagnosing an unknown cause before any fix is known (use systematic-debugging).
 allowed-tools: "Bash Read Write Edit Agent Skill"
 ---
 
