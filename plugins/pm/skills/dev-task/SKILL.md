@@ -24,6 +24,7 @@ Guide ONE person through ONE development task, foreground and interactive, the S
 ## The workflow
 
 ### 1. Frame
+- If a memory MCP is connected (e.g. shelby-memory), recall relevant prior context; skip silently if not. See references/memory-integration.md.
 - Read the repo's `CLAUDE.md` / `AGENTS.md` if present.
 - Restate the task in one or two sentences and the definition of done.
 - Name any unknowns or risks. If the ask is genuinely ambiguous or large, **REQUIRED SUB-SKILL:** Use superpowers:brainstorming before planning.
@@ -57,6 +58,7 @@ Guide ONE person through ONE development task, foreground and interactive, the S
 - Summarize what shipped and what was intentionally left out.
 - **REQUIRED SUB-SKILL:** Use superpowers:finishing-a-development-branch for merge/PR/cleanup options.
 - If a project tracker is configured (`.pm/config.yml` exists), offer to update the item. If not, skip silently — dev-task never requires /pm:setup.
+- If a memory MCP is connected, save any reusable learning; skip silently if not. See references/memory-integration.md.
 
 ## Rationalization table — do not skip gates
 
