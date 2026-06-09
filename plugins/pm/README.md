@@ -23,6 +23,7 @@ PM is a **six-skill pipeline** that manages the full lifecycle of work items, fr
 - **`/pm:dev-task`** — *walk me through this one task.* Interactive, foreground, teaching, hard approval gates. Works in any repo, no setup required.
 
 Both defer to the shared `house-rules` skill for conventions.
+New to the team workflow? See [How we do dev tasks](docs/how-we-do-dev-tasks.md).
 
 ### The Flow
 
