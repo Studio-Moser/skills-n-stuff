@@ -630,7 +630,7 @@ cat .claude-plugin/marketplace.json | python3 -m json.tool >/dev/null && echo "m
 cat plugins/pm/.claude-plugin/plugin.json | python3 -m json.tool >/dev/null && echo "plugin OK"
 wc -w plugins/pm/skills/dev-task/SKILL.md plugins/pm/skills/house-rules/SKILL.md
 ```
-Expected: both `OK`; dev-task < 750 words, house-rules < 400 words.
+Expected: both `OK`; dev-task < 850 words (final size after Phase 2 added the code-reviewer wiring + memory hooks; trigger-loaded discipline skill, bulletproofing content required), house-rules < 400 words.
 
 - [ ] **Step 3: Finish the development branch**
 
