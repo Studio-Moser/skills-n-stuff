@@ -336,12 +336,9 @@ Build a comprehensive sub-agent prompt with:
 1. **Understand** — Read spec (if exists) or linked research report, relevant source files
 2. **Plan** — Brief implementation plan. L/XL items: follow spec Chunks. Medium items: show plan and get approval
 3. **Implement** — Write code. TDD where applicable. Follow spec's Acceptance Criteria
-4. **Self-Review** — Check against:
-   - Security (no injection, no secrets, no OWASP top 10)
-   - Quality (no dead code, no debugging artifacts, follows conventions)
-   - Correctness (edge cases, error paths, types)
-   - Completeness (all items addressed or noted as skipped)
-   - Spec compliance (all Acceptance Criteria met for specced items)
+4. **Self-Review** — Apply the pm:house-rules security + quality checklist (correctness, edge cases, error handling, no secrets, no dead code or debug artifacts, conventions). Then additionally for sprints:
+   - Completeness — all batch items addressed or explicitly noted as skipped
+   - Spec compliance — all Acceptance Criteria met for specced items
 5. **Verify** — Run project test/build commands from product context
 6. **Commit** — Atomic commits, clear messages
 7. **Discovered work** — If you find something that needs to be done but isn't in your current spec, do NOT do it inline. Instead, create a GitHub Issue (or note for the orchestrator) tagged `spawned-during-sprint` with a description of what was found and why it matters. Your definition of done stays fixed to the original spec.

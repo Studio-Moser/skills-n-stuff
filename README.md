@@ -65,6 +65,7 @@ Backend-agnostic project management for AI-native teams. Ingests research report
 - `/pm:triage` — Spec, score, and promote items to ready-for-agent
 - `/pm:reconcile` — Sync reality with the tracker (completion, stale, blockers)
 - `/pm:sprint-dev` — Pick ready work and execute with sub-agents
+- `/pm:dev-task` — Interactive, guided single-task dev workflow (plan → approve → build → review → verify → PR)
 
 [Full documentation](plugins/pm/README.md)
 
