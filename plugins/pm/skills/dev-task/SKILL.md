@@ -30,7 +30,7 @@ Guide ONE person through ONE development task, foreground and interactive, the S
 
 ### 2. Plan — GATE
 - Write a concise plan: 5–10 bullets, what you'll change, which files, edge cases. For multi-step work, **REQUIRED SUB-SKILL:** Use superpowers:writing-plans.
-- **STOP. Present the plan and wait for explicit approval.** Do not write code first.
+- **STOP. Present the plan and wait for the user to explicitly approve this plan.** Until then take no implementation action — no branching, no creating or editing files, no code.
 
 ### 3. Branch
 - Per pm:house-rules. If the change needs isolation from current work, **REQUIRED SUB-SKILL:** Use superpowers:using-git-worktrees.
@@ -48,7 +48,7 @@ Guide ONE person through ONE development task, foreground and interactive, the S
 
 ### 6. Verify — GATE
 - Run the project's tests/build/lint. **REQUIRED SUB-SKILL:** Use superpowers:verification-before-completion.
-- **Show the actual command output.** Never claim "passing" without evidence.
+- **Run the commands yourself and paste the actual output here.** Never claim "passing" without pasted evidence.
 
 ### 7. PR
 - Open the PR per pm:house-rules (What/Why/Testing). Share the URL.
