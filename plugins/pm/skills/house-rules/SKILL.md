@@ -14,6 +14,7 @@ Studio Moser conventions for code changes. This is the single source of truth �
 - Name: `{name}/{short-desc}` — your first name, then a kebab-case summary.
   - `tara/fix-settings-crash`
   - `tim/add-dark-mode-toggle`
+- Exception: automated sprint batches (pm:sprint-dev) use a `pulse/{cluster}-{date}` prefix — that's expected.
 
 ## Commits
 

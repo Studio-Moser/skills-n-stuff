@@ -336,7 +336,7 @@ Build a comprehensive sub-agent prompt with:
 1. **Understand** — Read spec (if exists) or linked research report, relevant source files
 2. **Plan** — Brief implementation plan. L/XL items: follow spec Chunks. Medium items: show plan and get approval
 3. **Implement** — Write code. TDD where applicable. Follow spec's Acceptance Criteria
-4. **Self-Review** — Apply the pm:house-rules security + quality checklist (correctness, edge cases, error handling, no secrets, conventions). Then additionally for sprints:
+4. **Self-Review** — Apply the pm:house-rules security + quality checklist (correctness, edge cases, error handling, no secrets, no dead code or debug artifacts, conventions). Then additionally for sprints:
    - Completeness — all batch items addressed or explicitly noted as skipped
    - Spec compliance — all Acceptance Criteria met for specced items
 5. **Verify** — Run project test/build commands from product context
