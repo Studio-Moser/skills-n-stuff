@@ -6,7 +6,7 @@ A backlog lifecycle plugin for [Claude Code](https://code.claude.com). Takes raw
 
 ## What It Does
 
-PM is a **five-skill pipeline** that manages the full lifecycle of work items, from discovery through delivery:
+PM is a **six-skill pipeline** that manages the full lifecycle of work items, from discovery through delivery:
 
 | Skill | Role | When | What |
 |-------|------|------|------|
@@ -14,7 +14,15 @@ PM is a **five-skill pipeline** that manages the full lifecycle of work items, f
 | `/pm:ingest` | Discoverer | After new research lands | Reads product-pulse reports, extracts actionable items, deduplicates, files `status/needs-triage` issues |
 | `/pm:triage` | Classifier | When items need decisions | Sort (reject/dedup), spec (brainstorm + write plans), score (6-point checklist), promote |
 | `/pm:sprint-dev` | Builder | When you're ready to ship | Picks ready items, groups into PRs, dispatches sub-agents with self-review and testing |
+| `/pm:dev-task` | Pair-programmer | Implementing one focused change | Guides plan→approve→branch→implement→review→verify→PR with house conventions; works with or without /pm:setup |
 | `/pm:reconcile` | Janitor | After sprints or merges | Completion tracking, stale detection, blocker classification, CONTEXT.md and ADR proposals |
+
+### Two build modes
+
+- **`/pm:sprint-dev`** — *work the backlog.* Reads ready items, clusters them into PRs, dispatches parallel sub-agents. Needs `/pm:setup` + a tracker.
+- **`/pm:dev-task`** — *walk me through this one task.* Interactive, foreground, teaching, hard approval gates. Works in any repo, no setup required.
+
+Both defer to the shared `house-rules` skill for conventions.
 
 ### The Flow
 

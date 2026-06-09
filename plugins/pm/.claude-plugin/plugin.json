@@ -1,7 +1,7 @@
 {
   "name": "pm",
-  "version": "0.5.1",
-  "description": "Backend-agnostic project management for AI-native teams. Ingests research reports, triages and specs work items, manages sprint execution with sub-agents, syncs with GitHub Issues, Trello boards, or local YAML. Pairs with product-pulse for automated intelligence gathering.",
+  "version": "0.6.0",
+  "description": "Backend-agnostic project management for AI-native teams. Ingests research reports, triages and specs work items, manages sprint execution with sub-agents, syncs with GitHub Issues, Trello boards, or local YAML. Pairs with product-pulse for automated intelligence gathering. Includes both batch sprint execution and an interactive single-task guided workflow.",
   "author": {
     "name": "Studio Moser",
     "url": "https://github.com/Studio-Moser"
