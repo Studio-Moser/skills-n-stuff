@@ -11,9 +11,12 @@ Studio Moser conventions for code changes. This is the single source of truth �
 
 - Branch from the repo's default branch. Confirm it: `gh repo view --json defaultBranchRef -q .defaultBranchRef.name`
 - Never commit directly to `main`/`master`.
-- Name: `{name}/{short-desc}` — your first name, then a kebab-case summary.
-  - `tara/fix-settings-crash`
-  - `tim/add-dark-mode-toggle`
+- Name: `{type}/{short-desc}` — a Gitflow type prefix, then a kebab-case summary. Pick the prefix by intent:
+  - `feature/` — new functionality (`feature/dark-mode-toggle`)
+  - `bugfix/` — fix a non-urgent bug (`bugfix/settings-crash-on-rotation`)
+  - `hotfix/` — urgent fix to ship straight away (`hotfix/login-500`)
+  - `release/` — release prep (`release/1.4.0`)
+  - `chore/` — tooling, deps, docs, refactors with no behavior change (`chore/bump-eslint`)
 - Exception: automated sprint batches (pm:sprint-dev) use a `pulse/{cluster}-{date}` prefix — that's expected.
 
 ## Commits
