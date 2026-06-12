@@ -1,6 +1,6 @@
 ---
 name: house-rules
-description: Use when making any code change and you need Studio Moser conventions for branch naming, commit messages, PR format, testing discipline, or pre-commit security checks, or when you just need a quick convention lookup. Loaded by pm:dev-task and pm:sprint-dev.
+description: Use when making any code change and you need Studio Moser conventions for branch naming, file/documentation naming, commit messages, PR format, testing discipline, or pre-commit security checks, or when you just need a quick convention lookup. Loaded by pm:dev-task and pm:sprint-dev.
 ---
 
 # House Rules
@@ -49,6 +49,16 @@ Commit incrementally as you go — don't batch an entire feature into one commit
 
 - One PR per task. Don't mix unrelated changes.
 - Create with: `gh pr create --title "…" --body "…"`. Link the issue/card if there is one.
+
+## File & documentation naming
+
+Applies to docs, notes, specs, and any file you create whose name you control.
+
+- Default to **Title Case with spaces**: `Design Notes.md`, `Release Checklist.md`.
+- When the context can't take spaces, replace them with **underscores**: `Design_Notes.md`.
+- Use **dashes only to separate organizational segments** — version, topic, date: `Design_Notes-v2.md`, `API_Reference-Authentication.md`, `Status_Report-2026-06-12.md`.
+- **Never default to ALL CAPS.** `SUMMARY.md` → `Summary.md`, `NOTES.md` → `Notes.md`.
+- Exception: filenames fixed by tooling or ecosystem convention keep their mandated form — `README.md`, `CLAUDE.md`, `AGENTS.md`, `SKILL.md`, `LICENSE`, `Makefile`, etc.
 
 ## Testing
 
