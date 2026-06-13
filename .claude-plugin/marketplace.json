@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Claude Code plugins by Studio Moser — strategy, research, design, and product development tools.",
-    "version": "0.6.2",
+    "version": "0.7.0",
     "pluginRoot": "./plugins"
   },
   "plugins": [
@@ -137,6 +137,29 @@
         "capture",
         "design",
         "competitive-analysis"
+      ]
+    },
+    {
+      "name": "claude-instances",
+      "source": "./plugins/claude-instances",
+      "description": "Run multiple Claude Desktop apps side by side, each signed into a different account. Builds a renamed, ad-hoc-signed duplicate of /Applications/Claude.app with its own bundle ID, user-data directory, and optional custom icon. Same skill rebuilds existing instances to pick up Claude auto-updates.",
+      "author": {
+        "name": "Studio Moser"
+      },
+      "license": "MIT",
+      "keywords": [
+        "claude-desktop",
+        "electron",
+        "macos",
+        "multi-account",
+        "duplicate-app",
+        "code-signing"
+      ],
+      "category": "productivity",
+      "tags": [
+        "claude-desktop",
+        "macos",
+        "multi-account"
       ]
     },
     {

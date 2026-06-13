@@ -1,0 +1,19 @@
+{
+  "name": "claude-instances",
+  "version": "0.1.0",
+  "description": "Run multiple Claude Desktop apps side by side, each signed into a different account. Builds a renamed, ad-hoc-signed duplicate of /Applications/Claude.app with its own bundle ID, user-data directory, and optional custom icon. Same skill rebuilds existing instances to pick up Claude auto-updates.",
+  "author": {
+    "name": "Studio Moser",
+    "url": "https://github.com/Studio-Moser"
+  },
+  "repository": "https://github.com/Studio-Moser/skills-n-stuff",
+  "license": "MIT",
+  "keywords": [
+    "claude-desktop",
+    "electron",
+    "macos",
+    "multi-account",
+    "duplicate-app",
+    "code-signing"
+  ]
+}
