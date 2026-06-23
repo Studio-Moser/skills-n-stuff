@@ -272,6 +272,29 @@ Epic complete: #{epic_number} — {title}
 
 **Local backend:** Scan items where `parent_epic` matches the epic number. If all are closed, flag the epic.
 
+### 1.3b Orphan-epic sweep (GitHub-only — skip when backend != github.)
+
+Every open todo should sit under exactly one epic (that's what makes the board's group-by-Parent-issue / Sprint Plan view readable). Flag any open issue that is **neither under an epic nor a deliberate exception** so it gets parented before it silently rots in "No Parent."
+
+```bash
+# Open issues that are not themselves epics and carry no opt-out label.
+candidates=$(gh issue list --state open --limit 400 \
+  --json number,title,labels --repo "$gh_owner/$gh_repo" \
+  | jq -r '[.[] | select((.labels|map(.name)) as $l
+      | ($l|index("epic")|not) and ($l|index("no-epic")|not))] | .[].number')
+```
+
+For each candidate, check its parent via the sub-issues API (`{repository{issue(number:N){parent{number}}}}`). If `parent` is null, it's an orphan. Present the orphans:
+
+```
+Orphan todos (no parent epic):
+  #{number} — {title}    → suggest: Epic #{inferred} ({why})
+
+{N} orphan(s). Parent them now? (yes / skip)
+```
+
+On `yes`, infer the epic by area (same matching as `/pm:triage` Phase 4.3 — memory→memory epic, a UI surface→that surface's epic, sync/reliability→reliability, etc.), confirm ambiguous ones, then `addSubIssue` (and set the project **Epic** field if `project_sync` is on). Items that genuinely belong nowhere get a `no-epic` label rather than a parent. This is the safety net for items promoted before this rule existed, or linked by hand.
+
 ### 1.4 Update planning files
 
 If `planning/todos.md` exists, move completed items from the Ready section to the Done section.

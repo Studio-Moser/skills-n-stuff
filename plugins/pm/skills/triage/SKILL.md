@@ -639,19 +639,28 @@ Additionally, when reading a card's comments via `mcp__trello__get_card_comments
 
 This implements the spec's "card-to-Ready move = approval" pattern (W2c) without losing the explicit-confirm mode for sit-down sessions.
 
-### 4.3 Link to parent epic (if applicable)
+### 4.3 Link to a parent epic (REQUIRED — every promoted item gets exactly one)
 
-If the item references a parent epic (an issue with the `epic` label), create a sub-issue relationship.
+**Every item you promote must land under exactly one parent epic — no orphans.** A todo with no epic parent does not group under any epic in the project's "Sprint Plan" / group-by-Parent-issue view, which is the whole point of the board. So this is a required step, not an optional one. Do not promote an item to `status/ready` until it has an epic.
 
-**GitHub backend** — use the GitHub sub-issues API:
+Determine the item's epic, in order of preference:
 
-Follow the sub-issue linking procedure in `references/github-sub-issues.md` (relative to this skill's plugin directory at `plugins/pm/`), using `{epic_number}` as the parent and `{number}` as the child. The reference includes the GraphQL mutation with a comment-based fallback.
+1. **Explicit reference** in the item body (e.g. "Part of Epic 1 (#236)").
+2. **Infer from the open epics.** List them — `gh issue list --label epic --state open --repo "$gh_owner/$gh_repo"` — and match by area (memory work → the memory epic; a specific UI surface → that surface's epic; sync/reliability → the reliability epic; etc.). Per-surface UI work goes under that surface's epic, not a generic one.
+3. **Ask** if still ambiguous: "Which epic does this belong under? {short list}". Pick before promoting.
+
+**GitHub backend** — create the **native sub-issue relationship**; this is the canonical mechanism that drives epic grouping and the epic progress bar. Follow `references/github-sub-issues.md`, using `{epic_number}` as the parent and `{number}` as the child (GraphQL `addSubIssue`, with the comment-based fallback).
+
+- An issue can have **only one parent**. If the child already has a different parent, `removeSubIssue` from the old parent first, then `addSubIssue` to the correct one — otherwise the add fails with a VALIDATION error.
+- If `github.project_sync.enabled` AND the project has a custom **Epic** field, also set it (`gh project item-edit --id {item_id} --field-id {epic_field_id} --project-id {project_id} --text "#{epic_number} {epic_title}"`, or the `projects_write` `update_item_field_value` MCP call) so the native sub-issue tree and the group-by-Epic-field view agree.
 
 **Local backend:**
 
 ```bash
 yq -i '.parent_epic = {epic_number}' "$item_file"
 ```
+
+**No-epic escape hatch.** If an item genuinely belongs to no epic (rare — e.g. a standalone strategy/positioning note or a pure competitor-watch item), do NOT leave it silently unparented. Add a `no-epic` label so it's a deliberate, auditable choice rather than an oversight, and `/pm:reconcile` can surface accidental orphans (todos that are neither under an epic nor labelled `no-epic`).
 
 ### 4.4 Update planning/todos.md
 
