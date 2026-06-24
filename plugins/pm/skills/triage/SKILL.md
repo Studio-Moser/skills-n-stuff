@@ -649,6 +649,31 @@ Determine the item's epic, in order of preference:
 2. **Infer from the open epics.** List them — `gh issue list --label epic --state open --repo "$gh_owner/$gh_repo"` — and match by area (memory work → the memory epic; a specific UI surface → that surface's epic; sync/reliability → the reliability epic; etc.). Per-surface UI work goes under that surface's epic, not a generic one.
 3. **Ask** if still ambiguous: "Which epic does this belong under? {short list}". Pick before promoting.
 
+**Creating a new epic (when none fits).** If the area genuinely has no epic yet, create one before linking — don't force the item under an ill-fitting parent. An epic is a **goal container**, so author it accordingly:
+
+- **Labels: `epic` only.** Never give an epic a `status/*` label and never place it in a board status column. An epic carries no workflow status — its progress *is* the native sub-issue progress bar, and its membership *is* the sub-issue tree. (Lifecycle still applies: `/pm:reconcile` closes an epic once all its sub-issues close.)
+- **Body = the goal, nothing else.** State the end-state and why it matters, written like a goal prompt you'd hand Claude Code — not a checklist of constituent items (that just drifts from the sub-issue tree, which is the real source of truth for membership). Use this shape:
+
+  **Epic body template:**
+
+  ```markdown
+  ## Goal
+  {The end-state we're driving toward, in one or two sentences.}
+
+  ## Why
+  {Why this matters — what's true once this is done.}
+  ```
+
+```bash
+gh issue create \
+  --title "{epic title}" \
+  --body "{Goal/Why body from the template above}" \
+  --label "epic" \
+  --repo "$gh_owner/$gh_repo"
+```
+
+Capture the new epic's number to use as `{epic_number}` below.
+
 **GitHub backend** — create the **native sub-issue relationship**; this is the canonical mechanism that drives epic grouping and the epic progress bar. Follow `references/github-sub-issues.md`, using `{epic_number}` as the parent and `{number}` as the child (GraphQL `addSubIssue`, with the comment-based fallback).
 
 - An issue can have **only one parent**. If the child already has a different parent, `removeSubIssue` from the old parent first, then `addSubIssue` to the correct one — otherwise the add fails with a VALIDATION error.

@@ -195,7 +195,7 @@ PM uses a namespaced label taxonomy split across **status**, **owner**, **priori
 | `priority/p3` | Low / someday |
 | `blocker` | Blocks other work -- escalate (urgency flag, orthogonal to status) |
 | `spawned-during-sprint` | Filed by a sub-agent during sprint execution |
-| `epic` | Groups related issues under a parent |
+| `epic` | Goal container grouping related issues -- carries no `status/*` label; body is a Goal/Why statement, not a checklist |
 | `size/S` | Small: < 1 hour |
 | `size/M` | Medium: 1--4 hours |
 | `size/L` | Large: 4+ hours, needs spec |

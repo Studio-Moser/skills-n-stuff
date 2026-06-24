@@ -464,7 +464,7 @@ The taxonomy is namespaced: an item's pipeline position is described by a `statu
 | `priority/p3` | `#c5def5` (light blue) | Low / someday |
 | `blocker` | `#d93f0b` (red) | Blocks other work — escalate (urgency flag, orthogonal to status) |
 | `spawned-during-sprint` | `#c2e0c6` (light green) | Created by an agent during sprint execution |
-| `epic` | `#5319e7` (purple) | Groups related issues under a parent |
+| `epic` | `#5319e7` (purple) | Goal container — groups related issues as the group-by-Parent rows. Carries no `status/*` label and no board status column; its body is a Goal/Why statement, not an item checklist (see `/pm:triage` Phase 4.3) |
 | `size/S` | `#e6e6e6` (gray) | Small: < 1 hour |
 | `size/M` | `#e6e6e6` (gray) | Medium: 1-4 hours |
 | `size/L` | `#e6e6e6` (gray) | Large: 4+ hours, needs spec |
