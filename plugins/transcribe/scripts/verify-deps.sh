@@ -17,7 +17,7 @@ check() {
 }
 
 echo "Checking transcribe plugin dependencies:" >&2
-check "yt-dlp"       "command -v yt-dlp"
+check "yt-dlp"       "yt-dlp --version || command -v uvx || python3 -c 'import yt_dlp'"
 check "ffmpeg"       "command -v ffmpeg"
 check "python3"      "command -v python3"
 check "mlx-whisper"  "python3 -c 'import mlx_whisper'"

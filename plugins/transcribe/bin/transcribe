@@ -66,6 +66,28 @@ PLUGIN_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
   exit 1
 }
 
+# ── Resolve a working yt-dlp ──────────────────────────────────────────────────
+# Homebrew ships yt-dlp as a Python script whose shebang pins an exact
+# interpreter path. A Homebrew Python point-release bump (e.g. 3.13 → 3.14)
+# deletes that path and silently breaks the bare `yt-dlp` command with a
+# "bad interpreter" error. Probe it once; on failure fall back to a
+# Python-managed invocation (`uvx yt-dlp`, then `python3 -m yt_dlp`) that
+# Homebrew's interpreter churn can't break. YTDLP is an argv array — always
+# expand it as "${YTDLP[@]}".
+
+if yt-dlp --version >/dev/null 2>&1; then
+  YTDLP=(yt-dlp)
+elif command -v uvx >/dev/null 2>&1; then
+  echo "→ bare yt-dlp not runnable; falling back to 'uvx yt-dlp'" >&2
+  YTDLP=(uvx yt-dlp)
+elif python3 -c 'import yt_dlp' >/dev/null 2>&1; then
+  echo "→ bare yt-dlp not runnable; falling back to 'python3 -m yt_dlp'" >&2
+  YTDLP=(python3 -m yt_dlp)
+else
+  echo "→ WARNING: no runnable yt-dlp found (bare / uvx / python3 -m yt_dlp all failed)" >&2
+  YTDLP=(yt-dlp)
+fi
+
 # ── Detect platform ──────────────────────────────────────────────────────────
 
 detect_platform() {
@@ -102,14 +124,14 @@ tier0_youtube_captions() {
   # Fetch title + duration and attempt caption download in one pass.
   # Prefer manual subs; fall back to auto-generated.
   local meta
-  meta="$(yt-dlp --print "%(title)s|||%(duration)s" "$URL" 2>/dev/null || true)"
+  meta="$("${YTDLP[@]}" --print "%(title)s|||%(duration)s" "$URL" 2>/dev/null || true)"
   if [[ -n "$meta" ]]; then
     VIDEO_TITLE="${meta%%|||*}"
     DURATION_SECONDS="${meta##*|||}"
     [[ "$DURATION_SECONDS" == "NA" || -z "$DURATION_SECONDS" ]] && DURATION_SECONDS=0
   fi
 
-  yt-dlp --skip-download \
+  "${YTDLP[@]}" --skip-download \
          --write-sub --write-auto-sub \
          --sub-lang "en.*,en-orig" \
          --sub-format vtt \
@@ -145,7 +167,7 @@ tier1_ytdlp() {
 
   # Title + duration via yt-dlp metadata (may fail on some URLs; tolerate)
   local meta
-  meta="$(yt-dlp --print "%(title)s|||%(duration)s" "$URL" 2>/dev/null || true)"
+  meta="$("${YTDLP[@]}" --print "%(title)s|||%(duration)s" "$URL" 2>/dev/null || true)"
   if [[ -n "$meta" ]]; then
     VIDEO_TITLE="${meta%%|||*}"
     DURATION_SECONDS="${meta##*|||}"
@@ -153,7 +175,7 @@ tier1_ytdlp() {
   fi
 
   # Download + extract audio
-  if ! yt-dlp -x --audio-format wav \
+  if ! "${YTDLP[@]}" -x --audio-format wav \
         -o "$TMPDIR_WORK/audio_raw.%(ext)s" \
         "$URL" >/dev/null 2>&1; then
     return 1
