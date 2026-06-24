@@ -3,7 +3,8 @@ name: reconcile
 description: >-
   Sync project reality with the issue tracker. Scans git history for completed
   items, detects stale work, classifies deferred blockers, updates epic
-  progress, proposes CONTEXT.md updates and ADRs. Run after sprints, after
+  progress, normalizes epics (strips stray status labels, reshapes bodies to
+  Goal/Why), proposes CONTEXT.md updates and ADRs. Run after sprints, after
   merges, or periodically.
   Trigger: "reconcile", "sync issues", "clean up backlog", "check progress",
   or /pm:reconcile.
@@ -13,7 +14,7 @@ allowed-tools: "Bash Read Write Edit"
 
 # PM -- Reconcile
 
-You are the project janitor. Your job is to walk through git history, the issue tracker, and the planning files to make sure everything reflects reality. You close what's done, flag what's stale, classify deferred blockers, update epic rollups, and propose CONTEXT.md and ADR additions when the codebase has evolved.
+You are the project janitor. Your job is to walk through git history, the issue tracker, and the planning files to make sure everything reflects reality. You close what's done, flag what's stale, classify deferred blockers, update epic rollups, normalize epics (strip stray status labels, reshape bodies to Goal/Why), and propose CONTEXT.md and ADR additions when the codebase has evolved.
 
 You are NOT the triage agent -- that's `/pm:triage`. You sync state; others classify and prioritize new work.
 
@@ -297,28 +298,55 @@ Orphan todos (no parent epic):
 
 On `yes`, infer the epic by area (same matching as `/pm:triage` Phase 4.3 — memory→memory epic, a UI surface→that surface's epic, sync/reliability→reliability, etc.), confirm ambiguous ones, then `addSubIssue` (and set the project **Epic** field if `project_sync` is on). Items that genuinely belong nowhere get a `no-epic` label rather than a parent. This is the safety net for items promoted before this rule existed, or linked by hand.
 
-### 1.3c Epic status-label guard (GitHub-only — skip when backend != github.)
+### 1.3c Epic normalization — status labels + body (GitHub-only — skip when backend != github.)
 
-Epics are goal containers and carry **no workflow status** — their progress is the sub-issue progress bar, not a `status/*` label or board column (see `/pm:triage` Phase 4.3). Flag any epic that wrongly carries a `status/*` label so it gets corrected — usually a hand-made epic, or one created before this rule existed.
+Epics are **goal containers** (see `/pm:triage` Phase 4.3): they carry no workflow status, and their body is a Goal/Why statement — not a checklist of constituent items (the sub-issue tree is the source of truth for membership). This phase brings existing epics into line with both rules. It's the retrofit for epics created before the convention, or by hand.
+
+Pull every open epic with its labels and body:
 
 ```bash
-# Open epics that carry any status/* label.
-mislabelled=$(gh issue list --label epic --state open --limit 200 \
-  --json number,title,labels --repo "$gh_owner/$gh_repo" \
-  | jq -r '[.[] | select((.labels|map(.name)) as $l | ($l|any(startswith("status/"))))]
-      | .[] | "\(.number)\t\(.title)\t\([.labels[].name | select(startswith("status/"))] | join(","))"')
+gh issue list --label epic --state open --limit 200 \
+  --json number,title,labels,body --repo "$gh_owner/$gh_repo" > /tmp/pm_epics.json
 ```
 
-Present the offenders:
+**Status labels.** An epic carrying any `status/*` label is wrong — its progress is the sub-issue progress bar, not a board column.
 
-```
-Epics carrying a status label (should carry none):
-  #{number} — {title}    → strip: {status/* labels}
-
-{N} epic(s). Strip these status labels now? (yes / skip)
+```bash
+jq -r '[.[] | select((.labels|map(.name)) as $l | ($l|any(startswith("status/"))))]
+    | .[] | "\(.number)\t\(.title)\t\([.labels[].name | select(startswith("status/"))] | join(","))"' /tmp/pm_epics.json
 ```
 
-On `yes`, remove the `status/*` label(s) from each — `gh issue edit {number} --remove-label "{status_label}" --repo "$gh_owner/$gh_repo"` — leaving the `epic` label in place. Don't touch open/closed state; this only removes workflow-status noise.
+**Body shape.** An epic body needs reshaping if it isn't already a clean Goal/Why statement — i.e. it has no `## Goal` section, or it contains an item checklist (`- [ ]` / `- [x]` lines) or a bare list of sub-issue links (`#N` enumerations standing in for the sub-issue tree). For each such epic, **rewrite** the body into the Goal/Why shape:
+
+- **Goal** — the end-state the epic drives toward, distilled from the title and whatever intent the current body expresses.
+- **Why** — the outcome/value once it's done.
+- **Preserve genuine prose.** If the body holds real context, constraints, or design notes beyond the checklist, fold them into Goal/Why (or keep a short `## Notes` tail) — only the item checklist and bare `#N` enumerations get dropped, since those duplicate the sub-issue tree.
+
+Use the `Epic body template` from `/pm:triage` Phase 4.3 as the target shape. Don't fabricate a goal you can't support from the title/body — if an epic's intent is genuinely unreadable, list it for manual attention instead of guessing.
+
+Present both corrections together:
+
+```
+Epic normalization:
+  #{number} — {title}
+    status labels → strip: {status/* labels}        (omit line if none)
+    body          → reshape to Goal/Why             (omit line if already clean)
+    proposed body:
+      {the rewritten Goal/Why body}
+
+{N} epic(s) to normalize. Apply? (yes / skip / one-by-one)
+```
+
+On `yes`, for each epic:
+
+```bash
+# strip any status/* labels (leave the `epic` label in place)
+gh issue edit {number} --remove-label "{status_label}" --repo "$gh_owner/$gh_repo"
+# rewrite the body
+gh issue edit {number} --body "{rewritten Goal/Why body}" --repo "$gh_owner/$gh_repo"
+```
+
+`one-by-one` walks each epic's proposed rewrite for individual yes/skip — use it when several bodies carry prose worth eyeballing. Never touch open/closed state here; this only normalizes labels and body. GitHub keeps issue edit history, so a rewrite is recoverable.
 
 ### 1.4 Update planning files
 
@@ -351,7 +379,7 @@ Archived items completed during {YYYY} Q{N}.
 
 Append new rows to the existing table if the file already exists.
 
-Print: `"Phase 1 — {X} item(s) completed, {Y} epic(s) rolled up, {S} epic status label(s) stripped, {Z} row(s) archived."`
+Print: `"Phase 1 — {X} item(s) completed, {Y} epic(s) rolled up, {E} epic(s) normalized, {Z} row(s) archived."`
 
 ---
 
@@ -852,7 +880,7 @@ Backend:                 {github or local or trello}
 Completion tracking:
   Items completed:       {X}
   Epics rolled up:       {Y}
-  Epic status stripped:  {S}
+  Epics normalized:      {E}  ({S} status-stripped, {B} bodies reshaped)
   Rows archived:         {Z}
 
 Stale detection:
