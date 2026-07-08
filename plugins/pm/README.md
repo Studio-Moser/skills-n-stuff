@@ -10,7 +10,7 @@ PM is a **six-skill pipeline** that manages the full lifecycle of work items, fr
 
 | Skill | Role | When | What |
 |-------|------|------|------|
-| `/pm:setup` | Scaffolder | Once per workspace | Detects workspace layout, wires GitHub Issues, creates `.pm/` config and domain knowledge files |
+| `/pm:setup` | Scaffolder | Once per workspace | Detects workspace layout, wires GitHub Issues, creates `.pm/` config and domain knowledge files, and establishes the project's model-routing rubric |
 | `/pm:ingest` | Discoverer | After new research lands | Reads product-pulse reports, extracts actionable items, deduplicates, files `status/needs-triage` issues |
 | `/pm:triage` | Classifier | When items need decisions | Sort (reject/dedup), spec (brainstorm + write plans), score (6-point checklist), promote |
 | `/pm:sprint-dev` | Builder | When you're ready to ship | Picks ready items, groups into PRs, dispatches sub-agents with self-review and testing |
@@ -24,6 +24,12 @@ PM is a **six-skill pipeline** that manages the full lifecycle of work items, fr
 
 Both defer to the shared `house-rules` skill for conventions.
 New to the team workflow? See [How we do dev tasks](docs/how-we-do-dev-tasks.md).
+
+### Model routing & orchestration
+
+`sprint-dev` and `dev-task` route each sub-agent to a model by task altitude — cheap capable models for clear-spec mechanical work, the strongest model for ambiguous or taste-sensitive work — and verify output with an independent, looping check rather than trusting a worker's self-report. That behavior reads a **model-selection rubric** which `/pm:setup` writes into the project's `CLAUDE.md` (drafted from the *current* model lineup of whatever assistant runs setup, scored on cost/intelligence/taste, and re-checked on a ~90-day cadence). Keeping the rubric in the repo — not a machine's global config — means any machine with the plugin behaves the same. The canonical, model-agnostic doctrine lives in [`references/model-orchestration.md`](references/model-orchestration.md).
+
+**Optional cross-vendor executor:** if you run the OpenAI `codex` CLI, three capability-gated skills (`/pm:codex-review`, `/pm:codex-implementation`, `/pm:codex-computer-use`) let the orchestrator shell bulk/mechanical work out to it. They're inert on machines without the CLI, and nothing in PM depends on them.
 
 ### The Flow
 

@@ -26,6 +26,7 @@ Interactive skill that reads ready items from GitHub Issues (or local backlog), 
 - **Never auto-build.** Always present the proposal and wait for user approval.
 - **Parallel when safe.** Dispatch independent PRs in parallel when they don't touch the same files.
 - **Every PR must pass.** Sub-agents run self-review + full test suite before PRing.
+- **Trust the check, not the worker.** A sub-agent's self-review and "tests pass" are its opening claim, not proof. Phase 2C independently re-executes verification and loops findings back until the check actually passes — no code merges on a worker's own say-so, the orchestrator's included.
 - **Backlog is sacred.** Only the orchestrator edits the backlog, never sub-agents.
 - **Report live.** Tell the user about each PR as it completes, don't batch results.
 - **Discovered work stays out of scope.** Sub-agents do NOT fix things they find along the way — they file issues tagged `spawned-during-sprint`.
@@ -316,6 +317,8 @@ git worktree add .claude/worktrees/pulse-{cluster}-{date} -b pulse/{cluster}-{YY
 
 ### 2B. Dispatch Sub-Agent
 
+**Pick the model and effort per task altitude.** If a model-selection rubric exists (a "Picking the right models" section in the project's `CLAUDE.md`/`AGENTS.md`, or the user's global agent config — `/pm:setup` establishes one), follow it: route clear-spec / mechanical implementation to a cheaper capable model, reserve the strongest model for ambiguous or taste-sensitive work (UI, copy, API/SDK design), and keep reasoning effort matched to difficulty rather than defaulting to the ceiling. If no rubric exists, dispatch with the default model. Pass the chosen model via the `Agent` `model` parameter; don't predefine reviewer/explorer/adversarial archetypes — let the orchestrator pick roles per task.
+
 Build a comprehensive sub-agent prompt with:
 - Batch items (number, description, priority, size, spec link)
 - **For L/XL items with specs**: include the full spec content — sub-agent follows the Chunks order
@@ -324,6 +327,7 @@ Build a comprehensive sub-agent prompt with:
 - Branch/worktree path
 - Memory context for each item
 - Freshness notes (Yellow items get diff summary)
+- **Implementation discipline** (state it in the prompt — sub-agents don't auto-load it): the pm:house-rules implementation discipline — reuse existing code / stdlib / platform first, shortest diff that fully solves it, no speculative abstractions or unrequested refactors, root cause over symptom.
 
 **Domain terminology (from CONTEXT.md):**
 {Include the Terms table so the agent uses correct names}
@@ -349,31 +353,37 @@ Dispatch independent PRs in parallel. Conflicting PRs run sequentially.
 Agent(subagent_type="general-purpose", prompt=built_prompt)
 ```
 
-### 2C. Code Review & Fix
+### 2C. Independent Check & Fix Loop
 
-After each sub-agent creates its PR, run the `code-review` skill against that PR. The review scores each issue 0-100 for confidence (0 = false positive, 25 = somewhat confident, 50 = moderately confident, 75 = highly confident, 100 = certain).
+The sub-agent's own "done / tests pass" is a **claim, not proof** — it self-reviewed and self-verified, so it can't be the final word. Every PR gets an independent check that re-executes the work, and findings loop back until the check actually passes.
 
-**Filter**: keep issues with a confidence score **above 24** (i.e., 25+). Fix everything that clears this bar.
+After each sub-agent creates its PR, run the `code-review` skill against that PR. The review **re-runs the project's verification itself** (build/tests/lint/typecheck) rather than trusting the sub-agent's reported result, and scores each issue 0-100 for confidence (0 = false positive, 25 = somewhat, 50 = moderate, 75 = high, 100 = certain).
 
-If any issues clear the bar, dispatch a follow-up sub-agent on the same branch:
+**Filter**: keep issues with a confidence score **above 24** (i.e., 25+).
 
-1. Check out the PR branch
-2. Address each filtered issue
-3. Run the full verify protocol (tests/build/lint/typecheck per project)
-4. Commit as new commits — `fix: address code review findings`
-5. Push to the same branch (never force push)
-6. Post a PR comment summarizing what was fixed and which issues (if any) were intentionally deferred with reasons
+If any issues clear the bar, run the fix loop (max 2 rounds):
+
+1. Dispatch a follow-up sub-agent on the same branch (check out the PR branch).
+2. For each filtered issue, either fix it **or** dispute it: if the finding is wrong for this codebase (a false positive, or it contradicts the spec — e.g. flagging content as "too short" that the spec says should be short), leave the code as-is and record a one-line justification instead of forcing a change. Disputes are legitimate; don't pad or distort correct work to satisfy a bad finding.
+3. Run the full verify protocol (tests/build/lint/typecheck per project) and **paste the actual output** — never report "passing" without evidence.
+4. Commit as new commits — `fix: address code review findings`. Push to the same branch (never force push).
+5. **Re-check**: re-run the reviewer against the new commits, confirming each previously-filtered issue is now resolved or justified-as-disputed. If new above-threshold issues remain and a round is left, loop; otherwise stop and report the residual issues rather than merging over them.
+6. Post a PR comment summarizing what was fixed, what was disputed (with reasons), and any issue left unresolved after the loop.
+
+No rank is above this check — if the orchestrator itself hand-edited any code (e.g. a shared fix across branches), that code goes through the same check, not around it.
 
 Report inline:
 
 ```
-Code Review: {cluster}
-  Issues found: {N}
-  Above threshold (>24): {N}
-  Fixes pushed: {yes/no} {commit sha if yes}
+Independent Check: {cluster}
+  Issues found: {N}   Above threshold (>24): {N}
+  Round 1 fixed: {N}  disputed: {N}
+  Round 2 fixed: {N}  disputed: {N}   (only if a 2nd round ran)
+  Re-check: {clean / N residual}
+  Verify output: {pass/fail, pasted}
 ```
 
-If nothing clears the threshold, note "clean" and proceed.
+If nothing clears the threshold on the first pass, note "clean" and proceed.
 
 ### 2D. Report Results
 

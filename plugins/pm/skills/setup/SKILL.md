@@ -3,7 +3,8 @@ name: setup
 description: >-
   Onboard PM to a new project. Detects workspace type (single-repo or multi-repo),
   wires up issue tracker backend (GitHub Issues or local), creates .pm/ config
-  directory, CONTEXT.md glossary, ADR template, and out-of-scope rejection KB.
+  directory, CONTEXT.md glossary, ADR template, out-of-scope rejection KB, and a
+  model-selection rubric that the dev/sprint skills route sub-agents by.
   If product-pulse is installed, reads shared config from pulse-config.yaml.
   Run once per workspace. Trigger: "setup pm", "initialize project management",
   "configure issue tracking", or /pm:setup.
@@ -190,6 +191,28 @@ Skip this batch if `pulse-config.yaml` already provided these values.
    - `shelby` (default — looks for tools matching `mcp__shelby-memory__*`)
    - `null` (skip memory operations entirely)
    - Any other prefix matching your memory MCP's tool names
+
+### Batch 5: Model-Routing Rubric
+
+`pm:sprint-dev` and `pm:dev-task` route each sub-agent to a model by task altitude — a cheaper capable model for clear-spec mechanical work, the strongest model for ambiguous or taste-sensitive work. That routing reads a **model-selection rubric** from the project's `CLAUDE.md`/`AGENTS.md` or the user's global agent config. This batch makes sure one exists.
+
+1. **Look for an existing rubric** — a "Picking the right models" (or similar model-routing) section, checked in this order:
+   - the primary repo's `CLAUDE.md`, then `AGENTS.md`;
+   - the user's global agent config for whatever assistant is running this skill (e.g. `~/.claude/CLAUDE.md` for Claude Code, `~/.codex/AGENTS.md` for Codex).
+
+   **If found in the project** (`CLAUDE.md`/`AGENTS.md`): print `"Found a model rubric in {path} — sprint-dev and dev-task will route by it."`, confirm the user wants to keep it, record the path, and skip to Batch 5's end (Phase 4.5 becomes a no-op). **But first check its freshness:** if the rubric carries a "reviewed {date}" stamp that's more than ~90 days old, or it lists a model you can see has been superseded, say so and offer to refresh it (re-runs the Phase 4.5 discovery + rescore, then restamps the date). Refreshing updates in place — it never duplicates the section.
+
+   **If found only in the global config** (not in the project): note it and route to Phase 4.5's **migration** path — offer to move it into the project so the behavior travels with the repo, leaving a pointer in global. Don't just keep it global; that's the drift the migration prevents.
+
+   **If not found:** offer to co-create one:
+
+   > "No model-routing rubric found. Want me to add one? It tells the dev/sprint skills which model to hand each task to, so you're not paying top-tier rates for boilerplate. I'll propose defaults for the models in *this* assistant's own ecosystem — you adjust."
+
+2. **If the user opts in, gather two things** (defaults in Phase 4.5 do the rest):
+   - **Axes to rank on** — default **cost, intelligence, taste** (intelligence = hardest problem handled unsupervised; taste = UI/UX, code quality, API/SDK design, copy). Accept edits.
+   - **Where it lives** — the primary repo's agent-instruction source: default `AGENTS.md` (with `CLAUDE.md` importing it via `@AGENTS.md`), or `CLAUDE.md` directly if the repo has no `AGENTS.md`. Either way it travels with the repo for teammates. (See Phase 4.5 / the reference's "Where the project block goes".) The alternative — the user's global config — is what we're moving *away* from.
+
+   **Stay inside your own ecosystem.** You — the assistant reading this skill — know which model family you are. Propose only models from that family and its native subagent/workflow mechanism; do **not** assume the user has another vendor's CLI (a Claude host does not reach for OpenAI Codex/gpt-5.5, and vice versa). Add a cross-vendor worker tier **only if the user says they have that CLI/subscription wired up.**
 
 ---
 
@@ -382,6 +405,33 @@ If the user provided seed terms in Batch 2 of the interview, populate the Terms 
 If the user did not provide seed terms, write the template as-is with empty tables.
 
 After writing, print: "Created CONTEXT.md at `{path}`. Agents will read this before starting work."
+
+---
+
+## Phase 4.5: Establish the Model-Selection Rubric
+
+**Skip entirely** if Batch 5 found an existing rubric (just carry its path into the Phase 8 summary) or the user declined to create one.
+
+The section you write is the "project block" defined in `references/model-orchestration.md` (this plugin's canonical, model-agnostic doctrine — read it now for the exact structure, the "how to apply" bullets, and the **"Where the project block goes"** rule). Your job here is to fill its rubric table for **this assistant's own ecosystem** and write it into the repo's agent-instruction source. Writing it into the repo — not a machine's global config — is the whole point: any machine with the plugin + this project block behaves the same.
+
+**Placement follows the repo's convention (see the reference's "Where the project block goes"):** default to `AGENTS.md` as the source with `CLAUDE.md` importing it via `@AGENTS.md` (so every tool reads it and Claude Code loads it on every run). If the repo is `CLAUDE.md`-only, write there instead. When you create or find a `CLAUDE.md` that doesn't already import `AGENTS.md`, add the `@AGENTS.md` line so the block actually loads — a bare "see AGENTS.md" link is not enough.
+
+**Discover the current lineup first — don't trust your training-cutoff memory of model names.** Model families turn over; the model you remember as "Sonnet" may be renamed or replaced by setup time. Before drafting, look up what's actually current *right now* for your own ecosystem, if a web tool is available:
+- **Names + cost** — your own vendor's current models/pricing docs are authoritative. Use the models that exist today; if one you remember is gone, use its stated replacement.
+- **Relative standing (intelligence, taste)** — cross-check against a live model-comparison source rather than guessing. Good general references (use whatever's reachable, treat as inputs not gospel): Artificial Analysis (`artificialanalysis.ai`) for an intelligence index + pricing, LMArena (`lmarena.ai`) for human-preference ranking (a decent proxy for taste), and the Aider polyglot leaderboard (`aider.chat/docs/leaderboards`) for coding specifically. Taste is subjective — lean on judgment, use benchmarks only to sanity-check.
+- **No web access?** Fall back to your own knowledge, draft the rubric, and add a visible `(drafted offline — verify model names are current)` note so the user knows to check.
+
+Render the project block from `references/model-orchestration.md`, filling the table with the discovered models and starting scores on the user's chosen axes, and stamping the `reviewed {date}, sources: …` footer. Keep the "how to apply" bullets (effort discipline, no predefined archetypes, the hidden-reasoning caveat, per-sub-agent discipline). Include the cross-vendor executor bullet **only if** the user confirmed they run such a CLI.
+
+**Do not scaffold a per-project agent zoo.** PM's agent structure is minimal and dynamic (see `references/model-orchestration.md` → "Agent structure"): roles are invented per task by `sprint-dev`/`dev-task`, domain context lives in `AGENTS.md`/`CONTEXT.md`, and verification uses the plugin's built-in `code-reviewer`. Do not create `.claude/agents/*` here. If the repo already has a fixed process-archetype agent team (reviewer/explorer/adversarial/planner), mention that it can be retired in favor of dynamic orchestration — but don't delete anything without the user's say-so.
+
+**Migrate, don't fork.** Before writing a fresh block, check whether the user's **global** agent config already carries an orchestration/model section (the one Batch 5 may have found there). If so, offer to *move* it into the project rather than duplicate it:
+
+> "You have a model rubric in your global config (`{path}`). Want me to move it into this project's agent-instruction source (`AGENTS.md`, with `CLAUDE.md` importing it — or `CLAUDE.md` directly if that's how this repo is set up) so the behavior travels with the repo across machines, and slim the global copy to a one-line pointer? (Recommended — otherwise the two can drift.)"
+
+If yes: copy the section into the project block, then replace the global section with a short pointer, e.g. `> Model-routing doctrine is PM-managed per project (see the repo's "Picking the right models" section; run /pm:setup to install it). Canonical source: pm plugin references/model-orchestration.md.` Never delete global content you didn't just relocate.
+
+**Before writing:** show the drafted/relocated table and let the user tweak. **Never clobber** — if the target file already has a models section, merge into it; otherwise append. After writing, print the path(s) touched and note that sprint-dev/dev-task now route by it.
 
 ---
 
@@ -825,6 +875,9 @@ Files created:
   docs/adr/0000-template.md   — ADR template
   {planning files if created}
 
+Model rubric: {created at {path} | found existing at {path} | skipped}
+  {if created/found:} sprint-dev and dev-task route sub-agents by it.
+
 {If GitHub backend:}
 GitHub labels created: {N} labels in {owner}/{repo}
   status/needs-triage, status/ready, status/in-progress, status/in-review, status/done,
@@ -898,3 +951,7 @@ Adjust the summary based on what was actually created — omit sections for skip
 - **No research reports**: That's fine. Set `research_dirs` to an empty list and skip the ingest recommendation in next steps. The user can add research directories later by editing `.pm/config.yml`.
 
 - **Private repos without gh access**: If `gh repo view` fails with a permissions error, note this and suggest the user check their `gh` authentication scopes.
+
+- **Model rubric already in global config**: If the only rubric found is in the user's global agent config (not the repo), that's fine — the routing skills still see it, since the global config loads into the agent's context. Offer (don't force) a project-local copy so teammates on the repo get the same routing.
+
+- **Unknown ecosystem**: If you genuinely can't tell which model family you belong to, don't guess model names — ask the user which assistant/CLI they run this project with and rank the models they name.
