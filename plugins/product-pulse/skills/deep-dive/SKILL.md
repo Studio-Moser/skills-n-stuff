@@ -131,6 +131,8 @@ Go beyond the resources themselves. For every significant concept, tool, library
 
 **Parallelize this phase.** When there are multiple concepts to research, use subagents to investigate them simultaneously rather than sequentially. The user is waiting — don't serialize work that can run in parallel.
 
+**Model routing.** Concept-research subagents are bulk fan-out — dispatch them on a cheap, capable model (pass `model` on each Agent call), following the project's model-selection rubric if its `AGENTS.md`/`CLAUDE.md` defines one. Reserve a strong model for the comparison and synthesis in Phase 6, and for adjudicating conflicting sources.
+
 ### Confidence Ratings
 
 Assign a confidence level to every significant finding or recommendation:

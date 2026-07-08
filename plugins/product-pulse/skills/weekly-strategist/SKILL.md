@@ -142,6 +142,8 @@ Each agent receives the context package and produces a max 500-word brief. The a
 
 Each agent reads the product context and adapts its research to the specific product and market.
 
+**Model routing.** The 5 analysts are bulk research fan-out — dispatch them on a cheap, capable model (pass `model` on each Agent call), following the project's model-selection rubric if its `AGENTS.md`/`CLAUDE.md` defines one. Reserve a strong model for the Strategist synthesis in Phase 3, which is judgment- and taste-heavy. And don't take any single analyst's claim at face value — corroborate the ones that drive a Top-3 priority before committing to it.
+
 ---
 
 ## Phase 3: Strategist Synthesis

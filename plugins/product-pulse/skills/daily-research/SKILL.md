@@ -146,6 +146,8 @@ For each domain defined in the product context and research-sources.yaml, dispat
 
 Each sub-agent uses WebSearch and WebFetch to scan its sources and search terms. YouTube MCP tools should be used for YouTube sources if available.
 
+**Model routing.** Domain scanners are bulk, clear-spec fan-out — dispatch them on a cheap, capable model (pass `model` on each Agent call), following the project's model-selection rubric if its `AGENTS.md`/`CLAUDE.md` defines one. Reserve a stronger model for the synthesis and strategic filter in Phase 3.
+
 ---
 
 ## Phase 3: Synthesize
