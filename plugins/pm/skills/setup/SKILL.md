@@ -200,7 +200,7 @@ Skip this batch if `pulse-config.yaml` already provided these values.
    - the primary repo's `CLAUDE.md`, then `AGENTS.md`;
    - the user's global agent config for whatever assistant is running this skill (e.g. `~/.claude/CLAUDE.md` for Claude Code, `~/.codex/AGENTS.md` for Codex).
 
-   **If found:** print `"Found a model rubric in {path} — sprint-dev and dev-task will route by it."`, confirm the user wants to keep it, record the path, and skip to Batch 5's end (Phase 4.5 becomes a no-op).
+   **If found:** print `"Found a model rubric in {path} — sprint-dev and dev-task will route by it."`, confirm the user wants to keep it, record the path, and skip to Batch 5's end (Phase 4.5 becomes a no-op). **But first check its freshness:** if the rubric carries a "reviewed {date}" stamp that's more than ~90 days old, or it lists a model you can see has been superseded, say so and offer to refresh it (re-runs the Phase 4.5 discovery + rescore, then restamps the date). Refreshing updates in place — it never duplicates the section.
 
    **If not found:** offer to co-create one:
 
@@ -412,7 +412,12 @@ After writing, print: "Created CONTEXT.md at `{path}`. Agents will read this bef
 
 Otherwise, draft a rubric for **this assistant's own ecosystem only** (per Batch 5) and write it to the location the user chose (default: primary repo `CLAUDE.md`).
 
-**Fill in real, current model names from your own family** — you know them; don't hardcode names from another vendor or a stale list. Give each a starting score on the user's chosen axes and a short "how to apply" block. Structure:
+**Discover the current lineup first — don't trust your training-cutoff memory of model names.** Model families turn over; the model you remember as "Sonnet" may be renamed or replaced by setup time. Before drafting, look up what's actually current *right now* for your own ecosystem, if a web tool is available:
+- **Names + cost** — your own vendor's current models/pricing docs are authoritative. Use the models that exist today; if one you remember is gone, use its stated replacement.
+- **Relative standing (intelligence, taste)** — cross-check against a live model-comparison source rather than guessing. Good general references (use whatever's reachable, treat as inputs not gospel): Artificial Analysis (`artificialanalysis.ai`) for an intelligence index + pricing, LMArena (`lmarena.ai`) for human-preference ranking (a decent proxy for taste), and the Aider polyglot leaderboard (`aider.chat/docs/leaderboards`) for coding specifically. Taste is subjective — lean on judgment, use benchmarks only to sanity-check.
+- **No web access?** Fall back to your own knowledge, draft the rubric, and add a visible `(drafted offline — verify model names are current)` note so the user knows to check.
+
+Then give each model a starting score on the user's chosen axes and a short "how to apply" block. Structure:
 
 ```markdown
 ## Picking the right models for workflows and subagents
@@ -433,6 +438,8 @@ How to apply:
 - Keep reasoning effort matched to difficulty; don't default to the top effort tier.
 - {Your family}'s models are dispatched via the {Agent/Workflow model parameter, or your host's equivalent}.
 - Every implementation sub-agent or workflow prompt carries: reuse existing code, stdlib/platform first, shortest working diff, no speculative abstractions, root cause over symptom.
+
+_Rubric reviewed {today's date}, sources: {what you checked — vendor docs / benchmark / offline}. Re-assess when a newer model in your family ships or after ~90 days, whichever comes first: re-check the lineup and rescore, then update this date._
 ```
 
 If, and only if, the user confirmed they also run another assistant/CLI, append a short note naming that cross-vendor worker tier and how it's invoked — nothing they didn't confirm.
