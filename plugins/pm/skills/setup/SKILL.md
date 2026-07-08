@@ -423,6 +423,8 @@ The section you write is the "project block" defined in `references/model-orches
 
 Render the project block from `references/model-orchestration.md`, filling the table with the discovered models and starting scores on the user's chosen axes, and stamping the `reviewed {date}, sources: …` footer. Keep the "how to apply" bullets (effort discipline, no predefined archetypes, the hidden-reasoning caveat, per-sub-agent discipline). Include the cross-vendor executor bullet **only if** the user confirmed they run such a CLI.
 
+**Do not scaffold a per-project agent zoo.** PM's agent structure is minimal and dynamic (see `references/model-orchestration.md` → "Agent structure"): roles are invented per task by `sprint-dev`/`dev-task`, domain context lives in `AGENTS.md`/`CONTEXT.md`, and verification uses the plugin's built-in `code-reviewer`. Do not create `.claude/agents/*` here. If the repo already has a fixed process-archetype agent team (reviewer/explorer/adversarial/planner), mention that it can be retired in favor of dynamic orchestration — but don't delete anything without the user's say-so.
+
 **Migrate, don't fork.** Before writing a fresh block, check whether the user's **global** agent config already carries an orchestration/model section (the one Batch 5 may have found there). If so, offer to *move* it into the project rather than duplicate it:
 
 > "You have a model rubric in your global config (`{path}`). Want me to move it into this project's agent-instruction source (`AGENTS.md`, with `CLAUDE.md` importing it — or `CLAUDE.md` directly if that's how this repo is set up) so the behavior travels with the repo across machines, and slim the global copy to a one-line pointer? (Recommended — otherwise the two can drift.)"

@@ -66,3 +66,15 @@ Summarized here for maintainers; the authority is `sprint-dev` Phase 2C and the 
 - Findings loop back with the specific defect until the check passes (bounded rounds), not a single fire-and-forget pass.
 - No rank is above verification — orchestrator-authored code goes through the same check.
 - Checks run both directions — a worker may dispute a wrong finding and have it overruled, rather than distorting correct work to satisfy it.
+
+---
+
+## Agent structure: minimal and dynamic
+
+Don't build a standing cast of predefined project agents. A Fable-class orchestrator invents the role each task needs on the fly; a fixed zoo of process archetypes (reviewer, explorer, adversarial, planner…) just narrows what the orchestrator would otherwise do better per task.
+
+- **No per-project `.claude/agents/` zoo.** `pm:setup` deliberately does not scaffold one. Roles are spawned dynamically by `sprint-dev`/`dev-task` per task.
+- **Domain context lives in `AGENTS.md`** (+ the `CONTEXT.md` glossary), not baked into per-domain agent files. That's the single source every tool — and every dynamically-spawned worker — reads.
+- **Verification is the one durable role.** The plugin's built-in `code-reviewer` agent (re-executes, ignores self-report) is the independent checker; `sprint-dev` Phase 2C loops it. You don't need a project-specific reviewer agent.
+- **Tool-permission scoping is the only reason to add a named project agent** — and only when a hard permission boundary (constrain a worker to one package/toolset) genuinely can't be expressed in the task prompt. Prefer the prompt; add the file as a last resort.
+- **Migrating an existing repo with a fixed agent team** (e.g. a Cove-style 8-agent setup): retire the process-archetype agents (reviewer/explorer/adversarial/planner) — dynamic orchestration + the built-in `code-reviewer` cover them. Keep at most a domain agent where a real tool-permission boundary exists. Fewer, sharper files beat a standing cast.
