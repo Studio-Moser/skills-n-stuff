@@ -90,32 +90,6 @@
       ]
     },
     {
-      "name": "research-scout",
-      "source": "./plugins/research-scout",
-      "description": "(Deprecated — use /product-pulse:deep-dive instead) Deep-dive research and analysis of external reference materials against your current project.",
-      "deprecated": true,
-      "successor": "product-pulse",
-      "author": {
-        "name": "Studio Moser"
-      },
-      "license": "MIT",
-      "keywords": [
-        "research",
-        "analysis",
-        "reference",
-        "comparison",
-        "competitive-analysis",
-        "deep-dive"
-      ],
-      "category": "productivity",
-      "tags": [
-        "research",
-        "analysis",
-        "reference",
-        "competitive-analysis"
-      ]
-    },
-    {
       "name": "site-capture",
       "source": "./plugins/site-capture",
       "description": "Capture full-page screenshots of websites with scroll-triggered animation support. Handles bot-protected sites, cookie banners, and lazy-loaded content.",
