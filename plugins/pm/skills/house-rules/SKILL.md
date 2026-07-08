@@ -60,12 +60,24 @@ Applies to docs, notes, specs, and any file you create whose name you control.
 - **Never default to ALL CAPS.** `SUMMARY.md` → `Summary.md`, `NOTES.md` → `Notes.md`.
 - Exception: filenames fixed by tooling or ecosystem convention keep their mandated form — `README.md`, `CLAUDE.md`, `AGENTS.md`, `SKILL.md`, `LICENSE`, `Makefile`, etc.
 
+## Implementation discipline
+
+- Take the shortest diff that fully solves the task. Reuse existing code, the stdlib, and native platform features before adding anything new.
+- No speculative abstractions, no unrequested refactors, no scaffolding "for later."
+- Fix bugs at the root cause — the shared function all callers route through — not the one symptom the report names.
+- Discovered unrelated work stays out of scope: note it, don't do it inline. The definition of done stays fixed.
+
 ## Testing
 
 - Establish a baseline first: run the existing suite before you change anything.
 - Add tests for new behavior. Cover the obvious edge cases (empty, error, boundary).
 - Run the suite after your change and **show the output** — never claim "tests pass" without pasting evidence.
 - If tests fail, fix them before opening the PR.
+
+## Verification
+
+- Your own self-review is a first draft, not proof. An independent check — a reviewer, or re-running the suite yourself — reproduces the claimed result rather than trusting the summary. A claimed-passing check that actually fails is a blocker.
+- If a review finding is wrong for this codebase, dispute it with a one-line reason. Don't distort correct code to satisfy a bad finding.
 
 ## Pre-commit security check
 

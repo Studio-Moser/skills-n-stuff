@@ -327,7 +327,7 @@ Build a comprehensive sub-agent prompt with:
 - Branch/worktree path
 - Memory context for each item
 - Freshness notes (Yellow items get diff summary)
-- **Implementation discipline** (state it in the prompt): reuse existing code, stdlib, and native platform features before adding anything; take the shortest diff that fully solves the task; no speculative abstractions or unrequested refactors; for bug fixes, fix the root cause where all callers route through, not the one symptom named.
+- **Implementation discipline** (state it in the prompt — sub-agents don't auto-load it): the pm:house-rules implementation discipline — reuse existing code / stdlib / platform first, shortest diff that fully solves it, no speculative abstractions or unrequested refactors, root cause over symptom.
 
 **Domain terminology (from CONTEXT.md):**
 {Include the Terms table so the agent uses correct names}

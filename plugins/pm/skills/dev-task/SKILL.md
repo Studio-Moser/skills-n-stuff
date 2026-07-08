@@ -37,16 +37,15 @@ Guide ONE person through ONE development task, foreground and interactive, the S
 - Per pm:house-rules. If the change needs isolation from current work, **REQUIRED SUB-SKILL:** Use superpowers:using-git-worktrees.
 
 ### 4. Implement
-- Follow project conventions and pm:house-rules. Keep the change focused.
-- **Take the shortest diff that fully solves it:** reuse existing code, stdlib, and native platform features before adding anything; no speculative abstractions or unrequested refactors; fix bugs at the root cause where all callers route through, not the one symptom named.
+- Follow project conventions and the pm:house-rules implementation discipline (shortest diff, reuse first, root cause over symptom, no speculative abstractions). Keep the change focused.
 - When the task warrants tests, **REQUIRED SUB-SKILL:** Use superpowers:test-driven-development.
 - If behavior is mysterious, **REQUIRED SUB-SKILL:** Use superpowers:systematic-debugging.
 - Commit incrementally (conventional commits per pm:house-rules).
 - **If you discover unrelated work, do NOT do it inline.** Note it for the user; keep the definition of done fixed.
 
 ### 5. Review
-- Self-review the diff against the pm:house-rules security + quality checklist — but treat your own pass as a first draft, not proof.
-- Then run `/code-review`, or dispatch the `code-reviewer` subagent for an independent read that re-runs the tests itself rather than trusting your "it works." Fix every BLOCKER and any SUGGESTION you agree with; if a finding is wrong for this codebase, note why you're disputing it rather than distorting correct code to satisfy it.
+- Self-review against the pm:house-rules security + quality checklist — but per house-rules Verification, your own pass is a first draft, not proof.
+- Then run `/code-review`, or dispatch the `code-reviewer` subagent for an independent read that re-runs the tests itself. Fix every BLOCKER and any SUGGESTION you agree with; dispute wrong findings per house-rules rather than distorting correct code.
 
 ### 6. Verify — GATE
 - Run the project's tests/build/lint. **REQUIRED SUB-SKILL:** Use superpowers:verification-before-completion.
