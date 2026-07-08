@@ -3,7 +3,8 @@ name: setup
 description: >-
   Onboard PM to a new project. Detects workspace type (single-repo or multi-repo),
   wires up issue tracker backend (GitHub Issues or local), creates .pm/ config
-  directory, CONTEXT.md glossary, ADR template, and out-of-scope rejection KB.
+  directory, CONTEXT.md glossary, ADR template, out-of-scope rejection KB, and a
+  model-selection rubric that the dev/sprint skills route sub-agents by.
   If product-pulse is installed, reads shared config from pulse-config.yaml.
   Run once per workspace. Trigger: "setup pm", "initialize project management",
   "configure issue tracking", or /pm:setup.
@@ -190,6 +191,26 @@ Skip this batch if `pulse-config.yaml` already provided these values.
    - `shelby` (default — looks for tools matching `mcp__shelby-memory__*`)
    - `null` (skip memory operations entirely)
    - Any other prefix matching your memory MCP's tool names
+
+### Batch 5: Model-Routing Rubric
+
+`pm:sprint-dev` and `pm:dev-task` route each sub-agent to a model by task altitude — a cheaper capable model for clear-spec mechanical work, the strongest model for ambiguous or taste-sensitive work. That routing reads a **model-selection rubric** from the project's `CLAUDE.md`/`AGENTS.md` or the user's global agent config. This batch makes sure one exists.
+
+1. **Look for an existing rubric** — a "Picking the right models" (or similar model-routing) section, checked in this order:
+   - the primary repo's `CLAUDE.md`, then `AGENTS.md`;
+   - the user's global agent config for whatever assistant is running this skill (e.g. `~/.claude/CLAUDE.md` for Claude Code, `~/.codex/AGENTS.md` for Codex).
+
+   **If found:** print `"Found a model rubric in {path} — sprint-dev and dev-task will route by it."`, confirm the user wants to keep it, record the path, and skip to Batch 5's end (Phase 4.5 becomes a no-op).
+
+   **If not found:** offer to co-create one:
+
+   > "No model-routing rubric found. Want me to add one? It tells the dev/sprint skills which model to hand each task to, so you're not paying top-tier rates for boilerplate. I'll propose defaults for the models in *this* assistant's own ecosystem — you adjust."
+
+2. **If the user opts in, gather two things** (defaults in Phase 4.5 do the rest):
+   - **Axes to rank on** — default **cost, intelligence, taste** (intelligence = hardest problem handled unsupervised; taste = UI/UX, code quality, API/SDK design, copy). Accept edits.
+   - **Where it lives** — default the primary repo's `CLAUDE.md` (travels with the repo, applies for teammates); alternative is the user's global agent config (applies to every project).
+
+   **Stay inside your own ecosystem.** You — the assistant reading this skill — know which model family you are. Propose only models from that family and its native subagent/workflow mechanism; do **not** assume the user has another vendor's CLI (a Claude host does not reach for OpenAI Codex/gpt-5.5, and vice versa). Add a cross-vendor worker tier **only if the user says they have that CLI/subscription wired up.**
 
 ---
 
@@ -382,6 +403,41 @@ If the user provided seed terms in Batch 2 of the interview, populate the Terms 
 If the user did not provide seed terms, write the template as-is with empty tables.
 
 After writing, print: "Created CONTEXT.md at `{path}`. Agents will read this before starting work."
+
+---
+
+## Phase 4.5: Establish the Model-Selection Rubric
+
+**Skip entirely** if Batch 5 found an existing rubric (just carry its path into the Phase 8 summary) or the user declined to create one.
+
+Otherwise, draft a rubric for **this assistant's own ecosystem only** (per Batch 5) and write it to the location the user chose (default: primary repo `CLAUDE.md`).
+
+**Fill in real, current model names from your own family** — you know them; don't hardcode names from another vendor or a stale list. Give each a starting score on the user's chosen axes and a short "how to apply" block. Structure:
+
+```markdown
+## Picking the right models for workflows and subagents
+
+Higher = better. Intelligence = hardest problem handled unsupervised. Taste = UI/UX, code quality, API/SDK design, copy.
+
+| model | cost | intelligence | taste |
+|-------|------|--------------|-------|
+| {cheapest capable coder in your family} | … | … | … |
+| {balanced mid-tier}                     | … | … | … |
+| {most capable}                          | … | … | … |
+
+How to apply:
+- Defaults, not limits — escalate to a stronger model without asking if output misses the bar; judge the output, not the price.
+- Bulk/mechanical, clear-spec work (implementation, migrations, data/log digging) → the cheapest capable model.
+- User-facing work (UI, copy, API/SDK design) → needs taste ≥ {threshold, e.g. 7}.
+- Reviews of plans/implementations → a strong model, optionally a second independent one for another perspective.
+- Keep reasoning effort matched to difficulty; don't default to the top effort tier.
+- {Your family}'s models are dispatched via the {Agent/Workflow model parameter, or your host's equivalent}.
+- Every implementation sub-agent or workflow prompt carries: reuse existing code, stdlib/platform first, shortest working diff, no speculative abstractions, root cause over symptom.
+```
+
+If, and only if, the user confirmed they also run another assistant/CLI, append a short note naming that cross-vendor worker tier and how it's invoked — nothing they didn't confirm.
+
+**Before writing:** show the drafted table and let the user tweak the numbers or model choices. **Never clobber** — if the target file exists, append the section (or merge into an existing models section); if it doesn't, create it. After writing, print the path and note that sprint-dev/dev-task will now route by it.
 
 ---
 
@@ -825,6 +881,9 @@ Files created:
   docs/adr/0000-template.md   — ADR template
   {planning files if created}
 
+Model rubric: {created at {path} | found existing at {path} | skipped}
+  {if created/found:} sprint-dev and dev-task route sub-agents by it.
+
 {If GitHub backend:}
 GitHub labels created: {N} labels in {owner}/{repo}
   status/needs-triage, status/ready, status/in-progress, status/in-review, status/done,
@@ -898,3 +957,7 @@ Adjust the summary based on what was actually created — omit sections for skip
 - **No research reports**: That's fine. Set `research_dirs` to an empty list and skip the ingest recommendation in next steps. The user can add research directories later by editing `.pm/config.yml`.
 
 - **Private repos without gh access**: If `gh repo view` fails with a permissions error, note this and suggest the user check their `gh` authentication scopes.
+
+- **Model rubric already in global config**: If the only rubric found is in the user's global agent config (not the repo), that's fine — the routing skills still see it, since the global config loads into the agent's context. Offer (don't force) a project-local copy so teammates on the repo get the same routing.
+
+- **Unknown ecosystem**: If you genuinely can't tell which model family you belong to, don't guess model names — ask the user which assistant/CLI they run this project with and rank the models they name.

@@ -317,7 +317,7 @@ git worktree add .claude/worktrees/pulse-{cluster}-{date} -b pulse/{cluster}-{YY
 
 ### 2B. Dispatch Sub-Agent
 
-**Pick the model and effort per task altitude.** If the project's `CLAUDE.md`/`AGENTS.md` defines a model-selection rubric (e.g. a "Picking the right models" section), follow it: route clear-spec / mechanical implementation to a cheaper capable model, reserve the strongest model for ambiguous or taste-sensitive work (UI, copy, API/SDK design), and keep reasoning effort matched to difficulty rather than defaulting to the ceiling. If no rubric exists, dispatch with the default model. Pass the chosen model via the `Agent` `model` parameter; don't predefine reviewer/explorer/adversarial archetypes — let the orchestrator pick roles per task.
+**Pick the model and effort per task altitude.** If a model-selection rubric exists (a "Picking the right models" section in the project's `CLAUDE.md`/`AGENTS.md`, or the user's global agent config — `/pm:setup` establishes one), follow it: route clear-spec / mechanical implementation to a cheaper capable model, reserve the strongest model for ambiguous or taste-sensitive work (UI, copy, API/SDK design), and keep reasoning effort matched to difficulty rather than defaulting to the ceiling. If no rubric exists, dispatch with the default model. Pass the chosen model via the `Agent` `model` parameter; don't predefine reviewer/explorer/adversarial archetypes — let the orchestrator pick roles per task.
 
 Build a comprehensive sub-agent prompt with:
 - Batch items (number, description, priority, size, spec link)
