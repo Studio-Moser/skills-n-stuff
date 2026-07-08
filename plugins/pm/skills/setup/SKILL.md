@@ -210,7 +210,7 @@ Skip this batch if `pulse-config.yaml` already provided these values.
 
 2. **If the user opts in, gather two things** (defaults in Phase 4.5 do the rest):
    - **Axes to rank on** — default **cost, intelligence, taste** (intelligence = hardest problem handled unsupervised; taste = UI/UX, code quality, API/SDK design, copy). Accept edits.
-   - **Where it lives** — default the primary repo's `CLAUDE.md` (travels with the repo, applies for teammates); alternative is the user's global agent config (applies to every project).
+   - **Where it lives** — the primary repo's agent-instruction source: default `AGENTS.md` (with `CLAUDE.md` importing it via `@AGENTS.md`), or `CLAUDE.md` directly if the repo has no `AGENTS.md`. Either way it travels with the repo for teammates. (See Phase 4.5 / the reference's "Where the project block goes".) The alternative — the user's global config — is what we're moving *away* from.
 
    **Stay inside your own ecosystem.** You — the assistant reading this skill — know which model family you are. Propose only models from that family and its native subagent/workflow mechanism; do **not** assume the user has another vendor's CLI (a Claude host does not reach for OpenAI Codex/gpt-5.5, and vice versa). Add a cross-vendor worker tier **only if the user says they have that CLI/subscription wired up.**
 
@@ -412,7 +412,9 @@ After writing, print: "Created CONTEXT.md at `{path}`. Agents will read this bef
 
 **Skip entirely** if Batch 5 found an existing rubric (just carry its path into the Phase 8 summary) or the user declined to create one.
 
-The section you write is the "project block" defined in `references/model-orchestration.md` (this plugin's canonical, model-agnostic doctrine — read it now for the exact structure and the "how to apply" bullets). Your job here is to fill its rubric table for **this assistant's own ecosystem** and write it to the location the user chose (default: primary repo `CLAUDE.md`). Writing it into the repo — not a machine's global config — is the whole point: any machine with the plugin + this project block behaves the same.
+The section you write is the "project block" defined in `references/model-orchestration.md` (this plugin's canonical, model-agnostic doctrine — read it now for the exact structure, the "how to apply" bullets, and the **"Where the project block goes"** rule). Your job here is to fill its rubric table for **this assistant's own ecosystem** and write it into the repo's agent-instruction source. Writing it into the repo — not a machine's global config — is the whole point: any machine with the plugin + this project block behaves the same.
+
+**Placement follows the repo's convention (see the reference's "Where the project block goes"):** default to `AGENTS.md` as the source with `CLAUDE.md` importing it via `@AGENTS.md` (so every tool reads it and Claude Code loads it on every run). If the repo is `CLAUDE.md`-only, write there instead. When you create or find a `CLAUDE.md` that doesn't already import `AGENTS.md`, add the `@AGENTS.md` line so the block actually loads — a bare "see AGENTS.md" link is not enough.
 
 **Discover the current lineup first — don't trust your training-cutoff memory of model names.** Model families turn over; the model you remember as "Sonnet" may be renamed or replaced by setup time. Before drafting, look up what's actually current *right now* for your own ecosystem, if a web tool is available:
 - **Names + cost** — your own vendor's current models/pricing docs are authoritative. Use the models that exist today; if one you remember is gone, use its stated replacement.
@@ -423,7 +425,7 @@ Render the project block from `references/model-orchestration.md`, filling the t
 
 **Migrate, don't fork.** Before writing a fresh block, check whether the user's **global** agent config already carries an orchestration/model section (the one Batch 5 may have found there). If so, offer to *move* it into the project rather than duplicate it:
 
-> "You have a model rubric in your global config (`{path}`). Want me to move it into this project's `CLAUDE.md` so the behavior travels with the repo across machines, and slim the global copy to a one-line pointer? (Recommended — otherwise the two can drift.)"
+> "You have a model rubric in your global config (`{path}`). Want me to move it into this project's agent-instruction source (`AGENTS.md`, with `CLAUDE.md` importing it — or `CLAUDE.md` directly if that's how this repo is set up) so the behavior travels with the repo across machines, and slim the global copy to a one-line pointer? (Recommended — otherwise the two can drift.)"
 
 If yes: copy the section into the project block, then replace the global section with a short pointer, e.g. `> Model-routing doctrine is PM-managed per project (see the repo's "Picking the right models" section; run /pm:setup to install it). Canonical source: pm plugin references/model-orchestration.md.` Never delete global content you didn't just relocate.
 

@@ -18,7 +18,18 @@ The point: nothing orchestration-related needs to live in a machine's global con
 
 ## Project block (what `pm:setup` writes into the project)
 
-`pm:setup` Phase 4.5 renders a section like the following into the project's `CLAUDE.md`, filling the rubric table with the **current** models of whatever ecosystem the setup assistant belongs to (looked up live at setup time, not from training-cutoff memory):
+### Where the project block goes
+
+Follow the repo's existing convention; **default to `AGENTS.md` as the single source of truth with `CLAUDE.md` importing it**, so every tool (Claude Code, Codex, Cursor, Copilot) reads the same file:
+
+- **Repo uses `AGENTS.md` as source, or has neither file** → write the block into `AGENTS.md`, and make sure `CLAUDE.md` pulls it in with an **`@AGENTS.md` import line** (Claude Code loads `@`-imports into context at session start — that's what makes it apply on every run, not just PM-skill runs). Create the `CLAUDE.md` pointer if missing; if a `CLAUDE.md` exists but doesn't import `AGENTS.md`, offer to add the import.
+- **Repo keeps instructions in `CLAUDE.md` only (no `AGENTS.md`)** → respect it; write into `CLAUDE.md`. Optionally offer to adopt the `AGENTS.md`-source layout.
+
+A bare "see AGENTS.md" link is weaker than an `@AGENTS.md` import — the import guarantees the content loads; the link only works if the agent chooses to open it. Prefer the import.
+
+### The block
+
+`pm:setup` Phase 4.5 renders a section like the following into that source file, filling the rubric table with the **current** models of whatever ecosystem the setup assistant belongs to (looked up live at setup time, not from training-cutoff memory):
 
 ```markdown
 ## Picking the right models for workflows and subagents
