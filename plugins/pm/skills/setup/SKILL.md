@@ -200,7 +200,9 @@ Skip this batch if `pulse-config.yaml` already provided these values.
    - the primary repo's `CLAUDE.md`, then `AGENTS.md`;
    - the user's global agent config for whatever assistant is running this skill (e.g. `~/.claude/CLAUDE.md` for Claude Code, `~/.codex/AGENTS.md` for Codex).
 
-   **If found:** print `"Found a model rubric in {path} — sprint-dev and dev-task will route by it."`, confirm the user wants to keep it, record the path, and skip to Batch 5's end (Phase 4.5 becomes a no-op). **But first check its freshness:** if the rubric carries a "reviewed {date}" stamp that's more than ~90 days old, or it lists a model you can see has been superseded, say so and offer to refresh it (re-runs the Phase 4.5 discovery + rescore, then restamps the date). Refreshing updates in place — it never duplicates the section.
+   **If found in the project** (`CLAUDE.md`/`AGENTS.md`): print `"Found a model rubric in {path} — sprint-dev and dev-task will route by it."`, confirm the user wants to keep it, record the path, and skip to Batch 5's end (Phase 4.5 becomes a no-op). **But first check its freshness:** if the rubric carries a "reviewed {date}" stamp that's more than ~90 days old, or it lists a model you can see has been superseded, say so and offer to refresh it (re-runs the Phase 4.5 discovery + rescore, then restamps the date). Refreshing updates in place — it never duplicates the section.
+
+   **If found only in the global config** (not in the project): note it and route to Phase 4.5's **migration** path — offer to move it into the project so the behavior travels with the repo, leaving a pointer in global. Don't just keep it global; that's the drift the migration prevents.
 
    **If not found:** offer to co-create one:
 
@@ -410,41 +412,22 @@ After writing, print: "Created CONTEXT.md at `{path}`. Agents will read this bef
 
 **Skip entirely** if Batch 5 found an existing rubric (just carry its path into the Phase 8 summary) or the user declined to create one.
 
-Otherwise, draft a rubric for **this assistant's own ecosystem only** (per Batch 5) and write it to the location the user chose (default: primary repo `CLAUDE.md`).
+The section you write is the "project block" defined in `references/model-orchestration.md` (this plugin's canonical, model-agnostic doctrine — read it now for the exact structure and the "how to apply" bullets). Your job here is to fill its rubric table for **this assistant's own ecosystem** and write it to the location the user chose (default: primary repo `CLAUDE.md`). Writing it into the repo — not a machine's global config — is the whole point: any machine with the plugin + this project block behaves the same.
 
 **Discover the current lineup first — don't trust your training-cutoff memory of model names.** Model families turn over; the model you remember as "Sonnet" may be renamed or replaced by setup time. Before drafting, look up what's actually current *right now* for your own ecosystem, if a web tool is available:
 - **Names + cost** — your own vendor's current models/pricing docs are authoritative. Use the models that exist today; if one you remember is gone, use its stated replacement.
 - **Relative standing (intelligence, taste)** — cross-check against a live model-comparison source rather than guessing. Good general references (use whatever's reachable, treat as inputs not gospel): Artificial Analysis (`artificialanalysis.ai`) for an intelligence index + pricing, LMArena (`lmarena.ai`) for human-preference ranking (a decent proxy for taste), and the Aider polyglot leaderboard (`aider.chat/docs/leaderboards`) for coding specifically. Taste is subjective — lean on judgment, use benchmarks only to sanity-check.
 - **No web access?** Fall back to your own knowledge, draft the rubric, and add a visible `(drafted offline — verify model names are current)` note so the user knows to check.
 
-Then give each model a starting score on the user's chosen axes and a short "how to apply" block. Structure:
+Render the project block from `references/model-orchestration.md`, filling the table with the discovered models and starting scores on the user's chosen axes, and stamping the `reviewed {date}, sources: …` footer. Keep the "how to apply" bullets (effort discipline, no predefined archetypes, the hidden-reasoning caveat, per-sub-agent discipline). Include the cross-vendor executor bullet **only if** the user confirmed they run such a CLI.
 
-```markdown
-## Picking the right models for workflows and subagents
+**Migrate, don't fork.** Before writing a fresh block, check whether the user's **global** agent config already carries an orchestration/model section (the one Batch 5 may have found there). If so, offer to *move* it into the project rather than duplicate it:
 
-Higher = better. Intelligence = hardest problem handled unsupervised. Taste = UI/UX, code quality, API/SDK design, copy.
+> "You have a model rubric in your global config (`{path}`). Want me to move it into this project's `CLAUDE.md` so the behavior travels with the repo across machines, and slim the global copy to a one-line pointer? (Recommended — otherwise the two can drift.)"
 
-| model | cost | intelligence | taste |
-|-------|------|--------------|-------|
-| {cheapest capable coder in your family} | … | … | … |
-| {balanced mid-tier}                     | … | … | … |
-| {most capable}                          | … | … | … |
+If yes: copy the section into the project block, then replace the global section with a short pointer, e.g. `> Model-routing doctrine is PM-managed per project (see the repo's "Picking the right models" section; run /pm:setup to install it). Canonical source: pm plugin references/model-orchestration.md.` Never delete global content you didn't just relocate.
 
-How to apply:
-- Defaults, not limits — escalate to a stronger model without asking if output misses the bar; judge the output, not the price.
-- Bulk/mechanical, clear-spec work (implementation, migrations, data/log digging) → the cheapest capable model.
-- User-facing work (UI, copy, API/SDK design) → needs taste ≥ {threshold, e.g. 7}.
-- Reviews of plans/implementations → a strong model, optionally a second independent one for another perspective.
-- Keep reasoning effort matched to difficulty; don't default to the top effort tier.
-- {Your family}'s models are dispatched via the {Agent/Workflow model parameter, or your host's equivalent}.
-- Every implementation sub-agent or workflow prompt carries: reuse existing code, stdlib/platform first, shortest working diff, no speculative abstractions, root cause over symptom.
-
-_Rubric reviewed {today's date}, sources: {what you checked — vendor docs / benchmark / offline}. Re-assess when a newer model in your family ships or after ~90 days, whichever comes first: re-check the lineup and rescore, then update this date._
-```
-
-If, and only if, the user confirmed they also run another assistant/CLI, append a short note naming that cross-vendor worker tier and how it's invoked — nothing they didn't confirm.
-
-**Before writing:** show the drafted table and let the user tweak the numbers or model choices. **Never clobber** — if the target file exists, append the section (or merge into an existing models section); if it doesn't, create it. After writing, print the path and note that sprint-dev/dev-task will now route by it.
+**Before writing:** show the drafted/relocated table and let the user tweak. **Never clobber** — if the target file already has a models section, merge into it; otherwise append. After writing, print the path(s) touched and note that sprint-dev/dev-task now route by it.
 
 ---
 
