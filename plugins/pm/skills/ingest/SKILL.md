@@ -6,7 +6,9 @@ description: >-
   existing issues, current codebase, and out-of-scope rejections to avoid
   duplicates. Uses ingestion watermarks to process only new reports.
   Trigger: "ingest research", "process reports", "import findings",
-  or /pm:ingest.
+  or /pm:ingest. Do NOT use for classifying/speccing/scoring items
+  (that's /pm:triage) or syncing completed work (that's /pm:reconcile) —
+  ingest only turns research reports into status/needs-triage items.
 effort: low
 allowed-tools: "Bash Read Write Edit Agent"
 ---
