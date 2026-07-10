@@ -850,9 +850,9 @@ Print: `"Phase 5 — {X} ADR candidate(s) found. {Y} created, {Z} skipped."`
 
 A quick read-only check so the model-selection rubric that `sprint-dev`/`dev-task` route by doesn't quietly rot. **This phase never rewrites the rubric** — it only flags staleness and points at `/pm:setup`, which owns the discovery-and-rescore machinery.
 
-1. Locate the rubric — a "Picking the right models" (or similar model-routing) section, checked in order: the primary repo's `CLAUDE.md`, then `AGENTS.md`, then the user's global agent config (e.g. `~/.claude/CLAUDE.md`). If none exists, print `"No model rubric found — run /pm:setup to create one."` and end the phase.
+1. Resolve the developer's rubric with `"$CLAUDE_PLUGIN_ROOT/scripts/rubric-path.sh"`. If `--check` reports `unset`, print `"No personal model rubric set — run /pm:setup or follow studio-baseline/rubric-setup.md to create one."` and end the phase.
 
-2. If found, read its `reviewed {date}` stamp. Flag it as stale when the stamp is more than ~90 days old, missing entirely, or you can see it lists a model that's since been superseded. Otherwise print `"Model rubric current (reviewed {date})."` and end.
+2. If found, read its `reviewed {date}` stamp. Flag it as stale when the stamp is more than 14 days old, missing entirely, or you can see it lists a model that's since been superseded. Otherwise print `"Model rubric current (reviewed {date})."` and end.
 
 3. If stale, don't fix it here — surface it: `"Model rubric at {path} looks stale (reviewed {date} / lists {superseded model}). Run /pm:setup to refresh it — it'll re-check the current lineup and rescore."` Record for the summary.
 

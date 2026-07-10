@@ -8,7 +8,7 @@ This file names no specific models. The concrete rubric (which models, what scor
 
 ## What lives where
 
-- **Routing philosophy + the rubric** → the project's `CLAUDE.md`/`AGENTS.md` (the "project block" below), written by `pm:setup`. Travels with the repo.
+- **Routing philosophy** → the shared `studio-baseline` (house-rules + the `AGENTS.md` reminder block), reaching every dev plugin-free. **The rubric itself** → each developer's user-global store `${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml`, NOT the repo. The repo's `AGENTS.md` only reminds the agent to load it; `pm:setup`/`rubric-setup.md` create it.
 - **Verification behavior** → baked into the skills themselves (`sprint-dev` Phase 2C, `dev-task` step 5, `code-reviewer` agent). Travels with the plugin.
 - **Cross-vendor worker capability** (e.g. an OpenAI Codex executor) → optional, capability-gated skills in this plugin (`codex-review`, `codex-implementation`, `codex-computer-use`), inert unless the `codex` CLI is present. Travels with the plugin; activates only where the CLI exists.
 
@@ -16,7 +16,9 @@ The point: nothing orchestration-related needs to live in a machine's global con
 
 ---
 
-## Project block (what `pm:setup` writes into the project)
+## Project block
+
+`pm:setup` stamps a *reminder* block into the repo's `AGENTS.md` (see `studio-baseline/AGENTS-baseline.md`); the scored rubric table lives in the developer's user-global store (`studio-baseline/rubric-setup.md` defines its shape).
 
 ### Where the project block goes
 
