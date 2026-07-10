@@ -20,7 +20,7 @@ ${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml
 
 4. **Draft the table** — one row per model in *their* ecosystem, scored 1–10 on each axis. Show it and let them tweak.
 
-   **Stay inside their ecosystem.** Propose only models from the families/CLIs the developer confirmed in step 3. Do not assume another vendor's CLI is available — a Claude-only setup must not include an OpenAI Codex / gpt-5.5 (or other cross-vendor) tier unless the developer confirmed they have that CLI/subscription. Add a cross-vendor tier only on explicit confirmation; record it under `capabilities`.
+   **Stay inside their ecosystem.** Propose only models from the families/CLIs the developer confirmed in step 3. Do not assume another vendor's CLI is available — a Claude-only setup must not include an OpenAI Codex (or other cross-vendor) tier unless the developer confirmed they have that CLI/subscription. Add a cross-vendor tier only on explicit confirmation; record it under `capabilities`.
 
 5. **Write the file** to the path above (create the directory), in this shape:
 

@@ -73,7 +73,7 @@ Summarized here for maintainers; the authority is `sprint-dev` Phase 2C and the 
 
 ## Agent structure: minimal and dynamic
 
-Don't build a standing cast of predefined project agents. A Fable-class orchestrator invents the role each task needs on the fly; a fixed zoo of process archetypes (reviewer, explorer, adversarial, planner…) just narrows what the orchestrator would otherwise do better per task.
+Don't build a standing cast of predefined project agents. A capable frontier orchestrator invents the role each task needs on the fly; a fixed zoo of process archetypes (reviewer, explorer, adversarial, planner…) just narrows what the orchestrator would otherwise do better per task.
 
 - **No per-project `.claude/agents/` zoo.** `pm:setup` deliberately does not scaffold one. Roles are spawned dynamically by `sprint-dev`/`dev-task` per task.
 - **Domain context lives in `AGENTS.md`** (+ the `CONTEXT.md` glossary), not baked into per-domain agent files. That's the single source every tool — and every dynamically-spawned worker — reads.
