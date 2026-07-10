@@ -10,7 +10,7 @@ description: >-
   "configure issue tracking", or /pm:setup.
 disable-model-invocation: true
 effort: medium
-allowed-tools: "Bash Read Write Edit"
+allowed-tools: "Bash Read Write Edit ToolSearch"
 ---
 
 # PM — Setup
@@ -93,9 +93,7 @@ Ask these together:
    - **Trello** — uses the Trello MCP server (`@delorenj/mcp-server-trello`) to manage cards across one or more boards. Best when stakeholders prefer a visual board, when items represent ongoing conversations rather than discrete tickets, or when you want to mix non-engineering work into the same backlog.
    - **Local markdown** — stores items as YAML files in `.pm/items/`. No external dependencies. Good for private projects or offline workflows.
 
-2. **If GitHub Issues**: Confirm the owner/repo detected from the git remote.
-   - "I detected `{owner}/{repo}` from your git remote. Is that correct?"
-   - If the user has a multi-repo workspace, ask: "Should PM create issues in the primary repo only, or across all repos? (Default: primary repo only, with labels indicating target repo.)"
+2. **If GitHub Issues**: **(backend step)** — follow your loaded `references/setup-github.md` (§ Batch 1: GitHub owner/repo confirm).
 
 3. **If Trello**: continue to Batch 1.5.
 
@@ -103,63 +101,11 @@ Ask these together:
 
 5. **If multi-repo and no pulse-config.yaml**: Ask which repo is primary (holds `.pm/`, `planning/`, issue tracking state) and list the other repos with a brief description of each.
 
+**Backend dispatch.** PM uses one backend per project. Once the backend is chosen, load ONLY `references/setup-<backend>.md` (`setup-github.md`, `setup-trello.md`, or `setup-local.md`) and follow its steps wherever a phase below is marked **(backend step)**. Ignore the other backends' files entirely.
+
 ### Batch 1.5: Trello Setup (only when backend == trello)
 
-Ask these in sequence. Each step uses an MCP tool; do not proceed past a failed call.
-
-1. **Authenticate.** Confirm `TRELLO_API_KEY` and `TRELLO_TOKEN` are exported in the user's shell. If either is missing:
-
-   "I need a Trello API key and token. Get them at https://trello.com/app-key (key) and the 'Token' link on that page. Add to your shell profile:
-
-   ```bash
-   export TRELLO_API_KEY=...
-   export TRELLO_TOKEN=...
-   ```
-
-   Then re-run /pm:setup."
-
-   Stop the wizard if either is missing.
-
-2. **List boards.** Call:
-
-   ```
-   mcp__trello__list_boards({})
-   ```
-
-   Present the result as a numbered menu:
-
-   ```
-   Available Trello boards:
-     [1] Moby App        — id abc123def456
-     [2] Moby Website    — id xyz789...
-     [3] Personal        — id ...
-   ```
-
-3. **Pick boards.** Ask: "Which board(s) should PM manage? Comma-separated numbers, or 'all'."
-
-   Capture the chosen board(s) into `selected_boards`.
-
-4. **For each selected board**, ask the per-board questions:
-
-   ```
-   For board "{name}" (id {id}):
-   - Approval steps (comma-separated, e.g. "tech_lead,product"; blank = none):
-   - Review policy (self | judge | auto, default self):
-   - Worker instructions (one paragraph, blank to skip):
-   ```
-
-5. **List names.** For each selected board, call:
-
-   ```
-   mcp__trello__set_active_board({ boardId: $BOARD_ID })
-   mcp__trello__get_lists({})
-   ```
-
-   Compare the existing list names against the seven required keys (`needs_triage`, `ready_for_agent`, `in_progress`, `review`, `done`, `needs_changes`, `blocked`). For each match found, propose the existing name as the value. For each missing name, ask the user what name to use (suggest the title-case default e.g. "Needs Triage", "Ready", etc.) — these go into `boards[i].lists`. Lists that don't yet exist will be created in Phase 6T.
-
-6. **Webhook URL.** Ask: "What URL should Trello send card events to? (Leave blank to skip — events won't reach Shelby until you fill this in. Example: https://shelby.example.com/webhooks/trello.)"
-
-   Store as `trello.webhook_url`.
+**(backend step)** — follow your loaded `references/setup-trello.md` (§ Batch 1.5: Trello Setup), then return here. Skip entirely for GitHub/local.
 
 ### Batch 2: Domain Knowledge
 
@@ -194,25 +140,18 @@ Skip this batch if `pulse-config.yaml` already provided these values.
 
 ### Batch 5: Model-Routing Rubric
 
-`pm:sprint-dev` and `pm:dev-task` route each sub-agent to a model by task altitude — a cheaper capable model for clear-spec mechanical work, the strongest model for ambiguous or taste-sensitive work. That routing reads a **model-selection rubric** from the project's `CLAUDE.md`/`AGENTS.md` or the user's global agent config. This batch makes sure one exists.
+`pm:sprint-dev` and `pm:dev-task` route each sub-agent to a model by task altitude — a cheaper capable model for clear-spec mechanical work, the strongest model for ambiguous or taste-sensitive work. That routing reads a **model-selection rubric** from this developer's **user-global** store (one file per dev, shared across every repo they touch — resolved via `"$CLAUDE_PLUGIN_ROOT/scripts/rubric-path.sh"`), not from this repo's `CLAUDE.md`/`AGENTS.md`. This batch just makes sure the dev has one; Phase 4.5 does the actual creation/refresh.
 
-1. **Look for an existing rubric** — a "Picking the right models" (or similar model-routing) section, checked in this order:
-   - the primary repo's `CLAUDE.md`, then `AGENTS.md`;
-   - the user's global agent config for whatever assistant is running this skill (e.g. `~/.claude/CLAUDE.md` for Claude Code, `~/.codex/AGENTS.md` for Codex).
+1. **Check whether it exists:**
 
-   **If found in the project** (`CLAUDE.md`/`AGENTS.md`): print `"Found a model rubric in {path} — sprint-dev and dev-task will route by it."`, confirm the user wants to keep it, record the path, and skip to Batch 5's end (Phase 4.5 becomes a no-op). **But first check its freshness:** if the rubric carries a "reviewed {date}" stamp that's more than ~90 days old, or it lists a model you can see has been superseded, say so and offer to refresh it (re-runs the Phase 4.5 discovery + rescore, then restamps the date). Refreshing updates in place — it never duplicates the section.
+   ```bash
+   "$CLAUDE_PLUGIN_ROOT/scripts/rubric-path.sh" --check
+   ```
 
-   **If found only in the global config** (not in the project): note it and route to Phase 4.5's **migration** path — offer to move it into the project so the behavior travels with the repo, leaving a pointer in global. Don't just keep it global; that's the drift the migration prevents.
+   - `set` → tell the user: `"Found your model rubric at {path} — sprint-dev and dev-task will route by it."` Offer a refresh only if its `reviewed:` date is **>14 days** old, or it lists a model you can see has been superseded. Otherwise, nothing more to do here.
+   - `unset` → note that Phase 4.5 will walk them through creating one. Don't duplicate its creation steps here — just flag intent to opt in and move on.
 
-   **If not found:** offer to co-create one:
-
-   > "No model-routing rubric found. Want me to add one? It tells the dev/sprint skills which model to hand each task to, so you're not paying top-tier rates for boilerplate. I'll propose defaults for the models in *this* assistant's own ecosystem — you adjust."
-
-2. **If the user opts in, gather two things** (defaults in Phase 4.5 do the rest):
-   - **Axes to rank on** — default **cost, intelligence, taste** (intelligence = hardest problem handled unsupervised; taste = UI/UX, code quality, API/SDK design, copy). Accept edits.
-   - **Where it lives** — the primary repo's agent-instruction source: default `AGENTS.md` (with `CLAUDE.md` importing it via `@AGENTS.md`), or `CLAUDE.md` directly if the repo has no `AGENTS.md`. Either way it travels with the repo for teammates. (See Phase 4.5 / the reference's "Where the project block goes".) The alternative — the user's global config — is what we're moving *away* from.
-
-   **Stay inside your own ecosystem.** You — the assistant reading this skill — know which model family you are. Propose only models from that family and its native subagent/workflow mechanism; do **not** assume the user has another vendor's CLI (a Claude host does not reach for OpenAI Codex/gpt-5.5, and vice versa). Add a cross-vendor worker tier **only if the user says they have that CLI/subscription wired up.**
+   Remember this `set`/`unset` result — Phase 4.5 reuses it instead of re-running the check.
 
 ---
 
@@ -233,54 +172,7 @@ Create the `.pm/` directory at the primary repo root. This is the PM-specific co
 
 ### Generate .pm/config.yml
 
-Build from interview answers. This file controls how PM skills behave:
-
-```yaml
-# PM Configuration
-# Generated by /pm:setup on {DATE}
-
-# Issue tracker backend: github | local
-backend: {github or local}
-
-# GitHub backend settings (only used when backend: github)
-github:
-  owner: {owner from git remote or interview}
-  repo: {repo from git remote or interview}
-  # For multi-repo workspaces, target repos receive issues with a repo label.
-  # Uncomment and list target repos if PM should create issues across repos:
-  # target_repos:
-  #   - owner/repo-name
-  # Optional GitHub Projects v2 mirroring is written by Phase 6P, not here.
-  # If Phase 6P is skipped, the `project_sync` block is intentionally absent
-  # (which means "off"). See plugins/pm/schemas/pm-config.github.example.yml.
-
-# Where to find research reports for ingestion
-# Paths relative to primary repo root
-research_dirs:
-  - {first research dir, e.g. Research}
-  # - {additional dirs if provided}
-
-# Triage settings
-triage:
-  stale_threshold_days: {threshold from interview, default 30}
-
-# Domain knowledge paths (relative to primary repo root)
-context_md: CONTEXT.md
-adr_dir: docs/adr
-
-# Out-of-scope rejection knowledge base
-out_of_scope_dir: .pm/out-of-scope
-```
-
-If the backend is `local`, omit the `github:` section entirely and add:
-
-```yaml
-# Local backend settings
-local:
-  items_dir: .pm/items
-```
-
-And create the `.pm/items/` directory.
+**(backend step)** — GitHub and local: follow your loaded `references/setup-<backend>.md` (§ Generate .pm/config.yml). Trello: see the next section.
 
 ### Generate .pm/config.yml — Trello backend
 
@@ -408,30 +300,59 @@ After writing, print: "Created CONTEXT.md at `{path}`. Agents will read this bef
 
 ---
 
+## Phase 4.4: Stamp the Studio Moser baseline block
+
+Every repo — regardless of who works on it — gets the same managed baseline block in its `AGENTS.md`: house-rules essentials + the model-routing reminder that points a plugin-less dev's agent at the public setup walkthrough. This is what reaches developers who never install PM.
+
+1. Resolve the target per the "Where the baseline block goes" rule (`references/model-orchestration.md`): `AGENTS.md` if it exists, or if neither `AGENTS.md` nor `CLAUDE.md` exists; `CLAUDE.md` directly only when it's the sole file present.
+
+```bash
+if [ -f "$primary_repo_root/AGENTS.md" ]; then
+  TARGET="$primary_repo_root/AGENTS.md"
+elif [ -f "$primary_repo_root/CLAUDE.md" ]; then
+  TARGET="$primary_repo_root/CLAUDE.md"
+else
+  TARGET="$primary_repo_root/AGENTS.md"
+fi
+```
+
+   If `$TARGET` is `AGENTS.md`, make sure `CLAUDE.md` imports it: if `CLAUDE.md` exists but has no `@AGENTS.md` line, add one; if `CLAUDE.md` doesn't exist, create a minimal one containing just `@AGENTS.md`.
+
+2. Fetch the current block body from the canonical source (fall back to the copy bundled in the plugin if offline):
+
+```bash
+BODY="$(mktemp)"
+curl -fsS "https://raw.githubusercontent.com/Studio-Moser/skills-n-stuff/main/studio-baseline/AGENTS_Baseline.md" -o "$BODY" \
+  || cp "$CLAUDE_PLUGIN_ROOT/../../studio-baseline/AGENTS_Baseline.md" "$BODY" 2>/dev/null \
+  || { echo "could not obtain baseline body"; }
+```
+
+3. Stamp it (idempotent — safe to re-run; never clobbers the repo's own content) — but only if the fetch actually produced a body. An empty `$BODY` means both the fetch and the bundled fallback failed; stamping it would wipe out any existing block instead of preserving it, so skip the stamp and say so:
+
+```bash
+if [ ! -s "$BODY" ]; then
+  echo "Could not obtain the baseline block (offline, and no bundled copy found). Skipping the baseline stamp — re-run /pm:setup with network access or a full plugin checkout."
+else
+  "$CLAUDE_PLUGIN_ROOT/scripts/stamp-baseline.sh" "$TARGET" "$BODY"
+fi
+```
+
+4. If the stamp ran, tell the user the block was stamped/refreshed and that it's committed with the rest of setup, so every teammate inherits it on clone.
+
+---
+
 ## Phase 4.5: Establish the Model-Selection Rubric
 
-**Skip entirely** if Batch 5 found an existing rubric (just carry its path into the Phase 8 summary) or the user declined to create one.
+The rubric is **per developer, user-global** — one file at `$("$CLAUDE_PLUGIN_ROOT/scripts/rubric-path.sh")` (`${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml`), shared across every repo this dev touches — NOT written into the repo's `AGENTS.md`. The repo only carries the *reminder* to load it (stamped in Phase 4.4).
 
-The section you write is the "project block" defined in `references/model-orchestration.md` (this plugin's canonical, model-agnostic doctrine — read it now for the exact structure, the "how to apply" bullets, and the **"Where the project block goes"** rule). Your job here is to fill its rubric table for **this assistant's own ecosystem** and write it into the repo's agent-instruction source. Writing it into the repo — not a machine's global config — is the whole point: any machine with the plugin + this project block behaves the same.
+1. **Reuse Batch 5's check.** Batch 5 of the interview already ran `rubric-path.sh --check` for this pass — don't re-invoke it. Using that `set`/`unset` result:
 
-**Placement follows the repo's convention (see the reference's "Where the project block goes"):** default to `AGENTS.md` as the source with `CLAUDE.md` importing it via `@AGENTS.md` (so every tool reads it and Claude Code loads it on every run). If the repo is `CLAUDE.md`-only, write there instead. When you create or find a `CLAUDE.md` that doesn't already import `AGENTS.md`, add the `@AGENTS.md` line so the block actually loads — a bare "see AGENTS.md" link is not enough.
+- `set` → tell the user their rubric is in place; offer a refresh if its `reviewed:` date is **>14 days** old or it lists a superseded model. A refresh re-pulls Artificial Analysis for cost + intelligence and keeps the dev's taste scores + capabilities. Done.
+- `unset` → walk them through creating one (next step).
 
-**Discover the current lineup first — don't trust your training-cutoff memory of model names.** Model families turn over; the model you remember as "Sonnet" may be renamed or replaced by setup time. Before drafting, look up what's actually current *right now* for your own ecosystem, if a web tool is available:
-- **Names + cost** — your own vendor's current models/pricing docs are authoritative. Use the models that exist today; if one you remember is gone, use its stated replacement.
-- **Relative standing (intelligence, taste)** — cross-check against a live model-comparison source rather than guessing. Good general references (use whatever's reachable, treat as inputs not gospel): Artificial Analysis (`artificialanalysis.ai`) for an intelligence index + pricing, LMArena (`lmarena.ai`) for human-preference ranking (a decent proxy for taste), and the Aider polyglot leaderboard (`aider.chat/docs/leaderboards`) for coding specifically. Taste is subjective — lean on judgment, use benchmarks only to sanity-check.
-- **No web access?** Fall back to your own knowledge, draft the rubric, and add a visible `(drafted offline — verify model names are current)` note so the user knows to check.
+2. **Create the rubric** by following the canonical walkthrough at `studio-baseline/Rubric_Setup.md` (read it from `$CLAUDE_PLUGIN_ROOT/../../studio-baseline/Rubric_Setup.md`, or fetch the raw URL): discover the current lineup **preferring the Artificial Analysis API** (`"$CLAUDE_PLUGIN_ROOT/scripts/fetch-model-data.sh"` when `ARTIFICIAL_ANALYSIS_API_KEY` is set → pricing → cost, coding/agentic index → intelligence; else vendor docs / judgment), score on cost/intelligence/taste for **this dev's** ecosystem, capture `capabilities` (e.g. `codex`), show the table for tweaks, then write the YAML to the path from `rubric-path.sh`. Stamp today's date in `reviewed:`. Stay inside the dev's own ecosystem — propose only models from families/CLIs they confirmed; add a cross-vendor tier (e.g. Codex) only if they confirm they have that CLI.
 
-Render the project block from `references/model-orchestration.md`, filling the table with the discovered models and starting scores on the user's chosen axes, and stamping the `reviewed {date}, sources: …` footer. Keep the "how to apply" bullets (effort discipline, no predefined archetypes, the hidden-reasoning caveat, per-sub-agent discipline). Include the cross-vendor executor bullet **only if** the user confirmed they run such a CLI.
-
-**Do not scaffold a per-project agent zoo.** PM's agent structure is minimal and dynamic (see `references/model-orchestration.md` → "Agent structure"): roles are invented per task by `sprint-dev`/`dev-task`, domain context lives in `AGENTS.md`/`CONTEXT.md`, and verification uses the plugin's built-in `code-reviewer`. Do not create `.claude/agents/*` here. If the repo already has a fixed process-archetype agent team (reviewer/explorer/adversarial/planner), mention that it can be retired in favor of dynamic orchestration — but don't delete anything without the user's say-so.
-
-**Migrate, don't fork.** Before writing a fresh block, check whether the user's **global** agent config already carries an orchestration/model section (the one Batch 5 may have found there). If so, offer to *move* it into the project rather than duplicate it:
-
-> "You have a model rubric in your global config (`{path}`). Want me to move it into this project's agent-instruction source (`AGENTS.md`, with `CLAUDE.md` importing it — or `CLAUDE.md` directly if that's how this repo is set up) so the behavior travels with the repo across machines, and slim the global copy to a one-line pointer? (Recommended — otherwise the two can drift.)"
-
-If yes: copy the section into the project block, then replace the global section with a short pointer, e.g. `> Model-routing doctrine is PM-managed per project (see the repo's "Picking the right models" section; run /pm:setup to install it). Canonical source: pm plugin references/model-orchestration.md.` Never delete global content you didn't just relocate.
-
-**Before writing:** show the drafted/relocated table and let the user tweak. **Never clobber** — if the target file already has a models section, merge into it; otherwise append. After writing, print the path(s) touched and note that sprint-dev/dev-task now route by it.
+3. **Migrate any legacy in-repo rubric.** If a prior setup wrote a "Picking the right models" section into this repo's `AGENTS.md`/`CLAUDE.md`, move its scores into the user-global rubric (if the dev confirms they're theirs) and delete that section from the repo file — the rubric no longer lives in the repo. Leave the Phase 4.4 baseline reminder in place.
 
 ---
 
@@ -461,335 +382,19 @@ Print: "Created ADR directory at `docs/adr/` with template `0000-template.md`."
 
 ## Phase 6G: Set Up GitHub Labels (skip if backend != github)
 
-**Skip this phase unless backend is `github`.**
-
-Use the `gh` CLI to create PM labels in the primary repo. These labels are used by triage, sprint-dev, and reconcile skills to track issue lifecycle state.
-
-### Create labels
-
-```bash
-for label in \
-  "status/needs-triage:d4c5f9" \
-  "status/ready:0e8a16" \
-  "status/in-progress:1d76db" \
-  "status/in-review:0052cc" \
-  "status/done:6f42c1" \
-  "owner/ai:c5def5" \
-  "owner/human:fbca04" \
-  "owner/operator:f9d0c4" \
-  "priority/p0:b60205" \
-  "priority/p1:d93f0b" \
-  "priority/p2:fbca04" \
-  "priority/p3:c5def5" \
-  "blocker:d93f0b" \
-  "spawned-during-sprint:c2e0c6" \
-  "epic:5319e7" \
-  "size/S:e6e6e6" \
-  "size/M:e6e6e6" \
-  "size/L:e6e6e6" \
-  "size/XL:e6e6e6"; do
-  name="${label%:*}"
-  color="${label##*:}"
-  gh label create "$name" --color "$color" --force 2>/dev/null || true
-done
-```
-
-### Label descriptions
-
-The taxonomy is namespaced: an item's pipeline position is described by a `status/*` label plus an `owner/*` label. `priority/*`, `size/*`, and flags like `blocker` are orthogonal.
-
-| Label | Color | Purpose |
-|-------|-------|---------|
-| `status/needs-triage` | `#d4c5f9` (lavender) | New issue awaiting triage classification |
-| `status/ready` | `#0e8a16` (green) | Triaged and specced — ready to be picked up (pair with an `owner/*` label) |
-| `status/in-progress` | `#1d76db` (blue) | Currently being worked on |
-| `status/in-review` | `#0052cc` (dark blue) | PR open, awaiting merge |
-| `status/done` | `#6f42c1` (purple) | Shipped and closed |
-| `owner/ai` | `#c5def5` (light blue) | An AI agent is the intended worker |
-| `owner/human` | `#fbca04` (yellow) | A human is the intended worker |
-| `owner/operator` | `#f9d0c4` (peach) | Needs Tim's hands — ops/manual steps |
-| `priority/p0` | `#b60205` (dark red) | Drop-everything blocker |
-| `priority/p1` | `#d93f0b` (red) | High priority, this sprint |
-| `priority/p2` | `#fbca04` (yellow) | Normal |
-| `priority/p3` | `#c5def5` (light blue) | Low / someday |
-| `blocker` | `#d93f0b` (red) | Blocks other work — escalate (urgency flag, orthogonal to status) |
-| `spawned-during-sprint` | `#c2e0c6` (light green) | Created by an agent during sprint execution |
-| `epic` | `#5319e7` (purple) | Goal container — groups related issues as the group-by-Parent rows. Carries no `status/*` label and no board status column; its body is a Goal/Why statement, not an item checklist (see `/pm:triage` Phase 4.3) |
-| `size/S` | `#e6e6e6` (gray) | Small: < 1 hour |
-| `size/M` | `#e6e6e6` (gray) | Medium: 1-4 hours |
-| `size/L` | `#e6e6e6` (gray) | Large: 4+ hours, needs spec |
-| `size/XL` | `#e6e6e6` (gray) | Extra large: multi-day, needs spec + chunking |
-
-**Note on `sprint/*`**: optional sprint cohort labels (e.g. `sprint/2026-05-12`) are a convention the plugin documents but doesn't auto-create. Add them by hand or via your own automation when you start a sprint.
-
-### Multi-repo label sync
-
-If the user has a multi-repo workspace and chose to track issues across repos, offer to create the same labels in each target repo:
-
-"Should I create these labels in your other repos too? ({list of target repos})"
-
-If yes, run the same `gh label create` loop for each target repo, using `--repo {owner}/{repo-name}`.
-
-Print the results — how many labels were created vs. already existed.
+**(backend step)** — follow your loaded `references/setup-github.md` (§ Phase 6G: Set Up GitHub Labels).
 
 ---
 
 ## Phase 6T: Set Up Trello Lists, Labels & Webhook (skip if backend != trello)
 
-Skip this entire phase if `backend != trello`.
-
-### 6T.1 For each board, create missing lists
-
-For each `boards[i]` in the freshly-written config, call:
-
-```
-mcp__trello__set_active_board({ boardId: $BOARD_ID })
-existing = mcp__trello__get_lists({})
-```
-
-For each of the seven required list names from `boards[i].lists`, if the name is not in `existing`, call:
-
-```
-mcp__trello__add_list_to_board({ name: $LIST_NAME })
-```
-
-Track which lists were created (for the summary) vs already existed.
-
-### 6T.2 Validate board access
-
-After list creation, call `mcp__trello__get_active_board_info({})` and confirm the response. If it errors with "board not found" or auth failure, instruct the user to verify their token's read/write scopes for the board and stop.
-
-### 6T.3 Register webhook (idempotent)
-
-If `trello.webhook_url` is non-empty, register a webhook for the board.
-
-**This step is idempotent.** Trello's `POST /1/webhooks` does NOT dedupe by `(idModel, callbackURL)` — re-running `/pm:setup` would otherwise create one duplicate webhook per board per run, and your receiver would see N copies of every event. Always list-then-create:
-
-**Step 1 — List existing webhooks for this token (once, outside the per-board loop):**
-
-```bash
-existing_webhooks_json="$(curl -fsS \
-  "https://api.trello.com/1/tokens/$TRELLO_TOKEN/webhooks?key=$TRELLO_API_KEY&token=$TRELLO_TOKEN")"
-```
-
-The response is a JSON array of webhook objects, each with at least `id`, `idModel`, `callbackURL`, and `active`.
-
-**Step 2 — Per board, check whether a matching webhook already exists:**
-
-A webhook is considered a match when `idModel == $BOARD_ID` AND `callbackURL == $webhook_url` (active OR inactive — re-using inactive webhooks avoids hitting Trello's per-token webhook cap).
-
-```bash
-match="$(echo "$existing_webhooks_json" \
-  | jq -c --arg board "$BOARD_ID" --arg url "$webhook_url" \
-      '.[] | select(.idModel == $board and .callbackURL == $url)' \
-  | head -n1)"
-```
-
-**Step 3 — Create only if no match:**
-
-```bash
-if [ -n "$match" ]; then
-  echo "skipped webhook for $BOARD_NAME (already registered: id=$(echo "$match" | jq -r .id))"
-  skipped=$((skipped + 1))
-else
-  curl -fsS -X POST "https://api.trello.com/1/webhooks/" \
-    -d "key=$TRELLO_API_KEY" \
-    -d "token=$TRELLO_TOKEN" \
-    -d "callbackURL=$webhook_url" \
-    -d "idModel=$BOARD_ID" \
-    -d "description=Shelby PM webhook for $BOARD_NAME" \
-    && created=$((created + 1)) \
-    || echo "warning: webhook registration failed for $BOARD_NAME (board id $BOARD_ID). Re-run /pm:setup once the webhook URL is reachable."
-fi
-```
-
-**Step 4 — After the loop, report:**
-
-```
-Webhooks: created $created new; skipped $skipped (already registered).
-```
-
-Trello does a HEAD request against `callbackURL` before accepting a new webhook — if the URL is not reachable yet (the receiving route is owned by Shelby's W1e workstream), POST returns an error. That is expected; the warning above tells the user how to retry. The card-as-conversation flow only activates once the webhook is live, but all other PM operations work today using direct MCP calls. Re-running `/pm:setup` after the URL is live will create only the missing webhooks (idempotent).
-
-If `trello.webhook_url` is empty, skip this step and emit:
-
-```
-note: no webhook_url configured — Shelby will not receive Trello events.
-      Run /pm:setup again after deploying the webhook ingress (W1e) to register.
-```
-
-### 6T.4 Summary line for Phase 8
-
-Record for the final summary:
-- Boards configured: $N
-- Lists created (vs already existed): $created / $existing
-- Webhook registered: yes / no / failed (with reason)
+**(backend step)** — follow your loaded `references/setup-trello.md` (§ Phase 6T: Set Up Trello Lists, Labels & Webhook) to create lists, labels, and register the webhook. Skip for GitHub/local.
 
 ---
 
 ## Phase 6P: GitHub Project (optional, skip if backend != github)
 
-**Skip this phase unless `backend == github`.** Trello and local backends have their own visualization stories.
-
-This phase is OPTIONAL. The plugin's label-based workflow works perfectly without it. The Project is a downstream visualization layer that mirrors `status/*` labels to a Projects v2 Status field — useful when you want a board/table UI with custom fields, but not required for any skill to function.
-
-### 6P.1 Ask the user
-
-Print:
-
-```
-Would you like a GitHub Project (Projects v2) to visualize this backlog
-alongside labels? Labels remain the source of truth — the project just
-makes the work browsable in a board/table UI with custom fields and
-timelines.
-
-  1. Create new project (recommended for first-time setup)
-  2. Link an existing project I already created
-  3. Skip — I'll add this later
-
-Choice [1/2/3]:
-```
-
-If **3 (skip)**: do not write a `project_sync` section to `.pm/config.yml`. Print "Skipped — re-run /pm:setup any time to add a project." and continue to Phase 7.
-
-If **1 or 2**: continue to 6P.2.
-
-### 6P.2 Check MCP availability
-
-Try to load the github MCP tool via ToolSearch:
-
-```
-ToolSearch query: "select:mcp__github__projects_write"
-```
-
-If the tool does NOT load successfully, print:
-
-```
-GitHub Projects integration requires the github MCP server. To enable it:
-
-  1. Install the plugin:
-       /plugin install github@claude-plugins-official
-  2. Add a Personal Access Token to your ~/.claude/settings.json env
-     section (scopes: repo, project, read:org):
-       "env": {
-         "GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_..."
-       }
-  3. Reload Claude Code.
-  4. Re-run /pm:setup to configure the project.
-
-Setup will continue now WITHOUT project sync — your label-based workflow
-is fully functional.
-```
-
-Do not write a `project_sync` section. Continue to Phase 7.
-
-If the tool loads: continue.
-
-### 6P.3 Path A — Create new project (choice 1)
-
-1. Ask: `"Project title? [default: {gh_owner} — Backlog]"`
-2. Ask: `"Make it private? [Y/n]"` — default yes.
-3. Call `mcp__github__projects_write` with method `create_project`, passing `owner` (from `github.owner` in config), `title`, and the privacy flag. The response includes the project's `number` and `node_id` — store both.
-4. Add custom fields. Call `mcp__github__projects_write` with the appropriate "add field" method for each:
-   - `Target date` — type `DATE`
-   - `Epic` — type `TEXT`
-   (Status is already a default field on every Projects v2 project — do not create a second one.)
-5. Link target repos. For each repo in `github.target_repos` (plus `github.owner/github.repo` if not already in that list), call `projects_write` with the "link repository" method.
-6. Bulk-add open issues. For each linked repo:
-   ```bash
-   gh issue list --repo "{owner}/{repo}" --state open \
-     --json url,number,labels --limit 1000
-   ```
-   For each issue returned, call `mcp__github__projects_write` with the "add item" method, passing the issue's URL or node ID. Capture each item's project item ID for the Status assignment in step 8.
-7. Configure the Status field options. Call `mcp__github__projects_list` with method `list_project_fields` (or equivalent) to find the existing Status field ID. Then call `projects_write` to set the Status field options, in order, to:
-   1. `Needs Triage`
-   2. `Ready`
-   3. `In Progress`
-   4. `In Review`
-   5. `Blocked`
-   6. `Done`
-
-   Capture each option's ID (you need these for step 8).
-8. Set initial Status per item. For each added item, inspect the issue's labels (from the `gh issue list` output) to find its current `status/*` label. Map to the Status option from the table:
-   | Label | Status option |
-   |-------|---------------|
-   | `status/needs-triage` | Needs Triage |
-   | `status/ready` | Ready |
-   | `status/in-progress` | In Progress |
-   | `status/in-review` | In Review |
-   | `status/done` | Done |
-   | (none / `blocker`) | (leave unset, or Blocked if `blocker` label present) |
-
-   Call `mcp__github__projects_write` with the "update item field value" method to set Status. Batch when the MCP supports it.
-
-9. Persist to `.pm/config.yml` under `github.project_sync`:
-   ```yaml
-   github:
-     owner: {existing}
-     repo: {existing}
-     project_sync:
-       enabled: true
-       project_number: {number from step 3}
-       project_owner: {gh_owner}
-       project_owner_type: org  # or "user" — match the owner type
-       project_node_id: "{node_id from step 3}"
-       status_field_sync: true
-       status_field_id: "{Status field ID from step 7}"
-       status_map:
-         status/needs-triage: "Needs Triage"
-         status/ready:        "Ready"
-         status/in-progress:  "In Progress"
-         status/in-review:    "In Review"
-         status/blocked:      "Blocked"
-         status/done:         "Done"
-   ```
-10. Print the manual playbook reminder:
-    ```
-    Project created — https://github.com/{type-prefix}/{owner}/projects/{number}
-
-    A few things the MCP can't fully automate. See the
-    "GitHub Project integration" section of the plugin README for the
-    one-time UI steps:
-
-      - Built-in workflows (auto-add issues, auto-archive done)
-      - Custom views (Board by Status, Table by sprint, P0 filter, etc.)
-
-    These take about 5 minutes in the project's web UI.
-    ```
-
-### 6P.4 Path B — Link existing project (choice 2)
-
-1. Ask: `"Project number? (e.g. for https://github.com/orgs/Foo/projects/2 enter 2)"`
-2. Ask: `"Is this an org-owned or user-owned project? [org/user]"` (default org).
-3. Call `mcp__github__projects_get` passing `owner` and `number`. If the call fails (not found, no permission), print the error and ask if the user wants to retry or skip. On skip, write no `project_sync` section and continue.
-4. Call `mcp__github__projects_list` with method `list_project_fields` to read the Status field's current options. Compare against the canonical set: `Needs Triage`, `Ready`, `In Progress`, `In Review`, `Blocked`, `Done`.
-
-   If they don't match, ask:
-   ```
-   The Status field on this project has options [{list}] which don't match
-   pm's conventions [Needs Triage, Ready, In Progress, In Review, Blocked, Done].
-
-   Update them? [Y/n]
-
-     Y — pm will set the Status options to match. SAFE on a new project,
-         CAREFUL on an existing one: items already assigned to obsolete
-         options will be reset.
-     n — leave the existing options. PM will skip status mirroring
-         (status_field_sync will be set to false).
-   ```
-
-   If Y: call `projects_write` to set the options. Capture field ID and option IDs.
-   If n: still capture field ID; set `status_field_sync: false`.
-
-5. Persist to `.pm/config.yml` under `github.project_sync` with the values gathered. Use `status_field_sync: false` when the user chose `n` above.
-
-### 6P.5 Closing summary contribution
-
-Record for Phase 8's summary:
-- Project: created / linked / skipped
-- Project URL (if applicable)
-- Status field sync: enabled / disabled
-- Items added (if Path A): N
+The optional Projects v2 visualization layer is detailed in `references/setup-github-projects.md` — create/link a project, mirror status labels to a Status field. Skip if you don't want a project board; the label-based workflow is fully functional without it.
 
 ---
 
@@ -875,7 +480,7 @@ Files created:
   docs/adr/0000-template.md   — ADR template
   {planning files if created}
 
-Model rubric: {created at {path} | found existing at {path} | skipped}
+Model rubric: {created at {user-global rubric-path.sh path} | found existing at {user-global rubric-path.sh path} | skipped}
   {if created/found:} sprint-dev and dev-task route sub-agents by it.
 
 {If GitHub backend:}
@@ -936,9 +541,7 @@ Adjust the summary based on what was actually created — omit sections for skip
 
 - **No git remote**: If `git remote get-url origin` fails, the GitHub backend isn't viable. Default to local backend, or ask the user to add a remote first.
 
-- **gh CLI not installed**: If the GitHub backend is selected but `gh` is not available, warn the user: "The `gh` CLI is required for the GitHub Issues backend. Install it with `brew install gh` and run `gh auth login`, then re-run `/pm:setup`." Fall back to local backend if the user prefers.
-
-- **gh CLI not authenticated**: If `gh auth status` fails, prompt the user to run `gh auth login` first.
+- **GitHub CLI edge cases** (not installed, not authenticated, private repo access): **(backend step)** — see `references/setup-github.md` (§ Edge Cases).
 
 - **Multi-repo with no pulse-config.yaml**: Interview must capture all repo names, paths, and roles. Create the full `pulse-config.yaml` with the repos list.
 
@@ -950,8 +553,6 @@ Adjust the summary based on what was actually created — omit sections for skip
 
 - **No research reports**: That's fine. Set `research_dirs` to an empty list and skip the ingest recommendation in next steps. The user can add research directories later by editing `.pm/config.yml`.
 
-- **Private repos without gh access**: If `gh repo view` fails with a permissions error, note this and suggest the user check their `gh` authentication scopes.
-
-- **Model rubric already in global config**: If the only rubric found is in the user's global agent config (not the repo), that's fine — the routing skills still see it, since the global config loads into the agent's context. Offer (don't force) a project-local copy so teammates on the repo get the same routing.
+- **Model rubric location**: The rubric is always the single user-global store file (`"$CLAUDE_PLUGIN_ROOT/scripts/rubric-path.sh"`) — there's no repo-local copy to offer or reconcile. The repo itself only carries the Phase 4.4 baseline reminder block, which points a dev's agent at that store; it never holds the rubric's contents.
 
 - **Unknown ecosystem**: If you genuinely can't tell which model family you belong to, don't guess model names — ask the user which assistant/CLI they run this project with and rank the models they name.

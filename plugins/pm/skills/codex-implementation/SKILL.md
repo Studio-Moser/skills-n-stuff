@@ -1,6 +1,6 @@
 ---
 name: codex-implementation
-description: Ask Codex CLI (gpt-5.5) to implement a bounded, well-specified change in the repo. This is how gpt-5.5 is invoked for implementation work. Use when the model-selection rubric routes bulk or mechanical implementation to gpt-5.5, when the user asks Claude to have Codex or gpt-5.5 implement something, or when a parallel implementation agent should produce a patch in a worktree. For work Claude should own directly, implement it yourself instead.
+description: Ask the Codex CLI (running whatever model it's configured with) to implement a bounded, well-specified change in the repo. This is how the Codex model is invoked for implementation work. Use when the model-selection rubric routes bulk or mechanical implementation to Codex, when the user asks Claude to have Codex implement something, or when a parallel implementation agent should produce a patch in a worktree. For work Claude should own directly, implement it yourself instead.
 ---
 
 # Codex Implementation

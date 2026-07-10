@@ -45,6 +45,8 @@ All config values are pre-resolved at skill load time. If you see `ERROR:` in th
 
 Parse the key=value pairs above. The `backend` value (`github` or `local`) determines how items are loaded and updated throughout the rest of this skill. When using the GitHub backend, `gh_owner` and `gh_repo` identify the target repository for all `gh` CLI commands.
 
+**Backend dispatch.** PM uses one backend per project. Load ONLY `references/sprint-dev-<backend>.md` (`sprint-dev-github.md`, `sprint-dev-trello.md`, or `sprint-dev-local.md`) and follow its steps wherever a phase below is marked **(backend step)**. Ignore the other backends' files.
+
 ### 0.1 Read Product Context
 
 Read `{research_dir}/research-context.md` for project structure, repo info, and tech stack. If missing, tell the user to run `/pm:setup`.
@@ -110,30 +112,7 @@ git push origin "$default_branch"
 
 (direct push to default branch is OK here — sprint-dev is interactive only)
 
-**Trello backend:**
-
-Iterate boards and read cards in `LIST_REVIEW`. Each card whose description or comments contain a PR URL gets its PR state checked.
-
-```bash
-echo "$trello_boards_json" | jq -c '.[]' | while read -r board_json; do
-  eval "$("$CLAUDE_PLUGIN_ROOT/scripts/for-each-board.sh" "[$board_json]")"
-  # Agent executes:
-  # mcp__trello__set_active_board({ boardId: $BOARD_ID })
-  # lists = mcp__trello__get_lists({})
-  # review_list_id = (find list where name == $LIST_REVIEW).id
-  # cards = mcp__trello__get_cards_by_list_id({ listId: review_list_id })
-  # For each card:
-  #   - comments = mcp__trello__get_card_comments({ cardId: card.id })
-  #   - extract first PR URL from card.desc + comments (regex: https://github\.com/[^/]+/[^/]+/pull/\d+)
-  #   - state = `gh pr view <URL> --json state,mergedAt`
-  #   - if merged   -> check-transition.sh review done   -> mcp__trello__move_card to LIST_DONE
-  #   - if closed   -> check-transition.sh review needs_changes -> mcp__trello__move_card to LIST_NEEDS_CHANGES
-  #                    -> mcp__trello__add_comment("PR closed without merge — flagged needs_changes")
-  #   - if open     -> leave card in review
-done
-```
-
-Backwards moves: when a PR is closed unmerged, a card sitting in `LIST_REVIEW` moves to `LIST_NEEDS_CHANGES`. From there a human can move it back to `LIST_IN_PROGRESS` (the `statuses` map allows `needs_changes -> in_progress`). This is the explicit Marv-fix.
+**(backend step, Trello only)** — follow your loaded `references/sprint-dev-trello.md` (§ Phase 0.5: Reconcile in-review items — Trello) for reconciling `LIST_REVIEW` cards against PR state and the needs-changes backwards move. GitHub/local: already handled by the grep/`gh pr view` logic above.
 
 ---
 
@@ -143,39 +122,7 @@ Backwards moves: when a PR is closed unmerged, a card sitting in `LIST_REVIEW` m
 
 Load items based on the configured backend.
 
-**GitHub backend:**
-```bash
-gh issue list --label "status/ready" --label "owner/ai" --state open --json number,title,body,labels --limit 50 --repo "$gh_owner/$gh_repo"
-```
-Parse each issue. Extract from the body:
-- Acceptance criteria (look for `## Acceptance Criteria` header)
-- Code references (look for `## Code References` header)
-- Target repo (from labels or body)
-- Size (from size/* label)
-- Priority (from body or label)
-
-**Local backend:**
-Scan `.pm/items/` for files whose `labels:` contain BOTH `status/ready` AND `owner/ai`. Parse YAML.
-
-**Trello backend:**
-
-Iterate boards and read each board's `LIST_READY_FOR_AGENT`:
-
-```bash
-ready_items=()
-echo "$trello_boards_json" | jq -c '.[]' | while read -r board_json; do
-  eval "$("$CLAUDE_PLUGIN_ROOT/scripts/for-each-board.sh" "[$board_json]")"
-  # mcp__trello__set_active_board({ boardId: $BOARD_ID })
-  # lists = mcp__trello__get_lists({})
-  # ready_id = (find name == $LIST_READY_FOR_AGENT).id
-  # cards = mcp__trello__get_cards_by_list_id({ listId: ready_id })
-  # For each card append { id, name, desc, labels, board_id, board_name, worker_instructions: $WORKER_INSTRUCTIONS, review_policy: $REVIEW_POLICY }
-done
-```
-
-The card's `desc` IS the spec (written by triage Phase 2). Parse the same `## Acceptance Criteria` / `## Code References` headers as the GitHub branch — the body structure is identical.
-
-Per-board `worker_instructions` and `review_policy` (resolved via `for-each-board.sh`) flow through to sub-agent prompts in Phase 2B and to the close-vs-comment decision in Phase 2D.5.
+**(backend step)** — follow your loaded `references/sprint-dev-<backend>.md` (§ Phase 1.1: Load Ready Items). Trello's variant also covers how per-board `worker_instructions`/`review_policy` flow to Phase 2B and 2D.5.
 
 **Fallback:**
 If no backend items found, fall back to reading `planning/todos.md` Ready section (backward compatibility with product-pulse workflow).
@@ -317,7 +264,7 @@ git worktree add .claude/worktrees/pulse-{cluster}-{date} -b pulse/{cluster}-{YY
 
 ### 2B. Dispatch Sub-Agent
 
-**Pick the model and effort per task altitude.** If a model-selection rubric exists (a "Picking the right models" section in the project's `CLAUDE.md`/`AGENTS.md`, or the user's global agent config — `/pm:setup` establishes one), follow it: route clear-spec / mechanical implementation to a cheaper capable model, reserve the strongest model for ambiguous or taste-sensitive work (UI, copy, API/SDK design), and keep reasoning effort matched to difficulty rather than defaulting to the ceiling. If no rubric exists, dispatch with the default model. Pass the chosen model via the `Agent` `model` parameter; don't predefine reviewer/explorer/adversarial archetypes — let the orchestrator pick roles per task.
+**Pick the model and effort per task altitude.** Load the current developer's rubric from `${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml` (run `"$CLAUDE_PLUGIN_ROOT/scripts/rubric-path.sh" --check`; if `unset`, offer to set it up via `studio-baseline/Rubric_Setup.md` before dispatching, or fall back to the default model). Route by it: route clear-spec / mechanical implementation to a cheaper capable model, reserve the strongest model for ambiguous or taste-sensitive work (UI, copy, API/SDK design), and keep reasoning effort matched to difficulty rather than defaulting to the ceiling. If no rubric exists, dispatch with the default model. Pass the chosen model via the `Agent` `model` parameter; don't predefine reviewer/explorer/adversarial archetypes — let the orchestrator pick roles per task.
 
 Build a comprehensive sub-agent prompt with:
 - Batch items (number, description, priority, size, spec link)
@@ -405,80 +352,13 @@ Spec compliance: {met/partial/N/A}
 
 For each completed item:
 
-**GitHub backend:**
-```bash
-# Comment on the issue with PR link
-gh issue comment {number} --body "Implemented in PR {pr_url}. Spec compliance: {met/partial}. Tests: {pass/fail}." --repo "$gh_owner/$gh_repo"
-
-# Close the issue if PR is merged
-gh issue close {number} --repo "$gh_owner/$gh_repo"
-```
-
-**Local backend:**
-Update `.pm/items/{number}-{slug}.yml` with `status: status/done` and `pr: {pr_url}`.
-
-**Trello backend:**
-
-For each completed item, the orchestrator does three things on the card's home board:
-
-```
-mcp__trello__set_active_board({ boardId: $card_board_id })
-
-# 1. Comment with the PR link (audit trail).
-mcp__trello__add_comment({
-  cardId: $card_id,
-  text: "Implemented in PR {pr_url}. Tests: {pass/fail}. Spec compliance: {met/partial}."
-})
-
-# 2. Move the card based on PR state and the board's review_policy.
-```
-
-Decision matrix:
-
-| PR state at completion | `review_policy=self` | `review_policy=judge` | `review_policy=auto` |
-|---|---|---|---|
-| Open (not yet merged) | move to `LIST_REVIEW` | move to `LIST_REVIEW` | move to `LIST_REVIEW` |
-| Merged                | move to `LIST_DONE`   | move to `LIST_REVIEW` (human signs off) | move to `LIST_DONE` |
-| Closed unmerged       | move to `LIST_NEEDS_CHANGES` | same | same |
-| Skipped/failed        | leave in `LIST_IN_PROGRESS` | same | same |
-
-Always validate first:
-
-```bash
-"$CLAUDE_PLUGIN_ROOT/scripts/check-transition.sh" \
-  "$current_status" "$target_status" "$trello_statuses_json" \
-  || { echo "transition rejected — leaving card in $current_status"; continue; }
-```
-
-Then:
-
-```
-mcp__trello__move_card({ cardId: $card_id, listId: $target_list_id })
-```
-
-Initial dispatch (before the sub-agent runs) also moves the card from `LIST_READY_FOR_AGENT` -> `LIST_IN_PROGRESS`, gated by the same `check-transition.sh` call.
-
-If the item has a parent epic, check epic progress:
-```bash
-# Count open vs closed sub-issues
-gh api graphql -f query='{ node(id: "{epic_node_id}") { ... on Issue { subIssues { totalCount } closedSubIssues: subIssues(states: CLOSED) { totalCount } } } }'
-```
+**(backend step)** — follow your loaded `references/sprint-dev-<backend>.md` (§ Phase 2D.5: Update Issue Tracker). GitHub's variant also covers the parent-epic progress check; Trello's covers the review_policy decision matrix, the check-transition.sh gate, and the initial ready->in-progress dispatch move.
 
 ### 2E. Sync Backlog
 
 For each item in the batch:
 
-**GitHub backend:**
-- **PR open, not yet merged** -> the issue remains open with a comment linking the PR (added in 2D.5)
-- **PR already merged** -> the issue is closed (done in 2D.5) and a row is added to `## Done (last 7 days)` in `$backlog_active` if one exists
-- **Skipped/failed** -> leave the issue open with status unchanged
-
-**Local backend:**
-- **PR open, not yet merged** -> update `.pm/items/{number}-{slug}.yml` with `status: status/in-review` and `pr: {pr_url}`
-- **PR already merged** -> update `.pm/items/{number}-{slug}.yml` with `status: status/done` and `pr: {pr_url}`
-- **Skipped/failed** -> leave the item file unchanged
-
-> For Trello, the `#{number}` token in `planning/todos.md` rows is the Trello card's short id (e.g. `t-AbCdEfGh`) and the embedded PR link is the same `[#N](https://github.com/...)` form. The sync logic is otherwise identical.
+**(backend step)** — follow your loaded `references/sprint-dev-<backend>.md` (§ Phase 2E: Sync Backlog). Trello: N/A — its card sync happens in 2D.5; the `#{number}` token in `planning/todos.md` rows is the Trello card's short id (e.g. `t-AbCdEfGh`) and the embedded PR link is the same `[#N](https://github.com/...)` form, otherwise the sync logic below is identical.
 
 **Backlog file sync (both backends):**
 If `$backlog_active` and `$backlog_ideas` exist (backward-compatible with product-pulse workflow):
