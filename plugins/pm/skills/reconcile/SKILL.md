@@ -8,6 +8,9 @@ description: >-
   merges, or periodically.
   Trigger: "reconcile", "sync issues", "clean up backlog", "check progress",
   or /pm:reconcile.
+  Do NOT use for classifying/prioritizing NEW items (that's /pm:triage) or
+  building ready work (that's /pm:sprint-dev) — reconcile only syncs existing
+  state.
 effort: medium
 allowed-tools: "Bash Read Write Edit"
 ---
@@ -88,13 +91,7 @@ gh_repo="$(yq '.github.repo' "$pm_config")"
 items_dir="$primary_repo_root/$(yq '.local.items_dir // ".pm/items"' "$pm_config")"
 ```
 
-**Trello backend:**
-
-```bash
-# Multi-board: every reconcile pass walks every configured board.
-boards_count="$(echo "$trello_boards_json" | jq 'length')"
-[ "$boards_count" -lt 1 ] && echo "ERROR: no boards configured" && exit 0
-```
+**Trello backend:** see references/reconcile-trello.md for board-count validation. (Skip if backend != trello.)
 
 Print: `"Reconciling {N} repo(s) since {last_reconcile}. Backend: {backend}."`
 
@@ -199,27 +196,7 @@ yq -i '.labels -= ["status/ready","status/in-progress","status/in-review","owner
 
 ### 1.2T Trello backend completion tracking
 
-Loop over boards. On each board, read `LIST_REVIEW` cards and reconcile their PR state.
-
-```bash
-echo "$trello_boards_json" | jq -c '.[]' | while read -r board_json; do
-  eval "$("$CLAUDE_PLUGIN_ROOT/scripts/for-each-board.sh" "[$board_json]")"
-  # Agent executes:
-  # mcp__trello__set_active_board({ boardId: $BOARD_ID })
-  # lists = mcp__trello__get_lists({})
-  # review_id = (find name == $LIST_REVIEW).id
-  # cards = mcp__trello__get_cards_by_list_id({ listId: review_id })
-  # For each card:
-  #   comments = mcp__trello__get_card_comments({ cardId: card.id })
-  #   pr_url = first PR URL from card.desc + comments
-  #   if pr_url and `gh pr view <pr_url> --json state` == "MERGED":
-  #     present to user: "Card '{name}' on '{BOARD_NAME}' — PR merged. Move to Done? (yes/skip)"
-  #     if yes:
-  #       check-transition.sh review done $trello_statuses_json
-  #       mcp__trello__move_card({ cardId: card.id, listId: <done id> })
-  #       mcp__trello__add_comment({ cardId: card.id, text: "Moved to Done by /pm:reconcile — PR <pr_url> merged." })
-done
-```
+**Trello backend:** see references/reconcile-trello.md for completion tracking on Trello cards (reading `LIST_REVIEW` cards and reconciling merged-PR state). (Skip if backend != trello.)
 
 Epic rollup is GitHub-only (sub-issues are a GitHub feature). Skip Phase 1.3 entirely when `backend == trello`.
 
@@ -425,29 +402,7 @@ for item_file in "$items_dir"/*.yml; do
 done
 ```
 
-**Trello backend:**
-
-The MCP server's card objects include a `dateLastActivity` field returned by `get_card`. To find stale cards, walk every non-terminal list on every board and check that field. (`done` is excluded — completed cards aren't stale.)
-
-```bash
-cutoff=$(date -u -v-${stale_threshold}d +%Y-%m-%dT%H:%M:%SZ 2>/dev/null \
-  || date -u -d "${stale_threshold} days ago" +%Y-%m-%dT%H:%M:%SZ)
-
-stale_cards=()
-echo "$trello_boards_json" | jq -c '.[]' | while read -r board_json; do
-  eval "$("$CLAUDE_PLUGIN_ROOT/scripts/for-each-board.sh" "[$board_json]")"
-  # Agent executes for each non-done list (needs_triage, ready_for_agent, in_progress, review, needs_changes, blocked):
-  # mcp__trello__set_active_board({ boardId: $BOARD_ID })
-  # lists = mcp__trello__get_lists({})
-  # for each list_name in [LIST_NEEDS_TRIAGE, LIST_READY_FOR_AGENT, LIST_IN_PROGRESS, LIST_REVIEW, LIST_NEEDS_CHANGES, LIST_BLOCKED]:
-  #   list_id = lookup
-  #   cards = mcp__trello__get_cards_by_list_id({ listId: list_id })
-  #   for each card with dateLastActivity < cutoff:
-  #     append { id, name, list_name, dateLastActivity, BOARD_ID, BOARD_NAME }
-done
-```
-
-The "exclude epic/monitor/blocker" rule from the GitHub branch translates to: skip cards whose labels include `epic` or `monitor`. Cards in `LIST_BLOCKED` are explicitly long-lived and are skipped from stale flagging by virtue of the calling list filter — `LIST_BLOCKED` is included in the loop, but the user can choose `skip` to keep them as-is.
+**Trello backend:** see references/reconcile-trello.md for stale-card detection (walking every non-terminal list on every board via `dateLastActivity`). (Skip if backend != trello.)
 
 ### 2.2 Present stale items
 
@@ -536,36 +491,7 @@ yq -i '.priority = "P'"${next}"'"' "$item_file"
 
 If demoting and `planning/todos.md` exists, move the item's row from `## Ready` to `## Monitor` with a note: `"Demoted from Ready — stale for {N} days"`.
 
-**Trello (retriage):** validate then move card back to `LIST_NEEDS_TRIAGE`.
-
-```bash
-"$CLAUDE_PLUGIN_ROOT/scripts/check-transition.sh" \
-  "$card_current_list_key" "needs_triage" "$trello_statuses_json" \
-  || echo "warning: transition $card_current_list_key -> needs_triage not allowed in current statuses map; skipping"
-```
-
-```
-mcp__trello__move_card({ cardId: $card_id, listId: $needs_triage_list_id })
-mcp__trello__add_comment({ cardId: $card_id, text: "Re-triaged by /pm:reconcile — stale for {N} days." })
-```
-
-If the configured `statuses` map does not allow this transition, surface the violation; do NOT silently override. The user can either widen the statuses map (back-edge from any list to `needs_triage`) or pick a different action.
-
-**Trello (close):** archive the card.
-
-```
-mcp__trello__add_comment({ cardId: $card_id, text: "Closed as stale by /pm:reconcile — no activity for {N} days." })
-mcp__trello__archive_card({ cardId: $card_id })
-```
-
-**Trello (demote):** Trello has no first-class priority. Apply or update a `P{N+1}` label via `update_card_details` and, if `planning/todos.md` exists, demote the row from `Ready` to `Monitor` (same as GitHub).
-
-```
-mcp__trello__update_card_details({
-  cardId: $card_id,
-  labels: ["P{next}", ...preserve other labels except old P{current}]
-})
-```
+**Trello backend:** see references/reconcile-trello.md for the retriage/close/demote card actions (move, comment, archive, and priority-label handling on Trello). (Skip if backend != trello.)
 
 Print: `"Phase 2 — {X} stale item(s) found. {Y} retriaged, {Z} closed, {W} demoted, {V} skipped."`
 
@@ -573,7 +499,7 @@ Print: `"Phase 2 — {X} stale item(s) found. {Y} retriaged, {Z} closed, {W} dem
 
 ## Phase 3: Deferred Blocker Handling
 
-> Phase 3 (deferred blocker handling) is GitHub-specific (uses sub-issues). When `backend == trello`, skip this entire phase. The Trello equivalent — child cards / blocking checklists — is out of scope for this plan; if a sub-agent files a "spawned-during-sprint" finding while running on Trello, it should `mcp__trello__add_card_to_list` it to `LIST_NEEDS_TRIAGE` with a label `spawned-during-sprint`, and reconcile-time triage handles it like any other incoming item.
+> Phase 3 (deferred blocker handling) is GitHub-specific (uses sub-issues). Skip this entire phase when `backend == trello`. **Trello backend:** see references/reconcile-trello.md for the fallback handling of spawned-during-sprint items on Trello.
 
 Classify items spawned during sprint execution as blocking or independent.
 
