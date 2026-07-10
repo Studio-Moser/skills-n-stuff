@@ -5,7 +5,7 @@ description: Use when making any code change and you need Studio Moser conventio
 
 # House Rules
 
-Studio Moser conventions for code changes. **Canonical source:** [`studio-baseline/house-rules.md`](https://raw.githubusercontent.com/Studio-Moser/skills-n-stuff/main/studio-baseline/house-rules.md) — the same rules every repo's `AGENTS.md` baseline block points at, so plugin and non-plugin devs follow one set. Read the canonical doc for the full text; the essentials:
+Studio Moser conventions for code changes. **Canonical source:** [`studio-baseline/House_Rules.md`](https://raw.githubusercontent.com/Studio-Moser/skills-n-stuff/main/studio-baseline/House_Rules.md) — the same rules every repo's `AGENTS.md` baseline block points at, so plugin and non-plugin devs follow one set. Read the canonical doc for the full text; the essentials:
 
 - **Branches:** never commit to `main`/`master`; branch `{type}/{short-desc}` (feature/bugfix/hotfix/release/chore). Sprint batches use `pulse/{cluster}-{date}`.
 - **Commits:** Conventional Commits, present tense, one logical change each.

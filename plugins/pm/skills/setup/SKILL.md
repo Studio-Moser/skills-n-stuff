@@ -423,8 +423,8 @@ fi
 
 ```bash
 BODY="$(mktemp)"
-curl -fsS "https://raw.githubusercontent.com/Studio-Moser/skills-n-stuff/main/studio-baseline/AGENTS-baseline.md" -o "$BODY" \
-  || cp "$CLAUDE_PLUGIN_ROOT/../../studio-baseline/AGENTS-baseline.md" "$BODY" 2>/dev/null \
+curl -fsS "https://raw.githubusercontent.com/Studio-Moser/skills-n-stuff/main/studio-baseline/AGENTS_Baseline.md" -o "$BODY" \
+  || cp "$CLAUDE_PLUGIN_ROOT/../../studio-baseline/AGENTS_Baseline.md" "$BODY" 2>/dev/null \
   || { echo "could not obtain baseline body"; }
 ```
 
@@ -451,7 +451,7 @@ The rubric is **per developer, user-global** — one file at `$("$CLAUDE_PLUGIN_
 - `set` → tell the user their rubric is in place; offer a refresh if its `reviewed:` date is **>14 days** old or it lists a superseded model. A refresh re-pulls Artificial Analysis for cost + intelligence and keeps the dev's taste scores + capabilities. Done.
 - `unset` → walk them through creating one (next step).
 
-2. **Create the rubric** by following the canonical walkthrough at `studio-baseline/rubric-setup.md` (read it from `$CLAUDE_PLUGIN_ROOT/../../studio-baseline/rubric-setup.md`, or fetch the raw URL): discover the current lineup **preferring the Artificial Analysis API** (`"$CLAUDE_PLUGIN_ROOT/scripts/fetch-model-data.sh"` when `ARTIFICIAL_ANALYSIS_API_KEY` is set → pricing → cost, coding/agentic index → intelligence; else vendor docs / judgment), score on cost/intelligence/taste for **this dev's** ecosystem, capture `capabilities` (e.g. `codex`), show the table for tweaks, then write the YAML to the path from `rubric-path.sh`. Stamp today's date in `reviewed:`. Stay inside the dev's own ecosystem — propose only models from families/CLIs they confirmed; add a cross-vendor tier (e.g. Codex/gpt-5.5) only if they confirm they have that CLI.
+2. **Create the rubric** by following the canonical walkthrough at `studio-baseline/Rubric_Setup.md` (read it from `$CLAUDE_PLUGIN_ROOT/../../studio-baseline/Rubric_Setup.md`, or fetch the raw URL): discover the current lineup **preferring the Artificial Analysis API** (`"$CLAUDE_PLUGIN_ROOT/scripts/fetch-model-data.sh"` when `ARTIFICIAL_ANALYSIS_API_KEY` is set → pricing → cost, coding/agentic index → intelligence; else vendor docs / judgment), score on cost/intelligence/taste for **this dev's** ecosystem, capture `capabilities` (e.g. `codex`), show the table for tweaks, then write the YAML to the path from `rubric-path.sh`. Stamp today's date in `reviewed:`. Stay inside the dev's own ecosystem — propose only models from families/CLIs they confirmed; add a cross-vendor tier (e.g. Codex/gpt-5.5) only if they confirm they have that CLI.
 
 3. **Migrate any legacy in-repo rubric.** If a prior setup wrote a "Picking the right models" section into this repo's `AGENTS.md`/`CLAUDE.md`, move its scores into the user-global rubric (if the dev confirms they're theirs) and delete that section from the repo file — the rubric no longer lives in the repo. Leave the Phase 4.4 baseline reminder in place.
 

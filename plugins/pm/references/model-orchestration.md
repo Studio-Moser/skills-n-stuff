@@ -2,13 +2,13 @@
 
 Canonical, **model-agnostic** source of truth for how PM skills route sub-agents across models and verify their output. `pm:setup` Phase 4.4 stamps the baseline reminder block below into a project's `AGENTS.md` (with `CLAUDE.md` importing it), and Phase 4.5 helps each developer create their own user-global rubric; `pm:sprint-dev`, `pm:dev-task`, and the `code-reviewer` agent read and enforce it. Keeping the baseline block here — in the version-controlled plugin — means every machine that installs the plugin behaves the same, instead of each machine's hand-edited global config drifting.
 
-This file names no specific models. The concrete rubric (which models, what scores) is drafted **per user, per ecosystem, at setup time** and stored in the developer's user-global rubric file — see `skills/setup/SKILL.md` Phase 4.5 and `studio-baseline/rubric-setup.md` for its shape.
+This file names no specific models. The concrete rubric (which models, what scores) is drafted **per user, per ecosystem, at setup time** and stored in the developer's user-global rubric file — see `skills/setup/SKILL.md` Phase 4.5 and `studio-baseline/Rubric_Setup.md` for its shape.
 
 ---
 
 ## What lives where
 
-- **Routing philosophy** → the shared `studio-baseline` (house-rules + the `AGENTS.md` reminder block), reaching every dev plugin-free. **The rubric itself** → each developer's user-global store `${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml`, NOT the repo. The repo's `AGENTS.md` only reminds the agent to load it; `pm:setup`/`rubric-setup.md` create it.
+- **Routing philosophy** → the shared `studio-baseline` (house-rules + the `AGENTS.md` reminder block), reaching every dev plugin-free. **The rubric itself** → each developer's user-global store `${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml`, NOT the repo. The repo's `AGENTS.md` only reminds the agent to load it; `pm:setup`/`Rubric_Setup.md` create it.
 - **Verification behavior** → baked into the skills themselves (`sprint-dev` Phase 2C, `dev-task` step 5, `code-reviewer` agent). Travels with the plugin.
 - **Cross-vendor worker capability** (e.g. an OpenAI Codex executor) → optional, capability-gated skills in this plugin (`codex-review`, `codex-implementation`, `codex-computer-use`), inert unless the `codex` CLI is present. Travels with the plugin; activates only where the CLI exists.
 
@@ -18,11 +18,11 @@ The point: nothing orchestration-related needs to live in a machine's global con
 
 ## Project block
 
-`pm:setup` stamps a *reminder* block into the repo's `AGENTS.md` (see `studio-baseline/AGENTS-baseline.md`); the scored rubric table lives in the developer's user-global store (`studio-baseline/rubric-setup.md` defines its shape).
+`pm:setup` stamps a *reminder* block into the repo's `AGENTS.md` (see `studio-baseline/AGENTS_Baseline.md`); the scored rubric table lives in the developer's user-global store (`studio-baseline/Rubric_Setup.md` defines its shape).
 
 ### Where the baseline block goes
 
-Follow the repo's existing convention; **default to `AGENTS.md` as the single source of truth with `CLAUDE.md` importing it**, so every tool (Claude Code, Codex, Cursor, Copilot) reads the same file. This applies to the baseline reminder block (`studio-baseline/AGENTS-baseline.md`) that `pm:setup` Phase 4.4 stamps in — never to the scored rubric, which stays out of the repo entirely:
+Follow the repo's existing convention; **default to `AGENTS.md` as the single source of truth with `CLAUDE.md` importing it**, so every tool (Claude Code, Codex, Cursor, Copilot) reads the same file. This applies to the baseline reminder block (`studio-baseline/AGENTS_Baseline.md`) that `pm:setup` Phase 4.4 stamps in — never to the scored rubric, which stays out of the repo entirely:
 
 - **Repo uses `AGENTS.md` as source, or has neither file** → write the baseline block into `AGENTS.md`, and make sure `CLAUDE.md` pulls it in with an **`@AGENTS.md` import line** (Claude Code loads `@`-imports into context at session start — that's what makes it apply on every run, not just PM-skill runs). Create the `CLAUDE.md` pointer if missing; if a `CLAUDE.md` exists but doesn't import `AGENTS.md`, offer to add the import.
 - **Repo keeps instructions in `CLAUDE.md` only (no `AGENTS.md`)** → respect it; write the baseline block into `CLAUDE.md`. Optionally offer to adopt the `AGENTS.md`-source layout.
@@ -31,7 +31,7 @@ A bare "see AGENTS.md" link is weaker than an `@AGENTS.md` import — the import
 
 ### The rubric
 
-The scored rubric below — the table plus the "how to apply" bullets — is **not** part of the baseline block and is never written into the repo. It's the content that lives in each developer's user-global store (`${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml`, shape defined by `studio-baseline/rubric-setup.md`), created by `pm:setup` Phase 4.5 or by any agent following `studio-baseline/rubric-setup.md` directly (plugin-free). It's reproduced here to illustrate what the rubric contains and how to apply it, filled with the **current** models of whatever ecosystem the setup assistant belongs to (looked up live at setup time, not from training-cutoff memory):
+The scored rubric below — the table plus the "how to apply" bullets — is **not** part of the baseline block and is never written into the repo. It's the content that lives in each developer's user-global store (`${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml`, shape defined by `studio-baseline/Rubric_Setup.md`), created by `pm:setup` Phase 4.5 or by any agent following `studio-baseline/Rubric_Setup.md` directly (plugin-free). It's reproduced here to illustrate what the rubric contains and how to apply it, filled with the **current** models of whatever ecosystem the setup assistant belongs to (looked up live at setup time, not from training-cutoff memory):
 
 ```markdown
 ## Picking the right models for workflows and subagents
