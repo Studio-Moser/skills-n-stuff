@@ -408,6 +408,30 @@ After writing, print: "Created CONTEXT.md at `{path}`. Agents will read this bef
 
 ---
 
+## Phase 4.4: Stamp the Studio Moser baseline block
+
+Every repo — regardless of who works on it — gets the same managed baseline block in its `AGENTS.md`: house-rules essentials + the model-routing reminder that points a plugin-less dev's agent at the public setup walkthrough. This is what reaches developers who never install PM.
+
+1. Resolve the target `AGENTS.md` (per the "Where the project block goes" rule — the repo's agent-instruction source; default `AGENTS.md`, ensure `CLAUDE.md` imports it with `@AGENTS.md`).
+2. Fetch the current block body from the canonical source (fall back to the copy bundled in the plugin if offline):
+
+```bash
+BODY="$(mktemp)"
+curl -fsS "https://raw.githubusercontent.com/Studio-Moser/skills-n-stuff/main/studio-baseline/AGENTS-baseline.md" -o "$BODY" \
+  || cp "$CLAUDE_PLUGIN_ROOT/../../studio-baseline/AGENTS-baseline.md" "$BODY" 2>/dev/null \
+  || { echo "could not obtain baseline body"; }
+```
+
+3. Stamp it (idempotent — safe to re-run; never clobbers the repo's own content):
+
+```bash
+"$CLAUDE_PLUGIN_ROOT/scripts/stamp-baseline.sh" "$primary_repo_root/AGENTS.md" "$BODY"
+```
+
+4. Tell the user the block was stamped/refreshed and that it's committed with the rest of setup, so every teammate inherits it on clone.
+
+---
+
 ## Phase 4.5: Establish the Model-Selection Rubric
 
 **Skip entirely** if Batch 5 found an existing rubric (just carry its path into the Phase 8 summary) or the user declined to create one.
