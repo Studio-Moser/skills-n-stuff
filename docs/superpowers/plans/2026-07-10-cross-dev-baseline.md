@@ -122,7 +122,7 @@ git commit -m "feat(baseline): relocate house-rules to canonical public doc; ski
 
 **Interfaces:**
 - Consumes: the rubric store path and YAML shape (defined here; reused by Tasks 4, 6, 7, 8).
-- Produces: the public URL referenced by the baseline block (Task 3) and setup (Task 7).
+- Produces: the public URL referenced by the baseline block (Task 3) and setup (Task 8).
 
 - [ ] **Step 1: Create `studio-baseline/rubric-setup.md`**
 
@@ -205,7 +205,7 @@ git commit -m "feat(baseline): add plugin-free rubric-setup walkthrough"
 
 **Interfaces:**
 - Consumes: the two public URLs (house-rules, rubric-setup) and the store path.
-- Produces: `AGENTS-baseline.md`, the exact block body stamped by `stamp-baseline.sh` (Task 5) via `pm:setup` (Task 6). NOTE: this file is the block *body only* — the start/end markers are added by the stamper, not stored here.
+- Produces: `AGENTS-baseline.md`, the exact block body stamped by `stamp-baseline.sh` (Task 5) via `pm:setup` (Task 7). NOTE: this file is the block *body only* — the start/end markers are added by the stamper, not stored here.
 
 - [ ] **Step 1: Create `studio-baseline/AGENTS-baseline.md` (block body only, no markers)**
 
@@ -270,7 +270,7 @@ git commit -m "feat(baseline): add managed AGENTS block source and README"
 - Test: `plugins/pm/tests/rubric-path.bats`
 
 **Interfaces:**
-- Produces: `rubric-path.sh` prints the resolved path (no args) or `set`/`unset` (`--check`). Consumed by Tasks 6/7/8/9.
+- Produces: `rubric-path.sh` prints the resolved path (no args) or `set`/`unset` (`--check`). Consumed by Tasks 8/9/10.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -367,7 +367,7 @@ git commit -m "feat(pm): add rubric-path.sh store resolver with set/unset check"
 
 **Interfaces:**
 - Consumes: a target file path + a block-body file (e.g. a local copy of `AGENTS-baseline.md`).
-- Produces: `stamp-baseline.sh <target> <body-file>` — inserts/replaces the marker-delimited block, preserving all content outside the markers. Consumed by Task 6.
+- Produces: `stamp-baseline.sh <target> <body-file>` — inserts/replaces the marker-delimited block, preserving all content outside the markers. Consumed by Task 7.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -474,7 +474,7 @@ git commit -m "feat(pm): add idempotent stamp-baseline.sh managed-block writer"
 
 ---
 
-### Task 5b: `fetch-model-data.sh` — pull cost + intelligence from the Artificial Analysis API
+### Task 6: `fetch-model-data.sh` — pull cost + intelligence from the Artificial Analysis API
 
 **Files:**
 - Create: `plugins/pm/scripts/fetch-model-data.sh`
@@ -482,7 +482,7 @@ git commit -m "feat(pm): add idempotent stamp-baseline.sh managed-block writer"
 
 **Interfaces:**
 - Consumes: `ARTIFICIAL_ANALYSIS_API_KEY` env var; optional `AA_MODELS_URL` override (for tests/pinning).
-- Produces: normalized TSV `name\tcreator\tinput_$/M\toutput_$/M\tcoding_index\tagentic_index`, one row per model. Exit 3 if no key (caller falls back to manual). Consumed by `rubric-setup.md` (Task 2) and setup Phase 4.5 (Task 7).
+- Produces: normalized TSV `name\tcreator\tinput_$/M\toutput_$/M\tcoding_index\tagentic_index`, one row per model. Exit 3 if no key (caller falls back to manual). Consumed by `rubric-setup.md` (Task 2) and setup Phase 4.5 (Task 8).
 
 > **Confirm at build time:** the exact free-tier path and JSON field names against https://artificialanalysis.ai/api-reference — the `jq` accessors below encode the documented shape (`name`, `model_creator`, `price_1m_input_tokens`, `price_1m_output_tokens`, `artificial_analysis_coding_index`, `artificial_analysis_agentic_index`) and the `(.data // .)` / `.model_creator.name // .model_creator` guards absorb wrapper/shape variance, but verify before trusting the numbers.
 
@@ -573,7 +573,7 @@ git commit -m "feat(pm): add fetch-model-data.sh (Artificial Analysis API → co
 
 ## Phase 3 — pm:setup reshape
 
-### Task 6: Wire the baseline stamp into `pm:setup`
+### Task 7: Wire the baseline stamp into `pm:setup`
 
 **Files:**
 - Modify: `plugins/pm/skills/setup/SKILL.md`
@@ -629,7 +629,7 @@ git commit -m "feat(pm): setup stamps the shared studio-baseline block into AGEN
 
 ---
 
-### Task 7: Rework Phase 4.5 — rubric goes to the user-global store, not AGENTS.md
+### Task 8: Rework Phase 4.5 — rubric goes to the user-global store, not AGENTS.md
 
 **Files:**
 - Modify: `plugins/pm/skills/setup/SKILL.md`
@@ -680,7 +680,7 @@ git commit -m "feat(pm): setup writes the rubric to the user-global store, migra
 
 ## Phase 4 — Consumers + docs
 
-### Task 8: Load the rubric from the store in sprint-dev and dev-task
+### Task 9: Load the rubric from the store in sprint-dev and dev-task
 
 **Files:**
 - Modify: `plugins/pm/skills/sprint-dev/SKILL.md`
@@ -726,7 +726,7 @@ git commit -m "feat(pm): sprint-dev and dev-task load the rubric from the user-g
 
 ---
 
-### Task 9: Point reconcile + doctrine at the store; register tests; version bump
+### Task 10: Point reconcile + doctrine at the store; register tests; version bump
 
 **Files:**
 - Modify: `plugins/pm/skills/reconcile/SKILL.md`
@@ -792,6 +792,6 @@ git commit -m "feat(pm): reconcile+doctrine target the rubric store; register te
 
 ## Self-Review notes
 
-- **Spec coverage:** house-rules extraction (T1), plugin-free walkthrough (T2), managed block + delivery model (T3), identity/store resolver (T4), idempotent stamper (T5), Artificial Analysis API fetch (T5b), setup stamps block (T6), rubric→store + migration (T7), consumers load store (T8), reconcile/doctrine/tests/version (T9). "Force/help every dev, plugin or not" = T3+T6 (block reaches everyone) + T2 (plugin-free setup). "User-global not per-repo" = T4/T7. "Same basic stuff in every repo" = idempotent stamped block, T5/T6. "Refresh every 14 days from AA reports" = 14-day threshold across T2/T7/T9 + AA API in T5b/T2/T7.
+- **Spec coverage:** house-rules extraction (T1), plugin-free walkthrough (T2), managed block + delivery model (T3), identity/store resolver (T4), idempotent stamper (T5), Artificial Analysis API fetch (T6), setup stamps block (T7), rubric→store + migration (T8), consumers load store (T9), reconcile/doctrine/tests/version (T10). "Force/help every dev, plugin or not" = T3+T7 (block reaches everyone) + T2 (plugin-free setup). "User-global not per-repo" = T4/T8. "Same basic stuff in every repo" = idempotent stamped block, T5/T7. "Refresh every 14 days from AA reports" = 14-day threshold across T2/T8/T10 + AA API in T6/T2/T8.
 - **Type/name consistency:** store path `${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml`, markers `<!-- studio-baseline:start/end -->`, scripts `rubric-path.sh` / `stamp-baseline.sh`, YAML `models:` key — used identically across all tasks.
 - **Fetch-independence:** baseline block inlines house-rules essentials + the store path + what-to-do; URLs are for depth. Setup's curl has an offline fallback to the bundled copy.
