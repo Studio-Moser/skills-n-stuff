@@ -194,25 +194,16 @@ Skip this batch if `pulse-config.yaml` already provided these values.
 
 ### Batch 5: Model-Routing Rubric
 
-`pm:sprint-dev` and `pm:dev-task` route each sub-agent to a model by task altitude — a cheaper capable model for clear-spec mechanical work, the strongest model for ambiguous or taste-sensitive work. That routing reads a **model-selection rubric** from the project's `CLAUDE.md`/`AGENTS.md` or the user's global agent config. This batch makes sure one exists.
+`pm:sprint-dev` and `pm:dev-task` route each sub-agent to a model by task altitude — a cheaper capable model for clear-spec mechanical work, the strongest model for ambiguous or taste-sensitive work. That routing reads a **model-selection rubric** from this developer's **user-global** store (one file per dev, shared across every repo they touch — resolved via `"$CLAUDE_PLUGIN_ROOT/scripts/rubric-path.sh"`), not from this repo's `CLAUDE.md`/`AGENTS.md`. This batch just makes sure the dev has one; Phase 4.5 does the actual creation/refresh.
 
-1. **Look for an existing rubric** — a "Picking the right models" (or similar model-routing) section, checked in this order:
-   - the primary repo's `CLAUDE.md`, then `AGENTS.md`;
-   - the user's global agent config for whatever assistant is running this skill (e.g. `~/.claude/CLAUDE.md` for Claude Code, `~/.codex/AGENTS.md` for Codex).
+1. **Check whether it exists:**
 
-   **If found in the project** (`CLAUDE.md`/`AGENTS.md`): print `"Found a model rubric in {path} — sprint-dev and dev-task will route by it."`, confirm the user wants to keep it, record the path, and skip to Batch 5's end (Phase 4.5 becomes a no-op). **But first check its freshness:** if the rubric carries a "reviewed {date}" stamp that's more than ~90 days old, or it lists a model you can see has been superseded, say so and offer to refresh it (re-runs the Phase 4.5 discovery + rescore, then restamps the date). Refreshing updates in place — it never duplicates the section.
+   ```bash
+   "$CLAUDE_PLUGIN_ROOT/scripts/rubric-path.sh" --check
+   ```
 
-   **If found only in the global config** (not in the project): note it and route to Phase 4.5's **migration** path — offer to move it into the project so the behavior travels with the repo, leaving a pointer in global. Don't just keep it global; that's the drift the migration prevents.
-
-   **If not found:** offer to co-create one:
-
-   > "No model-routing rubric found. Want me to add one? It tells the dev/sprint skills which model to hand each task to, so you're not paying top-tier rates for boilerplate. I'll propose defaults for the models in *this* assistant's own ecosystem — you adjust."
-
-2. **If the user opts in, gather two things** (defaults in Phase 4.5 do the rest):
-   - **Axes to rank on** — default **cost, intelligence, taste** (intelligence = hardest problem handled unsupervised; taste = UI/UX, code quality, API/SDK design, copy). Accept edits.
-   - **Where it lives** — the primary repo's agent-instruction source: default `AGENTS.md` (with `CLAUDE.md` importing it via `@AGENTS.md`), or `CLAUDE.md` directly if the repo has no `AGENTS.md`. Either way it travels with the repo for teammates. (See Phase 4.5 / the reference's "Where the project block goes".) The alternative — the user's global config — is what we're moving *away* from.
-
-   **Stay inside your own ecosystem.** You — the assistant reading this skill — know which model family you are. Propose only models from that family and its native subagent/workflow mechanism; do **not** assume the user has another vendor's CLI (a Claude host does not reach for OpenAI Codex/gpt-5.5, and vice versa). Add a cross-vendor worker tier **only if the user says they have that CLI/subscription wired up.**
+   - `set` → tell the user: `"Found your model rubric at {path} — sprint-dev and dev-task will route by it."` Offer a refresh only if its `reviewed:` date is **>14 days** old, or it lists a model you can see has been superseded. Otherwise, nothing more to do here.
+   - `unset` → note that Phase 4.5 will walk them through creating one. Don't duplicate its creation steps here — just flag intent to opt in and move on.
 
 ---
 
@@ -891,7 +882,7 @@ Files created:
   docs/adr/0000-template.md   — ADR template
   {planning files if created}
 
-Model rubric: {created at {path} | found existing at {path} | skipped}
+Model rubric: {created at {user-global rubric-path.sh path} | found existing at {user-global rubric-path.sh path} | skipped}
   {if created/found:} sprint-dev and dev-task route sub-agents by it.
 
 {If GitHub backend:}
@@ -968,6 +959,6 @@ Adjust the summary based on what was actually created — omit sections for skip
 
 - **Private repos without gh access**: If `gh repo view` fails with a permissions error, note this and suggest the user check their `gh` authentication scopes.
 
-- **Model rubric already in global config**: If the only rubric found is in the user's global agent config (not the repo), that's fine — the routing skills still see it, since the global config loads into the agent's context. Offer (don't force) a project-local copy so teammates on the repo get the same routing.
+- **Model rubric location**: The rubric is always the single user-global store file (`"$CLAUDE_PLUGIN_ROOT/scripts/rubric-path.sh"`) — there's no repo-local copy to offer or reconcile. The repo itself only carries the Phase 4.4 baseline reminder block, which points a dev's agent at that store; it never holds the rubric's contents.
 
 - **Unknown ecosystem**: If you genuinely can't tell which model family you belong to, don't guess model names — ask the user which assistant/CLI they run this project with and rank the models they name.
