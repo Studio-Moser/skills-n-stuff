@@ -434,28 +434,20 @@ curl -fsS "https://raw.githubusercontent.com/Studio-Moser/skills-n-stuff/main/st
 
 ## Phase 4.5: Establish the Model-Selection Rubric
 
-**Skip entirely** if Batch 5 found an existing rubric (just carry its path into the Phase 8 summary) or the user declined to create one.
+The rubric is **per developer, user-global** — one file at `$("$CLAUDE_PLUGIN_ROOT/scripts/rubric-path.sh")` (`${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml`), shared across every repo this dev touches — NOT written into the repo's `AGENTS.md`. The repo only carries the *reminder* to load it (stamped in Phase 4.4).
 
-The section you write is the "project block" defined in `references/model-orchestration.md` (this plugin's canonical, model-agnostic doctrine — read it now for the exact structure, the "how to apply" bullets, and the **"Where the project block goes"** rule). Your job here is to fill its rubric table for **this assistant's own ecosystem** and write it into the repo's agent-instruction source. Writing it into the repo — not a machine's global config — is the whole point: any machine with the plugin + this project block behaves the same.
+1. **Check whether this dev already has a rubric:**
 
-**Placement follows the repo's convention (see the reference's "Where the project block goes"):** default to `AGENTS.md` as the source with `CLAUDE.md` importing it via `@AGENTS.md` (so every tool reads it and Claude Code loads it on every run). If the repo is `CLAUDE.md`-only, write there instead. When you create or find a `CLAUDE.md` that doesn't already import `AGENTS.md`, add the `@AGENTS.md` line so the block actually loads — a bare "see AGENTS.md" link is not enough.
+```bash
+"$CLAUDE_PLUGIN_ROOT/scripts/rubric-path.sh" --check
+```
 
-**Discover the current lineup first — don't trust your training-cutoff memory of model names.** Model families turn over; the model you remember as "Sonnet" may be renamed or replaced by setup time. Before drafting, look up what's actually current *right now* for your own ecosystem, if a web tool is available:
-- **Names + cost** — your own vendor's current models/pricing docs are authoritative. Use the models that exist today; if one you remember is gone, use its stated replacement.
-- **Relative standing (intelligence, taste)** — cross-check against a live model-comparison source rather than guessing. Good general references (use whatever's reachable, treat as inputs not gospel): Artificial Analysis (`artificialanalysis.ai`) for an intelligence index + pricing, LMArena (`lmarena.ai`) for human-preference ranking (a decent proxy for taste), and the Aider polyglot leaderboard (`aider.chat/docs/leaderboards`) for coding specifically. Taste is subjective — lean on judgment, use benchmarks only to sanity-check.
-- **No web access?** Fall back to your own knowledge, draft the rubric, and add a visible `(drafted offline — verify model names are current)` note so the user knows to check.
+- `set` → tell the user their rubric is in place; offer a refresh if its `reviewed:` date is **>14 days** old or it lists a superseded model. A refresh re-pulls Artificial Analysis for cost + intelligence and keeps the dev's taste scores + capabilities. Done.
+- `unset` → walk them through creating one (next step).
 
-Render the project block from `references/model-orchestration.md`, filling the table with the discovered models and starting scores on the user's chosen axes, and stamping the `reviewed {date}, sources: …` footer. Keep the "how to apply" bullets (effort discipline, no predefined archetypes, the hidden-reasoning caveat, per-sub-agent discipline). Include the cross-vendor executor bullet **only if** the user confirmed they run such a CLI.
+2. **Create the rubric** by following the canonical walkthrough at `studio-baseline/rubric-setup.md` (read it from `$CLAUDE_PLUGIN_ROOT/../../studio-baseline/rubric-setup.md`, or fetch the raw URL): discover the current lineup **preferring the Artificial Analysis API** (`"$CLAUDE_PLUGIN_ROOT/scripts/fetch-model-data.sh"` when `ARTIFICIAL_ANALYSIS_API_KEY` is set → pricing → cost, coding/agentic index → intelligence; else vendor docs / judgment), score on cost/intelligence/taste for **this dev's** ecosystem, capture `capabilities` (e.g. `codex`), show the table for tweaks, then write the YAML to the path from `rubric-path.sh`. Stamp today's date in `reviewed:`.
 
-**Do not scaffold a per-project agent zoo.** PM's agent structure is minimal and dynamic (see `references/model-orchestration.md` → "Agent structure"): roles are invented per task by `sprint-dev`/`dev-task`, domain context lives in `AGENTS.md`/`CONTEXT.md`, and verification uses the plugin's built-in `code-reviewer`. Do not create `.claude/agents/*` here. If the repo already has a fixed process-archetype agent team (reviewer/explorer/adversarial/planner), mention that it can be retired in favor of dynamic orchestration — but don't delete anything without the user's say-so.
-
-**Migrate, don't fork.** Before writing a fresh block, check whether the user's **global** agent config already carries an orchestration/model section (the one Batch 5 may have found there). If so, offer to *move* it into the project rather than duplicate it:
-
-> "You have a model rubric in your global config (`{path}`). Want me to move it into this project's agent-instruction source (`AGENTS.md`, with `CLAUDE.md` importing it — or `CLAUDE.md` directly if that's how this repo is set up) so the behavior travels with the repo across machines, and slim the global copy to a one-line pointer? (Recommended — otherwise the two can drift.)"
-
-If yes: copy the section into the project block, then replace the global section with a short pointer, e.g. `> Model-routing doctrine is PM-managed per project (see the repo's "Picking the right models" section; run /pm:setup to install it). Canonical source: pm plugin references/model-orchestration.md.` Never delete global content you didn't just relocate.
-
-**Before writing:** show the drafted/relocated table and let the user tweak. **Never clobber** — if the target file already has a models section, merge into it; otherwise append. After writing, print the path(s) touched and note that sprint-dev/dev-task now route by it.
+3. **Migrate any legacy in-repo rubric.** If a prior setup wrote a "Picking the right models" section into this repo's `AGENTS.md`/`CLAUDE.md`, move its scores into the user-global rubric (if the dev confirms they're theirs) and delete that section from the repo file — the rubric no longer lives in the repo. Leave the Phase 4.4 baseline reminder in place.
 
 ---
 
