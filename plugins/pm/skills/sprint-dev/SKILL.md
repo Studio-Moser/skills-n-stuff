@@ -45,6 +45,8 @@ All config values are pre-resolved at skill load time. If you see `ERROR:` in th
 
 Parse the key=value pairs above. The `backend` value (`github` or `local`) determines how items are loaded and updated throughout the rest of this skill. When using the GitHub backend, `gh_owner` and `gh_repo` identify the target repository for all `gh` CLI commands.
 
+**Backend dispatch.** PM uses one backend per project. Load ONLY `references/sprint-dev-<backend>.md` (`sprint-dev-github.md`, `sprint-dev-trello.md`, or `sprint-dev-local.md`) and follow its steps wherever a phase below is marked **(backend step)**. Ignore the other backends' files.
+
 ### 0.1 Read Product Context
 
 Read `{research_dir}/research-context.md` for project structure, repo info, and tech stack. If missing, tell the user to run `/pm:setup`.
@@ -110,7 +112,7 @@ git push origin "$default_branch"
 
 (direct push to default branch is OK here — sprint-dev is interactive only)
 
-**Trello backend:** see references/sprint-dev-trello.md for reconciling `LIST_REVIEW` cards against PR state (merged/closed/open) and the needs-changes backwards move. (Skip if backend != trello.)
+**(backend step, Trello only)** — follow your loaded `references/sprint-dev-trello.md` (§ Phase 0.5: Reconcile in-review items — Trello) for reconciling `LIST_REVIEW` cards against PR state and the needs-changes backwards move. GitHub/local: already handled by the grep/`gh pr view` logic above.
 
 ---
 
@@ -120,21 +122,7 @@ git push origin "$default_branch"
 
 Load items based on the configured backend.
 
-**GitHub backend:**
-```bash
-gh issue list --label "status/ready" --label "owner/ai" --state open --json number,title,body,labels --limit 50 --repo "$gh_owner/$gh_repo"
-```
-Parse each issue. Extract from the body:
-- Acceptance criteria (look for `## Acceptance Criteria` header)
-- Code references (look for `## Code References` header)
-- Target repo (from labels or body)
-- Size (from size/* label)
-- Priority (from body or label)
-
-**Local backend:**
-Scan `.pm/items/` for files whose `labels:` contain BOTH `status/ready` AND `owner/ai`. Parse YAML.
-
-**Trello backend:** see references/sprint-dev-trello.md for loading `LIST_READY_FOR_AGENT` cards, parsing the card `desc` as spec, and how per-board `worker_instructions`/`review_policy` flow to Phase 2B and 2D.5. (Skip if backend != trello.)
+**(backend step)** — follow your loaded `references/sprint-dev-<backend>.md` (§ Phase 1.1: Load Ready Items). Trello's variant also covers how per-board `worker_instructions`/`review_policy` flow to Phase 2B and 2D.5.
 
 **Fallback:**
 If no backend items found, fall back to reading `planning/todos.md` Ready section (backward compatibility with product-pulse workflow).
@@ -364,41 +352,13 @@ Spec compliance: {met/partial/N/A}
 
 For each completed item:
 
-**GitHub backend:**
-```bash
-# Comment on the issue with PR link
-gh issue comment {number} --body "Implemented in PR {pr_url}. Spec compliance: {met/partial}. Tests: {pass/fail}." --repo "$gh_owner/$gh_repo"
-
-# Close the issue if PR is merged
-gh issue close {number} --repo "$gh_owner/$gh_repo"
-```
-
-**Local backend:**
-Update `.pm/items/{number}-{slug}.yml` with `status: status/done` and `pr: {pr_url}`.
-
-**Trello backend:** see references/sprint-dev-trello.md for commenting/moving the card per the review_policy decision matrix (self/judge/auto), the check-transition.sh gate, and the initial ready->in-progress dispatch move. (Skip if backend != trello.)
-
-If the item has a parent epic, check epic progress:
-```bash
-# Count open vs closed sub-issues
-gh api graphql -f query='{ node(id: "{epic_node_id}") { ... on Issue { subIssues { totalCount } closedSubIssues: subIssues(states: CLOSED) { totalCount } } } }'
-```
+**(backend step)** — follow your loaded `references/sprint-dev-<backend>.md` (§ Phase 2D.5: Update Issue Tracker). GitHub's variant also covers the parent-epic progress check; Trello's covers the review_policy decision matrix, the check-transition.sh gate, and the initial ready->in-progress dispatch move.
 
 ### 2E. Sync Backlog
 
 For each item in the batch:
 
-**GitHub backend:**
-- **PR open, not yet merged** -> the issue remains open with a comment linking the PR (added in 2D.5)
-- **PR already merged** -> the issue is closed (done in 2D.5) and a row is added to `## Done (last 7 days)` in `$backlog_active` if one exists
-- **Skipped/failed** -> leave the issue open with status unchanged
-
-**Local backend:**
-- **PR open, not yet merged** -> update `.pm/items/{number}-{slug}.yml` with `status: status/in-review` and `pr: {pr_url}`
-- **PR already merged** -> update `.pm/items/{number}-{slug}.yml` with `status: status/done` and `pr: {pr_url}`
-- **Skipped/failed** -> leave the item file unchanged
-
-> For Trello, the `#{number}` token in `planning/todos.md` rows is the Trello card's short id (e.g. `t-AbCdEfGh`) and the embedded PR link is the same `[#N](https://github.com/...)` form. The sync logic is otherwise identical.
+**(backend step)** — follow your loaded `references/sprint-dev-<backend>.md` (§ Phase 2E: Sync Backlog). Trello: N/A — its card sync happens in 2D.5; the `#{number}` token in `planning/todos.md` rows is the Trello card's short id (e.g. `t-AbCdEfGh`) and the embedded PR link is the same `[#N](https://github.com/...)` form, otherwise the sync logic below is identical.
 
 **Backlog file sync (both backends):**
 If `$backlog_active` and `$backlog_ideas` exist (backward-compatible with product-pulse workflow):
