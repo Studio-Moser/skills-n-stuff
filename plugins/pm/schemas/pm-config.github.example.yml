@@ -35,7 +35,7 @@ github:
   # scopes `repo`, `project`, `read:org`.
   #
   # /pm:setup creates this section automatically if you opt in to the
-  # "Create project" or "Link existing project" flow during Phase 7.
+  # "Create project" or "Link existing project" flow during Phase 6P.
   # Remove or set `enabled: false` to run in label-only mode.
   #
   # project_sync:

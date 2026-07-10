@@ -10,7 +10,7 @@ description: >-
   "configure issue tracking", or /pm:setup.
 disable-model-invocation: true
 effort: medium
-allowed-tools: "Bash Read Write Edit"
+allowed-tools: "Bash Read Write Edit ToolSearch"
 ---
 
 # PM — Setup
