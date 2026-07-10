@@ -10,6 +10,11 @@ body_file="$2"
 start="<!-- studio-baseline:start -->"
 end="<!-- studio-baseline:end -->"
 
+if [ ! -s "$body_file" ]; then
+  echo "stamp-baseline: body file '$body_file' is empty or missing; refusing to stamp" >&2
+  exit 2
+fi
+
 touch "$target"
 
 if grep -qF "$start" "$target" && grep -qF "$end" "$target"; then

@@ -39,3 +39,11 @@ setup() {
   ! grep -qF "first version" "$TARGET"
   [ "$(grep -cF "<!-- studio-baseline:start -->" "$TARGET")" -eq 1 ]
 }
+
+@test "refuses to stamp an empty body file (no clobber)" {
+  printf '# Keep me\n<!-- studio-baseline:start -->\nold body\n<!-- studio-baseline:end -->\n' > "$TARGET"
+  empty="${BATS_TEST_TMPDIR}/empty.md"; : > "$empty"
+  run "$SCRIPT" "$TARGET" "$empty"
+  [ "$status" -eq 2 ]
+  grep -qF "old body" "$TARGET"   # unchanged
+}

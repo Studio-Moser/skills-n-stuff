@@ -205,6 +205,8 @@ Skip this batch if `pulse-config.yaml` already provided these values.
    - `set` → tell the user: `"Found your model rubric at {path} — sprint-dev and dev-task will route by it."` Offer a refresh only if its `reviewed:` date is **>14 days** old, or it lists a model you can see has been superseded. Otherwise, nothing more to do here.
    - `unset` → note that Phase 4.5 will walk them through creating one. Don't duplicate its creation steps here — just flag intent to opt in and move on.
 
+   Remember this `set`/`unset` result — Phase 4.5 reuses it instead of re-running the check.
+
 ---
 
 ## Phase 3: Scaffold .pm/ Directory
@@ -403,7 +405,20 @@ After writing, print: "Created CONTEXT.md at `{path}`. Agents will read this bef
 
 Every repo — regardless of who works on it — gets the same managed baseline block in its `AGENTS.md`: house-rules essentials + the model-routing reminder that points a plugin-less dev's agent at the public setup walkthrough. This is what reaches developers who never install PM.
 
-1. Resolve the target `AGENTS.md` (per the "Where the project block goes" rule — the repo's agent-instruction source; default `AGENTS.md`, ensure `CLAUDE.md` imports it with `@AGENTS.md`).
+1. Resolve the target per the "Where the baseline block goes" rule (`references/model-orchestration.md`): `AGENTS.md` if it exists, or if neither `AGENTS.md` nor `CLAUDE.md` exists; `CLAUDE.md` directly only when it's the sole file present.
+
+```bash
+if [ -f "$primary_repo_root/AGENTS.md" ]; then
+  TARGET="$primary_repo_root/AGENTS.md"
+elif [ -f "$primary_repo_root/CLAUDE.md" ]; then
+  TARGET="$primary_repo_root/CLAUDE.md"
+else
+  TARGET="$primary_repo_root/AGENTS.md"
+fi
+```
+
+   If `$TARGET` is `AGENTS.md`, make sure `CLAUDE.md` imports it: if `CLAUDE.md` exists but has no `@AGENTS.md` line, add one; if `CLAUDE.md` doesn't exist, create a minimal one containing just `@AGENTS.md`.
+
 2. Fetch the current block body from the canonical source (fall back to the copy bundled in the plugin if offline):
 
 ```bash
@@ -413,13 +428,17 @@ curl -fsS "https://raw.githubusercontent.com/Studio-Moser/skills-n-stuff/main/st
   || { echo "could not obtain baseline body"; }
 ```
 
-3. Stamp it (idempotent — safe to re-run; never clobbers the repo's own content):
+3. Stamp it (idempotent — safe to re-run; never clobbers the repo's own content) — but only if the fetch actually produced a body. An empty `$BODY` means both the fetch and the bundled fallback failed; stamping it would wipe out any existing block instead of preserving it, so skip the stamp and say so:
 
 ```bash
-"$CLAUDE_PLUGIN_ROOT/scripts/stamp-baseline.sh" "$primary_repo_root/AGENTS.md" "$BODY"
+if [ ! -s "$BODY" ]; then
+  echo "Could not obtain the baseline block (offline, and no bundled copy found). Skipping the baseline stamp — re-run /pm:setup with network access or a full plugin checkout."
+else
+  "$CLAUDE_PLUGIN_ROOT/scripts/stamp-baseline.sh" "$TARGET" "$BODY"
+fi
 ```
 
-4. Tell the user the block was stamped/refreshed and that it's committed with the rest of setup, so every teammate inherits it on clone.
+4. If the stamp ran, tell the user the block was stamped/refreshed and that it's committed with the rest of setup, so every teammate inherits it on clone.
 
 ---
 
@@ -427,11 +446,7 @@ curl -fsS "https://raw.githubusercontent.com/Studio-Moser/skills-n-stuff/main/st
 
 The rubric is **per developer, user-global** — one file at `$("$CLAUDE_PLUGIN_ROOT/scripts/rubric-path.sh")` (`${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml`), shared across every repo this dev touches — NOT written into the repo's `AGENTS.md`. The repo only carries the *reminder* to load it (stamped in Phase 4.4).
 
-1. **Check whether this dev already has a rubric:**
-
-```bash
-"$CLAUDE_PLUGIN_ROOT/scripts/rubric-path.sh" --check
-```
+1. **Reuse Batch 5's check.** Batch 5 of the interview already ran `rubric-path.sh --check` for this pass — don't re-invoke it. Using that `set`/`unset` result:
 
 - `set` → tell the user their rubric is in place; offer a refresh if its `reviewed:` date is **>14 days** old or it lists a superseded model. A refresh re-pulls Artificial Analysis for cost + intelligence and keeps the dev's taste scores + capabilities. Done.
 - `unset` → walk them through creating one (next step).
