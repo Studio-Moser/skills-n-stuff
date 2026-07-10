@@ -34,6 +34,10 @@ You are NOT the ingestion agent — that's `/pm:ingest`. You receive items that 
 
 ---
 
+**Backend dispatch.** PM uses one backend per project. Load ONLY `references/triage-<backend>.md` (`triage-github.md`, `triage-trello.md`, or `triage-local.md`) and follow its steps wherever a phase below is marked **(backend step)**. Ignore the other backends' files.
+
+---
+
 ## Phase 0: Discover Config and Load Items
 
 ### 0.0 Pre-resolved Configuration
@@ -74,33 +78,7 @@ Print: `"Loaded {N} domain terms from CONTEXT.md and {M} out-of-scope rejections
 
 ### 0.2 Pull Needs-Triage Items
 
-**GitHub backend:**
-
-```bash
-gh_owner="$(yq '.github.owner' "$pm_config")"
-gh_repo="$(yq '.github.repo' "$pm_config")"
-
-triage_items=$(gh issue list \
-  --label "status/needs-triage" \
-  --state open \
-  --json number,title,body,labels,assignees \
-  --limit 100 \
-  --repo "$gh_owner/$gh_repo")
-```
-
-**Local backend:**
-
-```bash
-items_dir="$primary_repo_root/$(yq '.local.items_dir // ".pm/items"' "$pm_config")"
-triage_items=()
-for item_file in "$items_dir"/*.yml; do
-  [ -f "$item_file" ] || continue
-  labels="$(yq '.labels[]' "$item_file" 2>/dev/null)"
-  echo "$labels" | grep -q "status/needs-triage" && triage_items+=("$item_file")
-done
-```
-
-**Trello backend:** see [`references/triage-trello.md`](../../references/triage-trello.md) — loading needs-triage cards from every configured board via the board loop. (Skip if backend != trello.)
+**(backend step)** — follow your loaded `references/triage-<backend>.md` (§ Phase 0.2: Pull Needs-Triage Items).
 
 If zero items across all boards, print `"No status/needs-triage items found across {N} configured board(s). Nothing to do."` and exit cleanly.
 
@@ -112,11 +90,7 @@ Otherwise print: `"Found {N} status/needs-triage item(s). Starting triage pipeli
 
 Also fetch all open items WITHOUT `status/needs-triage` — these are the dedup targets for Phase 1.
 
-**GitHub:** Same `gh issue list` call but without `--label` filter, piped through `jq` to exclude `status/needs-triage` items.
-
-**Local:** Same loop over `$items_dir/*.yml`, skipping files whose labels include `status/needs-triage`.
-
-**Trello backend:** see [`references/triage-trello.md`](../../references/triage-trello.md) — the dedup pool loop (every list except `LIST_NEEDS_TRIAGE` and `done`). (Skip if backend != trello.)
+**(backend step)** — follow your loaded `references/triage-<backend>.md` (§ Phase 0.3: Load Existing Open Items (dedup pool)).
 
 ---
 
@@ -198,52 +172,13 @@ Write the rejection file:
 
 Then close the item in the backend:
 
-**GitHub backend:**
-
-```bash
-gh issue close {number} \
-  --comment "Rejected during triage. See \`.pm/out-of-scope/${slug}.md\` for decision record." \
-  --repo "$gh_owner/$gh_repo"
-
-gh issue edit {number} \
-  --remove-label "status/needs-triage" \
-  --repo "$gh_owner/$gh_repo"
-```
-
-**Local backend:**
-
-Update the item's YAML file — replace `status/needs-triage` in labels with `rejected`, add `closed_at` timestamp:
-
-```bash
-yq -i '.labels -= ["status/needs-triage"] | .labels += ["rejected"] | .closed_at = "{ISO 8601 timestamp}"' "$item_file"
-```
-
-**Trello backend:** see [`references/triage-trello.md`](../../references/triage-trello.md) — writing the out-of-scope file and archiving the card. (Skip if backend != trello.)
+**(backend step)** — follow your loaded `references/triage-<backend>.md` (§ Phase 1: Process rejections).
 
 ### Process duplicates
 
 When an item is marked as a duplicate:
 
-**GitHub backend:**
-
-```bash
-gh issue close {number} \
-  --comment "Duplicate of #{duplicate_number}. Closing." \
-  --repo "$gh_owner/$gh_repo"
-
-gh issue edit {number} \
-  --remove-label "status/needs-triage" \
-  --add-label "duplicate" \
-  --repo "$gh_owner/$gh_repo"
-```
-
-**Local backend:**
-
-```bash
-yq -i '.labels -= ["status/needs-triage"] | .labels += ["duplicate"] | .duplicate_of = {duplicate_number} | .closed_at = "{ISO 8601 timestamp}"' "$item_file"
-```
-
-**Trello backend:** see [`references/triage-trello.md`](../../references/triage-trello.md) — commenting the duplicate link and archiving the card. (Skip if backend != trello.)
+**(backend step)** — follow your loaded `references/triage-<backend>.md` (§ Phase 1: Process duplicates).
 
 ### Sort summary
 
@@ -310,15 +245,9 @@ The writing-plans skill produces a structured implementation plan with tasks, co
 
 #### Step 2c: Write spec to backend
 
-**GitHub backend** — update the issue body with the spec content:
+**(backend step)** — follow your loaded `references/triage-<backend>.md` (§ Phase 2, Step 2c: Write spec to backend).
 
-```bash
-gh issue edit {number} \
-  --body "{spec content}" \
-  --repo "$gh_owner/$gh_repo"
-```
-
-The issue body should follow this structure:
+All backends write the spec using this body structure:
 
 ```markdown
 ## Goal
@@ -358,26 +287,6 @@ The issue body should follow this structure:
 ---
 *Spec written by /pm:triage on {DATE}*
 ```
-
-**Local backend** — write the spec to `planning/specs/{number}-{slug}.md`:
-
-```bash
-specs_dir="$primary_repo_root/planning/specs"
-mkdir -p "$specs_dir"
-
-slug=$(echo "{title}" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/^-//;s/-$//' | cut -c1-60)
-spec_file="$specs_dir/${number}-${slug}.md"
-```
-
-Use the same body structure as the GitHub template above, but wrap it in a spec header (matching `planning/specs/_TEMPLATE.md`): add `# Spec: {title}` plus frontmatter fields (Backlog #, Size, Priority, Created, Status: draft) before the `## Goal` section.
-
-Also update the local item's YAML to reference the spec:
-
-```bash
-yq -i ".spec = \"planning/specs/${number}-${slug}.md\"" "$item_file"
-```
-
-**Trello backend:** see [`references/triage-trello.md`](../../references/triage-trello.md) — writing the spec to the card description and the multi-board rule. (Skip if backend != trello.)
 
 #### Step 2d: Checkpoint
 
@@ -501,61 +410,9 @@ For each promoted item, gather:
 
 ### 4.2 Update backend
 
-**GitHub backend:**
+**(backend step)** — follow your loaded `references/triage-<backend>.md` (§ Phase 4.2: Update backend (promote)). Where applicable, `{owner_label}` is `owner/ai` (6/6 verdict) or `owner/human` (4-5/6 verdict).
 
-```bash
-# Combine all labels into one edit call
-gh issue edit {number} \
-  --remove-label "status/needs-triage" \
-  --add-label "status/ready,{owner_label},{size_label}" \
-  --repo "$gh_owner/$gh_repo"
-
-# Add priority and target-repo labels if applicable
-gh issue edit {number} --add-label "priority/p{priority}" --repo "$gh_owner/$gh_repo"
-gh issue edit {number} --add-label "repo/{target_repo_name}" --repo "$gh_owner/$gh_repo"
-```
-
-Where `{owner_label}` is `owner/ai` (6/6 verdict) or `owner/human` (4-5/6 verdict).
-
-#### 4.2a Mirror Status field to GitHub Project (optional)
-
-After the `gh issue edit` calls above succeed, if `github.project_sync.enabled: true` AND `github.project_sync.status_field_sync: true` in `.pm/config.yml`, mirror the new `status/ready` value onto the project's Status field.
-
-Use the detection pattern: try to load `mcp__github__projects_write` via:
-
-```
-ToolSearch query: "select:mcp__github__projects_write,mcp__github__projects_list"
-```
-
-If the tools do NOT load, print ONCE per `/pm:triage` session:
-
-```
-warning: project_sync is enabled in config but the github MCP server is
-         not available. Install /plugin install github@claude-plugins-official
-         and set GITHUB_PERSONAL_ACCESS_TOKEN. Continuing in label-only mode.
-```
-
-Track that you've warned so you don't repeat per item. Skip the MCP calls and continue with the next item.
-
-If the tools load:
-
-1. Look up the project item ID for this issue. Call `mcp__github__projects_list` with method `list_project_items`, scoped to `project_owner`/`project_number` from config, filtered by the issue's URL (`https://github.com/{gh_owner}/{gh_repo}/issues/{number}`). The response gives an item ID.
-
-   If the issue is not yet a project item (e.g. created after `/pm:setup`), call `mcp__github__projects_write` with method `add_item` first, then read back the new item ID.
-
-2. Look up the Status field option ID for the target status. Use the cached `status_field_id` from config; resolve the option ID for `status_map["status/ready"]` (e.g. `"Ready"`) — query field options via `projects_list` if you don't have them cached.
-
-3. Call `mcp__github__projects_write` with method `update_item_field_value`, passing the item ID, field ID, and option ID.
-
-On any MCP error, log it and continue — never block the canonical label update on a Project mirror failure.
-
-**Local backend:**
-
-```bash
-yq -i '.labels -= ["status/needs-triage"] | .labels += ["status/ready", "{owner_label}", "{size_label}", "priority/p{priority}"]' "$item_file"
-```
-
-**Trello backend:** see [`references/triage-trello.md`](../../references/triage-trello.md) — moving the card to `LIST_READY_FOR_AGENT` (with the transition check) and applying size/priority labels. (Skip if backend != trello.)
+GitHub also has an optional Project Status-field mirror step — see § Phase 4.2a in `references/triage-github.md` if `github.project_sync` is enabled.
 
 ### Approval cues (Trello-specific)
 
@@ -568,7 +425,7 @@ yq -i '.labels -= ["status/needs-triage"] | .labels += ["status/ready", "{owner_
 Determine the item's epic, in order of preference:
 
 1. **Explicit reference** in the item body (e.g. "Part of Epic 1 (#236)").
-2. **Infer from the open epics.** List them — `gh issue list --label epic --state open --repo "$gh_owner/$gh_repo"` — and match by area (memory work → the memory epic; a specific UI surface → that surface's epic; sync/reliability → the reliability epic; etc.). Per-surface UI work goes under that surface's epic, not a generic one.
+2. **Infer from the open epics.** List currently open epics **(backend step — see `references/triage-<backend>.md` § Phase 4.3)** and match by area (memory work → the memory epic; a specific UI surface → that surface's epic; sync/reliability → the reliability epic; etc.). Per-surface UI work goes under that surface's epic, not a generic one.
 3. **Ask** if still ambiguous: "Which epic does this belong under? {short list}". Pick before promoting.
 
 **Creating a new epic (when none fits).** If the area genuinely has no epic yet, create one before linking — don't force the item under an ill-fitting parent. An epic is a **goal container**, so author it accordingly:
@@ -586,26 +443,7 @@ Determine the item's epic, in order of preference:
   {Why this matters — what's true once this is done.}
   ```
 
-```bash
-gh issue create \
-  --title "{epic title}" \
-  --body "{Goal/Why body from the template above}" \
-  --label "epic" \
-  --repo "$gh_owner/$gh_repo"
-```
-
-Capture the new epic's number to use as `{epic_number}` below.
-
-**GitHub backend** — create the **native sub-issue relationship**; this is the canonical mechanism that drives epic grouping and the epic progress bar. Follow `references/github-sub-issues.md`, using `{epic_number}` as the parent and `{number}` as the child (GraphQL `addSubIssue`, with the comment-based fallback).
-
-- An issue can have **only one parent**. If the child already has a different parent, `removeSubIssue` from the old parent first, then `addSubIssue` to the correct one — otherwise the add fails with a VALIDATION error.
-- If `github.project_sync.enabled` AND the project has a custom **Epic** field, also set it (`gh project item-edit --id {item_id} --field-id {epic_field_id} --project-id {project_id} --text "#{epic_number} {epic_title}"`, or the `projects_write` `update_item_field_value` MCP call) so the native sub-issue tree and the group-by-Epic-field view agree.
-
-**Local backend:**
-
-```bash
-yq -i '.parent_epic = {epic_number}' "$item_file"
-```
+**(backend step)** — follow your loaded `references/triage-<backend>.md` (§ Phase 4.3: Link to a parent epic) to create the epic and link the promoted item to it. Capture the new epic's number to use as `{epic_number}`.
 
 **No-epic escape hatch.** If an item genuinely belongs to no epic (rare — e.g. a standalone strategy/positioning note or a pure competitor-watch item), do NOT leave it silently unparented. Add a `no-epic` label so it's a deliberate, auditable choice rather than an oversight, and `/pm:reconcile` can surface accidental orphans (todos that are neither under an epic nor labelled `no-epic`).
 

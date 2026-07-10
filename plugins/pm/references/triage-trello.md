@@ -59,7 +59,7 @@ mcp__trello__update_card_details({
 })
 ```
 
-Trello card descriptions support full Markdown. Use the same `## Goal / ## Context / ## Code References / ## Approach / ## Chunks / ## Acceptance Criteria / ## Negative Constraints` structure as the GitHub branch — agents downstream (sprint-dev) read either source identically.
+Trello card descriptions support full Markdown. Use the spec body template from SKILL.md (§ Step 2c) — `## Goal / ## Context / ## Code References / ## Approach / ## Chunks / ## Acceptance Criteria / ## Negative Constraints` — same as every other backend so agents downstream (sprint-dev) read either source identically.
 
 Multi-board: specs always go on the card's home board. Do not duplicate the spec across boards.
 
