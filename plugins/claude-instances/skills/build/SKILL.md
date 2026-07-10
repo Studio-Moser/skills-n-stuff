@@ -3,10 +3,10 @@ name: build
 description: >-
   Build or refresh a renamed duplicate of /Applications/Claude.app so the user can run
   multiple Claude Desktop apps side by side, each signed into a different account. Same
-  skill creates a new instance (e.g. "Claude Work", "Claude Client X") or rebuilds an
+  skill creates a new instance (e.g. "Claude II", "Claude Client X") or rebuilds an
   existing one to pick up Claude's latest auto-update. Trigger whenever the user wants
   to add another logged-in Claude account, refresh a duplicate Claude app, or mentions
-  things like "Claude Work is out of date", "I need a second Claude for my work
+  things like "Claude II is out of date", "I need a second Claude for my work
   account", "make another Claude instance", "duplicate Claude for client X". Invoke
   with /claude-instances:build.
 ---
@@ -24,7 +24,7 @@ The same procedure handles both the first build of an instance and every subsequ
 
 ## Inputs to gather
 
-1. **Instance name** — the display name of the duplicate, e.g. `Claude Work`, `Claude Client X`, `Claude Personal 2`. This becomes the `.app` filename (`/Applications/<Name>.app`), the user-data folder name (`~/Library/Application Support/<Name>`), and a slug feeds the bundle id. Ask the user if they didn't already say one in their message.
+1. **Instance name** — the display name of the duplicate, e.g. `Claude II`, `Claude Client X`, `Claude Personal 2`. This becomes the `.app` filename (`/Applications/<Name>.app`), the user-data folder name (`~/Library/Application Support/<Name>`), and a slug feeds the bundle id. Ask the user if they didn't already say one in their message.
 
 2. **Custom icon** (optional, first time only) — path to a `.icns` file. If the user doesn't provide one, the instance shares Claude's default icon (telling them apart visually becomes hard, but the app still works). If the user previously provided an icon for this instance name, reuse it without asking — it lives at `~/Library/Application Support/claude-instances/icons/<Name>.icns`.
 
@@ -36,7 +36,7 @@ Do not invent a name. If you don't have one, ask — keep the question brief and
 2. If the instance already exists, it's quit (Cmd-Q, not force-killed). Replacing a running bundle corrupts in-flight state and may log the user out.
 
 ```bash
-NAME="<the instance name>"          # e.g. "Claude Work"
+NAME="<the instance name>"          # e.g. "Claude II"
 APP="/Applications/$NAME.app"
 ls -d "/Applications/Claude.app" 2>&1
 pgrep -fl "$NAME" || echo "$NAME not running"
@@ -60,16 +60,18 @@ A naive `codesign --force --deep --sign -` strips helper entitlements and breaks
 
 Use `--preserve-metadata=entitlements,flags,runtime` where appropriate. **Do not** include `requirements` — the original Designated Requirement pins Anthropic's Team ID, and an ad-hoc signature can't satisfy a Team-ID-pinned requirement, so verification fails with "nested code is modified or invalid".
 
-### 3. Main-app entitlements need three extras beyond what Anthropic ships
+### 3. Main-app entitlements: add three `cs.*`, and STRIP every restricted entitlement
 
-Original `Claude.app` has only `com.apple.security.cs.allow-jit` on the main bundle. That works under Anthropic's signature because library validation passes on matching Team IDs. Ad-hoc signatures have no Team ID, so library validation fails and V8 crashes with SIGTRAP during `v8::Isolate::Dispose`.
-
-The main binary needs all three:
+Ad-hoc signatures have no Team ID, so library validation fails and V8 crashes with SIGTRAP during `v8::Isolate::Dispose`. The main binary needs all three:
 - `com.apple.security.cs.allow-jit` (already present; keep)
 - `com.apple.security.cs.disable-library-validation` (add — lets main binary load ad-hoc-signed frameworks/helpers)
 - `com.apple.security.cs.allow-unsigned-executable-memory` (add — V8 needs this once library validation is off)
 
 Also add `disable-library-validation` to three of the four helpers: `Claude Helper.app`, `Claude Helper (GPU).app`, `Claude Helper (Renderer).app`. The Plugin helper already ships with it.
+
+**You must ALSO drop every _restricted_ entitlement from the ad-hoc entitlements**, or the kernel SIGKILLs the process the instant it execs — **zero output, no crash report**, and `codesign --verify` still passes (only the runtime AMFI check enforces this). In the unified log (`log stream --predicate 'senderImagePath CONTAINS[c] "AMFI"'`) you'll see AMFI error `-424`: *"The file is adhoc signed but contains restricted entitlements."* Restricted entitlements are the ones that require a real provisioning-profile / Team-ID signature; an ad-hoc signature carrying them is fatal.
+
+Current `Claude.app` (unlike older versions — this is why the skill can't just trust what Anthropic ships) carries several on the **main binary**: `com.apple.application-identifier`, `com.apple.developer.team-identifier`, `keychain-access-groups`, `com.apple.security.virtualization` — plus `com.apple.security.virtualization` on **`Claude Helper.app`**. Strip these from every entitlements plist before signing. The duplicate loses shared-keychain items (passkeys/hardware-key, Microsoft SSO); normal web login still persists in the instance's own data dir. Don't assume the restricted set is frozen — the `strip_restricted` helper in the procedure drops the known offenders (`application-identifier`, `*team-identifier`, `keychain-access-groups`, `com.apple.developer.*`, `com.apple.security.virtualization`); the `com.apple.security.device.*` / `personal-information.*` App-Sandbox keys are NOT restricted and can stay.
 
 ### 4. Delete `CFBundleIconName` so a custom icon takes effect on macOS 26+
 
@@ -100,14 +102,14 @@ exec "$DIR/Claude-bin" --user-data-dir="$HOME/Library/Application Support/<Name>
 
 ## The build procedure
 
-Substitute the user's chosen instance name for `<Name>` and a slug (lowercase, spaces → hyphens) for `<slug>`. Example: `Claude Work` → name `Claude Work`, slug `claude-work`, bundle id `com.anthropic.claudefordesktop.claude-work`.
+Substitute the user's chosen instance name for `<Name>` and a slug (lowercase, spaces → hyphens) for `<slug>`. Example: `Claude II` → name `Claude II`, slug `claude-ii`, bundle id `com.anthropic.claudefordesktop.claude-ii`.
 
 Run in order. Stop on any failure.
 
 ```bash
 set -e
-NAME="<Name>"                                                   # e.g. "Claude Work"
-SLUG="$(echo "$NAME" | tr '[:upper:] ' '[:lower:]-')"           # e.g. "claude-work"
+NAME="<Name>"                                                   # e.g. "Claude II"
+SLUG="$(echo "$NAME" | tr '[:upper:] ' '[:lower:]-')"           # e.g. "claude-ii"
 BUNDLE_ID="com.anthropic.claudefordesktop.$SLUG"
 APP="/Applications/$NAME.app"
 SRC="/Applications/Claude.app"
@@ -126,17 +128,28 @@ cp -R "$SRC" "$APP"
 /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName $NAME" "$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Delete :CFBundleIconName" "$APP/Contents/Info.plist" 2>/dev/null || true
 
+# strip_restricted: drop entitlements an ad-hoc signature can't legally carry.
+# Leaving any of these in → kernel SIGKILLs the app at exec (AMFI -424), silently.
+strip_restricted() {
+  for k in ":com.apple.application-identifier" ":com.apple.developer.team-identifier" \
+           ":keychain-access-groups" ":com.apple.security.virtualization"; do
+    /usr/libexec/PlistBuddy -c "Delete $k" "$1" 2>/dev/null || true
+  done
+}
+
 # 3. Build augmented main-app entitlements
 MAIN_ENT="/tmp/$SLUG-main-ents.plist"
 codesign --display --entitlements :- "$SRC" 2>/dev/null | tail -1 > "$MAIN_ENT"
 /usr/libexec/PlistBuddy -c "Add :com.apple.security.cs.disable-library-validation bool true" "$MAIN_ENT" 2>/dev/null || true
 /usr/libexec/PlistBuddy -c "Add :com.apple.security.cs.allow-unsigned-executable-memory bool true" "$MAIN_ENT" 2>/dev/null || true
+strip_restricted "$MAIN_ENT"
 
 # 4. Sign helpers first, inside-out. Add disable-library-validation to the three lacking it.
 for h in "Claude Helper.app" "Claude Helper (GPU).app" "Claude Helper (Renderer).app"; do
   ENT="/tmp/$SLUG-$(echo "$h" | tr ' ()' '___')-ents.plist"
   codesign --display --entitlements :- "$FW/$h" 2>/dev/null | tail -1 > "$ENT"
   /usr/libexec/PlistBuddy -c "Add :com.apple.security.cs.disable-library-validation bool true" "$ENT" 2>/dev/null || true
+  strip_restricted "$ENT"
   codesign --force --sign - --entitlements "$ENT" --options runtime "$FW/$h"
 done
 # Plugin helper already has disable-library-validation; just preserve its entitlements
@@ -180,6 +193,46 @@ killall iconservicesagent Dock Finder 2>/dev/null
 ```
 
 Note the heredoc uses `<<WRAPPER` (unquoted) so `$DATA_DIR` interpolates from the parent shell; the `\$DIR`, `\$0`, and `\$@` references inside are escaped so they get baked into the script literally rather than expanding at heredoc-write time.
+
+## Seed configuration from the base app (config only, NOT login)
+
+The `.app` rebuild never touches `$DATA_DIR`, so an instance keeps its own login across refreshes. But a brand-new instance starts with no extensions, no MCP servers, and default settings. This step copies the base app's **configuration** — installed extensions/plugins, MCP servers, UI preferences — into the instance, **without** copying anything that carries a login. It's safe to run every build: it overwrites only the allow-listed config items and leaves the instance's own auth (cookies, tokens, storage) untouched, so the instance stays signed into whatever account it was on.
+
+The split matters. Copy config; never copy credentials:
+
+| Copy (config) | Never copy (auth / identity) |
+|---|---|
+| `Claude Extensions/` (installed plugins/skills) | `Cookies*`, `Trust Tokens*`, `Tokens*` |
+| `Claude Extensions Settings/` | `buddy-tokens.json`, `bridge-state.json` |
+| `extensions-installations.json`, `extensions-blocklist.json` | `ant-device-registry.json`, `ant-did`, `code` |
+| `claude_desktop_config.json` (MCP servers) | `IndexedDB/`, `*Storage/`, `Session Storage/`, `DIPS*` |
+| `Preferences`, `window-state.json`, `cowork-enabled-cli-ops.json` | `config.json` (opaque; may hold account identity — leave it) |
+
+The allow-list is the source of truth: only these items are ever copied, so an auth file the skill doesn't know about can never leak into the instance. That's the whole reason for an allow-list rather than "copy everything except…".
+
+```bash
+BASE_DATA="$HOME/Library/Application Support/Claude"
+mkdir -p "$DATA_DIR"
+CONFIG_ITEMS=(
+  "Claude Extensions"
+  "Claude Extensions Settings"
+  "extensions-installations.json"
+  "extensions-blocklist.json"
+  "claude_desktop_config.json"
+  "Preferences"
+  "window-state.json"
+  "cowork-enabled-cli-ops.json"
+)
+for item in "${CONFIG_ITEMS[@]}"; do
+  if [ -e "$BASE_DATA/$item" ]; then
+    rm -rf "$DATA_DIR/$item"
+    cp -R "$BASE_DATA/$item" "$DATA_DIR/$item"
+  fi
+done
+echo "Seeded config into $DATA_DIR (login left as-is)"
+```
+
+If the user explicitly wants the instance to start as a *full clone* of the base (same account already signed in, to then switch accounts inside the app), that's a different ask — copy the whole `$BASE_DATA` to `$DATA_DIR` instead. Default to config-only; only clone wholesale if they say so.
 
 ## Verify before declaring success
 
@@ -234,6 +287,7 @@ Use the original path as-is (allow `~` and shell-style paths — the user might 
 - **App appears with the default Claude icon despite providing a custom one** — `CFBundleIconName` wasn't deleted, so macOS 26+ is reading the icon out of `Assets.car` instead of our `electron.icns`. Re-check step 2 and confirm `PlistBuddy Print :CFBundleIconName ...` errors with "Does Not Exist". Then clear icon caches (`rm -rf ~/Library/Caches/com.apple.iconservices.store`; if that's not enough, the system-level cache at `/Library/Caches/com.apple.iconservices.store` via sudo) and `killall iconservicesagent Dock Finder`.
 - **Two apps share the same logged-in account** — the wrapper isn't in place or isn't being called. Confirm `Contents/MacOS/Claude` is a shell script and `Claude-bin` exists beside it. Check `pgrep -fl "Claude-bin"` shows the `--user-data-dir` flag for *this* instance's path.
 - **`Unable to find helper app`, immediate exit** — `CFBundleName` got changed. Set it back to "Claude".
+- **`Killed: 9` (exit 137) at exec, ZERO output, no crash report, `spctl` still shows the app "rejected"** — an ad-hoc-signed binary carrying a _restricted_ entitlement. Static `codesign --verify` PASSES; only the runtime AMFI check kills it. Confirm with `log stream --predicate 'senderImagePath CONTAINS[c] "AMFI"'` while launching → look for AMFI `-424` "adhoc signed but contains restricted entitlements". Fix: run `strip_restricted` on every entitlements plist before signing (step 3/4). Note `timeout N <binary>` returning 137 = SIGKILL; 124 = ran the full N seconds = healthy.
 - **SIGTRAP in `v8::Isolate::Dispose` / `ares_dns_rr_get_ttl`** — missing entitlements on `Claude-bin`. Confirm all three (`allow-jit`, `disable-library-validation`, `allow-unsigned-executable-memory`) are on the Mach-O binary, not just the bundle.
 - **`different Team IDs` dyld error** — main app or helpers lack `disable-library-validation`. Re-sign inside-out.
 - **`nested code is modified or invalid` from `codesign --verify`** — `requirements` was preserved; drop it from `--preserve-metadata`.
