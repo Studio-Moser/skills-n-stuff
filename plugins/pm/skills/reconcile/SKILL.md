@@ -78,20 +78,9 @@ fi
 
 ### 0.2 Load Backend Config
 
-**GitHub backend:**
+**Backend dispatch.** PM uses one backend per project. Load ONLY `references/reconcile-<backend>.md` (`reconcile-github.md`, `reconcile-trello.md`, or `reconcile-local.md`) and follow its steps wherever a phase below is marked **(backend step)**. Ignore the other backends' files. Note: epic rollup/orphan/normalization is GitHub-only; it lives in `reconcile-github.md`.
 
-```bash
-gh_owner="$(yq '.github.owner' "$pm_config")"
-gh_repo="$(yq '.github.repo' "$pm_config")"
-```
-
-**Local backend:**
-
-```bash
-items_dir="$primary_repo_root/$(yq '.local.items_dir // ".pm/items"' "$pm_config")"
-```
-
-**Trello backend:** see references/reconcile-trello.md for board-count validation. (Skip if backend != trello.)
+**(backend step)** — follow your loaded `references/reconcile-<backend>.md` (§ Phase 0.2: Load Backend Config). Trello: § Phase 0: Discover Config — board validation. (Skip if backend != trello.)
 
 Print: `"Reconciling {N} repo(s) since {last_reconcile}. Backend: {backend}."`
 
@@ -125,78 +114,11 @@ If no issue references are found, print `"No issue references found in recent co
 
 For each unique issue number, determine whether it should be closed.
 
-**GitHub backend:**
-
-```bash
-for num in "${unique_refs[@]}"; do
-  issue_data=$(gh issue view "$num" \
-    --json state,title,labels \
-    --repo "$gh_owner/$gh_repo" 2>/dev/null) || continue
-
-  state=$(echo "$issue_data" | jq -r '.state')
-  title=$(echo "$issue_data" | jq -r '.title')
-
-  # Skip already-closed issues
-  [ "$state" = "CLOSED" ] && continue
-
-  # Check if the referencing commit is on the default branch
-  for repo in "${repos[@]}"; do
-    on_default=$(cd "$repo" && git log "$default_branch" --since="$last_reconcile" --oneline | grep -c "#${num}")
-    if [ "$on_default" -gt 0 ]; then
-      # Also check for merged PRs referencing this issue
-      merged_prs=$(gh pr list \
-        --search "$num" \
-        --state merged \
-        --json number,title \
-        --repo "$gh_owner/$gh_repo" 2>/dev/null)
-
-      echo "Issue #${num} (${title}) — referenced on ${default_branch}, appears complete."
-      break
-    fi
-  done
-done
-```
-
-For each issue that appears complete (referenced on the default branch with a merged PR), present it to the user:
-
-```
-Completed: #{number} — {title}
-  Evidence: commit on {default_branch}, PR #{pr_number} merged
-  Action: Close this issue? (yes / skip)
-```
-
-If the user confirms, close the issue:
-
-```bash
-gh issue close "$num" \
-  --comment "Closed by /pm:reconcile — referenced in merged commits on ${default_branch}." \
-  --repo "$gh_owner/$gh_repo"
-```
-
-**Local backend:**
-
-```bash
-for num in "${unique_refs[@]}"; do
-  item_file=$(ls "$items_dir"/${num}-*.yml 2>/dev/null | head -1)
-  [ -z "$item_file" ] && continue
-
-  state=$(yq '.closed_at // "null"' "$item_file")
-  [ "$state" != "null" ] && continue
-
-  title=$(yq '.title' "$item_file")
-  echo "Issue #${num} (${title}) — referenced on ${default_branch}, appears complete."
-done
-```
-
-On user confirmation for local backend:
-
-```bash
-yq -i '.labels -= ["status/ready","status/in-progress","status/in-review","owner/ai","owner/human","owner/operator"] | .labels += ["status/done"] | .closed_at = "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"' "$item_file"
-```
+**(backend step)** — follow your loaded `references/reconcile-<backend>.md` (§ Phase 1.2: Completion Tracking).
 
 ### 1.2T Trello backend completion tracking
 
-**Trello backend:** see references/reconcile-trello.md for completion tracking on Trello cards (reading `LIST_REVIEW` cards and reconciling merged-PR state). (Skip if backend != trello.)
+**(backend step)** — follow your loaded `references/reconcile-trello.md` (§ Phase 1.2T: Completion tracking — Trello). (Skip if backend != trello.)
 
 Epic rollup is GitHub-only (sub-issues are a GitHub feature). Skip Phase 1.3 entirely when `backend == trello`.
 
@@ -204,52 +126,7 @@ Epic rollup is GitHub-only (sub-issues are a GitHub feature). Skip Phase 1.3 ent
 
 Check whether any epics have all sub-issues now closed.
 
-**GitHub backend:**
-
-```bash
-epics=$(gh issue list \
-  --label "epic" \
-  --state open \
-  --json number,title \
-  --repo "$gh_owner/$gh_repo" 2>/dev/null)
-```
-
-For each open epic, query its sub-issues:
-
-```bash
-for epic_num in $(echo "$epics" | jq -r '.[].number'); do
-  sub_issues=$(gh api graphql -f query='
-    query {
-      repository(owner: "'"$gh_owner"'", name: "'"$gh_repo"'") {
-        issue(number: '"$epic_num"') {
-          subIssues(first: 50) {
-            nodes { number state }
-          }
-        }
-      }
-    }
-  ' 2>/dev/null)
-
-  total=$(echo "$sub_issues" | jq '.data.repository.issue.subIssues.nodes | length')
-  closed=$(echo "$sub_issues" | jq '[.data.repository.issue.subIssues.nodes[] | select(.state == "CLOSED")] | length')
-
-  if [ "$total" -gt 0 ] && [ "$total" -eq "$closed" ]; then
-    echo "Epic #${epic_num} — all ${total} sub-issues closed."
-  fi
-done
-```
-
-If the sub-issues GraphQL API is unavailable, fall back to scanning the epic's body for `#N` references and checking each individually.
-
-Present completed epics:
-
-```
-Epic complete: #{epic_number} — {title}
-  Sub-issues: {closed}/{total} closed
-  Action: Close this epic? (yes / skip)
-```
-
-**Local backend:** Scan items where `parent_epic` matches the epic number. If all are closed, flag the epic.
+**(backend step)** — follow your loaded `references/reconcile-github.md` (§ Phase 1.3: Epic Rollup — GitHub). Local backend: **(backend step)** — follow your loaded `references/reconcile-local.md` (§ Phase 1.3: Epic Rollup — Local).
 
 > Closing a finished epic is a **lifecycle** action (open → closed), not a workflow-status change. Epics never carry a `status/*` label — see the guard in Phase 1.3c.
 
@@ -257,74 +134,13 @@ Epic complete: #{epic_number} — {title}
 
 Every open todo should sit under exactly one epic (that's what makes the board's group-by-Parent-issue / Sprint Plan view readable). Flag any open issue that is **neither under an epic nor a deliberate exception** so it gets parented before it silently rots in "No Parent."
 
-```bash
-# Open issues that are not themselves epics and carry no opt-out label.
-candidates=$(gh issue list --state open --limit 400 \
-  --json number,title,labels --repo "$gh_owner/$gh_repo" \
-  | jq -r '[.[] | select((.labels|map(.name)) as $l
-      | ($l|index("epic")|not) and ($l|index("no-epic")|not))] | .[].number')
-```
-
-For each candidate, check its parent via the sub-issues API (`{repository{issue(number:N){parent{number}}}}`). If `parent` is null, it's an orphan. Present the orphans:
-
-```
-Orphan todos (no parent epic):
-  #{number} — {title}    → suggest: Epic #{inferred} ({why})
-
-{N} orphan(s). Parent them now? (yes / skip)
-```
-
-On `yes`, infer the epic by area (same matching as `/pm:triage` Phase 4.3 — memory→memory epic, a UI surface→that surface's epic, sync/reliability→reliability, etc.), confirm ambiguous ones, then `addSubIssue` (and set the project **Epic** field if `project_sync` is on). Items that genuinely belong nowhere get a `no-epic` label rather than a parent. This is the safety net for items promoted before this rule existed, or linked by hand.
+**(backend step)** — follow your loaded `references/reconcile-github.md` (§ Phase 1.3b: Orphan-epic Sweep — GitHub).
 
 ### 1.3c Epic normalization — status labels + body (GitHub-only — skip when backend != github.)
 
 Epics are **goal containers** (see `/pm:triage` Phase 4.3): they carry no workflow status, and their body is a Goal/Why statement — not a checklist of constituent items (the sub-issue tree is the source of truth for membership). This phase brings existing epics into line with both rules. It's the retrofit for epics created before the convention, or by hand.
 
-Pull every open epic with its labels and body:
-
-```bash
-gh issue list --label epic --state open --limit 200 \
-  --json number,title,labels,body --repo "$gh_owner/$gh_repo" > /tmp/pm_epics.json
-```
-
-**Status labels.** An epic carrying any `status/*` label is wrong — its progress is the sub-issue progress bar, not a board column.
-
-```bash
-jq -r '[.[] | select((.labels|map(.name)) as $l | ($l|any(startswith("status/"))))]
-    | .[] | "\(.number)\t\(.title)\t\([.labels[].name | select(startswith("status/"))] | join(","))"' /tmp/pm_epics.json
-```
-
-**Body shape.** An epic body needs reshaping if it isn't already a clean Goal/Why statement — i.e. it has no `## Goal` section, or it contains an item checklist (`- [ ]` / `- [x]` lines) or a bare list of sub-issue links (`#N` enumerations standing in for the sub-issue tree). For each such epic, **rewrite** the body into the Goal/Why shape:
-
-- **Goal** — the end-state the epic drives toward, distilled from the title and whatever intent the current body expresses.
-- **Why** — the outcome/value once it's done.
-- **Preserve genuine prose.** If the body holds real context, constraints, or design notes beyond the checklist, fold them into Goal/Why (or keep a short `## Notes` tail) — only the item checklist and bare `#N` enumerations get dropped, since those duplicate the sub-issue tree.
-
-Use the `Epic body template` from `/pm:triage` Phase 4.3 as the target shape. Don't fabricate a goal you can't support from the title/body — if an epic's intent is genuinely unreadable, list it for manual attention instead of guessing.
-
-Present both corrections together:
-
-```
-Epic normalization:
-  #{number} — {title}
-    status labels → strip: {status/* labels}        (omit line if none)
-    body          → reshape to Goal/Why             (omit line if already clean)
-    proposed body:
-      {the rewritten Goal/Why body}
-
-{N} epic(s) to normalize. Apply? (yes / skip / one-by-one)
-```
-
-On `yes`, for each epic:
-
-```bash
-# strip any status/* labels (leave the `epic` label in place)
-gh issue edit {number} --remove-label "{status_label}" --repo "$gh_owner/$gh_repo"
-# rewrite the body
-gh issue edit {number} --body "{rewritten Goal/Why body}" --repo "$gh_owner/$gh_repo"
-```
-
-`one-by-one` walks each epic's proposed rewrite for individual yes/skip — use it when several bodies carry prose worth eyeballing. Never touch open/closed state here; this only normalizes labels and body. GitHub keeps issue edit history, so a rewrite is recoverable.
+**(backend step)** — follow your loaded `references/reconcile-github.md` (§ Phase 1.3c: Epic Normalization — GitHub).
 
 ### 1.4 Update planning files
 
@@ -367,42 +183,7 @@ Pull all open items and flag those with no activity past the threshold.
 
 ### 2.1 Identify stale items
 
-**GitHub backend:**
-
-```bash
-stale_items=$(gh issue list \
-  --state open \
-  --json number,title,updatedAt,labels \
-  --limit 200 \
-  --repo "$gh_owner/$gh_repo" 2>/dev/null)
-```
-
-Filter to items whose `updatedAt` is older than `stale_threshold` days:
-
-```bash
-cutoff=$(date -u -v-${stale_threshold}d +%Y-%m-%dT%H:%M:%SZ 2>/dev/null \
-  || date -u -d "${stale_threshold} days ago" +%Y-%m-%dT%H:%M:%SZ)
-
-echo "$stale_items" | jq --arg cutoff "$cutoff" \
-  '[.[] | select(.updatedAt < $cutoff)]'
-```
-
-Exclude items with labels `epic`, `monitor`, or `blocker` -- these are expected to be long-lived.
-
-**Local backend:**
-
-```bash
-for item_file in "$items_dir"/*.yml; do
-  [ -f "$item_file" ] || continue
-  closed=$(yq '.closed_at // "null"' "$item_file")
-  [ "$closed" != "null" ] && continue
-
-  updated=$(yq '.updated_at // .created_at' "$item_file")
-  # Compare $updated against $cutoff
-done
-```
-
-**Trello backend:** see references/reconcile-trello.md for stale-card detection (walking every non-terminal list on every board via `dateLastActivity`). (Skip if backend != trello.)
+**(backend step)** — follow your loaded `references/reconcile-<backend>.md` (§ Phase 2.1: Stale Detection). Trello: § Phase 2.1: Stale detection — Trello. (Skip if backend != trello.)
 
 ### 2.2 Present stale items
 
@@ -424,74 +205,9 @@ Stale: #{number} — {title}
 
 Process the user's choice:
 
-**retriage (GitHub):**
-```bash
-gh issue edit "$num" \
-  --add-label "status/needs-triage" \
-  --remove-label "status/ready,status/in-progress,status/in-review,owner/ai,owner/human,owner/operator" \
-  --repo "$gh_owner/$gh_repo"
-```
-
-After the label edit succeeds, mirror the change to the Project Status field if `github.project_sync.enabled: true` AND `github.project_sync.status_field_sync: true`. Use the detection pattern:
-
-```
-ToolSearch query: "select:mcp__github__projects_write,mcp__github__projects_list"
-```
-
-If the tools do NOT load, print ONCE per `/pm:reconcile` session:
-
-```
-warning: project_sync is enabled in config but the github MCP server is
-         not available. Install /plugin install github@claude-plugins-official
-         and set GITHUB_PERSONAL_ACCESS_TOKEN. Continuing in label-only mode.
-```
-
-Track the warning state so it doesn't repeat per item. Skip the MCP call and continue.
-
-If the tools load:
-
-1. Find the project item ID via `mcp__github__projects_list` (method `list_project_items`, filter by the issue URL). If the issue isn't a project item, call `projects_write` `add_item` first.
-2. Resolve the Status option ID for `status_map["status/needs-triage"]` (typically `"Needs Triage"`).
-3. Call `mcp__github__projects_write` method `update_item_field_value` with the item ID, the cached `status_field_id`, and the resolved option ID.
-
-On error, log and continue — labels are canonical, mirror failures are non-blocking.
-
-The other reconcile actions (close, demote, skip) either close the issue (built-in GitHub workflow handles Status → Done automatically when configured) or don't touch status, so no mirror call is needed.
-
-**retriage (local):**
-```bash
-yq -i '.labels -= ["status/ready","status/in-progress","status/in-review","owner/ai","owner/human","owner/operator"] | .labels += ["status/needs-triage"]' "$item_file"
-```
-
-**close (GitHub):**
-```bash
-gh issue close "$num" \
-  --comment "Closed as stale by /pm:reconcile — no activity for ${stale_threshold} days." \
-  --repo "$gh_owner/$gh_repo"
-```
-
-**close (local):**
-```bash
-yq -i '.labels += ["stale-closed"] | .closed_at = "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"' "$item_file"
-```
-
-**demote (GitHub):** Cycle priority down one level (remove current P-label, add P+1):
-```bash
-# Determine current priority from labels, then:
-gh issue edit "$num" \
-  --remove-label "P${current}" \
-  --add-label "P${next}" \
-  --repo "$gh_owner/$gh_repo"
-```
-
-**demote (local):**
-```bash
-yq -i '.priority = "P'"${next}"'"' "$item_file"
-```
+**(backend step)** — follow your loaded `references/reconcile-<backend>.md` (§ Phase 2.2: Stale Item Actions) for the retriage/close/demote commands. Trello: § Phase 2.2: Stale item actions — Trello. (Skip if backend != trello.)
 
 If demoting and `planning/todos.md` exists, move the item's row from `## Ready` to `## Monitor` with a note: `"Demoted from Ready — stale for {N} days"`.
-
-**Trello backend:** see references/reconcile-trello.md for the retriage/close/demote card actions (move, comment, archive, and priority-label handling on Trello). (Skip if backend != trello.)
 
 Print: `"Phase 2 — {X} stale item(s) found. {Y} retriaged, {Z} closed, {W} demoted, {V} skipped."`
 
@@ -499,32 +215,13 @@ Print: `"Phase 2 — {X} stale item(s) found. {Y} retriaged, {Z} closed, {W} dem
 
 ## Phase 3: Deferred Blocker Handling
 
-> Phase 3 (deferred blocker handling) is GitHub-specific (uses sub-issues). Skip this entire phase when `backend == trello`. **Trello backend:** see references/reconcile-trello.md for the fallback handling of spawned-during-sprint items on Trello.
+> Phase 3 (deferred blocker handling) is GitHub-specific (uses sub-issues). Skip this entire phase when `backend == trello`. **(backend step)** — follow your loaded `references/reconcile-trello.md` (§ Phase 3: Deferred blocker handling — Trello fallback) for the fallback handling of spawned-during-sprint items on Trello.
 
 Classify items spawned during sprint execution as blocking or independent.
 
 ### 3.1 Pull spawned items
 
-**GitHub backend:**
-
-```bash
-spawned=$(gh issue list \
-  --label "spawned-during-sprint" \
-  --state open \
-  --json number,title,body \
-  --repo "$gh_owner/$gh_repo" 2>/dev/null)
-```
-
-**Local backend:**
-
-```bash
-spawned=()
-for item_file in "$items_dir"/*.yml; do
-  [ -f "$item_file" ] || continue
-  labels="$(yq '.labels[]' "$item_file" 2>/dev/null)"
-  echo "$labels" | grep -q "spawned-during-sprint" && spawned+=("$item_file")
-done
-```
+**(backend step)** — follow your loaded `references/reconcile-<backend>.md` (§ Phase 3.1: Pull Spawned Items).
 
 If no spawned items are found, print `"No spawned-during-sprint items to classify."` and skip to Phase 4.
 
@@ -549,39 +246,7 @@ Spawned: #{number} — {title}
 
 Process automatically based on classification:
 
-**Blocking items (GitHub):**
-```bash
-gh issue edit "$num" \
-  --add-label "blocker" \
-  --repo "$gh_owner/$gh_repo"
-
-# Link to parent via sub-issue API — see references/github-sub-issues.md
-# for the full GraphQL mutation with comment-based fallback.
-parent_id=$(gh issue view "$parent_num" --json id --jq '.id' --repo "$gh_owner/$gh_repo")
-child_id=$(gh issue view "$num" --json id --jq '.id' --repo "$gh_owner/$gh_repo")
-gh api graphql -f query='mutation{addSubIssue(input:{issueId:"'"$parent_id"'",subIssueId:"'"$child_id"'"}){issue{id}subIssue{id}}}' 2>/dev/null || \
-  gh issue comment "$num" --body "Blocking: parent #$parent_num cannot ship without this." --repo "$gh_owner/$gh_repo"
-```
-
-**Blocking items (local):**
-```bash
-yq -i '.labels += ["blocker"] | .parent_epic = '"$parent_num"'' "$item_file"
-```
-
-**Independent items (GitHub):**
-```bash
-gh issue edit "$num" \
-  --remove-label "spawned-during-sprint" \
-  --add-label "status/needs-triage" \
-  --repo "$gh_owner/$gh_repo"
-```
-
-If `github.project_sync.enabled` AND `status_field_sync: true`, mirror the Status field change to `"Needs Triage"` using the same detection pattern and MCP call sequence as section 2.x retriage above. Reuse the one-time warning state for this run.
-
-**Independent items (local):**
-```bash
-yq -i '.labels -= ["spawned-during-sprint"] | .labels += ["status/needs-triage"]' "$item_file"
-```
+**(backend step)** — follow your loaded `references/reconcile-<backend>.md` (§ Phase 3.2: Classify Spawned Items) for the blocking/independent commands.
 
 ### 3.3 Report blocking chains
 
