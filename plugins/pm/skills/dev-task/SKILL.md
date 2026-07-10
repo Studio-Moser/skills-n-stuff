@@ -26,6 +26,7 @@ Guide ONE person through ONE development task, foreground and interactive, the S
 ### 1. Frame
 - If a memory MCP is connected (e.g. shelby-memory), recall relevant prior context; skip silently if not. See references/memory-integration.md.
 - Read the repo's `CLAUDE.md` / `AGENTS.md` if present.
+- Load your model rubric from `${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml` (via `pm:reconcile`/`setup`'s `rubric-path.sh`, or just read the file). If it's missing, offer to set it up (`studio-baseline/rubric-setup.md`) — this is user-global, done once. Use it when choosing models for any sub-agent work.
 - Restate the task in one or two sentences and the definition of done.
 - Name any unknowns or risks. If the ask is genuinely ambiguous or large, **REQUIRED SUB-SKILL:** Use superpowers:brainstorming before planning.
 
