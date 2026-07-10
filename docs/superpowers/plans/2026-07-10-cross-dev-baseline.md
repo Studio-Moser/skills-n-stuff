@@ -18,6 +18,8 @@
 - Bats tests run via `plugins/pm/tests/run-tests.sh`; keep it green (currently 22 assertions).
 - Model-agnostic: the docs name no specific models; the rubric is per-developer.
 - Baseline behavior must NOT depend on a successful network fetch — inline the essentials, link the depth.
+- **Refresh cadence: 14 days** (AI moves fast). The `reviewed:` staleness threshold in every advisory check is 14 days, not 90.
+- **Model data source: the Artificial Analysis API** (structured JSON, not the JS-rendered page). Endpoint `GET https://artificialanalysis.ai/api/v2/language/models/free`, header `x-api-key: $ARTIFICIAL_ANALYSIS_API_KEY` (free key — 100 req/day). Confirm exact free-tier path + field names against https://artificialanalysis.ai/api-reference at build time. Map `price_1m_*` → cost axis, `artificial_analysis_coding_index`/`artificial_analysis_agentic_index` → intelligence axis; taste has no AA benchmark (manual, carried forward across refreshes). If `ARTIFICIAL_ANALYSIS_API_KEY` is unset, fall back to vendor docs / judgment — never hard-fail.
 
 ---
 
@@ -32,8 +34,10 @@
 **Create (scripts + tests):**
 - `plugins/pm/scripts/rubric-path.sh` — resolve the rubric store path; `--check` reports set/unset.
 - `plugins/pm/scripts/stamp-baseline.sh` — idempotently stamp/refresh the managed block in a target file.
+- `plugins/pm/scripts/fetch-model-data.sh` — pull current cost + intelligence from the Artificial Analysis API (gated on `ARTIFICIAL_ANALYSIS_API_KEY`).
 - `plugins/pm/tests/rubric-path.bats`
 - `plugins/pm/tests/stamp-baseline.bats`
+- `plugins/pm/tests/fetch-model-data.bats`
 
 **Modify:**
 - `plugins/pm/skills/house-rules/SKILL.md` — defer to `studio-baseline/house-rules.md`; keep a short inline summary.
@@ -139,7 +143,7 @@ ${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml
 
 1. **Check if it already exists.** `cat "${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml"`. If present and current, stop — they're set up.
 
-2. **Discover the current model lineup** — don't trust training-cutoff memory of model names. If you have web access: get names + cost from the developer's own vendor's models/pricing docs (authoritative); sanity-check relative standing at `artificialanalysis.ai` (intelligence + price), `lmarena.ai` (human-preference ≈ taste), `aider.chat/docs/leaderboards` (coding). If offline, use your own knowledge and add a `(verify names)` note.
+2. **Discover the current model lineup — prefer the Artificial Analysis API (structured, current).** If `ARTIFICIAL_ANALYSIS_API_KEY` is set, run `fetch-model-data.sh` (or curl `https://artificialanalysis.ai/api/v2/language/models/free` with `x-api-key`) to get names, pricing, and coding/agentic index as JSON — map pricing → cost, coding/agentic index → intelligence. That's 2 of 3 axes objectively. If no key: get names+cost from the dev's vendor docs, sanity-check at `artificialanalysis.ai` / `lmarena.ai` / `aider.chat/docs/leaderboards`; if offline, use your knowledge and add a `(verify names)` note. **Taste is never in AA** — always the dev's judgment; on a refresh, carry forward existing taste scores unchanged.
 
 3. **Ask two things:**
    - Which model families/CLIs they can reach (e.g. "Claude only", "Claude + OpenAI Codex"). Record capabilities.
@@ -151,8 +155,8 @@ ${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml
 
 ```yaml
 # Personal model-routing rubric. Higher = better.
-reviewed: 2026-07-10          # today's date
-sources: [vendor-docs]        # what you checked
+reviewed: 2026-07-10              # today's date; refresh after 14 days
+sources: [artificial-analysis]   # what you checked (AA API for cost+intelligence)
 capabilities:
   codex: false                # OpenAI Codex CLI / sub available?
 models:
@@ -171,7 +175,7 @@ routing:
    - User-facing (UI, copy, API) → a model with `taste >= routing.taste_min`.
    - Reviews → `routing.review`.
    - Keep reasoning effort matched to difficulty; don't default to the top tier.
-   - Re-check when a newer model ships or after ~90 days, then update `reviewed`.
+   - Re-check when a newer model ships or after **14 days**, then update `reviewed`. On refresh, re-pull Artificial Analysis for cost + intelligence and **keep your taste scores and capabilities** — only the AA-sourced axes change.
 
 That's it — the rubric now lives in your user-global config and any repo's baseline reminder can point your agent at it.
 ````
@@ -470,6 +474,103 @@ git commit -m "feat(pm): add idempotent stamp-baseline.sh managed-block writer"
 
 ---
 
+### Task 5b: `fetch-model-data.sh` — pull cost + intelligence from the Artificial Analysis API
+
+**Files:**
+- Create: `plugins/pm/scripts/fetch-model-data.sh`
+- Test: `plugins/pm/tests/fetch-model-data.bats`
+
+**Interfaces:**
+- Consumes: `ARTIFICIAL_ANALYSIS_API_KEY` env var; optional `AA_MODELS_URL` override (for tests/pinning).
+- Produces: normalized TSV `name\tcreator\tinput_$/M\toutput_$/M\tcoding_index\tagentic_index`, one row per model. Exit 3 if no key (caller falls back to manual). Consumed by `rubric-setup.md` (Task 2) and setup Phase 4.5 (Task 7).
+
+> **Confirm at build time:** the exact free-tier path and JSON field names against https://artificialanalysis.ai/api-reference — the `jq` accessors below encode the documented shape (`name`, `model_creator`, `price_1m_input_tokens`, `price_1m_output_tokens`, `artificial_analysis_coding_index`, `artificial_analysis_agentic_index`) and the `(.data // .)` / `.model_creator.name // .model_creator` guards absorb wrapper/shape variance, but verify before trusting the numbers.
+
+- [ ] **Step 1: Write the failing test**
+
+Create `plugins/pm/tests/fetch-model-data.bats`:
+
+```bash
+#!/usr/bin/env bats
+
+setup() {
+  SCRIPT="${BATS_TEST_DIRNAME}/../scripts/fetch-model-data.sh"
+}
+
+@test "exits 3 and warns when API key is unset" {
+  unset ARTIFICIAL_ANALYSIS_API_KEY
+  run "$SCRIPT"
+  [ "$status" -eq 3 ]
+}
+
+@test "emits normalized TSV from AA-shaped JSON" {
+  export ARTIFICIAL_ANALYSIS_API_KEY=dummy
+  fixture="${BATS_TEST_TMPDIR}/models.json"
+  cat > "$fixture" <<'JSON'
+{"data":[{"name":"Model X","model_creator":{"name":"Acme"},"price_1m_input_tokens":1.5,"price_1m_output_tokens":6,"artificial_analysis_coding_index":72,"artificial_analysis_agentic_index":55}]}
+JSON
+  export AA_MODELS_URL="file://$fixture"
+  run "$SCRIPT"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Model X"* ]]
+  [[ "$output" == *"Acme"* ]]
+  [[ "$output" == *"72"* ]]
+  [[ "$output" == *"55"* ]]
+}
+```
+
+- [ ] **Step 2: Run the test to verify it fails**
+
+Run: `bats plugins/pm/tests/fetch-model-data.bats`
+Expected: FAIL (script does not exist yet).
+
+- [ ] **Step 3: Write `plugins/pm/scripts/fetch-model-data.sh`**
+
+```bash
+#!/usr/bin/env bash
+# Pull current LLM cost + intelligence from the Artificial Analysis API.
+# Requires ARTIFICIAL_ANALYSIS_API_KEY (free key: https://artificialanalysis.ai/data-api).
+# Emits TSV: name \t creator \t input_$/M \t output_$/M \t coding_index \t agentic_index
+# Exit 3 = no key (caller should fall back to manual/vendor docs).
+set -euo pipefail
+
+key="${ARTIFICIAL_ANALYSIS_API_KEY:-}"
+if [ -z "$key" ]; then
+  echo "ARTIFICIAL_ANALYSIS_API_KEY not set — skipping live model data; fall back to vendor docs/judgment." >&2
+  exit 3
+fi
+
+url="${AA_MODELS_URL:-https://artificialanalysis.ai/api/v2/language/models/free}"
+resp="$(curl -fsS -H "x-api-key: $key" "$url")" || { echo "Artificial Analysis API request failed." >&2; exit 4; }
+
+echo "$resp" | jq -r '
+  (.data // .)
+  | (if type=="array" then . else [.] end)[]
+  | [ .name,
+      (.model_creator.name // .model_creator // "?"),
+      (.price_1m_input_tokens // "?"),
+      (.price_1m_output_tokens // "?"),
+      (.artificial_analysis_coding_index // "?"),
+      (.artificial_analysis_agentic_index // "?") ]
+  | @tsv'
+```
+
+Then: `chmod +x plugins/pm/scripts/fetch-model-data.sh`
+
+- [ ] **Step 4: Run the test to verify it passes**
+
+Run: `bats plugins/pm/tests/fetch-model-data.bats`
+Expected: 2 tests PASS.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add plugins/pm/scripts/fetch-model-data.sh plugins/pm/tests/fetch-model-data.bats
+git commit -m "feat(pm): add fetch-model-data.sh (Artificial Analysis API → cost+intelligence TSV)"
+```
+
+---
+
 ## Phase 3 — pm:setup reshape
 
 ### Task 6: Wire the baseline stamp into `pm:setup`
@@ -550,10 +651,10 @@ The rubric is **per developer, user-global** — one file at `$("$CLAUDE_PLUGIN_
 "$CLAUDE_PLUGIN_ROOT/scripts/rubric-path.sh" --check
 ```
 
-- `set` → tell the user their rubric is in place; offer a refresh only if its `reviewed:` date is >~90 days old or it lists a superseded model. Done.
+- `set` → tell the user their rubric is in place; offer a refresh if its `reviewed:` date is **>14 days** old or it lists a superseded model. A refresh re-pulls Artificial Analysis for cost + intelligence and keeps the dev's taste scores + capabilities. Done.
 - `unset` → walk them through creating one (next step).
 
-2. **Create the rubric** by following the canonical walkthrough at `studio-baseline/rubric-setup.md` (read it from `$CLAUDE_PLUGIN_ROOT/../../studio-baseline/rubric-setup.md`, or fetch the raw URL): discover the current model lineup live (vendor docs for names+cost; Artificial Analysis / LMArena / Aider to sanity-check standing), score on cost/intelligence/taste for **this dev's** ecosystem, capture `capabilities` (e.g. `codex`), show the table for tweaks, then write the YAML to the path from `rubric-path.sh`. Stamp today's date in `reviewed:`.
+2. **Create the rubric** by following the canonical walkthrough at `studio-baseline/rubric-setup.md` (read it from `$CLAUDE_PLUGIN_ROOT/../../studio-baseline/rubric-setup.md`, or fetch the raw URL): discover the current lineup **preferring the Artificial Analysis API** (`"$CLAUDE_PLUGIN_ROOT/scripts/fetch-model-data.sh"` when `ARTIFICIAL_ANALYSIS_API_KEY` is set → pricing → cost, coding/agentic index → intelligence; else vendor docs / judgment), score on cost/intelligence/taste for **this dev's** ecosystem, capture `capabilities` (e.g. `codex`), show the table for tweaks, then write the YAML to the path from `rubric-path.sh`. Stamp today's date in `reviewed:`.
 
 3. **Migrate any legacy in-repo rubric.** If a prior setup wrote a "Picking the right models" section into this repo's `AGENTS.md`/`CLAUDE.md`, move its scores into the user-global rubric (if the dev confirms they're theirs) and delete that section from the repo file — the rubric no longer lives in the repo. Leave the Phase 4.4 baseline reminder in place.
 ````
@@ -644,7 +745,7 @@ In `plugins/pm/skills/reconcile/SKILL.md`, replace step 1 of "## Phase 5.5: Mode
 1. Resolve the developer's rubric with `"$CLAUDE_PLUGIN_ROOT/scripts/rubric-path.sh"`. If `--check` reports `unset`, print `"No personal model rubric set — run /pm:setup or follow studio-baseline/rubric-setup.md to create one."` and end the phase.
 ```
 
-Leave steps 2–3 (the `reviewed {date}` staleness read and the "surface it" advisory) unchanged.
+Also in that same Phase 5.5, change the staleness threshold in step 2 from `~90 days` to **`14 days`** (the plan-wide cadence), so a rubric older than 14 days is flagged for refresh.
 
 - [ ] **Step 2: Update the doctrine reference**
 
@@ -663,7 +764,7 @@ In the same file, under "## Project block", replace its opening paragraph so it 
 - [ ] **Step 4: Run the full suite**
 
 Run: `bash plugins/pm/tests/run-tests.sh`
-Expected: all prior 22 assertions PASS plus the 8 new ones (4 rubric-path + 4 stamp-baseline) = 30 PASS, 0 fail.
+Expected: all prior 22 assertions PASS plus the 10 new ones (4 rubric-path + 4 stamp-baseline + 2 fetch-model-data) = 32 PASS, 0 fail.
 
 - [ ] **Step 5: Bump the plugin version**
 
@@ -686,10 +787,11 @@ git commit -m "feat(pm): reconcile+doctrine target the rubric store; register te
 ## Post-implementation (out of plan scope, for the human)
 
 - Open the PR (What/Why/Testing). After merge, the raw `studio-baseline/*` URLs go live on `main`; run `/pm:setup` on one active repo to stamp the block and create the rubric end-to-end, then confirm a non-PM agent (or a clean session) can read `AGENTS.md` and follow `rubric-setup.md` unaided.
-- Optional follow-ups (not in this plan): pin the raw URLs to a release tag instead of `main` for stability; add an opt-in SessionStart hook that hard-nudges an unset rubric; extract house-rules similarly for Codex/Cursor rule files.
+- Get a free Artificial Analysis API key (https://artificialanalysis.ai/data-api) and export `ARTIFICIAL_ANALYSIS_API_KEY` in your shell profile so `fetch-model-data.sh` works. Without it, rubric setup still works — it just falls back to vendor docs / judgment.
+- Optional follow-ups (not in this plan): pin the raw URLs to a release tag instead of `main` for stability; add an opt-in SessionStart hook that hard-nudges an unset/stale rubric; **automate the 14-day refresh via a scheduled task** (product-pulse already runs on a cadence — the rubric refresh could piggyback or be its own `scheduled-tasks` job) rather than relying on the advisory nudge; extract house-rules similarly for Codex/Cursor rule files.
 
 ## Self-Review notes
 
-- **Spec coverage:** house-rules extraction (T1), plugin-free walkthrough (T2), managed block + delivery model (T3), identity/store resolver (T4), idempotent stamper (T5), setup stamps block (T6), rubric→store + migration (T7), consumers load store (T8), reconcile/doctrine/tests/version (T9). "Force/help every dev, plugin or not" = T3+T6 (block reaches everyone) + T2 (plugin-free setup). "User-global not per-repo" = T4/T7. "Same basic stuff in every repo" = idempotent stamped block, T5/T6.
+- **Spec coverage:** house-rules extraction (T1), plugin-free walkthrough (T2), managed block + delivery model (T3), identity/store resolver (T4), idempotent stamper (T5), Artificial Analysis API fetch (T5b), setup stamps block (T6), rubric→store + migration (T7), consumers load store (T8), reconcile/doctrine/tests/version (T9). "Force/help every dev, plugin or not" = T3+T6 (block reaches everyone) + T2 (plugin-free setup). "User-global not per-repo" = T4/T7. "Same basic stuff in every repo" = idempotent stamped block, T5/T6. "Refresh every 14 days from AA reports" = 14-day threshold across T2/T7/T9 + AA API in T5b/T2/T7.
 - **Type/name consistency:** store path `${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml`, markers `<!-- studio-baseline:start/end -->`, scripts `rubric-path.sh` / `stamp-baseline.sh`, YAML `models:` key — used identically across all tasks.
 - **Fetch-independence:** baseline block inlines house-rules essentials + the store path + what-to-do; URLs are for depth. Setup's curl has an offline fallback to the bundled copy.
