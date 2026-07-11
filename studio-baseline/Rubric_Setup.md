@@ -22,16 +22,16 @@ ${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml
 
 4. **Interview the developer — one focused question at a time.** First-time setup is a short Q&A; do NOT open with a pre-scored table (the table comes at the end, as confirmation). Ask in order, adapting wording and skipping anything already known:
 
-   1. **Ecosystem** — which model families/CLIs can they reach (e.g. "Claude only", "Claude + OpenAI Codex")? Record `capabilities`. Every later question stays inside this ecosystem.
+   1. **Providers** — which providers/CLIs do they have: Claude Code, OpenAI Codex, Gemini CLI, others? Ask about subscriptions too (a flat sub changes the cost math). Verify each claimed CLI actually resolves (`command -v codex`, `command -v gemini`, …) and record the full set under `capabilities`. Every later question stays inside this set. Multiple providers is the *good* case — the rubric then routes each task to whichever vendor's model is best-and-cheapest for it (e.g. bulk work to a generously-subscribed second vendor, taste work to the native one), bouncing between them automatically.
    2. **Axes** — confirm the default three: **cost, intelligence, taste** (intelligence = hardest problem handled unsupervised; taste = UI/UX, code quality, API/SDK design, copy). Let them rename or add an axis if they want.
    3. **Cost reality** — for each model, do they pay metered API rates or a flat subscription with generous limits? Score cost by **what they actually pay**, not list price (a model that's "free" on their sub scores high even if its API price is steep).
    4. **Trust for hard problems** — which model would they hand the hardest, most ambiguous problem and not supervise? Any model they'd never use?
    5. **Taste** — which model's UI, copy, and API design would they ship with the least editing?
    6. **Routing defaults** — which model is the bulk/mechanical workhorse, and which reviews plans/implementations?
 
-5. **Draft the table from their answers + the data** — one row per model in *their* ecosystem, scored 1–10 on each axis. AA data anchors cost and intelligence; their answers set taste and adjust cost for subscription realities. Show it and let them tweak.
+5. **Draft the table from their answers + the data** — one row per model in *their* ecosystem, scored 1–10 on each axis. AA data anchors cost and intelligence; their answers set taste and adjust cost for subscription realities. With multiple providers, score all of them in **one** table and mark rows not reachable natively with `via: <cli>` so routing knows how each model is invoked. Show it and let them tweak.
 
-   **Stay inside their ecosystem.** Propose only models from the families/CLIs the developer confirmed in step 4. Do not assume another vendor's CLI is available — a Claude-only setup must not include an OpenAI Codex (or other cross-vendor) tier unless the developer confirmed they have that CLI/subscription. Add a cross-vendor tier only on explicit confirmation; record it under `capabilities`.
+   **Stay inside their ecosystem.** Propose only models from the providers/CLIs the developer confirmed in step 4. Do not assume another vendor's CLI is available — a Claude-only setup must not include an OpenAI Codex (or other cross-vendor) tier unless the developer confirmed they have that CLI/subscription. Add a cross-vendor tier only on explicit confirmation; record it under `capabilities`.
 
 6. **Write the file** to the path above (create the directory), in this shape:
 
@@ -39,23 +39,26 @@ ${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml
 # Personal model-routing rubric. Higher = better.
 reviewed: 2026-07-10              # today's date; refresh after 14 days
 sources: [artificial-analysis]   # what you checked (AA API for cost+intelligence)
-capabilities:
-  codex: false                # OpenAI Codex CLI / sub available?
+capabilities:                # one entry per provider/CLI the dev confirmed (verified with command -v)
+  claude: true
+  codex: false               # OpenAI Codex CLI / sub available?
 models:
-  - { name: <cheapest capable coder>, cost: 9, intelligence: 8, taste: 5 }
+  # via: <cli> marks a model reached through a cross-vendor CLI (omit = native)
+  - { name: <cheapest capable coder>, cost: 9, intelligence: 8, taste: 5, via: codex }
   - { name: <balanced mid-tier>,      cost: 5, intelligence: 5, taste: 7 }
   - { name: <most capable>,           cost: 2, intelligence: 9, taste: 9 }
 routing:
-  bulk: <cheapest capable model>      # clear-spec / mechanical work
+  bulk: <cheapest capable model>      # clear-spec / mechanical work — cheapest capable ACROSS providers
   taste_min: 7                        # user-facing work needs taste >= this
   review: <strong model>              # plan/implementation reviews
 ```
 
 7. **How to apply it** (tell the developer, and follow it yourself when dispatching sub-agents):
    - Defaults, not limits — escalate to a stronger model without asking if output misses the bar.
-   - Bulk/mechanical/clear-spec → `routing.bulk`.
+   - Bulk/mechanical/clear-spec → `routing.bulk` — the cheapest capable model regardless of vendor.
    - User-facing (UI, copy, API) → a model with `taste >= routing.taste_min`.
    - Reviews → `routing.review`.
+   - Models marked `via: <cli>` are invoked through that CLI (e.g. `codex exec`) rather than natively — where the pm plugin is installed, its `codex-*` skills handle this.
    - Keep reasoning effort matched to difficulty; don't default to the top tier.
    - Re-check when a newer model ships or after **14 days**, then update `reviewed`. On refresh, re-pull Artificial Analysis for cost + intelligence and **keep your taste scores and capabilities** — only the AA-sourced axes change. No re-interview needed.
 
