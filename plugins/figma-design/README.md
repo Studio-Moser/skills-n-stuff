@@ -24,13 +24,21 @@ quality = committed aesthetic direction   (frontend-design engine)
         + render → critique → fix loop     (screenshot self-correction)
 ```
 
-It branches across three starting points:
+It branches across four starting points:
 
+- **Claude Design project** — import it. The richest source available: CSS-custom-property
+  tokens, a per-component `.d.ts` API that maps straight onto Figma variant sets, a group
+  taxonomy, and standalone renders. Read via the `DesignSync` tool, not the `.zip`.
 - **Existing Figma design system** — discover and compose from real components/variables.
 - **Design system in code only** — mirror code tokens → a `DESIGN.md` → Figma variables → build.
 - **Greenfield** — decide the system first (aesthetic engine → `DESIGN.md` → variables +
   component kit), *then* build screens. (This ordering avoids the "match-conventions → generic"
   trap when there are no conventions yet.)
+
+It also encodes the things agents get wrong by default: searching the design system *before*
+creating anything (reuse is never automatic), setting `setVariableCodeSyntax` so the library
+round-trips instead of drifting, phase-gating library builds instead of one-shotting them, and
+ending with an explicit human publish step.
 
 ## Installation
 
@@ -39,11 +47,15 @@ It branches across three starting points:
 ```
 
 Requires:
-- The **Figma Dev Mode MCP** server connected (provides `use_figma`, `get_screenshot`,
-  `get_variable_defs`, `search_design_system`, `get_libraries`, etc.) and a Full Figma seat
-  for write-to-canvas.
+- The **remote** Figma MCP server connected (provides `use_figma`, `get_screenshot`,
+  `get_variable_defs`, `search_design_system`, `get_libraries`, etc.). Every write tool is
+  remote-only — the local/desktop server cannot write to canvas.
 - The official **`figma-use`** skill (shipped with the Figma MCP) — loaded automatically as a
-  required sub-skill.
+  required sub-skill. The skill routes to the rest of Figma's 12-skill catalog by task
+  (`figma-generate-library`, `figma-generate-design`, `figma-code-connect`, …) rather than
+  restating them, since they are beta and served live.
+- For the Claude Design branch: the **`DesignSync`** tool and a Claude Design design-system
+  project.
 - The **`frontend-design`** skill (Claude plugins official) — the aesthetic engine.
 - Optional: `@google/design.md` CLI (`npx @google/design.md …`) for linting/exporting `DESIGN.md`.
 
@@ -59,6 +71,10 @@ It does **not** handle design-to-code (pulling existing Figma into code) — tha
 MCP's `get_design_context`.
 
 ```
+# From a Claude Design project — it reads the token index and .d.ts component APIs,
+# then builds real Figma variables and variant sets
+move the Moby design system into Figma
+
 # Greenfield — it commits an aesthetic direction, writes a DESIGN.md, lays down
 # variables + a component kit, then builds the screen
 design a bold editorial pricing page in Figma
@@ -72,8 +88,10 @@ build the settings screen in Figma using our shared-ui design tokens
 
 ## What's inside
 
-- `skills/designing-in-figma/SKILL.md` — the conductor: core insight, three-way branch,
+- `skills/designing-in-figma/SKILL.md` — the conductor: core insight, four-way branch,
   ordered workflow, red-flag table.
+- `references/claude-design-import.md` — Claude Design project shapes, the `_ds_manifest.json`
+  token index, `.d.ts` → Figma component-property mapping, and the `DesignSync` round trip.
 - `references/design-md-template.md` — Figma-optimized `DESIGN.md` template (Google's real
   spec + Figma-targeting affordances) and how to feed it to the model.
 - `references/html-to-figma-mapping.md` — flexbox→auto-layout, CSS-vars→variables,
@@ -88,6 +106,12 @@ build the settings screen in Figma using our shared-ui design tokens
   [frontend-aesthetics cookbook](https://platform.claude.com/cookbook/coding-prompting-for-frontend-aesthetics).
 - Figma write-to-canvas:
   [Figma Developer Docs](https://developers.figma.com/docs/figma-mcp-server/write-to-canvas/).
+- Figma's official skill catalog:
+  [figma/mcp-server-guide](https://github.com/figma/mcp-server-guide/tree/main/skills).
+
+Write-to-canvas and the Figma skill catalog are **beta** — free during the beta period, with
+usage-based pricing planned, and the skill text changes. This plugin delegates to those skills
+rather than copying them so it degrades gracefully as they move.
 
 ## License
 

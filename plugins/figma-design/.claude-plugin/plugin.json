@@ -1,7 +1,7 @@
 {
   "name": "figma-design",
-  "version": "0.1.0",
-  "description": "Author high-quality designs directly into Figma via the Dev Mode MCP. Fuses Claude's frontend-design aesthetic engine with a DESIGN.md token contract and figma-use authoring discipline so code-to-design output matches Claude's HTML/CSS quality. Branches across existing Figma systems, code-only systems, and greenfield.",
+  "version": "0.2.0",
+  "description": "Author high-quality designs directly into Figma via the remote Figma MCP. Fuses Claude's frontend-design aesthetic engine with a token contract and figma-use authoring discipline so code-to-design output matches Claude's HTML/CSS quality. Imports Claude Design projects, existing Figma systems, code-only systems, and greenfield.",
   "author": {
     "name": "Studio Moser",
     "url": "https://github.com/Studio-Moser"
@@ -13,8 +13,10 @@
     "figma-mcp",
     "code-to-design",
     "design-system",
+    "claude-design",
     "design-md",
     "design-tokens",
+    "figma-variables",
     "auto-layout",
     "ui-design"
   ]
