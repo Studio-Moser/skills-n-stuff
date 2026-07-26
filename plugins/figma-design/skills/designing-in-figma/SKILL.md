@@ -5,8 +5,10 @@ description: >-
   component DIRECTLY INTO Figma via the Figma MCP (the use_figma / write-to-canvas
   path) — i.e. code-to-design, not design-to-code. Triggers: "design this in Figma",
   "build the screen in Figma", "make a mockup in Figma", "create a Figma component",
-  "generate a UI into Figma". Use especially when Figma output looks more generic or
-  lower-quality than what Claude produces in HTML/CSS — this skill closes that gap.
+  "generate a UI into Figma". Also use when moving a design system INTO Figma from any
+  source — a Claude Design project, CSS custom properties, a component library, design
+  tokens. Use especially when Figma output looks more generic or lower-quality than what
+  Claude produces in HTML/CSS — this skill closes that gap.
   Do NOT use for pulling existing Figma designs into code (that is design-to-code).
 ---
 
@@ -33,12 +35,30 @@ quality = committed aesthetic direction   (frontend-design engine)
         + render → critique → fix loop    (screenshot self-correction)
 ```
 
-**REQUIRED SUB-SKILLS — load these, do not duplicate them:**
-- `figma-use` — MANDATORY before any `use_figma` call. The definitive authoring rule set
-  (auto-layout, FILL/HUG, font loading, variable binding, gotchas). Always load first.
-- `frontend-design` — the aesthetic engine (Step 1 below). Load it to make the design
-  decisions; this skill does not restate its taste rules.
-- `figma-generate-library` — when you must create a component/variable library from scratch.
+**REQUIRED SUB-SKILLS — load these, do not duplicate them.** Figma serves 12 skills live from
+[figma/mcp-server-guide](https://github.com/figma/mcp-server-guide/tree/main/skills); they are
+beta and change. **Delegate to them** (load the skill, and pass `skillNames` on every
+`use_figma` call) rather than copying their text here, or this skill drifts against them.
+
+| Load | When |
+|---|---|
+| `figma-use` | **MANDATORY before any `use_figma` call.** The definitive authoring rule set (auto-layout, FILL/HUG, font loading, variable binding, gotchas). Always first. |
+| `frontend-design` | The aesthetic engine (Step 1). Load it to make the design decisions; this skill does not restate its taste rules. |
+| `figma-generate-library` | Design-system / component-library work. Carries the 5-phase gate — see Step 5. |
+| `figma-generate-design` | A single screen or page translated into Figma. |
+| `figma-create-new-file` | Bootstrapping an empty target file. |
+| `figma-code-connect` | Mapping finished Figma components back to code components. |
+| `figma-design-to-code` | The reverse direction — not this skill. |
+| `figma-use-figjam` / `figma-use-slides` / `figma-generate-diagram` | Non-Design-file surfaces. |
+| `figma-implement-motion` / `figma-use-motion` / `figma-swiftui` | Motion and SwiftUI specialisations. |
+
+Note `skillNames` is a **logging** parameter — it does not gate execution. Actually loading
+`figma-use` is what prevents the failures.
+
+**Preflight:** every write tool (`use_figma`, `generate_figma_design`, `create_new_file`,
+`upload_assets`, `get_libraries`, `search_design_system`) is **remote-server only**. The
+local/desktop Figma MCP server cannot write. Confirm with `whoami` before planning any build;
+if it fails, stop and tell the user to switch to the remote server.
 
 ## When to use
 
@@ -55,12 +75,16 @@ Detect the situation FIRST, because it changes the order of operations.
 
 ```dot
 digraph branch {
+  "Is there a Claude Design\ndesign-system project?" [shape=diamond];
+  "Import it (richest source)" [shape=box];
   "Does a Figma design system exist\n(components + variables in the file/libraries)?" [shape=diamond];
   "Compose from it" [shape=box];
   "Is there a system in CODE\n(tokens / DESIGN.md / component lib)?" [shape=diamond];
   "Mirror code → Figma variables, then compose" [shape=box];
   "Greenfield: decide the system first" [shape=box];
 
+  "Is there a Claude Design\ndesign-system project?" -> "Import it (richest source)" [label="yes"];
+  "Is there a Claude Design\ndesign-system project?" -> "Does a Figma design system exist\n(components + variables in the file/libraries)?" [label="no"];
   "Does a Figma design system exist\n(components + variables in the file/libraries)?" -> "Compose from it" [label="yes"];
   "Does a Figma design system exist\n(components + variables in the file/libraries)?" -> "Is there a system in CODE\n(tokens / DESIGN.md / component lib)?" [label="no"];
   "Is there a system in CODE\n(tokens / DESIGN.md / component lib)?" -> "Mirror code → Figma variables, then compose" [label="yes"];
@@ -70,9 +94,13 @@ digraph branch {
 
 | Branch | How to detect | What to do |
 |---|---|---|
+| **D. Claude Design project** | The user names one, or `DesignSync list_projects` returns a writable design-system project | **Highest-fidelity source — prefer it over B.** It ships CSS-custom-property tokens, a `.d.ts` component API, a group taxonomy, and standalone renders. Full contract: `references/claude-design-import.md`. |
 | **A. Existing Figma system** | `get_libraries` shows subscribed libraries; `search_design_system` returns components/variables; the target file already has variable collections | Discover assets first; **compose from real component instances and bind existing variables.** Don't invent tokens that already exist. The aesthetic is largely dictated — match it. |
 | **B. System in code only** | Repo has design tokens, a `DESIGN.md`, Tailwind theme, or a component library; Figma file is empty | Locate or generate a `DESIGN.md` from the code tokens → **materialize it as Figma variables** → then compose. See `references/design-md-template.md`. |
 | **C. Greenfield** | No system anywhere | **Run the aesthetic engine to DECIDE the system, write a `DESIGN.md`, materialize variables + a small component kit, THEN build screens.** This ordering matters — see the trap below. |
+
+Branches stack: D or B gives you the tokens, A tells you what already exists in Figma so you
+don't duplicate it. Always run the Step 3 discovery pass even when you arrive with tokens.
 
 **The greenfield trap:** the Figma authoring skills bias toward "match existing
 conventions." With no conventions to match, that bias pulls output straight back to the
@@ -84,13 +112,16 @@ slop aesthetics.
 
 Create a TodoWrite item for each step.
 
-1. **Commit the aesthetic direction** (Branch B/C; skip if Branch A dictates it).
+1. **Commit the aesthetic direction** (Branch B/C; skip when Branch A or D already dictates
+   it — an imported system *is* the direction, so match it rather than re-deciding).
    Load `frontend-design` and run its engine: pick ONE bold, intentional direction; drive
    type / color / motion / space / background as named decisions; explicitly name the
    generic defaults to avoid (Inter, purple-on-white, even palettes). State the choice
    before building. This is the single highest-leverage step.
 
-2. **Establish the token contract.** Branch A: discover existing variables. Branch B:
+2. **Establish the token contract.** Branch D: read the Claude Design project
+   (`references/claude-design-import.md`) — its `_ds_manifest.json` `tokens[]` array is a
+   token export already done for you. Branch A: discover existing variables. Branch B:
    load/convert the code's `DESIGN.md`. Branch C: author a new `DESIGN.md` from the Step-1
    decisions. Template + Figma-targeting guidance: `references/design-md-template.md`.
    If a `DESIGN.md` exists, `npx @google/design.md lint DESIGN.md` to catch broken refs and
@@ -99,17 +130,46 @@ Create a TodoWrite item for each step.
    is only for the alternate route (importing `tokens.json` into Figma via a Variables plugin
    like Tokens Studio); skip it unless you're deliberately taking that route.
 
-3. **Load `figma-use`** (mandatory) and get the target file. `whoami` →
-   `create_new_file` if needed, or use the provided file key. Inspect the file before writing.
+3. **Load `figma-use`, then discover what already exists — always, every run.**
+   `whoami` → `create_new_file` if needed, or use the provided file key. Then
+   **`get_libraries` → `search_design_system`** (scope with `includeLibraryKeys`) *before
+   creating anything.* Reuse is not the default behaviour: left alone the agent hardcodes
+   colors/spacing/typography and ignores a linked library, and it will happily draw plain
+   frames beside correct instances in the same run. Discovery is not optional even in
+   Branch C — check before you invent.
 
-4. **Materialize tokens → Figma variables** (Branch B/C). Create the variable collection
-   for palette / type scale / spacing / radii. Per `figma-use`: set **explicit scopes**
+4. **Materialize tokens → Figma variables** (Branch B/C/D). Create the collections for
+   palette / type scale / spacing / radii. Per `figma-use`: set **explicit scopes**
    (never leave `ALL_SCOPES`), **rename modes** (never `Mode 1`), bind colors via
    `setBoundVariableForPaint` and spacing/radii via `setBoundVariable`.
+   **Set code syntax on every variable** — this is what makes the library round-trip:
+
+   ```js
+   v.setVariableCodeSyntax('WEB', `var(--color-bg-primary)`)   // var() wrapper required
+   ```
+
+   Use the **actual variable name from the codebase**, not a name derived from the Figma
+   variable. ANDROID/iOS take no wrapper. Without it Dev Mode falls back to a guessed
+   `var()` and the two sides silently drift.
+
+   Things that cannot be variables: **gradients** (`setBoundVariableForPaint` is SOLID-only)
+   → paint styles; **multi-layer shadows** → effect styles; **`clamp()`/`vh`/`vw`** → resolve
+   to a fixed px value per breakpoint mode, or skip and say so.
 
 5. **Discover or create components** for repeated elements. Branch A: instantiate existing
-   ones. Branch B/C: build a minimal kit (button, input, card, …) as real components, or
-   use `figma-generate-library`. Composition from components is what keeps screens consistent.
+   ones. Branch B/C/D: build real components, or use `figma-generate-library`.
+
+   **If this is design-system work, it is never one-shot.** `figma-generate-library` mandates
+   20–100+ small `use_figma` calls across five gated phases — 0 Discovery (get user approval)
+   → 1 Foundations (collections, modes, primitives, semantics, scopes, code syntax) →
+   2 File Structure → 3 Components **one at a time, never batched** → 4 Code Connect + QA.
+   Do not advance a phase until the current one's acceptance checks pass. **Variables before
+   components — no token, no component.** Keep mutations on one file sequential; parallel
+   writes race on Figma state.
+
+   Branch D shortcut: the `.d.ts` files already specify the variant axes — string union →
+   VARIANT, boolean → BOOLEAN property, string → TEXT, `ReactNode` → INSTANCE_SWAP. Use them
+   instead of inventing a component API.
 
 6. **Build incrementally — this is where most Figma output breaks.** See the mapping in
    `references/html-to-figma-mapping.md`. Rules that matter most:
@@ -123,6 +183,11 @@ Create a TodoWrite item for each step.
    - Bind variables/styles; instantiate components; set text via `setProperties` after font load.
    - ≤10 logical ops per call; batch imports with `Promise.all`; `return` every node ID
      (`console.log` is invisible).
+   - **Images:** the Plugin API cannot fetch external image URLs. If the source is a web view
+     with images, run `generate_figma_design` against the *same* `fileKey` in parallel to
+     capture it, copy `imageHash` values off the capture onto your built frames, then delete
+     the capture — skip this and image frames come out blank. If instead you have the image
+     files locally (Branch D's `assets/`), just use `upload_assets`; no capture needed.
 
 7. **Screenshot self-correction loop** after each section. Call `await node.screenshot()`
    (inline) or `get_screenshot`, and look specifically for: clipped/cropped text, overlap,
@@ -138,10 +203,18 @@ Create a TodoWrite item for each step.
    - Accent color used for ~one primary action per screen; no sharp/rounded corner mixing;
      ≤2 font weights per screen.
    - Every color/spacing/radius resolves to a **bound variable** — zero stray hex/px.
+   - Every variable carries **code syntax** matching the real codebase token name.
    - Repeated elements are **component instances**, not redrawn primitives.
    - Auto-layout holds if text lengths change; no clipped text, overlap, or placeholders.
    - WCAG AA contrast holds (4.5:1 body, 3:1 large/UI) — especially text on accent fills.
    If any fail, fix and re-screenshot before claiming done.
+
+9. **Hand back explicitly — the pipeline does not fully automate.** Write-to-canvas is beta
+   and its output needs human review. Tell the user plainly: what you built, what is
+   placeholder, and that **they must publish the library in the Figma UI before Code Connect
+   can complete** — publishing is a UI action with no REST equivalent. (Code Connect
+   *mapping* publication can be automated via the `code-connect` CLI; the library publish
+   itself cannot.) Do not claim the system is live until that click has happened.
 
 ## Common task patterns
 
@@ -169,6 +242,11 @@ Things real screens force that the core loop doesn't spell out:
 | If you catch yourself… | Do this instead |
 |---|---|
 | Calling `use_figma` before loading `figma-use` | Load `figma-use` first. Always. It prevents hard-to-debug failures. |
+| Creating a component without first running `search_design_system` | Discover, then build. Reuse is never the default — check every run. |
+| Creating variables without `setVariableCodeSyntax` | Set it, using the real codebase token name. Otherwise the library can't round-trip. |
+| Building components before the variable collections exist | Variables first. No token, no component. |
+| Batching a whole component library into a few big calls | 20–100+ small calls, one component at a time, phase-gated. |
+| A Claude Design project exists and you're reading its `.zip` | Use `DesignSync list_files`/`get_file` — the zip drops the component API and token index. |
 | Building a Branch-C screen with no aesthetic direction committed | Stop. Run the `frontend-design` engine first (Step 1). |
 | Setting absolute `x`/`y` on related elements | Use an auto-layout frame. Pixel coords break on resize and read as AI slop. |
 | Hardcoding hex / px / font names in nodes | Bind variables / styles. Raw literals = inline-styled spaghetti. |
@@ -188,6 +266,9 @@ which is exactly why it's a skill.
 
 ## References
 
+- `references/claude-design-import.md` — **Branch D.** Claude Design project shapes, the
+  `_ds_manifest.json` token index, `.d.ts` → Figma component-property mapping, and the
+  round-trip back through `DesignSync`.
 - `references/design-md-template.md` — Figma-optimized `DESIGN.md` template (Google's real
   spec + Figma-targeting affordances) and how to feed it to the model.
 - `references/html-to-figma-mapping.md` — flexbox→auto-layout, CSS-vars→variables,

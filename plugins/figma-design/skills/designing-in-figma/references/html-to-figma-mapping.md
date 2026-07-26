@@ -26,7 +26,9 @@ definitive rule set with WRONG/CORRECT examples for every pitfall. Always load i
 | `flex-grow` | `layoutGrow` | Compresses content if parent hugs — use with FIXED/extra-space parent. |
 | `align-self` | `layoutAlign` | |
 | `position: absolute` | `layoutPositioning = 'ABSOLUTE'` + explicit `x/y` | The rare exception. Such children can't FILL. |
-| CSS custom property (`--token`) | Figma **Variable** (`figma.variables.createVariable` in a collection) | Bind via `setBoundVariable` / `setBoundVariableForPaint`. |
+| CSS custom property (`--token`) | Figma **Variable** (`figma.variables.createVariable` in a collection) | Bind via `setBoundVariable` / `setBoundVariableForPaint`. Always `setVariableCodeSyntax('WEB', 'var(--token)')` using the **real codebase name** — omit it and Dev Mode guesses, so code and Figma drift. |
+| `clamp()` / `vh` / `vw` / `%` sizing | **no equivalent** | Figma FLOAT variables are absolute. Resolve to a fixed px per breakpoint mode, or skip — and say which. |
+| `linear-gradient` / `radial-gradient` | **paint style**, not a variable | `setBoundVariableForPaint` is SOLID-only. |
 | `:root` theming / dark mode | Variable **collection + modes** (Light/Dark, Desktop/Mobile) | New collection's mode is named `Mode 1` — **rename it**. Mode count is plan-limited (Free 1, Pro 4). |
 | `var(--x)` (spacing/radius) | `setBoundVariable("paddingLeft", spacingVar)` | |
 | `var(--x)` (color) | `setBoundVariableForPaint(paint, 'color', colorVar)` | **Returns a NEW paint** — capture and reassign it to `fills`. |
@@ -49,7 +51,12 @@ These cause most silent failures. (Full set + examples: `figma-use`.)
    throws "Cannot write to node with unloaded font" — and the distinctive non-Inter fonts the
    aesthetic wants are exactly the ones that trip this.
 2. **Sizing order:** `resize()` resets modes to FIXED. Call `resize()` first, then set
-   `FILL`/`HUG`. Set `FILL` only **after** `appendChild`.
+   `FILL`/`HUG`. Set `FILL`/`HUG` only **after** `appendChild` — a freshly-created node has no
+   parent, so setting them immediately after `createFrame()` always throws. (FIXED works
+   anywhere.) Two more silent collapses: a **HUG parent shrinks its FILL children** to minimum
+   size; and a new TEXT node defaults to `textAutoResize='WIDTH_AND_HEIGHT'`, which ignores
+   FILL and turns the node into a thousands-of-pixels-tall "text thread" — set
+   `textAutoResize='HEIGHT'` plus an explicit `resize()`.
 3. **Build in place, not then-reparent:** create the wrapper in one call (return its ID),
    build sections *inside* it in later calls. `appendChild` across calls can silently orphan.
 4. **`return` is the only output channel.** `console.log` is invisible. Return every created
@@ -60,16 +67,32 @@ These cause most silent failures. (Full set + examples: `figma-use`.)
 7. **Batch async:** `Promise.all` the `import*ByKeyAsync` calls; don't await them serially at
    the top of every section.
 8. **≤10 logical ops per `use_figma` call.** Calls are atomic — a failed script changes
-   nothing, so small calls keep errors recoverable.
-9. **Multi-page:** emit N parallel `use_figma` calls in one message (one
-   `setCurrentPageAsync` per call) — never loop pages inside one script.
+   nothing, so small calls keep errors recoverable. (The ceiling is relaxed in Slides files:
+   3–5 slides per call is safe.)
+9. **Keep mutations sequential.** `figma-generate-library` states it outright: never
+   parallelize `use_figma` — Figma state mutations must be strictly sequential. Multi-page
+   work is one `setCurrentPageAsync` per call, run **one after another**; never loop pages
+   inside one script either.
+10. **Page switching is async:** `await figma.setCurrentPageAsync(page)`. The sync setter
+    throws "Setting figma.currentPage is not supported".
+11. **Unsupported in `use_figma`:** `figma.notify()` throws; `getPluginData`/`setPluginData`
+    (use the Shared variants); `loadAllPagesAsync`. `figma.createPage()` is Design-files-only.
+12. **Sections don't auto-resize** to fit their children.
 
 ## Limits of write-to-canvas (beta)
 
-- ~20kb output per call; no external image-URL fetch yet. For web sources needing pixel
-  fidelity, run `generate_figma_design` in parallel to capture a reference + image hashes,
-  transfer them, then delete it.
-- Custom-font limits; beta-level quality requiring manual review. Requires a Full Figma seat.
+- **Write tools are remote-server only.** The local/desktop Figma MCP server cannot write.
+  Most "write to canvas is not working" reports are local-server config.
+- **No external image-URL fetch.** The Plugin API can only set an image fill by copying an
+  `imageHash` from a node already in the file. For web sources, run `generate_figma_design`
+  against the same `fileKey` in parallel to capture a reference, transfer the hashes, then
+  delete the capture. For local image files, `upload_assets` (PNG/JPG/GIF/WebP/SVG, 10MB).
+- **Beta-level quality** — output needs manual review, and **components must be published
+  manually in the Figma UI** before Code Connect completes (no REST endpoint for publishing).
+- Probable but not firmly confirmed: a Full Figma seat + edit permission on the target file.
+  Earlier versions of this file also asserted a ~20kb per-call output cap and a custom-font
+  limitation; neither survived verification against current docs — check before relying on
+  them. The documented cap that does exist is on **input**: `code` max 50 000 chars.
 
 ## The mental model
 
