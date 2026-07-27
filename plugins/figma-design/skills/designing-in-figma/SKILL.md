@@ -6,8 +6,8 @@ description: >-
   path) — i.e. code-to-design, not design-to-code. Triggers: "design this in Figma",
   "build the screen in Figma", "make a mockup in Figma", "create a Figma component",
   "generate a UI into Figma". Also use when moving a design system INTO Figma from any
-  source — a Claude Design project, CSS custom properties, a component library, design
-  tokens. Use especially when Figma output looks more generic or lower-quality than what
+  source — a Claude Design project, a Storybook, CSS custom properties, a component
+  library, design tokens. Use especially when Figma output looks more generic than what
   Claude produces in HTML/CSS — this skill closes that gap.
   Do NOT use for pulling existing Figma designs into code (that is design-to-code).
 ---
@@ -77,6 +77,8 @@ Detect the situation FIRST, because it changes the order of operations.
 digraph branch {
   "Is there a Claude Design\ndesign-system project?" [shape=diamond];
   "Import it (richest source)" [shape=box];
+  "Is there a Storybook?" [shape=diamond];
+  "Import it (route s2d vs MCP first)" [shape=box];
   "Does a Figma design system exist\n(components + variables in the file/libraries)?" [shape=diamond];
   "Compose from it" [shape=box];
   "Is there a system in CODE\n(tokens / DESIGN.md / component lib)?" [shape=diamond];
@@ -84,7 +86,9 @@ digraph branch {
   "Greenfield: decide the system first" [shape=box];
 
   "Is there a Claude Design\ndesign-system project?" -> "Import it (richest source)" [label="yes"];
-  "Is there a Claude Design\ndesign-system project?" -> "Does a Figma design system exist\n(components + variables in the file/libraries)?" [label="no"];
+  "Is there a Claude Design\ndesign-system project?" -> "Is there a Storybook?" [label="no"];
+  "Is there a Storybook?" -> "Import it (route s2d vs MCP first)" [label="yes"];
+  "Is there a Storybook?" -> "Does a Figma design system exist\n(components + variables in the file/libraries)?" [label="no"];
   "Does a Figma design system exist\n(components + variables in the file/libraries)?" -> "Compose from it" [label="yes"];
   "Does a Figma design system exist\n(components + variables in the file/libraries)?" -> "Is there a system in CODE\n(tokens / DESIGN.md / component lib)?" [label="no"];
   "Is there a system in CODE\n(tokens / DESIGN.md / component lib)?" -> "Mirror code → Figma variables, then compose" [label="yes"];
@@ -95,11 +99,12 @@ digraph branch {
 | Branch | How to detect | What to do |
 |---|---|---|
 | **D. Claude Design project** | The user names one, or `DesignSync list_projects` returns a writable design-system project | **Highest-fidelity source — prefer it over B.** It ships CSS-custom-property tokens, a `.d.ts` component API, a group taxonomy, and standalone renders. Full contract: `references/claude-design-import.md`. |
+| **E. Storybook** | `.storybook/` exists, or a `storybook` dep, or a served `/index.json` | Enumerate from `index.json`, extract the prop surface separately (the index does not carry it), map `argType.type` → variant axes. **Route first between the story.to.design plugin and the MCP write path.** Full contract: `references/storybook-import.md`. |
 | **A. Existing Figma system** | `get_libraries` shows subscribed libraries; `search_design_system` returns components/variables; the target file already has variable collections | Discover assets first; **compose from real component instances and bind existing variables.** Don't invent tokens that already exist. The aesthetic is largely dictated — match it. |
 | **B. System in code only** | Repo has design tokens, a `DESIGN.md`, Tailwind theme, or a component library; Figma file is empty | Locate or generate a `DESIGN.md` from the code tokens → **materialize it as Figma variables** → then compose. See `references/design-md-template.md`. |
 | **C. Greenfield** | No system anywhere | **Run the aesthetic engine to DECIDE the system, write a `DESIGN.md`, materialize variables + a small component kit, THEN build screens.** This ordering matters — see the trap below. |
 
-Branches stack: D or B gives you the tokens, A tells you what already exists in Figma so you
+Branches stack: D, E or B gives you the tokens, A tells you what already exists in Figma so you
 don't duplicate it. Always run the Step 3 discovery pass even when you arrive with tokens.
 
 **The greenfield trap:** the Figma authoring skills bias toward "match existing
@@ -112,7 +117,7 @@ slop aesthetics.
 
 Create a TodoWrite item for each step.
 
-1. **Commit the aesthetic direction** (Branch B/C; skip when Branch A or D already dictates
+1. **Commit the aesthetic direction** (Branch B/C; skip when Branch A, D or E already dictates
    it — an imported system *is* the direction, so match it rather than re-deciding).
    Load `frontend-design` and run its engine: pick ONE bold, intentional direction; drive
    type / color / motion / space / background as named decisions; explicitly name the
@@ -121,7 +126,9 @@ Create a TodoWrite item for each step.
 
 2. **Establish the token contract.** Branch D: read the Claude Design project
    (`references/claude-design-import.md`) — its `_ds_manifest.json` `tokens[]` array is a
-   token export already done for you. Branch A: discover existing variables. Branch B:
+   token export already done for you. Branch E: find the Storybook's token source and read
+   `globalTypes` / `addon-themes` for the mode list (`references/storybook-import.md`).
+   Branch A: discover existing variables. Branch B:
    load/convert the code's `DESIGN.md`. Branch C: author a new `DESIGN.md` from the Step-1
    decisions. Template + Figma-targeting guidance: `references/design-md-template.md`.
    If a `DESIGN.md` exists, `npx @google/design.md lint DESIGN.md` to catch broken refs and
@@ -138,26 +145,33 @@ Create a TodoWrite item for each step.
    frames beside correct instances in the same run. Discovery is not optional even in
    Branch C — check before you invent.
 
-4. **Materialize tokens → Figma variables** (Branch B/C/D). Create the collections for
+4. **Materialize tokens → Figma variables** (Branch B/C/D/E). Create the collections for
    palette / type scale / spacing / radii. Per `figma-use`: set **explicit scopes**
    (never leave `ALL_SCOPES`), **rename modes** (never `Mode 1`), bind colors via
    `setBoundVariableForPaint` and spacing/radii via `setBoundVariable`.
-   **Set code syntax on every variable** — this is what makes the library round-trip:
+   **Set code syntax on every variable:**
 
    ```js
    v.setVariableCodeSyntax('WEB', `var(--color-bg-primary)`)   // var() wrapper required
    ```
 
    Use the **actual variable name from the codebase**, not a name derived from the Figma
-   variable. ANDROID/iOS take no wrapper. Without it Dev Mode falls back to a guessed
-   `var()` and the two sides silently drift.
+   variable. ANDROID/iOS take no wrapper. This is a **one-way Dev Mode annotation, not a live
+   round-trip** — nothing reads it back into code. Its value is that Dev Mode shows the real
+   token name instead of one guessed from the Figma variable name, which is what stops the
+   two sides drifting under human maintenance.
 
-   Things that cannot be variables: **gradients** (`setBoundVariableForPaint` is SOLID-only)
-   → paint styles; **multi-layer shadows** → effect styles; **`clamp()`/`vh`/`vw`** → resolve
-   to a fixed px value per breakpoint mode, or skip and say so.
+   Variables resolve to four types only — `BOOLEAN | COLOR | FLOAT | STRING`. So:
+   **gradients** (`setBoundVariableForPaint` is SOLID-only) → paint styles; **shadows** →
+   effect styles; **`fontSize`/`fontWeight`/`lineHeight`** are not bindable at all — set them
+   directly on text nodes and use text styles; **`clamp()`/`vh`/`vw`** → resolve to a fixed px
+   value per breakpoint mode, or skip and say so.
+
+   The Variables **REST API is Enterprise-only, reads and writes alike** — assume the Plugin
+   API / MCP write path.
 
 5. **Discover or create components** for repeated elements. Branch A: instantiate existing
-   ones. Branch B/C/D: build real components, or use `figma-generate-library`.
+   ones. Branch B/C/D/E: build real components, or use `figma-generate-library`.
 
    **If this is design-system work, it is never one-shot.** `figma-generate-library` mandates
    20–100+ small `use_figma` calls across five gated phases — 0 Discovery (get user approval)
@@ -169,7 +183,14 @@ Create a TodoWrite item for each step.
 
    Branch D shortcut: the `.d.ts` files already specify the variant axes — string union →
    VARIANT, boolean → BOOLEAN property, string → TEXT, `ReactNode` → INSTANCE_SWAP. Use them
-   instead of inventing a component API.
+   instead of inventing a component API. Branch E: same mapping, but read `argType.type`
+   (`type.name === 'enum'` → `type.value`), not `argType.options` — options are derived from
+   the type, and unions fall through to an `object` control that tells you nothing.
+
+   **Enforce a variant budget: ≤ ~30 per component.** The matrix is the *product* of the axes,
+   so `theme(2) × variant(6) × size(6)` is 72 before you add states. Over budget: keep the
+   primary axis as VARIANT, demote the rest to BOOLEAN/TEXT properties or separate stories.
+   State the matrix size before building and say what you dropped.
 
 6. **Build incrementally — this is where most Figma output breaks.** See the mapping in
    `references/html-to-figma-mapping.md`. Rules that matter most:
@@ -247,6 +268,10 @@ Things real screens force that the core loop doesn't spell out:
 | Building components before the variable collections exist | Variables first. No token, no component. |
 | Batching a whole component library into a few big calls | 20–100+ small calls, one component at a time, phase-gated. |
 | A Claude Design project exists and you're reading its `.zip` | Use `DesignSync list_files`/`get_file` — the zip drops the component API and token index. |
+| Expecting `index.json` to give you a Storybook's props | It carries identity only. Run a second docgen/iframe pass. |
+| Reading `argType.options` for variant values | Read `argType.type` — options are derived from it, and unions don't populate them. |
+| Building a variant set over ~30 cells | Demote axes to BOOLEAN/TEXT properties. The matrix is a product; it explodes. |
+| Starting a Storybook import without picking s2d vs MCP | Route first — they are different pipelines with different authoring costs. |
 | Building a Branch-C screen with no aesthetic direction committed | Stop. Run the `frontend-design` engine first (Step 1). |
 | Setting absolute `x`/`y` on related elements | Use an auto-layout frame. Pixel coords break on resize and read as AI slop. |
 | Hardcoding hex / px / font names in nodes | Bind variables / styles. Raw literals = inline-styled spaghetti. |
@@ -269,6 +294,9 @@ which is exactly why it's a skill.
 - `references/claude-design-import.md` — **Branch D.** Claude Design project shapes, the
   `_ds_manifest.json` token index, `.d.ts` → Figma component-property mapping, and the
   round-trip back through `DesignSync`.
+- `references/storybook-import.md` — **Branch E.** Routing between story.to.design and the
+  MCP write path, `index.json` limits, `argType.type` → component properties, the variant
+  budget, and the story-authoring rules that make captures clean.
 - `references/design-md-template.md` — Figma-optimized `DESIGN.md` template (Google's real
   spec + Figma-targeting affordances) and how to feed it to the model.
 - `references/html-to-figma-mapping.md` — flexbox→auto-layout, CSS-vars→variables,
