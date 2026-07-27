@@ -78,7 +78,7 @@ digraph branch {
   "Is there a Claude Design\ndesign-system project?" [shape=diamond];
   "Import it (richest source)" [shape=box];
   "Is there a Storybook?" [shape=diamond];
-  "Import it (route s2d vs MCP first)" [shape=box];
+  "Import it (s2d preferred; tokens first)" [shape=box];
   "Does a Figma design system exist\n(components + variables in the file/libraries)?" [shape=diamond];
   "Compose from it" [shape=box];
   "Is there a system in CODE\n(tokens / DESIGN.md / component lib)?" [shape=diamond];
@@ -87,7 +87,7 @@ digraph branch {
 
   "Is there a Claude Design\ndesign-system project?" -> "Import it (richest source)" [label="yes"];
   "Is there a Claude Design\ndesign-system project?" -> "Is there a Storybook?" [label="no"];
-  "Is there a Storybook?" -> "Import it (route s2d vs MCP first)" [label="yes"];
+  "Is there a Storybook?" -> "Import it (s2d preferred; tokens first)" [label="yes"];
   "Is there a Storybook?" -> "Does a Figma design system exist\n(components + variables in the file/libraries)?" [label="no"];
   "Does a Figma design system exist\n(components + variables in the file/libraries)?" -> "Compose from it" [label="yes"];
   "Does a Figma design system exist\n(components + variables in the file/libraries)?" -> "Is there a system in CODE\n(tokens / DESIGN.md / component lib)?" [label="no"];
@@ -99,7 +99,7 @@ digraph branch {
 | Branch | How to detect | What to do |
 |---|---|---|
 | **D. Claude Design project** | The user names one, or `DesignSync list_projects` returns a writable design-system project | **Highest-fidelity source — prefer it over B.** It ships CSS-custom-property tokens, a `.d.ts` component API, a group taxonomy, and standalone renders. Full contract: `references/claude-design-import.md`. |
-| **E. Storybook** | `.storybook/` exists, or a `storybook` dep, or a served `/index.json` | Enumerate from `index.json`, extract the prop surface separately (the index does not carry it), map `argType.type` → variant axes. **Route first between the story.to.design plugin and the MCP write path.** Full contract: `references/storybook-import.md`. |
+| **E. Storybook** | `.storybook/` exists, or a `storybook` dep, or a served `/index.json` | **Prefer the story.to.design plugin over the MCP write path** — code stays the single source of truth and re-syncs on one click; reconstructing components by hand creates drift. Tokens first, then atomics → composites. Full contract: `references/storybook-import.md`. |
 | **A. Existing Figma system** | `get_libraries` shows subscribed libraries; `search_design_system` returns components/variables; the target file already has variable collections | Discover assets first; **compose from real component instances and bind existing variables.** Don't invent tokens that already exist. The aesthetic is largely dictated — match it. |
 | **B. System in code only** | Repo has design tokens, a `DESIGN.md`, Tailwind theme, or a component library; Figma file is empty | Locate or generate a `DESIGN.md` from the code tokens → **materialize it as Figma variables** → then compose. See `references/design-md-template.md`. |
 | **C. Greenfield** | No system anywhere | **Run the aesthetic engine to DECIDE the system, write a `DESIGN.md`, materialize variables + a small component kit, THEN build screens.** This ordering matters — see the trap below. |
@@ -163,9 +163,11 @@ Create a TodoWrite item for each step.
 
    Variables resolve to four types only — `BOOLEAN | COLOR | FLOAT | STRING`. So:
    **gradients** (`setBoundVariableForPaint` is SOLID-only) → paint styles; **shadows** →
-   effect styles; **`fontSize`/`fontWeight`/`lineHeight`** are not bindable at all — set them
-   directly on text nodes and use text styles; **`clamp()`/`vh`/`vw`** → resolve to a fixed px
-   value per breakpoint mode, or skip and say so.
+   effect styles; **`clamp()`/`vh`/`vw`** → resolve to a fixed px value per breakpoint mode,
+   or skip and say so. `fontSize` **is** bindable via `setBoundVariable` (verified); treat
+   `fontWeight`/`lineHeight` as unverified and check before relying on either.
+   Two more traps: Figma **rejects `.` in variable names** (`spacing/1.5` throws — sanitize to
+   `spacing/1-5`), and CSS `rem` values must be **converted to px** before becoming FLOATs.
 
    The Variables **REST API is Enterprise-only, reads and writes alike** — assume the Plugin
    API / MCP write path.
@@ -183,9 +185,11 @@ Create a TodoWrite item for each step.
 
    Branch D shortcut: the `.d.ts` files already specify the variant axes — string union →
    VARIANT, boolean → BOOLEAN property, string → TEXT, `ReactNode` → INSTANCE_SWAP. Use them
-   instead of inventing a component API. Branch E: same mapping, but read `argType.type`
-   (`type.name === 'enum'` → `type.value`), not `argType.options` — options are derived from
-   the type, and unions fall through to an `object` control that tells you nothing.
+   instead of inventing a component API. Branch E: same mapping, but read **`argType.options`
+   first** — hand-authored argTypes put the values there with `type.name === 'string'`, and
+   only docgen-inferred ones set `type.name === 'enum'`. Both occur in the same Storybook.
+   When `s2d.variantProperties` exists it is authoritative — don't derive axes from every
+   available `options` array.
 
    **Enforce a variant budget: ≤ ~30 per component.** The matrix is the *product* of the axes,
    so `theme(2) × variant(6) × size(6)` is 72 before you add states. Over budget: keep the
@@ -269,9 +273,11 @@ Things real screens force that the core loop doesn't spell out:
 | Batching a whole component library into a few big calls | 20–100+ small calls, one component at a time, phase-gated. |
 | A Claude Design project exists and you're reading its `.zip` | Use `DesignSync list_files`/`get_file` — the zip drops the component API and token index. |
 | Expecting `index.json` to give you a Storybook's props | It carries identity only. Run a second docgen/iframe pass. |
-| Reading `argType.options` for variant values | Read `argType.type` — options are derived from it, and unions don't populate them. |
+| Reading only `argType.type` for variant values | Read `options` first — hand-authored argTypes leave `type.name` as `'string'` and put the axis in `options`. |
+| Importing Storybook components before the token phase | Tokens first, or fills arrive as raw hex. |
+| Importing a composite before the atomics it contains | Children must exist first or nesting flattens instead of linking. |
 | Building a variant set over ~30 cells | Demote axes to BOOLEAN/TEXT properties. The matrix is a product; it explodes. |
-| Starting a Storybook import without picking s2d vs MCP | Route first — they are different pipelines with different authoring costs. |
+| Hand-building Figma components from a Storybook you could have s2d'd | s2d keeps code the source of truth and re-syncs on a click. Reconstruction drifts. |
 | Building a Branch-C screen with no aesthetic direction committed | Stop. Run the `frontend-design` engine first (Step 1). |
 | Setting absolute `x`/`y` on related elements | Use an auto-layout frame. Pixel coords break on resize and read as AI slop. |
 | Hardcoding hex / px / font names in nodes | Bind variables / styles. Raw literals = inline-styled spaghetti. |
@@ -294,9 +300,10 @@ which is exactly why it's a skill.
 - `references/claude-design-import.md` — **Branch D.** Claude Design project shapes, the
   `_ds_manifest.json` token index, `.d.ts` → Figma component-property mapping, and the
   round-trip back through `DesignSync`.
-- `references/storybook-import.md` — **Branch E.** Routing between story.to.design and the
-  MCP write path, `index.json` limits, `argType.type` → component properties, the variant
-  budget, and the story-authoring rules that make captures clean.
+- `references/storybook-import.md` — **Branch E.** The story.to.design authoring contract
+  (`s2d.variantProperties`, pseudo-states, special args), the tokens-first phase and its
+  colors-only/styles-not-variables ceiling, atomics → composites import order and nesting
+  rules, `index.json` limits, `options`-first axis extraction, and the MCP fallback.
 - `references/design-md-template.md` — Figma-optimized `DESIGN.md` template (Google's real
   spec + Figma-targeting affordances) and how to feed it to the model.
 - `references/html-to-figma-mapping.md` — flexbox→auto-layout, CSS-vars→variables,
