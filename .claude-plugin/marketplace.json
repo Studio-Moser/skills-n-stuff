@@ -6,15 +6,15 @@
   },
   "metadata": {
     "description": "Claude Code plugins by Studio Moser — strategy, research, design, and product development tools.",
-    "version": "0.9.0",
+    "version": "0.10.0",
     "pluginRoot": "./plugins"
   },
   "plugins": [
     {
       "name": "figma-design",
       "source": "./plugins/figma-design",
-      "description": "Author high-quality designs directly into Figma via the remote Figma MCP. Fuses Claude's frontend-design aesthetic engine with a token contract and figma-use authoring discipline so code-to-design output matches Claude's HTML/CSS quality. Imports Claude Design projects, existing Figma systems, code-only systems, and greenfield.",
-      "version": "0.2.0",
+      "description": "Author high-quality designs directly into Figma via the remote Figma MCP. Fuses Claude's frontend-design aesthetic engine with a token contract and figma-use authoring discipline so code-to-design output matches Claude's HTML/CSS quality. Imports Claude Design projects, Storybooks, existing Figma systems, code-only systems, and greenfield.",
+      "version": "0.3.0",
       "author": {
         "name": "Studio Moser"
       },
@@ -25,6 +25,7 @@
         "code-to-design",
         "design-system",
         "claude-design",
+        "storybook",
         "design-md",
         "design-tokens",
         "figma-variables",
@@ -37,7 +38,8 @@
         "design",
         "design-system",
         "code-to-design",
-        "claude-design"
+        "claude-design",
+        "storybook"
       ]
     },
     {
