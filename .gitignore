@@ -1,0 +1,5 @@
+
+# Agent/pilot scratch artifacts — never commit
+.playwright-mcp/
+*-tokens.json
+storybook-static/
