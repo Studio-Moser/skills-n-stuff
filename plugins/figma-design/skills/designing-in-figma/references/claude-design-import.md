@@ -63,12 +63,15 @@ primitives from semantics and light from dark:
 → two collections (`Primitives`, `Semantic`), and the `[data-theme="dark"]` block is the
 **second mode** of the semantic collection. Rename `Mode 1` to `Light`; add `Dark`.
 
-**Always set code syntax from the literal CSS name** — this is what makes the library
-round-trip instead of being a one-way push:
+**Always set code syntax from the literal CSS name:**
 
 ```js
 v.setVariableCodeSyntax('WEB', `var(--ds-primary)`)
 ```
+
+This is a **one-way Dev Mode annotation, not a live round-trip** — nothing reads it back into
+the project. It makes Dev Mode show the real CSS custom property instead of a name guessed
+from the Figma variable, which is what keeps the two sides aligned for the write-back below.
 
 ### Three traps in real Claude Design token data
 
@@ -132,8 +135,9 @@ make the primary axis a variant and the rest boolean/text properties, and say so
 
 `DesignSync` also has `write_files`, so Claude Design works as the interchange hub in both
 directions: read Figma with `get_variable_defs` / `get_design_context`, emit CSS custom
-properties, and write them back to the project. This works precisely because both ends speak
-the same `var(--x)` names — which is why Step 2's code-syntax rule is non-optional.
+properties, and write them back to the project. **`write_files` is what actually moves the
+data** — the code syntax from Step 2 is the naming alignment that makes the write-back land
+on the right tokens rather than inventing new ones.
 
 Ordering is enforced by the tool: `list_files`/`get_file` → `finalize_plan` → `write_files`.
 Sync one component at a time; never wholesale-replace a project.

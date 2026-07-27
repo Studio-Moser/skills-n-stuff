@@ -24,11 +24,14 @@ quality = committed aesthetic direction   (frontend-design engine)
         + render → critique → fix loop     (screenshot self-correction)
 ```
 
-It branches across four starting points:
+It branches across five starting points:
 
 - **Claude Design project** — import it. The richest source available: CSS-custom-property
   tokens, a per-component `.d.ts` API that maps straight onto Figma variant sets, a group
   taxonomy, and standalone renders. Read via the `DesignSync` tool, not the `.zip`.
+- **Storybook** — enumerate from `index.json`, extract the prop surface separately (the index
+  doesn't carry it), and map `argType.type` onto Figma variant axes. Routes between the
+  story.to.design plugin and the agent-driven MCP write path.
 - **Existing Figma design system** — discover and compose from real components/variables.
 - **Design system in code only** — mirror code tokens → a `DESIGN.md` → Figma variables → build.
 - **Greenfield** — decide the system first (aesthetic engine → `DESIGN.md` → variables +
@@ -36,9 +39,10 @@ It branches across four starting points:
   trap when there are no conventions yet.)
 
 It also encodes the things agents get wrong by default: searching the design system *before*
-creating anything (reuse is never automatic), setting `setVariableCodeSyntax` so the library
-round-trips instead of drifting, phase-gating library builds instead of one-shotting them, and
-ending with an explicit human publish step.
+creating anything (reuse is never automatic), stamping `setVariableCodeSyntax` so Dev Mode
+shows real token names instead of guessed ones, phase-gating library builds instead of
+one-shotting them, budgeting variant matrices before they explode, and ending with an explicit
+human publish step.
 
 ## Installation
 
@@ -56,6 +60,9 @@ Requires:
   restating them, since they are beta and served live.
 - For the Claude Design branch: the **`DesignSync`** tool and a Claude Design design-system
   project.
+- For the Storybook branch: a Storybook (dev server or `storybook-static/`) with docgen
+  enabled — `typescript.reactDocgen` must not be `false`. Optionally the story.to.design
+  Figma plugin, if you take that route.
 - The **`frontend-design`** skill (Claude plugins official) — the aesthetic engine.
 - Optional: `@google/design.md` CLI (`npx @google/design.md …`) for linting/exporting `DESIGN.md`.
 
@@ -75,6 +82,9 @@ MCP's `get_design_context`.
 # then builds real Figma variables and variant sets
 move the Moby design system into Figma
 
+# From a Storybook — enumerates stories, maps argTypes to variant axes
+import our Storybook components into Figma
+
 # Greenfield — it commits an aesthetic direction, writes a DESIGN.md, lays down
 # variables + a component kit, then builds the screen
 design a bold editorial pricing page in Figma
@@ -88,10 +98,13 @@ build the settings screen in Figma using our shared-ui design tokens
 
 ## What's inside
 
-- `skills/designing-in-figma/SKILL.md` — the conductor: core insight, four-way branch,
+- `skills/designing-in-figma/SKILL.md` — the conductor: core insight, five-way branch,
   ordered workflow, red-flag table.
 - `references/claude-design-import.md` — Claude Design project shapes, the `_ds_manifest.json`
   token index, `.d.ts` → Figma component-property mapping, and the `DesignSync` round trip.
+- `references/storybook-import.md` — s2d vs MCP routing, `index.json` limits, docgen
+  reliability, `argType.type` → component properties, the ≤30 variant budget, and the
+  story-authoring rules that keep captures clean.
 - `references/design-md-template.md` — Figma-optimized `DESIGN.md` template (Google's real
   spec + Figma-targeting affordances) and how to feed it to the model.
 - `references/html-to-figma-mapping.md` — flexbox→auto-layout, CSS-vars→variables,
