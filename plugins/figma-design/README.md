@@ -29,9 +29,10 @@ It branches across five starting points:
 - **Claude Design project** — import it. The richest source available: CSS-custom-property
   tokens, a per-component `.d.ts` API that maps straight onto Figma variant sets, a group
   taxonomy, and standalone renders. Read via the `DesignSync` tool, not the `.zip`.
-- **Storybook** — enumerate from `index.json`, extract the prop surface separately (the index
-  doesn't carry it), and map `argType.type` onto Figma variant axes. Routes between the
-  story.to.design plugin and the agent-driven MCP write path.
+- **Storybook** — prefer the story.to.design plugin so code stays the single source of truth
+  and re-syncs on one click. Encodes the `s2d` authoring contract, the tokens-first phase,
+  atomics → composites import order and the nesting rules, with the MCP write path as the
+  fallback for Storybooks you can't edit.
 - **Existing Figma design system** — discover and compose from real components/variables.
 - **Design system in code only** — mirror code tokens → a `DESIGN.md` → Figma variables → build.
 - **Greenfield** — decide the system first (aesthetic engine → `DESIGN.md` → variables +
@@ -102,9 +103,10 @@ build the settings screen in Figma using our shared-ui design tokens
   ordered workflow, red-flag table.
 - `references/claude-design-import.md` — Claude Design project shapes, the `_ds_manifest.json`
   token index, `.d.ts` → Figma component-property mapping, and the `DesignSync` round trip.
-- `references/storybook-import.md` — s2d vs MCP routing, `index.json` limits, docgen
-  reliability, `argType.type` → component properties, the ≤30 variant budget, and the
-  story-authoring rules that keep captures clean.
+- `references/storybook-import.md` — the story.to.design authoring contract, the tokens-first
+  phase and its colors-only/styles-not-Variables ceiling, atomics → composites import order,
+  nesting rules, `index.json` limits, `options`-first axis extraction, the variant budget, and
+  the MCP fallback.
 - `references/design-md-template.md` — Figma-optimized `DESIGN.md` template (Google's real
   spec + Figma-targeting affordances) and how to feed it to the model.
 - `references/html-to-figma-mapping.md` — flexbox→auto-layout, CSS-vars→variables,
