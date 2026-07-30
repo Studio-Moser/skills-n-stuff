@@ -61,7 +61,9 @@ oos_dir="$primary_repo_root/$(yq '.out_of_scope_dir // ".pm/out-of-scope"' "$pm_
 
 Read `CONTEXT.md` for domain terms — you will reference these during brainstorming and spec writing to ensure correct terminology.
 
-Read the `out-of-scope/` directory listing (excluding `README.md`). For each `.md` file, read its feature name and decision summary. Build a rejection index:
+Read the `out-of-scope/` directory listing (excluding `README.md`). For each `.md` file, read its feature name and decision summary. Build a rejection index.
+
+**Only rejections belong in the index.** Skip files whose header marks them as deferrals or archive snapshots (e.g. `**Status:** Deferred`, "archived", "move-don't-close") — a deferral is postponed work, not a scope decision, and treating it as a rejection poisons dedup with false negatives.
 
 ```bash
 oos_entries=()
@@ -103,7 +105,7 @@ Present each `status/needs-triage` item to the user one at a time with your reco
 **Reject** — The item is clearly out of scope, matches a previous rejection, or is not actionable for this project.
 
 Criteria for reject recommendation:
-- The item's concept has > 60% significant-word overlap with an existing out-of-scope entry
+- The item's **concept** matches an existing out-of-scope entry. Match by concept similarity, not keyword overlap — "night theme" matches `dark-mode.md`. When a match is found, don't auto-reject: surface it — `"We rejected this before because {reason} — still feel the same way?"` The user confirms (append to the entry's Prior requests, close), reconsiders (delete or update the entry, continue normal triage), or calls it distinct (proceed).
 - The item is a vague wish with no concrete outcome ("make it better", "improve performance")
 - The item targets a platform, language, or domain the project does not cover
 
@@ -142,7 +144,9 @@ Ask the user: `"Confirm? (yes / reject / keep / duplicate / skip)"`
 
 ### Process rejections
 
-When an item is rejected (by recommendation or override), create an out-of-scope entry using the template at `plugins/pm/templates/out-of-scope-entry.md`:
+Out-of-scope entries record **rejected enhancements only** — one file per concept. Never write one for a bug (bugs are fixed or closed, not scoped out) or for an already-implemented item (point to where it lives instead; a false rejection would poison future dedup). If the rejected concept already has an entry, append to its Prior requests instead of creating a new file.
+
+When an enhancement is rejected (by recommendation or override), create an out-of-scope entry using the template at `plugins/pm/templates/out-of-scope-entry.md`:
 
 ```bash
 slug=$(echo "{title}" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/^-//;s/-$//' | cut -c1-60)
@@ -350,6 +354,17 @@ Score: {X}/6
 
 Verdict: {status/ready+owner/ai | status/ready+owner/human | needs-info}
 ```
+
+### Claim verification (bugs)
+
+A bug report's description is a claim, not a fact — verification is the step that separates triage from ad-hoc labelling. Before any bug-flavored item (label `bug`, or a body describing broken behavior) can receive a `status/ready` verdict, attempt to verify it:
+
+- **Reproduce it** from the reported steps, or confirm the failing code path by reading the code (cite the path).
+- **Confirmed** → note the repro/code path in the spec or a comment; proceed to the verdict.
+- **Could not reproduce / claim contradicts the code** → cap the verdict at `needs-info` and record what you tried. The user can override to promote anyway.
+- **Verification impractical** (needs hardware, credentials, or a long-running setup) → say so explicitly and let the user decide; never silently skip.
+
+Enhancements skip this gate — there is no claim to verify.
 
 ### Verdict thresholds
 
