@@ -1,0 +1,24 @@
+{
+  "name": "mac-design",
+  "version": "0.1.0",
+  "description": "Design native-feeling macOS app UI in the Liquid Glass era (macOS 26 \"Tahoe\"). The context AI design tools lack, so output stops drifting toward web dashboards and iOS ports: the two-layer glass model, window/toolbar/sidebar/menu-bar conventions, Mac metrics and color, a SwiftUI API map, and an anti-slop checklist. Applies to SwiftUI/AppKit apps and HTML/CSS Mac-app mockups alike.",
+  "author": {
+    "name": "Studio Moser",
+    "url": "https://github.com/Studio-Moser"
+  },
+  "repository": "https://github.com/Studio-Moser/skills-n-stuff",
+  "license": "MIT",
+  "keywords": [
+    "macos",
+    "mac-app",
+    "liquid-glass",
+    "swiftui",
+    "appkit",
+    "apple-hig",
+    "native-ui",
+    "desktop-app",
+    "toolbar",
+    "sidebar",
+    "ui-design"
+  ]
+}
