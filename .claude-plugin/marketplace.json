@@ -5,7 +5,7 @@
     "email": "tim@studiomoser.com"
   },
   "metadata": {
-    "description": "Claude Code plugins by Studio Moser \u2014 strategy, research, design, and product development tools.",
+    "description": "Claude Code plugins by Studio Moser — strategy, research, design, and product development tools.",
     "version": "0.11.0",
     "pluginRoot": "./plugins"
   },
@@ -45,7 +45,7 @@
     {
       "name": "product-pulse",
       "source": "./plugins/product-pulse",
-      "description": "Strategic intelligence system for product teams. Weekly strategy briefs, daily market research, and deep-dive analysis \u2014 a three-cadence intelligence system that keeps you focused on what matters.",
+      "description": "Strategic intelligence system for product teams. Weekly strategy briefs, daily market research, and deep-dive analysis — a three-cadence intelligence system that keeps you focused on what matters.",
       "author": {
         "name": "Studio Moser"
       },
@@ -93,7 +93,7 @@
         "triage",
         "sprint"
       ],
-      "version": "0.12.0"
+      "version": "0.13.1"
     },
     {
       "name": "site-capture",
