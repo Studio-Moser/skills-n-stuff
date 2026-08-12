@@ -83,6 +83,12 @@ Mac wants 13px". Reject vague verdicts ("make it pop"); send them back.
 
 Run the critics in parallel.
 
+**No subagents available (e.g. Claude.ai)?** The *independence* is what matters,
+not the mechanism. Run each critic as a separate clean pass that sees only the
+artifact + its rubric + the reference — a fresh section, or a separate chat —
+without letting it read your build reasoning. A sequential loop of honest critics
+still beats self-review; don't skip the loop just because you can't fan out.
+
 **Model routing** (our subagent rubric + the pge-evaluator finding that weak
 judges *falsely reject* faithful work):
 
