@@ -285,6 +285,7 @@ Things real screens force that the core loop doesn't spell out:
 | Building the whole screen in one giant `use_figma` call | One section per call, ≤10 ops, wrapper first. Keeps errors recoverable. |
 | Skipping the screenshot after a section | Screenshot and check for clipped text / overlap / placeholders before moving on. |
 | "It's structurally fine, ship it" without checking aesthetics | Run the final pass against the committed direction. Clean ≠ distinctive. |
+| Trusting your own final pass on a hero screen or a reused template | You're the worst judge of what you just built. Run the `design-critic-loop` skill (`@studio-moser`) — independent critics against the `DESIGN.md` token contract + craft bar — for high-value artifacts. Skip it for routine work; the loop is token-expensive. |
 
 ## Why this works
 

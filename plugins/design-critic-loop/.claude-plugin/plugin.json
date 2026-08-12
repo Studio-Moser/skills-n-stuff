@@ -1,0 +1,23 @@
+{
+  "name": "design-critic-loop",
+  "version": "0.1.0",
+  "description": "Raise any design to a high bar with the Gauntlet Loop: instead of letting the generator grade its own homework, spin up independent fresh-context critics (brief / system / craft) that judge against an explicit definition of done and iterate until they pass. Starts by pinning down what 'done' means — asking the user for goals and reference examples when the bar is unclear — then loops build→critique→fix until it converges. Reusable by any design skill.",
+  "author": {
+    "name": "Studio Moser",
+    "url": "https://github.com/Studio-Moser"
+  },
+  "repository": "https://github.com/Studio-Moser/skills-n-stuff",
+  "license": "MIT",
+  "keywords": [
+    "design",
+    "critique",
+    "gauntlet-loop",
+    "design-loop",
+    "quality",
+    "iteration",
+    "independent-critics",
+    "taste",
+    "review",
+    "ui-design"
+  ]
+}

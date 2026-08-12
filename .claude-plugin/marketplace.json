@@ -6,15 +6,45 @@
   },
   "metadata": {
     "description": "Claude Code plugins by Studio Moser — strategy, research, design, and product development tools.",
-    "version": "0.12.0",
+    "version": "0.13.0",
     "pluginRoot": "./plugins"
   },
   "plugins": [
     {
+      "name": "design-critic-loop",
+      "source": "./plugins/design-critic-loop",
+      "description": "Raise any design to a high bar with the Gauntlet Loop: instead of letting the generator grade its own homework, spin up independent fresh-context critics (brief / system / craft) that judge against an explicit definition of done and iterate until they pass. Pins down what 'done' means first — asking the user for goals and reference examples when the bar is unclear — then loops build→critique→fix until it converges. Reusable by any design skill.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Studio Moser"
+      },
+      "license": "MIT",
+      "keywords": [
+        "design",
+        "critique",
+        "gauntlet-loop",
+        "design-loop",
+        "quality",
+        "iteration",
+        "independent-critics",
+        "taste",
+        "review",
+        "ui-design"
+      ],
+      "category": "productivity",
+      "tags": [
+        "design",
+        "critique",
+        "quality",
+        "review",
+        "iteration"
+      ]
+    },
+    {
       "name": "mac-design",
       "source": "./plugins/mac-design",
       "description": "Design native-feeling macOS app UI in the Liquid Glass era (macOS 26 \"Tahoe\"). The context AI design tools lack, so output stops drifting toward web dashboards and iOS ports: the two-layer glass model, window/toolbar/sidebar/menu-bar conventions, Mac metrics and color, a SwiftUI API map, and an anti-slop checklist. Applies to SwiftUI/AppKit apps and HTML/CSS Mac-app mockups alike.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "author": {
         "name": "Studio Moser"
       },
@@ -45,7 +75,7 @@
       "name": "figma-design",
       "source": "./plugins/figma-design",
       "description": "Author high-quality designs directly into Figma via the remote Figma MCP. Fuses Claude's frontend-design aesthetic engine with a token contract and figma-use authoring discipline so code-to-design output matches Claude's HTML/CSS quality. Imports Claude Design projects, Storybooks (story.to.design or MCP), existing Figma systems, code-only systems, and greenfield.",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "author": {
         "name": "Studio Moser"
       },

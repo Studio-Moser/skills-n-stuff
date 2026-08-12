@@ -127,3 +127,13 @@ menus). The apps that feel both branded *and* native — CleanMyMac, Setapp,
 Pixelmator — all obey this. If a project has its own brand contract / `DESIGN.md`,
 layer its palette and type onto the content layer and let this skill govern the
 chrome. See `references/` for the full illustrated guide and sourcing.
+
+## 8. Verify with the gauntlet (high-value surfaces)
+
+Don't ship a Mac surface on your own say-so — you're the worst judge of what you
+just drew. For a hero screen, a template, or anything reused, run the
+`design-critic-loop` skill (install `design-critic-loop@studio-moser`) and pass
+**§5 (the anti-slop checklist) + §1 (the two-layer glass rules)** as the *system*
+rubric and §3–4 conventions as the *craft* bar. Independent critics catch the
+web-dashboard / iOS-port drift that self-review rationalizes away. Skip it for
+routine tweaks — the loop is token-expensive.

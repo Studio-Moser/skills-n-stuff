@@ -1,6 +1,6 @@
 {
   "name": "figma-design",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Author high-quality designs directly into Figma via the remote Figma MCP. Fuses Claude's frontend-design aesthetic engine with a token contract and figma-use authoring discipline so code-to-design output matches Claude's HTML/CSS quality. Imports Claude Design projects, Storybooks (story.to.design or MCP), existing Figma systems, code-only systems, and greenfield.",
   "author": {
     "name": "Studio Moser",
