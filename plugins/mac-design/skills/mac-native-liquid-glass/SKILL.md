@@ -4,7 +4,7 @@ description: >-
   Use when designing, building, or reviewing native macOS app UI — a Mac window,
   desktop app, SwiftUI/AppKit screen, or an HTML/CSS mockup of a Mac app. Triggers:
   "mac app", "macOS app", "native Mac", "Mac window", "Liquid Glass", "desktop app
-  UI", "toolbar", "sidebar", "menu bar", "make this feel native". Covers the
+  UI", "macOS toolbar/sidebar", "menu bar app", "make this feel native". Covers the
   two-layer glass model (macOS 26 "Tahoe"), window/toolbar/sidebar/menu-bar
   conventions, Mac metrics and color, a SwiftUI API map, and an anti-slop checklist.
   Use especially when generated "Mac" UI looks like a web dashboard or an iOS port —
