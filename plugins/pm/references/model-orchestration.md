@@ -67,6 +67,7 @@ _Rubric reviewed {date}, sources: {vendor docs / benchmark / offline}. Re-assess
 Everything above applies to workflow-script `agent()` calls exactly as it does to Agent-tool calls — same rubric, same explicit-`model` rule.
 
 - **Don't avoid them.** Reach for a dynamic workflow when a task has 3+ independent parallelizable subtasks, or wants a pipeline / judge panel. `sprint-dev` fanning out several PR batches is the canonical case.
+- **But match ceremony to the task.** Don't spawn a sub-agent, panel, or workflow for work a single pass finishes. Delegation buys breadth, context isolation, or an adversarial second opinion — it is not the default shape for ordinary work, and a workflow wrapped around a one-file change costs more than it returns.
 - **Opt-in is per session.** Unless the session has already opted in to multi-agent orchestration, propose the workflow in a sentence or two — rough shape and rough cost — and wait for a yes. If the session is already opted in, just run it.
 - **Every `agent()` sets `model` explicitly.** No exceptions; omission inherits the session model.
 - **The independence tier never runs as a workflow stage.** An adversarial read of your own work happens *after* the workflow returns, as a standalone Agent call, and only with an explicit yes.

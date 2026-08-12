@@ -30,7 +30,9 @@ Commit incrementally as you go — don't batch an entire feature into one commit
 
 ## Pull Requests
 
-- **Title:** under 72 chars, imperative (`Fix iPad settings crash on rotation`).
+- **Title:** under 72 chars, imperative (`Fix iPad settings crash on rotation`). Say what changed *for the user*, not which internals moved.
+  - Bad: `perf(server): negotiate per-message deflate on the websocket`
+  - Good: `perf(server): cut websocket frame size by 70% with gzip`
 - **Body:** always these three sections:
 
 ```
@@ -44,6 +46,10 @@ Commit incrementally as you go — don't batch an entire feature into one commit
 <commands run + result; screenshots for UI>
 ```
 
+- **Open `## Why` with the problem in the reporter's own words, then the fix.** Never lead with an implementation inventory — a reader who wasn't in the thread has to understand the point in one sentence.
+  - Bad: `Removed implicit workspace carryover from every new thread entry point; new threads inherit only the project from context.`
+  - Good: `Starting a new thread on an existing worktree silently ignored my worktree default. Now the preference always applies.`
+- If someone reading the PR cold can't state what problem it solves, rewrite it before filing.
 - One PR per task. Don't mix unrelated changes.
 - Create with: `gh pr create --title "…" --body "…"`. Link the issue/card if there is one.
 
