@@ -51,13 +51,18 @@ routing:
   bulk: <cheapest capable model>      # clear-spec / mechanical work — cheapest capable ACROSS providers
   taste_min: 7                        # user-facing work needs taste >= this
   review: <strong model>              # plan/implementation reviews
+  independent: <model>                # optional — adversarial read of YOUR OWN plan/diff, by a model
+                                      # that hasn't seen your context. Ask before spawning; expensive.
 ```
 
 7. **How to apply it** (tell the developer, and follow it yourself when dispatching sub-agents):
+   - **Pass the model explicitly on every dispatch** — every Agent-tool call and every `agent()` call inside a workflow script. Omitting it silently inherits the session model, and the routing below does nothing. This is the one rule that makes the rest of the rubric real.
    - Defaults, not limits — escalate to a stronger model without asking if output misses the bar.
    - Bulk/mechanical/clear-spec → `routing.bulk` — the cheapest capable model regardless of vendor.
    - User-facing (UI, copy, API) → a model with `taste >= routing.taste_min`.
-   - Reviews → `routing.review`.
+   - Reviews → `routing.review`. Unsure between two tiers → take the cheaper and escalate on failure.
+   - **Independence is its own axis, not just strength.** An adversarial read of *your own* plan or diff needs a model that hasn't seen your context — `routing.independent`, if set. It's the expensive option: propose it and wait for a yes rather than spawning one unprompted, and run it as a standalone call *after* a workflow finishes, never as a workflow stage.
+   - **Dynamic workflows** (the Workflow tool) are fair game — reach for one when a task has 3+ independent parallelizable subtasks or wants a pipeline/judge panel. Unless the session has already opted in to multi-agent orchestration, propose it in a sentence or two with the rough shape and cost and wait for a yes. Inside the script, every `agent()` carries its own `model` per the routing above.
    - Models marked `via: <cli>` are invoked through that CLI (e.g. `codex exec`) rather than natively — where the pm plugin is installed, its `codex-*` skills handle this.
    - Keep reasoning effort matched to difficulty; don't default to the top tier.
    - Re-check when a newer model ships or after **14 days**, then update `reviewed`. On refresh, re-pull Artificial Analysis for cost + intelligence and **keep your taste scores and capabilities** — only the AA-sourced axes change. No re-interview needed.

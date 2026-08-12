@@ -296,9 +296,13 @@ Build a comprehensive sub-agent prompt with:
 
 Dispatch independent PRs in parallel. Conflicting PRs run sequentially.
 
+**Pick the model per batch from the rubric** (`${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml`) and **always pass it explicitly** — omitting `model` inherits the session model, which silently defeats the routing. Clear-spec/mechanical batches → `routing.bulk`; user-facing batches (UI, copy, API surface) → a model with `taste >= routing.taste_min`. Unsure between two tiers → take the cheaper and escalate on failure.
+
 ```
-Agent(subagent_type="general-purpose", prompt=built_prompt)
+Agent(subagent_type="general-purpose", model=<from rubric>, prompt=built_prompt)
 ```
+
+Three or more independent batches is the case for a dynamic workflow instead of loose parallel Agent calls — propose it with its rough shape and cost, and wait for a yes unless the session has already opted in to multi-agent orchestration. Inside the script, every `agent()` carries its own `model`.
 
 ### 2C. Independent Check & Fix Loop
 
@@ -310,7 +314,7 @@ After each sub-agent creates its PR, run the `code-review` skill against that PR
 
 If any issues clear the bar, run the fix loop (max 2 rounds):
 
-1. Dispatch a follow-up sub-agent on the same branch (check out the PR branch).
+1. Dispatch a follow-up sub-agent on the same branch (check out the PR branch), passing `model` explicitly — `routing.bulk` for mechanical fixes, the batch's original model when the finding is subtle.
 2. For each filtered issue, either fix it **or** dispute it: if the finding is wrong for this codebase (a false positive, or it contradicts the spec — e.g. flagging content as "too short" that the spec says should be short), leave the code as-is and record a one-line justification instead of forcing a change. Disputes are legitimate; don't pad or distort correct work to satisfy a bad finding.
 3. Run the full verify protocol (tests/build/lint/typecheck per project) and **paste the actual output** — never report "passing" without evidence.
 4. Commit as new commits — `fix: address code review findings`. Push to the same branch (never force push).

@@ -45,10 +45,12 @@ Higher = better. Intelligence = hardest problem handled unsupervised. Taste = UI
 | {most capable}           | … | … | … |
 
 How to apply:
+- **Pass the model explicitly on every dispatch** — every Agent-tool call and every `agent()` call inside a workflow script. Omitting it silently inherits the session model, and every routing rule below becomes decorative.
 - Defaults, not limits — escalate to a stronger model without asking if output misses the bar; judge the output, not the price.
 - Bulk/mechanical, clear-spec work (implementation, migrations, data/log digging) → the cheapest capable model.
 - User-facing work (UI, copy, API/SDK design) → needs taste ≥ {threshold}.
-- Reviews of plans/implementations → a strong model, optionally a second independent one.
+- Reviews of plans/implementations → a strong model. Unsure between two tiers → take the cheaper and escalate on failure.
+- Independence is a separate axis from strength: an adversarial read of *your own* plan or diff needs a model that hasn't seen your context (`routing.independent`). Expensive — propose it and wait for a yes; never spawn one unprompted.
 - Keep reasoning effort matched to difficulty; don't default to the top effort tier — the highest tiers tend to over-reason per step, loop, and ship overdone work at much higher cost for no gain on most steps.
 - Don't predefine sub-agent archetypes (reviewer, explorer, adversarial). Let the orchestrator invent the roles each task needs.
 - If a model hides its reasoning, never ask it to echo or "explain your reasoning" in the response — it can trip a reasoning-extraction guard and silently reroute you off that model. Read its thinking blocks instead.
@@ -57,6 +59,17 @@ How to apply:
 
 _Rubric reviewed {date}, sources: {vendor docs / benchmark / offline}. Re-assess when a newer model in this family ships or after 14 days, whichever comes first: re-check the lineup and rescore, then update this date._
 ```
+
+---
+
+## Dynamic workflows
+
+Everything above applies to workflow-script `agent()` calls exactly as it does to Agent-tool calls — same rubric, same explicit-`model` rule.
+
+- **Don't avoid them.** Reach for a dynamic workflow when a task has 3+ independent parallelizable subtasks, or wants a pipeline / judge panel. `sprint-dev` fanning out several PR batches is the canonical case.
+- **Opt-in is per session.** Unless the session has already opted in to multi-agent orchestration, propose the workflow in a sentence or two — rough shape and rough cost — and wait for a yes. If the session is already opted in, just run it.
+- **Every `agent()` sets `model` explicitly.** No exceptions; omission inherits the session model.
+- **The independence tier never runs as a workflow stage.** An adversarial read of your own work happens *after* the workflow returns, as a standalone Agent call, and only with an explicit yes.
 
 ---
 
