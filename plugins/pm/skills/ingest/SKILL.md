@@ -56,6 +56,28 @@ EOF
 fi
 ```
 
+The scan watermark is a dedicated file touched ONLY by ingest — `state_file`'s mtime cannot serve, because `/pm:reconcile` also writes `state_file`, and every reconcile would silently mark all reports since the last ingest as already processed:
+
+```bash
+watermark_file="$(dirname "$state_file")/ingest-watermark"
+if [ ! -f "$watermark_file" ]; then
+  if [ -f "$state_file" ]; then
+    touch -r "$state_file" "$watermark_file"   # migration: inherit the old shared watermark once
+  else
+    touch -t 197001010000 "$watermark_file"    # true first run: every report is new
+  fi
+fi
+```
+
+The watermark is machine-local state (its only meaning is its mtime), so keep it out of git — a fresh checkout would reset it:
+
+```bash
+gitignore_file="$(dirname "$state_file")/.gitignore"
+grep -qs '^ingest-watermark$' "$gitignore_file" || echo 'ingest-watermark' >> "$gitignore_file"
+```
+
+To deliberately re-ingest a window (e.g. after reports were missed), back-date it: `touch -t YYYYMMDDhhmm "$watermark_file"` — Phase 3's dedup absorbs anything already filed.
+
 ---
 
 ### 0.1 Pull Latest
@@ -76,7 +98,7 @@ If any pull fails, note it and continue — stale data is better than a full sto
 
 ## Phase 1: Scan for New Reports
 
-For each directory in `research_dirs`, find report files newer than the state file. The state file's mtime serves as the watermark.
+For each directory in `research_dirs`, find report files newer than the ingest watermark file.
 
 ```bash
 new_reports=()
@@ -86,13 +108,15 @@ for rd in "${research_dirs[@]}"; do
   while IFS= read -r f; do
     [ -n "$f" ] && new_reports+=("$f")
   done < <(
-    find "$rd" -name "*-daily-research.md" -newer "$state_file" 2>/dev/null
-    find "$rd" -name "*-strategy-brief.md" -newer "$state_file" 2>/dev/null
-    find "$rd" -name "*-recommendations.md" -newer "$state_file" 2>/dev/null
-    find "$rd/deep-dives" -name "*.md" -newer "$state_file" 2>/dev/null
+    find "$rd" -name "*-daily-research.md" -newer "$watermark_file" 2>/dev/null
+    find "$rd" -name "*-strategy-brief.md" -newer "$watermark_file" 2>/dev/null
+    find "$rd" -name "*-recommendations.md" -newer "$watermark_file" 2>/dev/null
+    find "$rd/deep-dives" -name "*.md" -newer "$watermark_file" 2>/dev/null
   )
 done
 ```
+
+Caveat to keep in mind (not a blocker): mtimes come from git checkout/pull time, not authorship, so a fresh clone can over-report old files as new — Phase 3's dedup filters those out. Under-reporting only happens if something other than ingest touches `$watermark_file`; nothing should.
 
 If no new reports are found, print `"No new reports since last ingestion."` and exit cleanly.
 
@@ -355,7 +379,7 @@ Capture `card.id` and `card.shortUrl` for the summary. The card title is the ite
 After all items are created (or skipped), update the state file to record the ingestion timestamp.
 
 ```bash
-touch "$state_file"  # Update mtime (used by find -newer)
+touch "$watermark_file"  # THE scan watermark (used by find -newer). Do NOT rely on $state_file's mtime — reconcile writes that file too.
 ```
 
 Also write structured watermark data for auditability:
@@ -411,6 +435,7 @@ If zero items were created, note: `"All extracted items were duplicates, out-of-
 - **Sub-agent failure**: Log and continue. Partial results are valid.
 - **No research_dirs configured**: Fall back to `research_dir` from `pulse-config.yaml`.
 - **State file missing**: Create with empty watermarks (first-run behavior).
+- **Watermark file missing**: Initialize from `state_file`'s mtime if it exists (migration), else epoch (first run). Never fall back to using `state_file`'s mtime directly for the scan.
 - **Items directory missing (local)**: Create automatically.
 - **Git pull fails**: Note and continue. Watermarks catch duplicates on next run.
 - **Trello MCP tool call failure (rate limit, auth)**: Stop the run. Print the error verbatim. Resume after fixing credentials (`/pm:setup` re-validates) or after the rate limit window passes.
