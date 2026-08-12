@@ -298,6 +298,8 @@ Dispatch independent PRs in parallel. Conflicting PRs run sequentially.
 
 **State file ownership up front.** Batch grouping keeps *known* conflicts apart, but parallel workers still collide on files neither batch's items named — shared types, barrel exports, config, lockfiles. Before dispatching, list the paths each batch is expected to touch and put them in that worker's prompt: "You own `{paths}`. Do not edit files owned by another batch — if your work requires a change outside your paths, stop and report it to the orchestrator instead of making it." Overlaps you find while building that list are a signal the batches should run sequentially.
 
+Ownership in the prompt is an instruction, not a guarantee — nothing stops a worker editing outside its paths. When batches run genuinely in parallel, give each one its own worktree (`git worktree add ../{repo}-{batch} -b {branch} origin/main`, `isolation: 'worktree'` for workflow agents) so collisions are impossible rather than merely discouraged. See the concurrent-sessions section of `pm:house-rules`.
+
 **Pick the model per batch from the rubric** (`${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml`) and **always pass it explicitly** — omitting `model` inherits the session model, which silently defeats the routing. Clear-spec/mechanical batches → `routing.bulk`; user-facing batches (UI, copy, API surface) → a model with `taste >= routing.taste_min`. Unsure between two tiers → take the cheaper and escalate on failure.
 
 ```

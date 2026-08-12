@@ -16,6 +16,25 @@ Conventions for code changes across Studio Moser projects. Canonical source — 
   - `chore/` — tooling, deps, docs, refactors with no behavior change (`chore/bump-eslint`)
 - Exception: automated sprint batches (pm:sprint-dev) use a `pulse/{cluster}-{date}` prefix — that's expected.
 
+## Concurrent sessions in one repo
+
+Several agent sessions often run against the same checkout at once. A checkout has exactly one HEAD and one index, so a second session switching branches between your commands silently re-parents your work — you branch off whatever HEAD happens to be, and `git add -A` stages their in-flight edits as yours. This is not hypothetical: it produced a PR carrying another session's unmerged refactor under an unrelated description, and only a merge conflict exposed it.
+
+**Get your own worktree before starting parallel work:**
+
+```bash
+git worktree add ../{repo}-{task} -b {type}/{short-desc} origin/main
+```
+
+An isolated working directory with its own HEAD and index. Remove it when the branch merges: `git worktree remove ../{repo}-{task}`.
+
+When you're working directly in a shared checkout anyway, two habits contain the damage:
+
+- **Verify HEAD immediately before branching**, in the same command — not in an earlier one. `git rev-parse --abbrev-ref HEAD` in a separate call proves nothing about where you are a minute later. Chain it: `git checkout main && git pull && git checkout -b {branch}`.
+- **Stage explicit paths, never `git add -A`/`git add .`** unless you have just read `git status` in the same command and every listed file is yours. Anything you didn't touch is someone's work in progress.
+
+Before pushing, confirm the branch holds only your commits: `git log --oneline origin/main..HEAD`.
+
 ## Commits
 
 Conventional Commits, present tense, one logical change per commit:
