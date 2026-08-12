@@ -6,10 +6,41 @@
   },
   "metadata": {
     "description": "Claude Code plugins by Studio Moser — strategy, research, design, and product development tools.",
-    "version": "0.11.0",
+    "version": "0.12.0",
     "pluginRoot": "./plugins"
   },
   "plugins": [
+    {
+      "name": "mac-design",
+      "source": "./plugins/mac-design",
+      "description": "Design native-feeling macOS app UI in the Liquid Glass era (macOS 26 \"Tahoe\"). The context AI design tools lack, so output stops drifting toward web dashboards and iOS ports: the two-layer glass model, window/toolbar/sidebar/menu-bar conventions, Mac metrics and color, a SwiftUI API map, and an anti-slop checklist. Applies to SwiftUI/AppKit apps and HTML/CSS Mac-app mockups alike.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Studio Moser"
+      },
+      "license": "MIT",
+      "keywords": [
+        "macos",
+        "mac-app",
+        "liquid-glass",
+        "swiftui",
+        "appkit",
+        "apple-hig",
+        "native-ui",
+        "desktop-app",
+        "toolbar",
+        "sidebar",
+        "ui-design"
+      ],
+      "category": "productivity",
+      "tags": [
+        "design",
+        "macos",
+        "liquid-glass",
+        "swiftui",
+        "native-ui"
+      ]
+    },
     {
       "name": "figma-design",
       "source": "./plugins/figma-design",
