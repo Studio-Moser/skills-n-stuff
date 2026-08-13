@@ -49,9 +49,14 @@ variable everywhere below instead of hardcoding `~/.claude` or `$HOME/.claude`,
 so the skill and the script always agree on which directory is being managed.
 
 **Each phase below may run as a separate command, in a separate shell.**
-`$repo` and `$claude` do not persist across that boundary. Re-run the two
-`repo=`/`claude=` assignments above at the top of any later command block
-that references them, rather than assuming Phase 0's values are still set.
+Nothing set in one command block — `repo=`, `claude=`, and later
+`diff_status=`, `$diff_err`'s path — persists into the next. Re-resolve
+`repo=`/`claude=` at the top of any later block that references them, rather
+than assuming Phase 0's values are still set. Same rule for the diff
+sequence in Phase 1: run the `diff`, the `$diff_err` check, the resulting
+removal, and the `rm -f "$diff_err"` cleanup as one command block, not as
+separately-issued commands — splitting them loses the temp file's path and
+the `diff_status` value in between.
 
 **absent** — first run on this machine. Ask the user for their private repo URL;
 do not guess one. Then:
@@ -107,34 +112,66 @@ match, leave the link alone — re-linking would just churn a working link.
 
 **On `REAL-FILE`, never overwrite silently.** That file may hold edits made on
 this machine since the link broke. `skills` is a *directory*, so the diff must
-be recursive, and its exit status must be branched on explicitly rather than
-swallowed:
+be recursive:
 
 ```bash
-diff -ru "$repo/<rel>" "$claude/<name>" 2>diff.err
-status=$?
+diff_err="$(mktemp)"
+diff -ru "$repo/<rel>" "$claude/<name>" 2>"$diff_err"
+diff_status=$?
 ```
 
-- **`status` = 0 (identical) AND `diff.err` is empty** → remove the stray
-  file (or `rm -r` the stray directory) and re-link.
-- **`status` = 1 (differs)** → show the diff and ask: keep the machine's
+`diff_status`, not `status` — `status` is a read-only special variable in
+zsh (an alias for `$?`), and assigning to it aborts the command with
+`read-only variable: status` instead of setting anything. Since this skill
+runs its Bash blocks through whatever shell the agent's tool uses, which may
+be zsh, name it something the shell won't reject.
+
+**First, before looking at `diff_status` at all: if `$diff_err` is
+non-empty, stop and report.** Do not remove or re-link anything, and do not
+fall through to the status bullets below — a stderr line means part of the
+comparison didn't happen, so no status value is trustworthy:
+
+```bash
+if [ -s "$diff_err" ]; then cat "$diff_err"; rm -f "$diff_err"; exit 1; fi
+```
+
+This matters because BSD `diff -r` (macOS's default `diff`) exits **0**
+("identical") when a subdirectory it can't read produces a `diff: …:
+Permission denied` line on stderr, even while a *different*, readable part
+of the same tree genuinely differs — that combination is `diff_status=1`
+with a non-empty `diff_err`, which would otherwise walk straight into the
+keep/discard prompt below and `rm -r` a tree whose unreadable subtree was
+never actually compared. Checking stderr first, unconditionally, removes the
+need to repeat the check on every status branch.
+
+Once `$diff_err` is confirmed empty, branch on `diff_status`:
+
+- **`diff_status` = 0 (identical)** → remove the stray file (or `rm -r` the
+  stray directory) and re-link.
+- **`diff_status` = 1 (differs)** → show the diff and ask: keep the machine's
   version, or discard it. Never pick for the user. **Either way, remove the
   stray path before re-linking** — re-linking does not itself replace a real
   file or directory (see the `ln -sfn` note below), so skipping the removal
   step lands the new link inside the surviving path instead of replacing it,
   and the run reports success while the drift persists:
-  - *keep*: copy `$claude/<name>` into `$repo/<rel>` (commit it in the repo
-    if the user wants it tracked), **then `rm -r "$claude/<name>"`**, then
+  - *keep, file*: `cp "$claude/<name>" "$repo/<rel>"` (commit it in the repo
+    if the user wants it tracked), **then `rm "$claude/<name>"`**, then
+    `ln -sfn`.
+  - *keep, directory (e.g. `skills`)*: copy **contents**, not the directory
+    itself — `cp -R "$claude/<name>/." "$repo/<rel>/"`. A plain
+    `cp -R "$claude/<name>" "$repo/<rel>"` nests one level too deep
+    (`$repo/<rel>/<name>/…`) because both sides already exist as
+    directories, so the file ends up somewhere the repo's own `<rel>` path
+    doesn't cover — "keep the machine's version" would silently not happen
+    even though the command succeeds. **Then `rm -r "$claude/<name>"`**, then
     `ln -sfn`.
   - *discard*: **`rm -r "$claude/<name>"`**, then `ln -sfn` to the repo's
     version.
-- **`status` >= 2, OR `diff.err` is non-empty (e.g. any `diff:` line — a
-  missing or unreadable path)** → stop and report. Do **not** remove or
-  re-link anything; an error is not the same as "no differences." This
-  matters because BSD `diff -r` (macOS's default `diff`) exits **0** when a
-  subdirectory it can't read produces a `diff: …: Permission denied` line on
-  stderr — the exit status alone is not reliable for directories, only the
-  combination of exit status and stderr is.
+- `diff_status` >= 2 without a `diff_err` message is not expected from
+  `diff`, but treat it the same as the stderr case above: stop and report,
+  take no action.
+
+  Clean up the temp file once done: `rm -f "$diff_err"`.
 
   A plain `diff -u` here is a data-loss trap: non-recursive `diff` against
   two directories prints only `Common subdirectories: …` and exits 0 even
@@ -157,7 +194,7 @@ though it resolves correctly.
 it treats the destination as the link itself, not as a directory to drop the
 link into). It does **not** replace a real file or a real directory: run
 against a real path — including a `REAL-FILE` directory like `skills`, or a
-`skills` directory left over after only *part* of a status = 1 cleanup ran —
+`skills` directory left over after only *part* of a `diff_status` = 1 cleanup ran —
 `ln -sfn` creates `"$claude/<name>/<basename of $repo/<rel>>"` inside the
 surviving path and exits 0, reporting success while nothing was actually
 replaced. The real file or directory **must be removed (or moved aside)
