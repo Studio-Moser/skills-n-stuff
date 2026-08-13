@@ -23,128 +23,236 @@ The personal layer is **one private git repo per developer**, conventionally at
 | `~/.claude/settings.json` | `~/.agents/claude/settings.json` |
 | `~/.claude/statusline-command.sh` | `~/.agents/claude/statusline-command.sh` |
 
+**The four rows above are "the entries."** Every step below that touches more than
+one of them is written as a loop over the same list, redeclared verbatim at the top
+of that step's command block (blocks may run in separate shells, so nothing set in
+one persists into the next). Copy it exactly — don't hand-unroll it into separate
+per-entry lines. That's what makes adding a fifth entry later a one-line edit
+repeated in a few places instead of a hunt through prose for every place "the four"
+were listed out by hand:
+
+```bash
+entries="skills|skills|dir
+CLAUDE.md|claude/CLAUDE.md|file
+settings.json|claude/settings.json|file
+statusline-command.sh|claude/statusline-command.sh|file"
+```
+
+(`name|rel|kind` — `name` under `~/.claude`, `rel` under `~/.agents`, `kind` is
+`dir` or `file` so loops can branch: `skills` needs `-R`/`-r` forms, the rest don't.)
+
 ## Steps
 
-1. **Ask which case this is.** Two paths, and they differ in what can destroy work:
-   - *This developer already has the repo* → clone it (step 2).
-   - *This machine has loose config and there is no repo yet* → build the repo from
-     it (step 3). Read that step fully before running anything.
+1. **Back up whatever is on this machine for these four entries, before anything
+   else.** Both paths below can remove real files — the clone path (step 3) has an
+   unconditional removal a few lines into it, and it's the only net either path
+   gets:
 
-2. **Clone and link.** Ask for the repo URL — never guess one.
+   ```bash
+   entries="skills|skills|dir
+   CLAUDE.md|claude/CLAUDE.md|file
+   settings.json|claude/settings.json|file
+   statusline-command.sh|claude/statusline-command.sh|file"
+
+   rm -f "$HOME/agent-config-backup.tar" "$HOME/agent-config-backup.tar.gz"
+   found=0
+   while IFS='|' read -r name rel kind; do
+     [ -n "$name" ] || continue
+     if [ -e "$HOME/.claude/$name" ]; then
+       tar rhf "$HOME/agent-config-backup.tar" -C "$HOME" ".claude/$name"
+       found=1
+     fi
+   done <<EOF
+   $entries
+   EOF
+
+   if [ "$found" = 1 ]; then
+     gzip -f "$HOME/agent-config-backup.tar"
+     echo "backed up to $HOME/agent-config-backup.tar.gz"
+   else
+     echo "nothing at ~/.claude yet — no backup needed"
+   fi
+   ```
+
+   Archive each existing entry with its own `tar rhf` (append) call rather than
+   collecting paths into one variable and passing it to a single `tar` — `tar`
+   given a path that isn't there exits non-zero (`Cannot stat` /
+   `Error exit delayed`) even though the rest of the archive would be fine, and
+   most machines don't have `statusline-command.sh`; a backup step that appears
+   to fail is worse than no backup step. Per-entry calls also sidestep an unquoted
+   multi-path variable, which silently stops word-splitting into separate
+   arguments under zsh (unlike bash) and archives one bad combined path instead
+   — this skill's Bash tool may run either.
+
+2. **Ask which case this is.** Two paths, and they differ in what can destroy work:
+   - *This developer already has the repo* → clone it (step 3).
+   - *This machine has loose config and there is no repo yet* → build the repo from
+     it (step 4). Read that step fully before running anything.
+
+3. **Clone and link.** Ask for the repo URL — never guess one.
 
    ```bash
    git clone <url> "$HOME/.agents"
    ```
 
-   Before replacing anything, check what each of the four table entries currently
-   is on this machine:
+   Check state and diff in one pass — for each entry, report what's on this
+   machine, and if it's a real file or directory, diff it against the repo's copy
+   right there (branching on `kind`, since `skills` is a directory and a
+   non-recursive diff against a directory prints only `Common subdirectories: …`
+   and **exits 0 even when contents differ** — it will tell you nothing changed
+   when something did):
 
    ```bash
-   for name in skills CLAUDE.md settings.json statusline-command.sh; do
+   entries="skills|skills|dir
+   CLAUDE.md|claude/CLAUDE.md|file
+   settings.json|claude/settings.json|file
+   statusline-command.sh|claude/statusline-command.sh|file"
+
+   while IFS='|' read -r name rel kind; do
+     [ -n "$name" ] || continue
      link="$HOME/.claude/$name"
+     want="$HOME/.agents/$rel"
      if [ -L "$link" ]; then
-       echo "$name: existing symlink -> $(readlink "$link")"
+       echo "== $name: existing symlink -> $(readlink "$link")"
      elif [ -e "$link" ]; then
-       echo "$name: REAL file/directory — diff before touching it"
+       echo "== $name: REAL $kind on this machine"
+       if [ "$kind" = dir ]; then diff -ru "$want" "$link"; else diff -u "$want" "$link"; fi
      else
-       echo "$name: absent"
+       echo "== $name: absent on this machine"
      fi
-   done
+   done <<EOF
+   $entries
+   EOF
    ```
 
-   For anything reported as a **real file or directory**, it holds this machine's
-   current config. Diff it against the repo's copy and ask the developer which
-   side wins before removing anything. `skills` is a *directory* — that diff must
-   be recursive, or it will lie:
+   For every entry reported **REAL**, ask the developer which side wins — one
+   entry at a time. If the machine's version wins, copy it into the repo
+   **immediately**, before deciding the next entry (and commit it there if the
+   developer wants it tracked):
 
    ```bash
-   diff -ru "$HOME/.agents/skills" "$HOME/.claude/skills"                     # directory
-   diff -u  "$HOME/.agents/claude/CLAUDE.md" "$HOME/.claude/CLAUDE.md"        # a file
+   # directory (skills) — contents, not the directory itself:
+   cp -R "$HOME/.claude/skills/." "$HOME/.agents/skills/"
+   # a file — same form for CLAUDE.md, settings.json, or statusline-command.sh:
+   cp "$HOME/.claude/settings.json" "$HOME/.agents/claude/settings.json"
    ```
 
-   A non-recursive `diff -u` against two directories prints only
-   `Common subdirectories: …` and **exits 0 even when their contents differ** — it
-   will tell you nothing changed when something did. Always use `-r` for `skills`.
+   Do this for **every** entry the machine wins, not only the ones that come to
+   mind first — `settings.json` and `statusline-command.sh` are exactly as
+   unrecoverable as `skills` and `CLAUDE.md` once the next step removes them, and
+   nothing later in this doc copies them back for you.
 
-   If the machine's version wins, copy it into the repo first (and commit it there
-   if the developer wants it tracked) before it's removed:
+   Once every REAL entry is resolved (the repo now holds the winning content for
+   each), remove what's on the machine and link — but only for entries the repo
+   actually has. Linking to a path the repo lacks would create a dangling symlink
+   instead of correctly leaving that entry absent (this is also the loop step 4
+   reuses to replace originals with symlinks, and the one `/fleet:sync`'s own
+   `link-plan.sh` mirrors):
 
    ```bash
-   cp -R "$HOME/.claude/skills/." "$HOME/.agents/skills/"   # contents, not the directory —
-                                                             # cp -R src dst nests one level
-                                                             # deeper when both sides already exist
-   cp "$HOME/.claude/CLAUDE.md" "$HOME/.agents/claude/CLAUDE.md"   # plain cp for a file
+   entries="skills|skills|dir
+   CLAUDE.md|claude/CLAUDE.md|file
+   settings.json|claude/settings.json|file
+   statusline-command.sh|claude/statusline-command.sh|file"
+
+   while IFS='|' read -r name rel kind; do
+     [ -n "$name" ] || continue
+     link="$HOME/.claude/$name"
+     want="$HOME/.agents/$rel"
+     if [ ! -e "$want" ]; then
+       echo "== $name: repo has no $rel — leaving $link as-is, not linking"
+       continue
+     fi
+     rm -rf "$link"
+     ln -sfn "$want" "$link"
+     echo "== $name: linked -> $want"
+   done <<EOF
+   $entries
+   EOF
    ```
 
-   Now link every entry. **A real file or directory must be removed first** —
-   `ln -sfn` only repoints an *existing symlink*; pointed at a real path it does
-   not error and does not replace it, it silently creates the link *inside* that
-   path instead:
-
-   ```bash
-   # only the entries that are a real file/directory per the check above —
-   # never rm a symlink you intend to keep pointed elsewhere without re-linking it
-   rm -rf "$HOME/.claude/skills" "$HOME/.claude/CLAUDE.md" \
-          "$HOME/.claude/settings.json" "$HOME/.claude/statusline-command.sh"
-
-   ln -sfn "$HOME/.agents/skills"                        "$HOME/.claude/skills"
-   ln -sfn "$HOME/.agents/claude/CLAUDE.md"              "$HOME/.claude/CLAUDE.md"
-   ln -sfn "$HOME/.agents/claude/settings.json"          "$HOME/.claude/settings.json"
-   ln -sfn "$HOME/.agents/claude/statusline-command.sh"  "$HOME/.claude/statusline-command.sh"
-   ```
+   `rm -rf` here is safe unconditionally: by this point every REAL entry's content
+   worth keeping is already in the repo (or the developer chose to discard it),
+   and removing a plain symlink or a nonexistent path is a no-op. `ln -sfn` alone
+   is not enough — it only repoints an *existing symlink*; pointed at a real file
+   or directory it does not error and does not replace it, it silently creates the
+   link *inside* that path instead, which is why the removal has to happen first
+   on every branch, not only the symlink-to-directory case.
 
    Skip to step 5.
 
-3. **Build the repo from loose config.** Order matters — step 3b is destructive if
-   run before 3a.
+4. **Build the repo from loose config.** Order matters — step 4b is destructive if
+   run before 4a.
 
-   a. **Back up first.**
-
-      ```bash
-      tar czhf "$HOME/agent-config-backup.tgz" -C "$HOME" \
-        .claude/skills .claude/CLAUDE.md .claude/settings.json \
-        .claude/statusline-command.sh
-      ```
-
-   b. **If skills exist in more than one place, repair before consolidating.**
+   a. **If skills exist in more than one place, repair before consolidating.**
       Diff every duplicated pair — recursively, `diff -ru`, for the reason in
-      step 2 — and establish which side is clean **before** deleting either. **A
+      step 3 — and establish which side is clean **before** deleting either. **A
       newer mtime is not evidence of a newer version** — in one observed case the
       newer timestamp was when a blind find-and-replace corrupted that copy. Read
       the diffs.
 
-   c. **Initialise and commit a restore point** before anything moves. Copy, don't
-      move, the skills tree in — the originals stay in place as a fallback until
-      they're verified and explicitly removed in step 3e:
+   b. **Initialise the repo and copy every entry in** — copy, don't move; the
+      originals stay in place as a fallback until they're verified and explicitly
+      removed in step 4d. Skip any entry not present on this machine rather than
+      failing on it (`statusline-command.sh` is commonly absent):
 
       ```bash
       mkdir -p "$HOME/.agents/claude" "$HOME/.agents/skills"
       cd "$HOME/.agents" && git init -b main
-      cp -R "$HOME/.claude/skills/." skills/   # contents, not the directory (see step 2)
-      git add skills && git commit -m "Initial commit: skills tree"
+
+      entries="skills|skills|dir
+      CLAUDE.md|claude/CLAUDE.md|file
+      settings.json|claude/settings.json|file
+      statusline-command.sh|claude/statusline-command.sh|file"
+
+      while IFS='|' read -r name rel kind; do
+        [ -n "$name" ] || continue
+        src="$HOME/.claude/$name"
+        if [ ! -e "$src" ]; then echo "== $name: not on this machine, skipping"; continue; fi
+        if [ "$kind" = dir ]; then cp -R "$src/." "$HOME/.agents/$rel/"; else cp "$src" "$HOME/.agents/$rel"; fi
+      done <<EOF
+      $entries
+      EOF
+
+      git add skills claude && git commit -m "Initial commit: skills tree and claude config"
       ```
 
-   d. **Copy the config files in** (again, copy — not move), then apply the two
-      rules in step 4:
+   c. **Apply the two rules in step 5** to what you just committed.
+
+   d. **Replace the originals with symlinks** — reuse the removal+link loop from
+      step 3 verbatim (it already skips any entry the repo doesn't have, so it's
+      safe even when `statusline-command.sh` was never present). Before removing
+      the backup tarball from step 1, verify what's now linked actually resolves
+      and parses:
 
       ```bash
-      cp "$HOME/.claude/CLAUDE.md" claude/CLAUDE.md
-      cp "$HOME/.claude/settings.json" claude/settings.json
-      cp "$HOME/.claude/statusline-command.sh" claude/statusline-command.sh 2>/dev/null || true
-      git add claude && git commit -m "Add claude config files"
+      entries="skills|skills|dir
+      CLAUDE.md|claude/CLAUDE.md|file
+      settings.json|claude/settings.json|file
+      statusline-command.sh|claude/statusline-command.sh|file"
+
+      while IFS='|' read -r name rel kind; do
+        [ -n "$name" ] || continue
+        link="$HOME/.claude/$name"
+        if [ ! -e "$link" ] && [ ! -L "$link" ]; then echo "== $name: not linked (repo had none)"; continue; fi
+        target="$(readlink -f "$link" 2>/dev/null)"
+        if [ -z "$target" ] || [ ! -e "$target" ]; then echo "== $name: DANGLING -> $(readlink "$link")"; continue; fi
+        if [ "$kind" = dir ]; then
+          [ -n "$(ls -A "$link" 2>/dev/null)" ] && echo "== $name: ok, populated" || echo "== $name: EMPTY"
+        elif [ "$name" = settings.json ]; then
+          python3 -m json.tool "$link" >/dev/null 2>&1 && echo "== $name: ok, parses" || echo "== $name: FAILED to parse"
+        else
+          echo "== $name: ok"
+        fi
+      done <<EOF
+      $entries
+      EOF
       ```
 
-   e. **Replace the originals with symlinks** (commands in step 2 — resolve every
-      entry as a real file/directory there, since the originals are all still in
-      place). Before removing the backup tarball from 3a, verify the new links
-      actually work:
+      Only delete the backup tarball once every line reads `ok` (or the expected
+      `not linked` for an entry that was never present).
 
-      ```bash
-      python3 -m json.tool "$HOME/.claude/settings.json" >/dev/null && echo "settings.json parses"
-      ls "$HOME/.claude/skills" | wc -l   # sanity-check against the pre-migration count
-      ```
-
-4. **Apply two rules to everything tracked.** Both prevent silent breakage on the
+5. **Apply two rules to everything tracked.** Both prevent silent breakage on the
    *next* machine, which is far harder to diagnose than breakage here.
 
    - **No literal `/Users/<name>` or `/home/<name>` paths.** Use `$HOME`. A
@@ -169,7 +277,7 @@ The personal layer is **one private git repo per developer**, conventionally at
      [ -x "$HOME/.tool/bin/hook" ] && "$HOME/.tool/bin/hook" args || true
      ```
 
-5. **Keep machine-local things local.** Do not track these:
+6. **Keep machine-local things local.** Do not track these:
 
    | | why |
    |---|---|
@@ -180,7 +288,7 @@ The personal layer is **one private git repo per developer**, conventionally at
 
    Syncing a memory tool's *configuration* does not sync its *memories*.
 
-6. **Push, then verify.**
+7. **Push, then verify.**
 
    ```bash
    cd "$HOME/.agents" && git remote add origin <url> && git push -u origin main
@@ -191,7 +299,7 @@ The personal layer is **one private git repo per developer**, conventionally at
    loaded key and `gh auth status` for the configured protocol; do not silently
    switch protocols.
 
-7. **Restart running agent sessions.** They hold the old settings in memory, and one
+8. **Restart running agent sessions.** They hold the old settings in memory, and one
    of them writing settings can replace a fresh symlink with a real file.
 
 ## Afterwards

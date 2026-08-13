@@ -44,7 +44,13 @@ Follow it exactly. Two notes specific to running it from here:
 - Where it calls for live model data, use
   `"$CLAUDE_PLUGIN_ROOT/scripts/fetch-model-data.sh"`. Exit code 3 means no
   `ARTIFICIAL_ANALYSIS_API_KEY` — fall back to vendor docs and judgment, and record
-  `sources: [judgment]`.
+  `sources: [judgment]`. Exit code 4 (request failed, e.g. network) or 5 (response
+  parsed but no row yielded a figure — the API shape likely changed) are **not**
+  the same as "no key": a key was present and the call was attempted but didn't
+  come back clean. Don't silently fall back to judgment as if the developer
+  declined — report the failure, retry once, and only fall back to vendor
+  docs/judgment if it persists, noting the reason (not just `judgment`) under
+  `sources`.
 - Where it calls for the target path, use
   `$("$CLAUDE_PLUGIN_ROOT/scripts/rubric-path.sh")`.
 
