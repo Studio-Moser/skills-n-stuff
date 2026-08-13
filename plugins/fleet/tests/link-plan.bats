@@ -8,6 +8,7 @@ setup() {
   : > "$REPO/claude/CLAUDE.md"
   : > "$REPO/claude/settings.json"
   : > "$REPO/claude/statusline-command.sh"
+  : > "$REPO/claude/mcp.json"
 }
 
 link_all() {
@@ -15,13 +16,14 @@ link_all() {
   ln -s "$REPO/claude/CLAUDE.md" "$CLAUDE_CONFIG_DIR/CLAUDE.md"
   ln -s "$REPO/claude/settings.json" "$CLAUDE_CONFIG_DIR/settings.json"
   ln -s "$REPO/claude/statusline-command.sh" "$CLAUDE_CONFIG_DIR/statusline-command.sh"
+  ln -s "$REPO/claude/mcp.json" "$CLAUDE_CONFIG_DIR/mcp.json"
 }
 
-@test "all four links correct -> exit 0, every line ok" {
+@test "all five links correct -> exit 0, every line ok" {
   link_all
   run "$SCRIPT" "$REPO"
   [ "$status" -eq 0 ]
-  [ "$(echo "$output" | grep -c ' ok$')" -eq 4 ]
+  [ "$(echo "$output" | grep -c ' ok$')" -eq 5 ]
 }
 
 @test "missing link is reported ABSENT and exits 1" {
@@ -56,11 +58,19 @@ link_all() {
   echo "$output" | grep -qE '^statusline-command\.sh +-> +claude/statusline-command\.sh +MISSING-IN-REPO$'
 }
 
+@test "mcp.json missing from repo is reported MISSING-IN-REPO" {
+  link_all
+  rm "$REPO/claude/mcp.json"
+  run "$SCRIPT" "$REPO"
+  [ "$status" -eq 1 ]
+  echo "$output" | grep -qE '^mcp\.json +-> +claude/mcp\.json +MISSING-IN-REPO$'
+}
+
 @test "trailing slash on repo arg does not cause false RELINK" {
   link_all
   run "$SCRIPT" "${REPO}/"
   [ "$status" -eq 0 ]
-  [ "$(echo "$output" | grep -c ' ok$')" -eq 4 ]
+  [ "$(echo "$output" | grep -c ' ok$')" -eq 5 ]
 }
 
 @test "a correct symlink with a relative target is reported ok" {

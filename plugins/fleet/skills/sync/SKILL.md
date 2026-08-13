@@ -2,10 +2,11 @@
 name: sync
 description: >-
   Make this machine match your personal agent repo — the private repo holding your
-  skills, global CLAUDE.md, and shared Claude Code settings. Clones on first run,
-  pulls after; re-links anything that drifted back into ~/.claude, lints for paths
-  that would be wrong on another machine, and optionally pushes to your other
-  machines. Trigger: "sync my config", "sync my machines", "update my skills from
+  skills, global CLAUDE.md, and shared Claude Code settings. Clones on first run;
+  after that commits this machine's changes, pulls, and pushes so the repo actually
+  stays current. Re-links anything that drifted back into ~/.claude, lints for paths
+  that would be wrong on another machine, and optionally triggers a pull on your
+  other machines. Trigger: "sync my config", "sync my machines", "update my skills from
   my repo", "is this machine up to date", or /fleet:sync.
   Do NOT use for setting up a machine that has no plugins yet (follow
   studio-baseline/Machine_Setup.md), for creating the model rubric (that's
@@ -25,14 +26,25 @@ Makes this machine match your personal agent repo.
 
 ## Dry run
 
-If the user asks what would change, or passes `--dry-run`, run **only the two
-read-only scripts** — `link-plan.sh` (Phase 1's command) and
-`portability-lint.sh` (Phase 3's command) — then print the report from
-Phase 4 and stop. Do **not** follow Phase 1's action column
-(create/re-link/remove) or Phase 3's fix suggestions in dry-run mode — those
-are writes, not part of the dry run. Nothing is created, moved, or removed.
-Both scripts are read-only, so this is safe to offer unprompted when the
-user seems unsure.
+If the user asks what would change, or passes `--dry-run`, run **only the
+read-only pieces** — `link-plan.sh` (Phase 1's command), Phase 2.5's MCP
+verification block, and `portability-lint.sh` (Phase 3's command) — then
+print the report from Phase 4 and stop. Phase 2.5's MCP block only reads
+`mcp.json` and checks whether each server's command resolves; it belongs in a
+dry run because that's exactly the kind of thing someone previewing a sync
+wants to see.
+
+Skip everything else, explicitly:
+
+- **Phase 2** (commit, pull, push) — writes to the repo and the remote.
+- **Phase 2.5's plugin half** (marketplace add / plugin install) — installs
+  software. Run only its MCP verification block, not this one.
+- Phase 1's action column (create/re-link/remove) and Phase 3's fix
+  suggestions — both are writes, not part of the dry run.
+
+Nothing is created, installed, moved, or removed. The three pieces that do
+run are read-only, so this is safe to offer unprompted when the user seems
+unsure.
 
 ---
 
@@ -92,9 +104,17 @@ Each line ends in a state:
 |---|---|---|
 | `ok` | correct symlink | nothing |
 | `ABSENT` | no such path in `$claude` | create the link |
-| `REAL-FILE` | a real file (or directory — `skills` is one of the four tracked entries) sits where the link should be | **diff first** (below) |
+| `REAL-FILE` | a real file (or directory — `skills` is one of the five tracked entries) sits where the link should be | **diff first** (below) |
 | `RELINK(->X)` | symlink points somewhere else | show `X`, confirm, re-link |
 | `MISSING-IN-REPO` | the repo has no such file | report; do not create anything |
+
+**`mcp.json` is tracked like the rest, but the portability lint in Phase 3 doesn't
+fully cover it.** That lint only flags literal `/Users/<name>` or `/home/<name>` paths;
+`mcp.json` typically holds paths like `/Applications/Some.app/Contents/Helpers/Server`,
+which pass the lint but are still machine-specific. Tracking it is right — the
+inventory should migrate — but each server's command needs to be verified as
+actually present on this machine, not assumed to be. That happens in Phase 2.5,
+not here.
 
 **`MISSING-IN-REPO` is checked first and masks the other states.** If the
 repo lacks the file, `link-plan.sh` reports `MISSING-IN-REPO` for that entry
@@ -210,21 +230,250 @@ symlink-to-directory case.
 
 ---
 
-## Phase 2: Pull
+## Phase 2: Commit, pull, push
+
+A sync that only pulls leaves this machine's changes stranded, and the repo goes
+stale the moment anything here changes — which is the whole failure this skill
+exists to prevent. The full cycle is **commit → pull → push**, in that order.
+
+**Order matters.** `git pull --ff-only` refuses when incoming changes touch a
+locally-modified file — precisely when you most need it to work. Committing first
+removes that failure mode entirely.
+
+### 2.1 Commit local changes
 
 ```bash
 git -C "$repo" status --short
 ```
 
-If the tree is dirty, show it and ask whether to commit or stash before pulling.
-Do not stash without asking — those may be deliberate local edits.
+Clean → skip to 2.2.
+
+Otherwise **show the developer what changed before committing** — the counts and
+the paths, deletions especially:
+
+```bash
+git -C "$repo" diff --stat
+git -C "$repo" status --short | grep '^.D\|^D' || true
+```
+
+Then stage everything and commit, deletions included:
+
+```bash
+git -C "$repo" add -A
+git -C "$repo" commit -m "fleet: sync from {hostname} — {N} added, {M} modified, {K} deleted"
+```
+
+`add -A` is correct **here and only here**: this repo contains exactly one
+developer's config and no other session is working in it. That is the opposite of
+a shared project checkout, where `add -A` stages someone else's in-flight work.
+
+Write a message that says what actually changed — `{N} skills updated`,
+`settings.json`, `impeccable 3.9.1 → 4.0.4` — not a bare timestamp. This is the
+only record of why the config moved.
+
+**Deletions are committed too.** A skill manager consolidating or removing skills
+produces deletions, and holding them back is what leaves the repo stale. Everything
+here is recoverable from git history, so a wrong auto-commit costs a revert, not
+data. If a human is present and the deletions look wrong, they can say so — but do
+not block an unattended run waiting for an answer nobody will give.
+
+### 2.2 Pull
 
 ```bash
 git -C "$repo" pull --ff-only
 ```
 
-If the pull is not fast-forwardable, stop and report. Do not merge or rebase
-someone's personal repo on their behalf.
+**If this fails, another machine has pushed work that diverges from this one's.
+Stop. Do not rebase, merge, or force anything.** Report the divergence and skip
+Phase 2.3 — resolving conflicting config across machines needs a human, and an
+unattended rebase can leave the repo mid-rebase with no one to finish it.
+
+Local work is already committed at this point, so nothing is at risk; it is simply
+unpushed until someone resolves it. Say that plainly in the report so it does not
+read as data loss.
+
+### 2.3 Push
+
+```bash
+git -C "$repo" push
+```
+
+Skip if 2.2 failed. If the push is rejected, report it and stop — do not retry
+with force.
+
+**Skip this whole phase if the repo has no remote.** Say so once in the report:
+without a remote, this machine is versioned but nothing syncs anywhere.
+
+---
+
+## Phase 2.5: Reconcile installed plugins and MCP servers
+
+The repo is current now (Phase 2 committed, pulled, and pushed it), so this
+phase reads the tracked config as the source of truth for what *should* be on
+this machine and reconciles reality against it — installing what's missing for
+plugins, only reporting for MCP servers.
+
+### Plugins — install what's missing, automatically
+
+The inventory is already in the tracked `settings.json` — read the **repo's**
+copy (`$repo/claude/settings.json`), the same file the MCP check below reads
+`mcp.json` from, not the possibly-drifted live file at `$claude/settings.json`
+(Phase 1 runs first and would have already flagged or fixed any such drift,
+but reading the repo copy here keeps both halves of this phase consistent on
+principle rather than by coincidence). `extraKnownMarketplaces` names the
+marketplaces this developer's config expects; `enabledPlugins` names the
+plugins. **Merge `settings.local.json` over it** — `settings.local.json` is
+never tracked (it's machine-local by design, per the "keep machine-local
+things local" table), so it's always read from `$claude`, live. A local
+`false` for a plugin the shared file marks `true` is a deliberate per-machine
+override (how a local fork wins over a marketplace plugin of the same name),
+and installing it anyway would overwrite that choice. Local wins.
+
+```bash
+repo="${FLEET_REPO:-$HOME/.agents}"
+claude="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+
+plugin_reconcile_script='import json, re, shutil, subprocess, sys
+
+def load(path):
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
+
+if shutil.which("claude") is None:
+    print("PLUGINS_STATE=skipped: claude CLI not on PATH")
+    raise SystemExit(0)
+
+settings = load(sys.argv[1])
+local = load(sys.argv[2])
+
+marketplaces = settings.get("extraKnownMarketplaces", {})
+enabled = dict(settings.get("enabledPlugins", {}))
+enabled.update(local.get("enabledPlugins", {}))  # local wins over shared
+
+def names(cmd):
+    r = subprocess.run(cmd, capture_output=True, text=True)
+    if r.returncode != 0:
+        cmd_str = " ".join(cmd)
+        print(f"PLUGINS_STATE=failed: running {cmd_str} exited {r.returncode}: {(r.stderr or r.stdout).strip()}")
+        raise SystemExit(0)
+    return {m.group(1) for m in re.finditer(r"❯\s+(\S+)", r.stdout)}
+
+have_marketplaces = names(["claude", "plugin", "marketplace", "list"])
+have_plugins = names(["claude", "plugin", "list"])
+
+added_marketplaces = []
+for name, cfg in marketplaces.items():
+    if name in have_marketplaces:
+        continue
+    repo = cfg.get("source", {}).get("repo")
+    if not repo:
+        continue
+    r = subprocess.run(["claude", "plugin", "marketplace", "add", repo], capture_output=True, text=True)
+    if r.returncode == 0:
+        added_marketplaces.append(name)
+        have_marketplaces.add(name)
+    else:
+        print(f"marketplace add failed: {name} ({repo}): {(r.stderr or r.stdout).strip()}", file=sys.stderr)
+
+installed_plugins = []
+for name, on in enabled.items():
+    if not on or name in have_plugins:
+        continue
+    r = subprocess.run(["claude", "plugin", "install", name], capture_output=True, text=True)
+    if r.returncode == 0:
+        installed_plugins.append(name)
+    else:
+        print(f"plugin install failed: {name}: {(r.stderr or r.stdout).strip()}", file=sys.stderr)
+
+if not added_marketplaces and not installed_plugins:
+    print("PLUGINS_STATE=up to date")
+else:
+    print(f"PLUGINS_STATE=added {len(added_marketplaces)} marketplace(s), installed {len(installed_plugins)} — restart to apply")
+'
+
+printf '%s\n' "$plugin_reconcile_script" | python3 - "$repo/claude/settings.json" "$claude/settings.local.json"
+```
+
+`names()` fails closed: a non-zero exit from `claude plugin list` or
+`claude plugin marketplace list` reports `PLUGINS_STATE=failed: ...` and
+stops rather than treating empty/error output as "nothing installed," which
+would otherwise try to install everything. The `claude` CLI itself missing
+from `$PATH` is checked up front the same way, before any subprocess call.
+
+Anything printed to stderr above (a failed marketplace add or plugin install)
+is a finding — carry it into the Phase 4 report the same way an unfixed lint
+finding is carried, never silently. **Plugin installs need a restart to take
+effect** — the `PLUGINS_STATE` line already says so whenever it installed
+anything; repeat it in the report.
+
+### MCP servers — verify, report, never auto-install
+
+Read the tracked `claude/mcp.json` (skip cleanly if absent — not every
+developer runs MCP servers). For each entry under `mcpServers`, confirm its
+`command` actually resolves on this machine: an absolute path must be
+executable, a bare name must resolve on `$PATH`. **Do not attempt to install
+anything here** — an MCP entry points at an arbitrary binary (an app bundle, a
+local CLI, a script); there is no generic install, and guessing a package
+manager would be worse than a clear message naming what to install by hand.
+Also honour `disabledMcpjsonServers` in `settings.local.json` — a server
+disabled on this machine is not a finding.
+
+```bash
+repo="${FLEET_REPO:-$HOME/.agents}"
+claude="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+
+mcp_reconcile_script='import json, os, shutil, sys
+
+def load(path):
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
+
+mcp_path, local_path = sys.argv[1], sys.argv[2]
+if not os.path.exists(mcp_path):
+    print("MCP_STATE=not tracked")
+    raise SystemExit(0)
+
+servers = load(mcp_path).get("mcpServers", {})
+disabled = set(load(local_path).get("disabledMcpjsonServers", []))
+
+active = {n: c for n, c in servers.items() if n not in disabled}
+unresolved = []
+remote = 0
+for name, cfg in active.items():
+    cmd = cfg.get("command", "")
+    if not cmd:
+        # URL/SSE-style server: no local command to verify, so it is neither
+        # checked nor "ok" — count it separately rather than folding it into
+        # a verified count it never earned.
+        remote += 1
+        continue
+    ok = os.access(cmd, os.X_OK) if cmd.startswith("/") else shutil.which(cmd) is not None
+    if not ok:
+        unresolved.append((name, cmd))
+
+ok_count = len(active) - remote - len(unresolved)
+parts = [f"{ok_count} ok"]
+if remote:
+    parts.append(f"{remote} remote (no local command)")
+if unresolved:
+    parts.append(f"{len(unresolved)} unresolved")
+print("MCP_STATE=" + ", ".join(parts))
+for name, cmd in unresolved:
+    print(f"MCP_FINDING={name} → {cmd} (not present on this machine)")
+'
+
+printf '%s\n' "$mcp_reconcile_script" | python3 - "$repo/claude/mcp.json" "$claude/settings.local.json"
+```
+
+Report any unresolved server, naming the server and the missing command, e.g.
+`shelby-memory → /Applications/Shelby.app/Contents/Helpers/ShelbyMCP (not
+present on this machine)`.
 
 ---
 
@@ -266,14 +515,39 @@ Unguarded, it errors on every event on machines without that tool.
 Fleet sync — {repo}
 
   Links:      {N} ok, {M} relinked, {K} need attention
-  Pull:       {up to date | N commits: <oneline list>}
+  Committed:  {nothing local | <short message>: N added, M modified, K deleted}
+  Pull:       {up to date | N commits: <oneline list> | DIVERGED — not pushed}
+  Push:       {pushed <sha> | skipped: <reason> | no remote configured}
+  Plugins:    {up to date | added N marketplace(s), installed M — restart to apply |
+               skipped: claude CLI not on PATH | failed: <reason>}
+  MCP:        {N ok | N ok, M remote (no local command) | N ok, M unresolved: <names>}
   Lint:       {clean | N finding(s), M fixed}
 
 {any unresolved finding, one per line}
 ```
 
 If anything is unresolved, say so in the summary line — do not report success with
-open findings buried above.
+open findings buried above. That includes a failed marketplace add or plugin
+install from Phase 2.5, `claude` missing from `$PATH`, or `claude plugin list` /
+`claude plugin marketplace list` itself failing (report any of these the same as
+an unfixed lint finding) and any MCP server whose command didn't resolve (list
+each as `<name> → <command> (not present on this machine)` alongside the other
+unresolved findings). A server with no `command` (a URL/SSE-style server) is
+not a finding — it's counted separately as "remote," never folded into "ok."
+
+**Never report a sync as complete when the push did not happen.** A diverged pull,
+a rejected push, or a missing remote all mean this machine's changes have not
+reached anywhere else, and the next machine to sync will get the old state. That is
+the exact failure this skill exists to prevent, so it belongs in the first line of
+the report, not buried in a field.
+
+**On a first run only** (Phase 0 reported `absent` and you cloned), add one line
+after the report: nothing runs this skill automatically, so drift goes unnoticed
+until someone runs it again. Offer to set up a recurring `/fleet:sync` with
+whichever scheduler they already use — their agent tool's scheduled tasks, `cron`,
+`launchd`. Daily is plenty. Ask which they prefer; do not pick one, and do not
+install anything unasked. Say it once and drop it — repeating this on every sync
+is noise.
 
 ---
 

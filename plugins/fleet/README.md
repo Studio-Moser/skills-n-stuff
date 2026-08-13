@@ -13,6 +13,27 @@ The plugin is public and generic; the data is yours.
 - **`/fleet:model-rubric`** — create or refresh your user-global model-routing
   rubric at `${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml`.
 
+## Schedule it, or it won't happen
+
+**Nothing runs `/fleet:sync` for you.** This plugin detects drift; it does not
+watch for it. Your config diverges the moment a tool upgrades a skill, a plugin
+toggle rewrites `settings.json`, or you edit a skill on one machine — and an
+unsynced repo silently hands the *old* state to the next machine that clones it.
+
+Set up a recurring `/fleet:sync` with whatever scheduler you already use — your
+agent tool's scheduled tasks, `cron`, `launchd`, CI. Daily is plenty. There is
+deliberately no scheduler in this plugin: you already have one, and a background
+job that reorganizes your config is something you should own rather than inherit.
+
+Two rules whichever you pick:
+
+- **Report, don't act silently.** `/fleet:sync` asks before removing, re-linking,
+  or discarding. An unattended run must not answer those prompts for you.
+- **It commits and pushes.** Sync commits this machine's changes, pulls, then
+  pushes — otherwise the repo goes stale and the next machine to clone gets the old
+  state. Everything is recoverable from git history. It stops without pushing if
+  another machine has diverged; it never rebases or forces.
+
 ## Bootstrapping a bare machine
 
 This plugin can't set up a machine that has no plugins installed. For that, follow

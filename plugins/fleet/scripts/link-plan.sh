@@ -11,7 +11,8 @@ claude="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 entries="skills|skills
 CLAUDE.md|claude/CLAUDE.md
 settings.json|claude/settings.json
-statusline-command.sh|claude/statusline-command.sh"
+statusline-command.sh|claude/statusline-command.sh
+mcp.json|claude/mcp.json"
 
 # Resolve $1 to an absolute, symlink-free path, following relative and
 # chained symlink targets by hand (portable to bash 3.2 / macOS, no
