@@ -27,10 +27,10 @@ teardown() { rm -rf "$TMP"; }
   cp "$BATS_TEST_DIRNAME/fixtures/github/config.yml" "$TMP/.pm/config.yml"
   run bash -c "cd '$TMP' && '$SCRIPT'"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"backend=github"* ]]
-  [[ "$output" == *"gh_owner=acme"* ]]
-  [[ "$output" == *"gh_repo=widgets"* ]]
-  [[ "$output" != *'trello_boards_json=[{'* ]]
+  [[ "$output" == *"backend=github"* ]] || return 1
+  [[ "$output" == *"gh_owner=acme"* ]] || return 1
+  [[ "$output" == *"gh_repo=widgets"* ]] || return 1
+  [[ "$output" != *'trello_boards_json=[{'* ]] || return 1
   # project_sync defaults to off when not specified
   [[ "$output" == *"gh_project_sync_enabled=false"* ]]
 }
@@ -39,12 +39,12 @@ teardown() { rm -rf "$TMP"; }
   cp "$BATS_TEST_DIRNAME/fixtures/github/config.with-project-sync.yml" "$TMP/.pm/config.yml"
   run bash -c "cd '$TMP' && '$SCRIPT'"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"backend=github"* ]]
-  [[ "$output" == *"gh_project_sync_enabled=true"* ]]
-  [[ "$output" == *"gh_project_number=7"* ]]
-  [[ "$output" == *"gh_project_owner=acme"* ]]
-  [[ "$output" == *"gh_project_owner_type=org"* ]]
-  [[ "$output" == *"gh_project_status_field_sync=true"* ]]
+  [[ "$output" == *"backend=github"* ]] || return 1
+  [[ "$output" == *"gh_project_sync_enabled=true"* ]] || return 1
+  [[ "$output" == *"gh_project_number=7"* ]] || return 1
+  [[ "$output" == *"gh_project_owner=acme"* ]] || return 1
+  [[ "$output" == *"gh_project_owner_type=org"* ]] || return 1
+  [[ "$output" == *"gh_project_status_field_sync=true"* ]] || return 1
   [[ "$output" == *'"status/ready":"Ready"'* ]]
 }
 
@@ -52,9 +52,9 @@ teardown() { rm -rf "$TMP"; }
   cp "$BATS_TEST_DIRNAME/fixtures/trello/config.yml" "$TMP/.pm/config.yml"
   run bash -c "cd '$TMP' && '$SCRIPT'"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"backend=trello"* ]]
-  [[ "$output" == *'trello_boards_json=[{'*'TEST_BOARD_1'* ]]
-  [[ "$output" == *'trello_statuses_json={'*'"done":["needs_changes"]'* ]]
+  [[ "$output" == *"backend=trello"* ]] || return 1
+  [[ "$output" == *'trello_boards_json=[{'*'TEST_BOARD_1'* ]] || return 1
+  [[ "$output" == *'trello_statuses_json={'*'"done":["needs_changes"]'* ]] || return 1
   [[ "$output" != *"gh_owner=acme"* ]]
 }
 
