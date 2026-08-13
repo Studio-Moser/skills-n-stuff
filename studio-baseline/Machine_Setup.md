@@ -404,3 +404,32 @@ link check, pull, and portability lint above on demand, and can push to other
 machines. Set up model routing with `/fleet:model-rubric`, or follow
 [`Rubric_Setup.md`](https://raw.githubusercontent.com/Studio-Moser/skills-n-stuff/main/studio-baseline/Rubric_Setup.md)
 if you have no plugins.
+
+### Schedule the sync — do this now, not later
+
+**Nothing runs `/fleet:sync` for you.** Setting up the repo does not keep it true:
+your config drifts the moment a tool upgrades a skill, a plugin toggle rewrites
+`settings.json`, or you edit a skill on one machine. Detection exists; nothing
+triggers it.
+
+This is not hypothetical. On the machine this doc was written from, a skill
+upgrade consolidated eighteen standalone skills into one within a day of setup —
+all of it uncommitted, so any other machine cloning that repo would have received
+the pre-upgrade state.
+
+**Set up a recurring `/fleet:sync` with whatever scheduler you already use** —
+your agent tool's scheduled tasks, `cron`, `launchd`, a CI job, whatever you'll
+actually keep. Daily is plenty; this is drift, not an outage. Ask the developer
+which they prefer rather than choosing for them, and confirm the schedule exists
+before you call setup complete.
+
+Two things to get right whichever tool you pick:
+
+- **Have it report, not act silently.** `/fleet:sync` asks before it removes,
+  re-links, or discards anything, and an unattended run must not answer those
+  prompts for you. A scheduled run that surfaces "3 entries drifted, 1 needs a
+  decision" is doing its job; one that resolves them alone is a data-loss risk on
+  a repo holding your only copy of some edits.
+- **Committing is still yours.** Sync pulls and re-links; it does not commit your
+  local changes. A machine whose skills changed still needs someone to review and
+  commit them, or the next machine to sync gets the old state.

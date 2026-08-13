@@ -275,6 +275,14 @@ Fleet sync — {repo}
 If anything is unresolved, say so in the summary line — do not report success with
 open findings buried above.
 
+**On a first run only** (Phase 0 reported `absent` and you cloned), add one line
+after the report: nothing runs this skill automatically, so drift goes unnoticed
+until someone runs it again. Offer to set up a recurring `/fleet:sync` with
+whichever scheduler they already use — their agent tool's scheduled tasks, `cron`,
+`launchd`. Daily is plenty. Ask which they prefer; do not pick one, and do not
+install anything unasked. Say it once and drop it — repeating this on every sync
+is noise.
+
 ---
 
 ## Phase 5: Push (optional)
