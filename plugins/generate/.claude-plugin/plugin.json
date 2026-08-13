@@ -1,6 +1,6 @@
 {
   "name": "generate",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Governed image, video, and audio generation over the Kie.ai MCP. Prices a batch and stops for confirmation before spending, downloads every result locally, and logs the prompt that made it.",
   "author": {
     "name": "Studio Moser",

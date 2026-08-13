@@ -187,8 +187,9 @@ done
 Iterate boards. For each board, set active and read cards from each non-rejected list (`needs_triage`, `ready_for_agent`, `in_progress`, `review`, `needs_changes`, `blocked`). The `done` list is excluded — done items are valid dedup-misses (they may be reborn).
 
 ```bash
+pm="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/pm/*/ 2>/dev/null | sort -V | tail -1)}"; pm="${pm%/}"
 echo "$trello_boards_json" | jq -c '.[]' | while read -r board_json; do
-  eval "$("$CLAUDE_PLUGIN_ROOT/scripts/for-each-board.sh" "[$board_json]")"
+  eval "$("$pm/scripts/for-each-board.sh" "[$board_json]")"
   # MCP tool call (the agent executes this — shell can't call MCP):
   # mcp__trello__set_active_board({ boardId: $BOARD_ID })
   # all_lists = mcp__trello__get_lists({})
@@ -344,9 +345,10 @@ Cards are created on the **first** configured board's `needs_triage` list. Multi
 For each surviving item:
 
 ```bash
+pm="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/pm/*/ 2>/dev/null | sort -V | tail -1)}"; pm="${pm%/}"
 # Resolve the first board and its needs_triage list id once per skill run.
 first_board_json="$(echo "$trello_boards_json" | jq -c '.[0]')"
-eval "$("$CLAUDE_PLUGIN_ROOT/scripts/for-each-board.sh" "[$first_board_json]")"
+eval "$("$pm/scripts/for-each-board.sh" "[$first_board_json]")"
 ```
 
 Then call (the agent executes these MCP tools — see `plugins/pm/scripts/trello-ops.md`):
