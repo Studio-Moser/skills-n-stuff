@@ -34,7 +34,7 @@ setup() {
   run "$SCRIPT" "$ONE_BOARD"
   [ "$status" -eq 0 ]
   # No 'command not found' noise on stderr (run merges stderr into output).
-  [[ "$output" != *"command not found"* ]]
+  [[ "$output" != *"command not found"* ]] || return 1
   # Confirm eval succeeds in a fresh subshell with `set -e` and produces the
   # expected full-string values — matches how SKILL.md call sites consume it.
   result="$(bash -c "set -e; eval \"\$(\"$SCRIPT\" '$ONE_BOARD')\"; echo \"<\$LIST_NEEDS_TRIAGE>|<\$LIST_IN_PROGRESS>|<\$LIST_NEEDS_CHANGES>|<\$WORKER_INSTRUCTIONS>\"" 2>&1)"
@@ -46,8 +46,8 @@ setup() {
   [ "$status" -eq 0 ]
   blocks="$(echo "$output" | grep -c '^---$')"
   [ "$blocks" -eq 1 ]   # one separator between two blocks
-  [[ "$output" == *"BOARD_ID=B1"* ]]
-  [[ "$output" == *"BOARD_ID=B2"* ]]
+  [[ "$output" == *"BOARD_ID=B1"* ]] || return 1
+  [[ "$output" == *"BOARD_ID=B2"* ]] || return 1
   [[ "$output" == *"REVIEW_POLICY=judge"* ]]
 }
 

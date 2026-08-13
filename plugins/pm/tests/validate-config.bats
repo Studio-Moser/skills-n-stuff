@@ -36,9 +36,9 @@ setup() {
   # `run` merges stdout+stderr so we can assert on both.
   run "$SCRIPT" "$FIX/trello/config.empty-boards.yml"
   [ "$status" -eq 1 ]
-  [[ "$output" == *"trello.boards must have at least one entry"* ]]
+  [[ "$output" == *"trello.boards must have at least one entry"* ]] || return 1
   # Must NOT leak yq's cryptic message.
-  [[ "$output" != *"out of range"* ]]
+  [[ "$output" != *"out of range"* ]] || return 1
   [[ "$output" != *"Error: index"* ]]
 }
 

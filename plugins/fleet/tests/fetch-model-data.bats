@@ -19,9 +19,9 @@ JSON
   export AA_MODELS_URL="file://$fixture"
   run "$SCRIPT"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"Model X"* ]]
-  [[ "$output" == *"Acme"* ]]
-  [[ "$output" == *"72"* ]]
+  [[ "$output" == *"Model X"* ]] || return 1
+  [[ "$output" == *"Acme"* ]] || return 1
+  [[ "$output" == *"72"* ]] || return 1
   [[ "$output" == *"55"* ]]
 }
 
@@ -46,7 +46,7 @@ JSON
   export AA_MODELS_URL="file://$fixture"
   run "$SCRIPT"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"Bare"* ]]
+  [[ "$output" == *"Bare"* ]] || return 1
   [[ "$output" == *"77"* ]]
 }
 
