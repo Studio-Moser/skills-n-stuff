@@ -36,8 +36,7 @@ link_all() {
   printf '{}' > "$CLAUDE_CONFIG_DIR/settings.json"
   run "$SCRIPT" "$REPO"
   [ "$status" -eq 1 ]
-  [[ "$output" == *"settings.json"* ]]
-  [[ "$output" == *"REAL-FILE"* ]]
+  echo "$output" | grep -qE '^settings\.json +-> +claude/settings\.json +REAL-FILE$'
 }
 
 @test "a symlink pointing somewhere else is reported RELINK" {
@@ -46,7 +45,7 @@ link_all() {
   ln -s "${BATS_TEST_TMPDIR}/elsewhere.md" "$CLAUDE_CONFIG_DIR/CLAUDE.md"
   run "$SCRIPT" "$REPO"
   [ "$status" -eq 1 ]
-  [[ "$output" == *"RELINK"* ]]
+  echo "$output" | grep -qE '^CLAUDE\.md +-> +claude/CLAUDE\.md +RELINK'
 }
 
 @test "file absent from the repo is reported MISSING-IN-REPO" {
@@ -54,10 +53,29 @@ link_all() {
   rm "$REPO/claude/statusline-command.sh"
   run "$SCRIPT" "$REPO"
   [ "$status" -eq 1 ]
-  [[ "$output" == *"MISSING-IN-REPO"* ]]
+  echo "$output" | grep -qE '^statusline-command\.sh +-> +claude/statusline-command\.sh +MISSING-IN-REPO$'
 }
 
-@test "read-only: reports drift without fixing it" {
+@test "trailing slash on repo arg does not cause false RELINK" {
+  link_all
+  run "$SCRIPT" "${REPO}/"
+  [ "$status" -eq 0 ]
+  [ "$(echo "$output" | grep -c ' ok$')" -eq 4 ]
+}
+
+@test "read-only: leaves REAL-FILE and RELINK drift untouched" {
+  link_all
+  rm "$CLAUDE_CONFIG_DIR/settings.json"
+  printf '{}' > "$CLAUDE_CONFIG_DIR/settings.json"
+  rm "$CLAUDE_CONFIG_DIR/CLAUDE.md"
+  ln -s "${BATS_TEST_TMPDIR}/elsewhere.md" "$CLAUDE_CONFIG_DIR/CLAUDE.md"
+
+  before="${BATS_TEST_TMPDIR}/before.txt"
+  after="${BATS_TEST_TMPDIR}/after.txt"
+  find "$CLAUDE_CONFIG_DIR" -exec ls -ld {} \; > "$before"
+
   run "$SCRIPT" "$REPO"
-  [ ! -e "$CLAUDE_CONFIG_DIR/CLAUDE.md" ]
+
+  find "$CLAUDE_CONFIG_DIR" -exec ls -ld {} \; > "$after"
+  diff "$before" "$after"
 }
