@@ -2,7 +2,7 @@
 
 You are helping a developer bring a machine in line with their personal agent
 configuration. This works with **no plugin installed** — you need only a shell and
-git. Once done, the `fleet` plugin automates the repeated work.
+git. Once done, the `machine` plugin automates the repeated work.
 
 The personal layer is **one private git repo per developer**, conventionally at
 `~/.agents`, linked into `~/.claude`:
@@ -30,7 +30,7 @@ the lint in step 5.** That lint only flags literal `/Users/<name>` or `/home/<na
 `mcp.json` typically holds paths like `/Applications/Some.app/Contents/Helpers/Server`,
 which pass the lint but are still machine-specific. Tracking it is right — the
 inventory should migrate — but each server's command needs to be verified as
-present on this machine, not assumed. `/fleet:sync` does that verification
+present on this machine, not assumed. `/machine:sync` does that verification
 (Phase 2.5); this bootstrap doc does not attempt it.
 
 **The five rows above are "the entries."** Every step below that touches more than
@@ -201,7 +201,7 @@ mcp.json|claude/mcp.json|file"
    each), remove what's on the machine and link — but only for entries the repo
    actually has. Linking to a path the repo lacks would create a dangling symlink
    instead of correctly leaving that entry absent (this is also the loop step 4
-   reuses to replace originals with symlinks, and the one `/fleet:sync`'s own
+   reuses to replace originals with symlinks, and the one `/machine:sync`'s own
    `link-plan.sh` mirrors):
 
    ```bash
@@ -396,8 +396,8 @@ mcp.json|claude/mcp.json|file"
    | `~/.claude/settings.local.json` | machine-local by design; holds `skillOverrides` |
    | `~/.claude/projects/` | session state and per-project memory |
    | any tool's own store (e.g. `~/.shelby/`) | credentials and per-machine databases |
-   | `$repo/.fleet-local.json` | fleet:sync's own per-machine overrides for third-party skills (`skipInstall`/`keepLocal`) |
-   | `$repo/.skill-lock.json` | `npx skills`' lockfile; tracking it lets one machine's removal reappear as "no source" on another and get silently re-vendored — see fleet's README |
+   | `$repo/.fleet-local.json` | machine:sync's own per-machine overrides for third-party skills (`skipInstall`/`keepLocal`) |
+   | `$repo/.skill-lock.json` | `npx skills`' lockfile; tracking it lets one machine's removal reappear as "no source" on another and get silently re-vendored — see machine's README |
 
    Syncing a memory tool's *configuration* does not sync its *memories*.
 
@@ -417,15 +417,15 @@ mcp.json|claude/mcp.json|file"
 
 ## Afterwards
 
-Install the `fleet` plugin and use `/fleet:sync` for the ongoing work — it does the
+Install the `machine` plugin and use `/machine:sync` for the ongoing work — it does the
 link check, pull, and portability lint above on demand, and can push to other
-machines. Set up model routing with `/fleet:model-rubric`, or follow
+machines. Set up model routing with `/machine:model-rubric`, or follow
 [`Rubric_Setup.md`](https://raw.githubusercontent.com/Studio-Moser/skills-n-stuff/main/studio-baseline/Rubric_Setup.md)
 if you have no plugins.
 
 ### Schedule the sync — do this now, not later
 
-**Nothing runs `/fleet:sync` for you.** Setting up the repo does not keep it true:
+**Nothing runs `/machine:sync` for you.** Setting up the repo does not keep it true:
 your config drifts the moment a tool upgrades a skill, a plugin toggle rewrites
 `settings.json`, or you edit a skill on one machine. Detection exists; nothing
 triggers it.
@@ -435,7 +435,7 @@ upgrade consolidated eighteen standalone skills into one within a day of setup �
 all of it uncommitted, so any other machine cloning that repo would have received
 the pre-upgrade state.
 
-**Set up a recurring `/fleet:sync` with whatever scheduler you already use** —
+**Set up a recurring `/machine:sync` with whatever scheduler you already use** —
 your agent tool's scheduled tasks, `cron`, `launchd`, a CI job, whatever you'll
 actually keep. Daily is plenty; this is drift, not an outage. Ask the developer
 which they prefer rather than choosing for them, and confirm the schedule exists
@@ -443,7 +443,7 @@ before you call setup complete.
 
 Two things to get right whichever tool you pick:
 
-- **Have it report, not act silently.** `/fleet:sync` asks before it removes,
+- **Have it report, not act silently.** `/machine:sync` asks before it removes,
   re-links, or discards anything, and an unattended run must not answer those
   prompts for you. A scheduled run that surfaces "3 entries drifted, 1 needs a
   decision" is doing its job; one that resolves them alone is a data-loss risk on

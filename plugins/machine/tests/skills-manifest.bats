@@ -3,7 +3,7 @@
 setup() {
   SCRIPT="${BATS_TEST_DIRNAME}/../scripts/skills-manifest.sh"
   # The script hardcodes its store to $HOME/.agents/skills (matching `npx
-  # skills`' own getCanonicalSkillsDir, which ignores $FLEET_REPO) — so
+  # skills`' own getCanonicalSkillsDir, which ignores $AGENTS_REPO) — so
   # tests point $HOME at a throwaway dir and use $HOME/.agents as the repo.
   export HOME="${BATS_TEST_TMPDIR}/home"
   REPO="$HOME/.agents"

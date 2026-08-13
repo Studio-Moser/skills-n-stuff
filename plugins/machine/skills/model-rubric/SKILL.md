@@ -7,22 +7,22 @@ description: >-
   ${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml, one per
   developer, shared across every repo. Trigger: "set up my model rubric",
   "refresh my rubric", "which model should agents use", "my rubric is stale",
-  or /fleet:model-rubric.
+  or /machine:model-rubric.
   Do NOT use to route a specific task right now (just read the rubric), or to
   configure a project's issue tracker (that's /pm:setup).
 effort: medium
 allowed-tools: "Bash Read Write Edit WebFetch"
 ---
 
-# Fleet — Model Rubric
+# Machine — Model Rubric
 
 Owns creating and refreshing the per-developer model-routing rubric.
 
 ## 1. Check current state
 
 ```bash
-fleet="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/fleet/*/ 2>/dev/null | sort -V | tail -1)}"; fleet="${fleet%/}"
-"$fleet/scripts/rubric-path.sh" --check
+machine="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/machine/*/ 2>/dev/null | sort -V | tail -1)}"; machine="${machine%/}"
+"$machine/scripts/rubric-path.sh" --check
 ```
 
 - `set` → read the file's `reviewed:` stamp. Current (≤14 days, no superseded
@@ -36,14 +36,14 @@ The full procedure lives in `studio-baseline/Rubric_Setup.md` and is deliberatel
 that file is the single source of truth. Read it:
 
 ```bash
-cat "$fleet/../../studio-baseline/Rubric_Setup.md" 2>/dev/null \
+cat "$machine/../../studio-baseline/Rubric_Setup.md" 2>/dev/null \
   || echo "fetch https://raw.githubusercontent.com/Studio-Moser/skills-n-stuff/main/studio-baseline/Rubric_Setup.md"
 ```
 
 Follow it exactly. Two notes specific to running it from here:
 
 - Where it calls for live model data, use
-  `"$fleet/scripts/fetch-model-data.sh"`. Exit code 3 means no
+  `"$machine/scripts/fetch-model-data.sh"`. Exit code 3 means no
   `ARTIFICIAL_ANALYSIS_API_KEY` — fall back to vendor docs and judgment, and record
   `sources: [judgment]`. Exit code 4 (request failed, e.g. network) or 5 (response
   parsed but no row yielded a figure — the API shape likely changed) are **not**
@@ -53,7 +53,7 @@ Follow it exactly. Two notes specific to running it from here:
   docs/judgment if it persists, noting the reason (not just `judgment`) under
   `sources`.
 - Where it calls for the target path, use
-  `$("$fleet/scripts/rubric-path.sh")`.
+  `$("$machine/scripts/rubric-path.sh")`.
 
 **On a refresh, keep the developer's taste scores and `capabilities` unchanged** —
 only the Artificial-Analysis-sourced axes (cost, intelligence) change. Do not
@@ -62,8 +62,8 @@ re-interview.
 ## 3. Confirm
 
 ```bash
-fleet="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/fleet/*/ 2>/dev/null | sort -V | tail -1)}"; fleet="${fleet%/}"
-"$fleet/scripts/rubric-path.sh" --check
+machine="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/machine/*/ 2>/dev/null | sort -V | tail -1)}"; machine="${machine%/}"
+"$machine/scripts/rubric-path.sh" --check
 ```
 
 Expected: `set`. Report the path and the `reviewed:` date.
