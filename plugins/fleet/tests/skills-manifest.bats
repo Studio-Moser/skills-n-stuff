@@ -231,3 +231,35 @@ json_entry() {
   run cat "$REPO/skills.manifest"
   [[ "$output" == *"foo"* ]] || return 1
 }
+
+@test "a keepLocal skill is not written into the shared manifest" {
+  mkdir -p "$REPO/skills/foo" "$REPO/skills/bar"
+  printf '{"keepLocal": ["bar"]}\n' > "$REPO/.fleet-local.json"
+  json="[$(json_entry foo skills/foo acme/foo),$(json_entry bar skills/bar acme/bar)]"
+  printf '%s' "$json" | "$SCRIPT" "$REPO"
+  run cat "$REPO/skills.manifest"
+  [[ "$output" == *"foo"$'\t'"acme/foo"* ]] || return 1
+  [[ "$output" != *"bar"* ]] || return 1
+}
+
+@test "keepLocal does not un-declare a skill another machine already declared" {
+  # The override is a local reason; it must not edit the shared declaration.
+  mkdir -p "$REPO/skills/bar"
+  printf 'bar\tacme/bar\n' > "$REPO/skills.manifest"
+  printf '{"keepLocal": ["bar"]}\n' > "$REPO/.fleet-local.json"
+  json="[$(json_entry bar skills/bar acme/bar)]"
+  printf '%s' "$json" | "$SCRIPT" "$REPO"
+  run cat "$REPO/skills.manifest"
+  [[ "$output" == *"bar"$'\t'"acme/bar"* ]] || return 1
+}
+
+@test "keepLocal and skipInstall coexist without cancelling each other" {
+  mkdir -p "$REPO/skills/here"
+  printf 'declared\tacme/declared\n' > "$REPO/skills.manifest"
+  printf '{"keepLocal": ["here"], "skipInstall": ["declared"]}\n' > "$REPO/.fleet-local.json"
+  json="[$(json_entry here skills/here acme/here)]"
+  printf '%s' "$json" | "$SCRIPT" "$REPO"
+  run cat "$REPO/skills.manifest"
+  [[ "$output" == *"declared"$'\t'"acme/declared"* ]] || return 1   # skipInstall preserved
+  [[ "$output" != *"here"* ]] || return 1                            # keepLocal excluded
+}

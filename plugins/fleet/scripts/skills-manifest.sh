@@ -83,12 +83,23 @@ for entry in data:
         continue
     reality[entry.get("name", "")] = source
 
-# The manifest is the shared declaration; skipInstall and a this-run install
-# failure are local reasons a declared entry isn't on THIS machine. Neither
-# is grounds to edit the shared declaration. So the result is the union of
-# what's actually here plus whatever's declared-but-absent for a recorded
-# reason — anything else declared-but-absent has no recorded reason and is
-# a genuine removal, which correctly drops out.
+# The manifest is the shared declaration; the .fleet-local.json overrides are
+# local reasons this machine's reality differs from it. A local reason must
+# never edit the shared declaration — in EITHER direction:
+#
+#   skipInstall / this-run install failure — declared but not here. Preserve
+#     the declaration; absence here is not a removal for everyone else.
+#   keepLocal — here but deliberately undeclared. Do not add it. Without this,
+#     a "leave it undeclared" choice was written into the manifest on the very
+#     same run and pushed fleet-wide, which is the mirror of the bug above.
+#
+# Anything declared-but-absent with no recorded reason is a genuine removal and
+# correctly drops out — that is the only case allowed to un-declare something.
+#
+# keepLocal is deliberately powerless over an already-declared skill: if the
+# manifest already carries it, another machine declared it, and dropping it
+# here would be exactly the local-edits-shared move this rule forbids. In that
+# case the declaration wins and the override is moot.
 old_manifest = {}
 try:
     with open(manifest_path) as f:
@@ -107,8 +118,15 @@ try:
 except FileNotFoundError:
     overrides = {}
 skip_install = set(overrides.get("skipInstall", []))
+keep_local = set(overrides.get("keepLocal", []))
 
-entries = dict(reality)
+# here, minus anything deliberately kept undeclared (unless already declared)
+entries = {
+    name: source
+    for name, source in reality.items()
+    if name not in keep_local or name in old_manifest
+}
+# plus anything declared that is absent here for a recorded reason
 for name, source in old_manifest.items():
     if name in entries:
         continue
