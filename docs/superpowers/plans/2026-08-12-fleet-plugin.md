@@ -36,6 +36,7 @@
 | `plugins/fleet/tests/portability-lint.bats` | lint tests, incl. the absolute-symlink regression |
 | `plugins/fleet/tests/link-plan.bats` | drift-report tests |
 | `plugins/fleet/tests/rubric-path.bats` | moved from `pm` |
+| `plugins/fleet/tests/fetch-model-data.bats` | moved from `pm` — a test moves with the script it covers |
 | `plugins/fleet/tests/run-tests.sh` | runner (mirrors `plugins/pm/tests/run-tests.sh`) |
 | `studio-baseline/Machine_Setup.md` | zero-plugin bootstrap walkthrough |
 
@@ -236,6 +237,7 @@ git commit -m "feat(fleet): portability lint covering contents and symlink targe
 - Move: `plugins/pm/scripts/rubric-path.sh` → `plugins/fleet/scripts/rubric-path.sh`
 - Move: `plugins/pm/scripts/fetch-model-data.sh` → `plugins/fleet/scripts/fetch-model-data.sh`
 - Move: `plugins/pm/tests/rubric-path.bats` → `plugins/fleet/tests/rubric-path.bats`
+- Move: `plugins/pm/tests/fetch-model-data.bats` → `plugins/fleet/tests/fetch-model-data.bats`
 - Modify: `.claude-plugin/marketplace.json`
 
 **Interfaces:**
@@ -250,18 +252,19 @@ Use `git mv` so blame survives. `fetch-model-data.sh` moves at its current head 
 git mv plugins/pm/scripts/rubric-path.sh plugins/fleet/scripts/rubric-path.sh
 git mv plugins/pm/scripts/fetch-model-data.sh plugins/fleet/scripts/fetch-model-data.sh
 git mv plugins/pm/tests/rubric-path.bats plugins/fleet/tests/rubric-path.bats
+git mv plugins/pm/tests/fetch-model-data.bats plugins/fleet/tests/fetch-model-data.bats
 ```
 
 - [ ] **Step 2: Run both suites to verify the move**
 
-`rubric-path.bats` resolves the script via `${BATS_TEST_DIRNAME}/../scripts/rubric-path.sh`, so it needs no edit — the relative path holds in the new location.
+Both bats files resolve their script via `${BATS_TEST_DIRNAME}/../scripts/<name>.sh`, so neither needs an edit — the relative path holds in the new location. **Move both.** A test left behind when its script moves fails with exit 127 and turns the pm suite red.
 
 ```bash
 ./plugins/fleet/tests/run-tests.sh
 ./plugins/pm/tests/run-tests.sh
 ```
 
-Expected: fleet `13 tests, 0 failures` (9 lint + 4 rubric-path); pm passes with 4 fewer tests than before (32). If pm fails, a pm test referenced the moved script — fix by pointing it at the constant, not by restoring the copy.
+Expected: fleet `18 tests, 0 failures` (9 lint + 4 rubric-path + 5 fetch-model-data); pm `27 tests, 0 failures`. If pm fails, a pm test referenced the moved script — fix by pointing it at the constant, not by restoring the copy.
 
 - [ ] **Step 3: Write the plugin manifest**
 
@@ -373,10 +376,10 @@ python3 -c "import json;[json.load(open(f)) for f in ['.claude-plugin/marketplac
 ./plugins/fleet/tests/run-tests.sh
 ```
 
-Expected: `JSON OK`, then `13 tests, 0 failures`.
+Expected: `JSON OK`, then `18 tests, 0 failures`.
 
 ```bash
-git add plugins/fleet/.claude-plugin/plugin.json plugins/fleet/README.md plugins/fleet/scripts/rubric-path.sh plugins/fleet/scripts/fetch-model-data.sh plugins/fleet/tests/rubric-path.bats .claude-plugin/marketplace.json
+git add plugins/fleet/.claude-plugin/plugin.json plugins/fleet/README.md plugins/fleet/scripts/rubric-path.sh plugins/fleet/scripts/fetch-model-data.sh plugins/fleet/tests/rubric-path.bats plugins/fleet/tests/fetch-model-data.bats .claude-plugin/marketplace.json
 git commit -m "feat(fleet): scaffold plugin, relocate rubric machinery from pm"
 ```
 
@@ -522,7 +525,7 @@ chmod +x plugins/fleet/scripts/link-plan.sh
 ./plugins/fleet/tests/run-tests.sh
 ```
 
-Expected: `19 tests, 0 failures`. Paste into the PR.
+Expected: `24 tests, 0 failures`. Paste into the PR.
 
 - [ ] **Step 5: Commit**
 
@@ -1032,7 +1035,7 @@ grep -c "Machine_Setup" studio-baseline/README.md
 ./plugins/fleet/tests/run-tests.sh
 ```
 
-Expected: `name: model-rubric`, `1`, and `19 tests, 0 failures`.
+Expected: `name: model-rubric`, `1`, and `24 tests, 0 failures`.
 
 Then confirm the doc's own lint snippet works, since it is copy-pasted advice:
 
@@ -1157,7 +1160,7 @@ print('plugin.json',a,'| marketplace',b); assert a==b=='0.16.0', 'version mismat
 ./plugins/fleet/tests/run-tests.sh
 ```
 
-Expected: the assert passes, pm reports `32 tests, 0 failures`, fleet `19 tests, 0 failures`.
+Expected: the assert passes, pm reports `27 tests, 0 failures`, fleet `24 tests, 0 failures`.
 
 Then verify the trimmed skill still parses and shrank:
 
