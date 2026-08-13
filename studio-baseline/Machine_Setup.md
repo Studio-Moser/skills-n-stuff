@@ -396,6 +396,8 @@ mcp.json|claude/mcp.json|file"
    | `~/.claude/settings.local.json` | machine-local by design; holds `skillOverrides` |
    | `~/.claude/projects/` | session state and per-project memory |
    | any tool's own store (e.g. `~/.shelby/`) | credentials and per-machine databases |
+   | `$repo/.fleet-local.json` | fleet:sync's own per-machine overrides for third-party skills (`skipInstall`/`keepLocal`) |
+   | `$repo/.skill-lock.json` | `npx skills`' lockfile; tracking it lets one machine's removal reappear as "no source" on another and get silently re-vendored — see fleet's README |
 
    Syncing a memory tool's *configuration* does not sync its *memories*.
 

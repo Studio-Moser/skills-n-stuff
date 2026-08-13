@@ -13,6 +13,34 @@ The plugin is public and generic; the data is yours.
 - **`/fleet:model-rubric`** — create or refresh your user-global model-routing
   rubric at `${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml`.
 
+## Third-party skills are declared, not vendored
+
+`/fleet:sync` (Phase 2.6) reconciles third-party skills — the ones installed
+with `npx skills` (vercel-labs) rather than authored in your repo — against
+a generated `skills.manifest`. It only works when your repo **is**
+`$HOME/.agents` — `npx skills` hardcodes that install path regardless of
+`$FLEET_REPO`, so an overridden repo location skips this phase entirely
+rather than produce wrong output. Vendoring a skill instead of declaring it
+(committing its code into your repo) bloats the repo and drifts from
+upstream. To move an already-vendored skill to manifest management:
+
+1. `git -C "$repo" rm -r --cached skills/<name>` — untrack it; the file
+   stays on disk.
+2. Run `/fleet:sync`. Phase 2.6 sees it installed with a real `source`,
+   offers to add it to `skills.manifest`, and `skills-manifest.sh` adds a
+   `skills/<name>/` line to the generated `.gitignore` block — the untracked
+   files are now deliberately ignored, not lost.
+3. Verify: `npx skills list -g --json` should still report the skill, with
+   a non-null `source`.
+
+**`.skill-lock.json` must never be tracked either.** `npx skills list` reads
+a skill's `source` back from that lockfile, not from the skill itself — a
+tracked copy lets one machine's removal silently reappear as "no source" on
+another, and this phase would then un-declare and re-vendor it. Phase 2.6's
+step 0 detects a tracked `.skill-lock.json` and offers a one-time
+`git rm --cached` to fix it; `skills-manifest.sh` keeps it gitignored going
+forward.
+
 ## Schedule it, or it won't happen
 
 **Nothing runs `/fleet:sync` for you.** This plugin detects drift; it does not
@@ -49,6 +77,8 @@ ongoing work.
 | `scripts/portability-lint.sh [repo]` | fail on machine-specific absolute paths |
 | `scripts/rubric-path.sh [--check]` | resolve the rubric path / report `set`\|`unset` |
 | `scripts/fetch-model-data.sh` | current model cost + intelligence as TSV (exit 3 = no API key) |
+| `scripts/skills-reconcile.sh <repo>` | read-only diff of `skills.manifest` vs. reality (reads `npx skills list -g --json` on stdin) |
+| `scripts/skills-manifest.sh <repo>` | regenerate `skills.manifest` and the `.gitignore` block from reality (same stdin) |
 
 ## Tests
 
