@@ -393,7 +393,7 @@ git commit -m "feat(fleet): scaffold plugin, relocate rubric machinery from pm"
 
 **Interfaces:**
 - Consumes: nothing.
-- Produces: `link-plan.sh [repo_dir]` — repo defaults to `$HOME/.agents`; honours `CLAUDE_CONFIG_DIR` (default `$HOME/.claude`). Prints one line per link: `<link name> -> <repo path> <STATE>`. States are `ok`, `ABSENT`, `REAL-FILE`, `RELINK`, `MISSING-IN-REPO`. Exit `0` only when every link is `ok`. Task 4's `--dry-run` is this script plus `portability-lint.sh`.
+- Produces: `link-plan.sh [repo_dir]` — repo defaults to `$HOME/.agents`; honours `CLAUDE_CONFIG_DIR` (default `$HOME/.claude`). Prints one line per link: `<link name> -> <repo path> <STATE>`. States are `ok`, `ABSENT`, `REAL-FILE`, `RELINK(->actual)`, `MISSING-IN-REPO`. **Task 4 must substring-match `RELINK`, not equality-match** — the emitted form carries the actual target. Exit `0` only when every link is `ok`. Task 4's `--dry-run` is this script plus `portability-lint.sh`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -484,6 +484,7 @@ Create `plugins/fleet/scripts/link-plan.sh`:
 set -euo pipefail
 
 repo="${1:-$HOME/.agents}"
+repo="${repo%/}"
 claude="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 
 # "<name under ~/.claude>|<path under repo>"
@@ -498,10 +499,19 @@ while IFS='|' read -r name rel; do
   link="$claude/$name"
   want="$repo/$rel"
 
+  # ponytail: MISSING-IN-REPO is checked before REAL-FILE/RELINK and masks
+  # them — if the repo lacks the file AND ~/.claude has a real one, only
+  # MISSING-IN-REPO prints. Deliberate: on an unadopted machine that's the
+  # actionable message. Upgrade path if both facts are ever needed at once:
+  # a combined state string instead of reordering the checks.
   if [ ! -e "$want" ]; then
     state="MISSING-IN-REPO"
   elif [ -L "$link" ]; then
     got="$(readlink "$link")"
+    # ponytail: string comparison, not resolved-path comparison. A correct
+    # symlink with a relative target (e.g. `ln -s ../.agents/claude/CLAUDE.md`)
+    # reports RELINK even though it resolves to the same file. Upgrade path:
+    # resolve both sides with `cd "$(dirname ...)" && pwd -P` before comparing.
     if [ "$got" = "$want" ]; then state="ok"; else state="RELINK(->$got)"; fi
   elif [ -e "$link" ]; then
     state="REAL-FILE"
@@ -525,7 +535,12 @@ chmod +x plugins/fleet/scripts/link-plan.sh
 ./plugins/fleet/tests/run-tests.sh
 ```
 
-Expected: `24 tests, 0 failures`. Paste into the PR.
+Expected: `25 tests, 0 failures`. Paste into the PR.
+
+Two test-design requirements, both learned from mutants that survived a weaker version:
+
+- **The read-only test must induce `REAL-FILE` and `RELINK` drift, not just `ABSENT`,** and assert a before/after snapshot of `$CLAUDE_CONFIG_DIR` is identical. Use `find ... -exec ls -ld {} \;` so the snapshot captures symlink *targets* — a names-only snapshot misses a relink-in-place mutant. A test that only checks the all-`ABSENT` case lets a mutant delete the user's real `settings.json` and still pass.
+- **Bind name and state on one line** (`grep -qE '^settings\.json .* REAL-FILE$'`). Asserting the filename alone is vacuous: all four names print on every run, so a mutant that rotates states onto the wrong lines passes.
 
 - [ ] **Step 5: Commit**
 
@@ -1035,7 +1050,7 @@ grep -c "Machine_Setup" studio-baseline/README.md
 ./plugins/fleet/tests/run-tests.sh
 ```
 
-Expected: `name: model-rubric`, `1`, and `24 tests, 0 failures`.
+Expected: `name: model-rubric`, `1`, and `25 tests, 0 failures`.
 
 Then confirm the doc's own lint snippet works, since it is copy-pasted advice:
 
@@ -1160,7 +1175,7 @@ print('plugin.json',a,'| marketplace',b); assert a==b=='0.16.0', 'version mismat
 ./plugins/fleet/tests/run-tests.sh
 ```
 
-Expected: the assert passes, pm reports `27 tests, 0 failures`, fleet `24 tests, 0 failures`.
+Expected: the assert passes, pm reports `27 tests, 0 failures`, fleet `25 tests, 0 failures`.
 
 Then verify the trimmed skill still parses and shrank:
 
