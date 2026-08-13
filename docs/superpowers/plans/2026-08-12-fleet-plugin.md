@@ -763,6 +763,17 @@ A pull is not a relink — run /fleet:sync on a machine if its links may have dr
 ```
 ```
 
+> **Corrections applied during execution — the shipped `SKILL.md` is authoritative, not the block above.**
+> Three fix rounds found data-loss paths in the text as originally planned. If you re-derive this file, carry these:
+>
+> - **`diff -ru`, never `diff -u`.** `skills` is a tracked entry and can be a real directory; plain `diff -u` on two directories prints `Common subdirectories:` and exits 0, so the agent concludes "identical" and deletes a local skills tree.
+> - **No `|| true` on the diff.** Capture the status and branch on 0 / 1 / >=2 explicitly; stop on >=2.
+> - **Check diff's stderr *above* the branch, unconditionally.** BSD `diff -r` exits 0 (or 1) with `diff: ... Permission denied` on stderr when a subdirectory is unreadable. Gating individual status bullets left a sibling uncovered twice; hoisting the check removes the class.
+> - **`ln -sfn`, absolute target, and remove the existing path first.** `ln -sf` over a symlink-to-directory dereferences it and writes the link *inside* the old target while reporting success; `ln -sfn` does the same over a *real* directory. Removal must precede the relink on every branch that relinks.
+> - **`cp -R "$src/." "$dst/"` for directories, plain `cp` for files.** `cp -R dir dir` nests, so "keep the machine's version" silently does not happen. The `/.` form fails on plain files, so both cases need their own bullet.
+> - **Do not name a shell variable `status`.** It is read-only in zsh and the assignment aborts the command. Use `diff_status`.
+> - Resolve `claude="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"` alongside `repo` — `link-plan.sh` honours it, and hardcoding `~/.claude` makes the agent mutate a different directory than the one reported on.
+
 - [ ] **Step 2: Verify the frontmatter parses and the script paths resolve**
 
 ```bash
