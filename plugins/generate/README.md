@@ -78,8 +78,13 @@ Each JSONL line: `file`, `model`, `prompt`, `source_url`, `est_cost_usd`, `at`.
   by URL until it expires, which suits brand assets and generated output but not
   client-confidential material.
 - **Costs are estimates.** `skills/generate/references/Model_Costs.md` is a local
-  table you edit, seeded with conservative placeholders. The guard is the
-  confirmation step, not the arithmetic.
+  table you edit, seeded with conservative placeholders plus observed
+  `creditsConsumed` figures. The credits-to-dollars rate is unknown, so the guard is
+  the confirmation step, not the arithmetic.
+- **Some models are broken or limited.** `flux_kontext_image` fails every edit unless
+  `safetyTolerance` is passed explicitly, `midjourney_generate` reference modes do
+  not work in the current server build, and `z_image` accepts no reference image at
+  all. See the Model gotchas section in the skill.
 - **Kie only.** No fal.ai or WaveSpeed fallback, deliberately — a second provider
   means a second key, a second price table, and a silent path to unexpected
   billing. Add one if Kie's downtime becomes a recurring problem, not before.

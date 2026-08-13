@@ -3,6 +3,28 @@
 Unit costs used by the budget guard in `/generate:generate`. **Edit this file** —
 it is a local estimate table, not a live price feed.
 
+## Observed credit consumption
+
+Every `get_task_status` response carries `creditsConsumed`, which is the only
+first-party cost signal available. Measured on a live batch, 2026-08-12, one image
+each:
+
+| Tool | Call | Credits |
+|---|---|---|
+| `nano_banana_image` | nano-banana-2, 2K, image-to-image | 12 |
+| `gpt_image_2` | 2K, image-to-image | 10 |
+| `bytedance_seedream_image` | 5-pro, 2K, edit | 7 |
+| `qwen_image` | edit, square_hd | 7 |
+| `flux2_image` | pro, 2K, image-to-image | 7 |
+| `flux_kontext_image` | pro, edit | not reported — different response shape |
+
+**The credits-to-dollars rate is unknown**, so these cannot be converted into the
+table below. They are still useful as *relative* cost: Nano Banana 2 at 2K costs
+roughly 1.7× a Seedream or Flux 2 call. If you learn the rate, price the whole table
+from this column and delete the placeholders.
+
+Failed calls consumed nothing — parameter rejections happen before dispatch.
+
 ## Provenance, honestly
 
 Only the GPT Image 2 row below is a specific claimed figure, and it comes from a
@@ -24,8 +46,9 @@ the row. A wrong-but-high estimate is a working guard; a wrong-but-low one is no
 | `nano_banana_image` | image | 0.05 | placeholder |
 | `flux2_image` | image | 0.05 | placeholder |
 | `bytedance_seedream_image` | image | 0.05 | placeholder |
-| `qwen_image`, `z_image` | image | 0.05 | placeholder |
-| `midjourney_generate` | image | 0.10 | placeholder |
+| `qwen_image` | image | 0.05 | placeholder |
+| `z_image` | image | 0.004 | stated in the tool's own description |
+| `midjourney_generate` | image | 0.10 | placeholder — reference modes currently broken |
 | `topaz_upscale_image` | image | 0.10 | placeholder |
 | `recraft_remove_background` | image | 0.02 | placeholder |
 

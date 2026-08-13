@@ -119,8 +119,18 @@ Call the generation tool, then `mcp__kie-ai__wait_for_task` with the returned
 `task_id` rather than polling `get_task_status` in a loop. Raise
 `timeout_seconds` for video — the 180s default is short for a Veo3 job.
 
+`wait_for_task` can time out on the client side while the job itself is fine — it
+has been seen returning "Request timed out" at 300s on a task that completed in 113s.
+Treat that error as "unknown", never as "failed": poll `get_task_status` once before
+concluding anything, because re-firing a task that actually succeeded is a second
+charge for one asset.
+
 Generate sequentially unless the user asked for a comparison fan-out. Sequential
-work lets rule 3 actually stop the spend partway.
+work lets rule 3 actually stop the spend partway. A model comparison **is** the
+fan-out case — fire those together.
+
+Read the per-model gotchas below before the first call to any of them. Each one
+listed there fails every single time until the workaround is applied.
 
 ### 5. Save
 
@@ -167,6 +177,39 @@ The MCP tool descriptions carry the real detail. This is only for picking fast:
 | Voice | `elevenlabs_tts` |
 | Upscale a keeper | `topaz_upscale_image` |
 | Cut out a subject | `recraft_remove_background` |
+
+## Model gotchas
+
+Verified against a live six-model batch on 2026-08-12. These are defects in the
+defaults or the server, not in your parameters — each fails 100% of the time until
+worked around. All of them are rejected before dispatch, so they cost nothing except
+the round-trip.
+
+**`flux_kontext_image` — always pass `safetyTolerance` when editing.** The tool
+defaults it to 6, but editing mode only accepts 0–2, so *every* call with
+`inputImage` set fails until you pass `safetyTolerance: 2` explicitly. Text-to-image
+is unaffected.
+
+**`midjourney_generate` — reference modes are broken in this server build.** Kie's
+API rejects omni-reference with "speed cannot be empty", and the server forwards
+neither `speed` nor `processMode`, so there is no parameter combination that works.
+Its own `parameter_guidance` claims speed is "not required for omni tasks", which is
+wrong. Do not spend attempts on it — pick another model and say why. Re-test after
+`@felores/kie-ai-mcp-server` updates.
+
+**`z_image` takes no reference image.** Text-to-image only, so it cannot do a
+likeness. Cheap and fast for backgrounds and textures, useless for anything that has
+to resemble a source.
+
+**Reference parameter names differ per model.** One hosted URL feeds them all, but
+the key changes: `input_urls` (GPT Image 2, Flux 2), `image_input` (nano banana),
+`inputImage` (Flux Kontext, singular string), `image_urls` (Seedream), `image_url`
+(Qwen, singular string), `fileUrls` (Midjourney).
+
+**Likeness quality is not the same as image quality.** In that batch the most
+polished render had the weakest likeness, and one model read a Death Star on a
+sweater as a Batman logo. Always read the saved file — a beautiful image of the
+wrong person is still a failure.
 
 ## When Kie is unavailable
 
