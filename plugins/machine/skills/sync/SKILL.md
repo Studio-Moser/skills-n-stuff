@@ -120,7 +120,7 @@ Each line ends in a state:
 |---|---|---|
 | `ok` | correct symlink | nothing |
 | `ABSENT` | no such path in `$claude` | create the link |
-| `REAL-FILE` | a real file (or directory — `skills` is one of the five tracked entries) sits where the link should be | **diff first** (below) |
+| `REAL-FILE` | a real file (or directory — `skills` and `studio-moser` are directories among the six tracked entries) sits where the link should be | **diff first** (below) |
 | `RELINK(->X)` | symlink points somewhere else | show `X`, confirm, re-link |
 | `MISSING-IN-REPO` | the repo has no such file | report; do not create anything |
 
@@ -232,6 +232,13 @@ The target must be the **absolute** path `"$repo/<rel>"` — `link-plan.sh`
 compares symlink targets as raw strings (see the `RELINK` false-positive note
 above), so a relative target would report `RELINK` on every future run even
 though it resolves correctly.
+
+**The `studio-moser` entry lives under `${XDG_CONFIG_HOME:-$HOME/.config}`, not `$claude`.**
+For it, the link is `"${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser"` and the target is
+`"$repo/config/studio-moser"`. Create the parent first — `mkdir -p "${XDG_CONFIG_HOME:-$HOME/.config}"` —
+a fresh machine may not have it. The REAL-FILE diff/keep/merge procedure applies to it exactly
+as it does to `skills` (both are directories). When keeping the machine's copy, also ensure
+`$repo/.gitignore` covers `config/studio-moser/*.bak*` so local backup files never sync.
 
 `-sfn` only repoints an **existing symlink** (that's what its `-n` guards —
 it treats the destination as the link itself, not as a directory to drop the
