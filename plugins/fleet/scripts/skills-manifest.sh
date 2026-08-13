@@ -14,18 +14,30 @@ set -euo pipefail
 repo="${1:?usage: skills-manifest.sh <repo>  (reads npx skills list -g --json on stdin)}"
 repo="${repo%/}"
 
+# `npx skills` hardcodes its install directory to $HOME/.agents/skills
+# (getCanonicalSkillsDir) — it never looks at $FLEET_REPO. Filtering by
+# "$repo/skills/" when $repo points somewhere else would make every real
+# install look uninstalled, and step 1 below would happily write an empty
+# manifest over a real one. Skip cleanly instead of producing that.
+canonical_agents="${HOME%/}/.agents"
+if [ "$repo" != "$canonical_agents" ]; then
+  echo "SKILLS_STATE=skipped: skill management requires \$FLEET_REPO=\$HOME/.agents (npx skills always installs under \$HOME/.agents/skills); this repo is $repo"
+  exit 0
+fi
+store="$canonical_agents/skills/"
+
 manifest="$repo/skills.manifest"
 gitignore="$repo/.gitignore"
 start_marker="# fleet:skills start — generated, do not edit"
 end_marker="# fleet:skills end"
-static_ignore_line=".fleet-local.json"
+# Both are machine-local and must never be committed: .fleet-local.json
+# holds this machine's deliberate deviations, .skill-lock.json is `npx
+# skills`' own lockfile, whose `source` field goes stale (never null→null,
+# but null→wrong) the moment another machine removes a skill this one still
+# has installed. See Phase 2.6's migration step for the tracked-repo case.
+static_ignore_lines=".fleet-local.json
+.skill-lock.json"
 
-# --- 1. Filter the JSON down to name<TAB>source, sorted, and write the
-#        manifest. Only entries with a non-null source AND a path under
-#        this repo's skills store are ours — anything else is either
-#        locally-authored (source: null) or belongs to another agent's
-#        store (path outside $repo/skills/).
-#
 # The python source goes to its own temp file rather than a `python3 -
 # <<PY` heredoc: `python3 -` reads the *program* from stdin, which would
 # consume the JSON this script is piped on stdin before json.load() ever
@@ -38,10 +50,18 @@ trap 'rm -f "$py_filter" "$block_file" "$tmp_gitignore"' EXIT
 cat > "$py_filter" <<'PY'
 import json, sys
 
-repo, manifest_path = sys.argv[1], sys.argv[2]
-store = repo + "/skills/"
+store, manifest_path = sys.argv[1], sys.argv[2]
 
-data = json.load(sys.stdin)
+# `npx skills list -g --json` can fail to produce valid JSON (offline, a
+# registry error, a truncated pipe) — that must not traceback into the
+# middle of a sync. One clean line to stderr, non-zero exit, and the
+# manifest file below is never opened, so a bad run can't clobber a good one.
+try:
+    data = json.load(sys.stdin)
+except Exception as e:
+    print(f"invalid or empty JSON on stdin: {e}", file=sys.stderr)
+    sys.exit(1)
+
 entries = []
 for entry in data:
     source = entry.get("source")
@@ -57,7 +77,8 @@ with open(manifest_path, "w") as f:
         f.write(f"{name}\t{source}\n")
 PY
 
-python3 "$py_filter" "$repo" "$manifest"
+python3 "$py_filter" "$store" "$manifest" \
+  || { echo "SKILLS_STATE=failed: npx skills list -g --json produced no parseable output"; exit 1; }
 
 # --- 2. Build the generated block from the manifest just written.
 
@@ -97,9 +118,12 @@ if [ "$found_block" -eq 0 ]; then
   cat "$block_file" >> "$tmp_gitignore"
 fi
 
-# .fleet-local.json is machine-local and must never be committed; it lives
-# in the static (non-generated) part of .gitignore, so add it once if
-# missing rather than regenerating it every run.
-grep -qxF "$static_ignore_line" "$tmp_gitignore" 2>/dev/null || printf '%s\n' "$static_ignore_line" >> "$tmp_gitignore"
+# Static (non-generated) lines: add each once if missing, never duplicate.
+while IFS= read -r static_line; do
+  [ -n "$static_line" ] || continue
+  grep -qxF "$static_line" "$tmp_gitignore" 2>/dev/null || printf '%s\n' "$static_line" >> "$tmp_gitignore"
+done <<EOF
+$static_ignore_lines
+EOF
 
 mv "$tmp_gitignore" "$gitignore"

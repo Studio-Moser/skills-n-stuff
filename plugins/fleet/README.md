@@ -17,9 +17,12 @@ The plugin is public and generic; the data is yours.
 
 `/fleet:sync` (Phase 2.6) reconciles third-party skills — the ones installed
 with `npx skills` (vercel-labs) rather than authored in your repo — against
-a generated `skills.manifest`. Vendoring one instead (committing its code
-into your repo) bloats the repo and drifts from upstream. To move an
-already-vendored skill to manifest management:
+a generated `skills.manifest`. It only works when your repo **is**
+`$HOME/.agents` — `npx skills` hardcodes that install path regardless of
+`$FLEET_REPO`, so an overridden repo location skips this phase entirely
+rather than produce wrong output. Vendoring a skill instead of declaring it
+(committing its code into your repo) bloats the repo and drifts from
+upstream. To move an already-vendored skill to manifest management:
 
 1. `git -C "$repo" rm -r --cached skills/<name>` — untrack it; the file
    stays on disk.
@@ -29,6 +32,14 @@ already-vendored skill to manifest management:
    files are now deliberately ignored, not lost.
 3. Verify: `npx skills list -g --json` should still report the skill, with
    a non-null `source`.
+
+**`.skill-lock.json` must never be tracked either.** `npx skills list` reads
+a skill's `source` back from that lockfile, not from the skill itself — a
+tracked copy lets one machine's removal silently reappear as "no source" on
+another, and this phase would then un-declare and re-vendor it. Phase 2.6's
+step 0 detects a tracked `.skill-lock.json` and offers a one-time
+`git rm --cached` to fix it; `skills-manifest.sh` keeps it gitignored going
+forward.
 
 ## Schedule it, or it won't happen
 

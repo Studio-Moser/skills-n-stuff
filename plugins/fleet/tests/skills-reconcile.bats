@@ -2,17 +2,30 @@
 
 setup() {
   SCRIPT="${BATS_TEST_DIRNAME}/../scripts/skills-reconcile.sh"
-  REPO="${BATS_TEST_TMPDIR}/agents"
+  # The script hardcodes its store to $HOME/.agents/skills (matching `npx
+  # skills`' own getCanonicalSkillsDir, which ignores $FLEET_REPO) — so
+  # tests point $HOME at a throwaway dir and use $HOME/.agents as the repo.
+  export HOME="${BATS_TEST_TMPDIR}/home"
+  REPO="$HOME/.agents"
   mkdir -p "$REPO/skills"
 }
 
+# json_entry name path source
+# source: an unquoted "null" produces a literal JSON null; anything else is
+# quoted as a string. path is relative to $REPO unless it already starts
+# with /.
 json_entry() {
   name="$1"; rel="$2"; source="$3"
   case "$rel" in
     /*) path="$rel" ;;
     *) path="$REPO/$rel" ;;
   esac
-  printf '{"name":"%s","path":"%s","source":"%s"}' "$name" "$path" "$source"
+  if [ "$source" = "null" ]; then
+    src_json="null"
+  else
+    src_json="\"$source\""
+  fi
+  printf '{"name":"%s","path":"%s","source":%s}' "$name" "$path" "$src_json"
 }
 
 @test "manifest entry missing on disk is reported INSTALL" {
@@ -67,6 +80,39 @@ json_entry() {
   run bash -c "printf '%s' '$json' | '$SCRIPT' '$REPO'"
   [ "$status" -eq 0 ]
   [[ "$output" == *"EXTRA"* ]]
+}
+
+@test "a locally-authored skill (source: null) is never reported EXTRA" {
+  mkdir -p "$REPO/skills/homegrown"
+  json="[$(json_entry homegrown skills/homegrown null)]"
+  run bash -c "printf '%s' '$json' | '$SCRIPT' '$REPO'"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "a skill outside this repo's store (another agent's) is never reported EXTRA" {
+  json="[$(json_entry other-agent /home/x/.cursor/skills/other-agent acme/other)]"
+  run bash -c "printf '%s' '$json' | '$SCRIPT' '$REPO'"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "a repo other than \$HOME/.agents is skipped, not misreported" {
+  other_repo="${BATS_TEST_TMPDIR}/elsewhere"
+  mkdir -p "$other_repo"
+  printf 'foo\tacme/foo\n' > "$other_repo/skills.manifest"
+  run bash -c "printf '[]' | '$SCRIPT' '$other_repo'"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"SKILLS_STATE=skipped"* ]]
+  [[ "$output" != *"INSTALL"* ]]
+}
+
+@test "invalid JSON on stdin fails cleanly, no traceback" {
+  printf 'foo\tacme/foo\n' > "$REPO/skills.manifest"
+  run bash -c "printf 'not json' | '$SCRIPT' '$REPO'"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"SKILLS_STATE=failed"* ]]
+  [[ "$output" != *"Traceback"* ]]
 }
 
 @test "runs under zsh with no lost output" {

@@ -5,7 +5,7 @@
 # nothing. fleet:sync's Phase 2.6 acts on this output.
 #
 # One line per finding, tab-separated:
-#   INSTALL      <name>  <source>   manifest entry not on this machine — install it
+#   INSTALL      <name>  <source>   manifest entry not on this machine — offer to install
 #   SKIP-INSTALL <name>              same, but skipInstall says leave it alone
 #   EXTRA        <name>  <source>   on this machine, not in the manifest — offer add/remove
 #   KEEP-LOCAL   <name>              same, but keepLocal says leave it alone
@@ -14,16 +14,27 @@ set -euo pipefail
 repo="${1:?usage: skills-reconcile.sh <repo>  (reads npx skills list -g --json on stdin)}"
 repo="${repo%/}"
 
+# `npx skills` hardcodes its install directory to $HOME/.agents/skills
+# (getCanonicalSkillsDir) — it never looks at $FLEET_REPO. Diffing against
+# "$repo/skills/" when $repo points somewhere else would make every real
+# install look uninstalled and every declared entry look missing. Skip
+# cleanly instead of reporting that.
+canonical_agents="${HOME%/}/.agents"
+if [ "$repo" != "$canonical_agents" ]; then
+  echo "SKILLS_STATE=skipped: skill management requires \$FLEET_REPO=\$HOME/.agents (npx skills always installs under \$HOME/.agents/skills); this repo is $repo"
+  exit 0
+fi
+store="$canonical_agents/skills/"
+
 py_reconcile="$(mktemp)"
 trap 'rm -f "$py_reconcile"' EXIT
 
 cat > "$py_reconcile" <<'PY'
 import json, sys
 
-repo = sys.argv[1]
+store, repo = sys.argv[1], sys.argv[2]
 manifest_path = repo + "/skills.manifest"
 local_path = repo + "/.fleet-local.json"
-store = repo + "/skills/"
 
 manifest = {}
 try:
@@ -45,8 +56,17 @@ except FileNotFoundError:
 skip_install = set(overrides.get("skipInstall", []))
 keep_local = set(overrides.get("keepLocal", []))
 
+# `npx skills list -g --json` can fail to produce valid JSON (offline, a
+# registry error, a truncated pipe) — that must not traceback into the
+# middle of a sync.
+try:
+    listing = json.load(sys.stdin)
+except Exception as e:
+    print(f"invalid or empty JSON on stdin: {e}", file=sys.stderr)
+    sys.exit(1)
+
 reality = {}
-for entry in json.load(sys.stdin):
+for entry in listing:
     source = entry.get("source")
     path = entry.get("path") or ""
     if source is None or not path.startswith(store):
@@ -70,4 +90,5 @@ for name in sorted(reality):
         print(f"EXTRA\t{name}\t{reality[name]}")
 PY
 
-python3 "$py_reconcile" "$repo"
+python3 "$py_reconcile" "$store" "$repo" \
+  || { echo "SKILLS_STATE=failed: npx skills list -g --json produced no parseable output"; exit 1; }

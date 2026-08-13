@@ -2,7 +2,11 @@
 
 setup() {
   SCRIPT="${BATS_TEST_DIRNAME}/../scripts/skills-manifest.sh"
-  REPO="${BATS_TEST_TMPDIR}/agents"
+  # The script hardcodes its store to $HOME/.agents/skills (matching `npx
+  # skills`' own getCanonicalSkillsDir, which ignores $FLEET_REPO) — so
+  # tests point $HOME at a throwaway dir and use $HOME/.agents as the repo.
+  export HOME="${BATS_TEST_TMPDIR}/home"
+  REPO="$HOME/.agents"
   mkdir -p "$REPO/skills"
 }
 
@@ -135,6 +139,40 @@ json_entry() {
   printf '%s' "$json" | "$SCRIPT" "$REPO"
   run cat "$REPO/.gitignore"
   [[ "$output" == *".fleet-local.json"* ]]
+}
+
+@test "gitignore always gets a static .skill-lock.json entry" {
+  mkdir -p "$REPO/skills/foo"
+  json="[$(json_entry foo skills/foo acme/foo)]"
+  printf '%s' "$json" | "$SCRIPT" "$REPO"
+  run cat "$REPO/.gitignore"
+  [[ "$output" == *".skill-lock.json"* ]]
+}
+
+@test "a repo other than \$HOME/.agents is skipped, not wiped" {
+  other_repo="${BATS_TEST_TMPDIR}/elsewhere"
+  mkdir -p "$other_repo"
+  printf 'preexisting\tacme/preexisting\n' > "$other_repo/skills.manifest"
+  run bash -c "printf '[]' | '$SCRIPT' '$other_repo'"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"SKILLS_STATE=skipped"* ]]
+  run cat "$other_repo/skills.manifest"
+  [ "$output" = "$(printf 'preexisting\tacme/preexisting')" ]
+}
+
+@test "invalid JSON on stdin fails cleanly (no traceback) and leaves the manifest untouched" {
+  mkdir -p "$REPO/skills/foo"
+  json="[$(json_entry foo skills/foo acme/foo)]"
+  printf '%s' "$json" | "$SCRIPT" "$REPO"
+  before="$(cat "$REPO/skills.manifest")"
+
+  run bash -c "printf 'not json' | '$SCRIPT' '$REPO'"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"SKILLS_STATE=failed"* ]]
+  [[ "$output" != *"Traceback"* ]]
+
+  after="$(cat "$REPO/skills.manifest")"
+  [ "$before" = "$after" ]
 }
 
 @test "runs under zsh with no lost output" {
