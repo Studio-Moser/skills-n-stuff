@@ -940,6 +940,11 @@ is noise.
 Only if `$repo/machine.yml` exists. Skip this phase entirely otherwise; never
 create `machine.yml` unprompted.
 
+**Legacy name.** If `$repo/machine.yml` is absent but `$repo/fleet.yml` exists
+(a repo from before this plugin's rename), don't skip silently — tell the
+user their push config is still under the old name and offer to rename it:
+`mv "$repo/fleet.yml" "$repo/machine.yml"`.
+
 ```yaml
 # machine.yml
 machines:
