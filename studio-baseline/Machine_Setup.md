@@ -430,6 +430,9 @@ Two things to get right whichever tool you pick:
   prompts for you. A scheduled run that surfaces "3 entries drifted, 1 needs a
   decision" is doing its job; one that resolves them alone is a data-loss risk on
   a repo holding your only copy of some edits.
-- **Committing is still yours.** Sync pulls and re-links; it does not commit your
-  local changes. A machine whose skills changed still needs someone to review and
-  commit them, or the next machine to sync gets the old state.
+- **It closes the loop.** Sync commits this machine's changes, pulls, then pushes,
+  so the repo actually stays current — a pull-only sync leaves every machine's work
+  stranded locally. Deletions are committed too: a skill manager consolidating
+  skills produces them, and holding them back is what leaves the repo stale.
+  Everything is recoverable from git history. If another machine has pushed
+  diverging work, sync stops without pushing and reports it rather than rebasing.

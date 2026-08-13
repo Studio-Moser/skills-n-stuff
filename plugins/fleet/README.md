@@ -29,8 +29,10 @@ Two rules whichever you pick:
 
 - **Report, don't act silently.** `/fleet:sync` asks before removing, re-linking,
   or discarding. An unattended run must not answer those prompts for you.
-- **Committing is still yours.** Sync pulls and re-links; it never commits your
-  local changes.
+- **It commits and pushes.** Sync commits this machine's changes, pulls, then
+  pushes — otherwise the repo goes stale and the next machine to clone gets the old
+  state. Everything is recoverable from git history. It stops without pushing if
+  another machine has diverged; it never rebases or forces.
 
 ## Bootstrapping a bare machine
 

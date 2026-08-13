@@ -2,10 +2,11 @@
 name: sync
 description: >-
   Make this machine match your personal agent repo — the private repo holding your
-  skills, global CLAUDE.md, and shared Claude Code settings. Clones on first run,
-  pulls after; re-links anything that drifted back into ~/.claude, lints for paths
-  that would be wrong on another machine, and optionally pushes to your other
-  machines. Trigger: "sync my config", "sync my machines", "update my skills from
+  skills, global CLAUDE.md, and shared Claude Code settings. Clones on first run;
+  after that commits this machine's changes, pulls, and pushes so the repo actually
+  stays current. Re-links anything that drifted back into ~/.claude, lints for paths
+  that would be wrong on another machine, and optionally triggers a pull on your
+  other machines. Trigger: "sync my config", "sync my machines", "update my skills from
   my repo", "is this machine up to date", or /fleet:sync.
   Do NOT use for setting up a machine that has no plugins yet (follow
   studio-baseline/Machine_Setup.md), for creating the model rubric (that's
@@ -210,21 +211,79 @@ symlink-to-directory case.
 
 ---
 
-## Phase 2: Pull
+## Phase 2: Commit, pull, push
+
+A sync that only pulls leaves this machine's changes stranded, and the repo goes
+stale the moment anything here changes — which is the whole failure this skill
+exists to prevent. The full cycle is **commit → pull → push**, in that order.
+
+**Order matters.** `git pull --ff-only` refuses when incoming changes touch a
+locally-modified file — precisely when you most need it to work. Committing first
+removes that failure mode entirely.
+
+### 2.1 Commit local changes
 
 ```bash
 git -C "$repo" status --short
 ```
 
-If the tree is dirty, show it and ask whether to commit or stash before pulling.
-Do not stash without asking — those may be deliberate local edits.
+Clean → skip to 2.2.
+
+Otherwise **show the developer what changed before committing** — the counts and
+the paths, deletions especially:
+
+```bash
+git -C "$repo" diff --stat
+git -C "$repo" status --short | grep '^.D\|^D' || true
+```
+
+Then stage everything and commit, deletions included:
+
+```bash
+git -C "$repo" add -A
+git -C "$repo" commit -m "fleet: sync from {hostname} — {N} added, {M} modified, {K} deleted"
+```
+
+`add -A` is correct **here and only here**: this repo contains exactly one
+developer's config and no other session is working in it. That is the opposite of
+a shared project checkout, where `add -A` stages someone else's in-flight work.
+
+Write a message that says what actually changed — `{N} skills updated`,
+`settings.json`, `impeccable 3.9.1 → 4.0.4` — not a bare timestamp. This is the
+only record of why the config moved.
+
+**Deletions are committed too.** A skill manager consolidating or removing skills
+produces deletions, and holding them back is what leaves the repo stale. Everything
+here is recoverable from git history, so a wrong auto-commit costs a revert, not
+data. If a human is present and the deletions look wrong, they can say so — but do
+not block an unattended run waiting for an answer nobody will give.
+
+### 2.2 Pull
 
 ```bash
 git -C "$repo" pull --ff-only
 ```
 
-If the pull is not fast-forwardable, stop and report. Do not merge or rebase
-someone's personal repo on their behalf.
+**If this fails, another machine has pushed work that diverges from this one's.
+Stop. Do not rebase, merge, or force anything.** Report the divergence and skip
+Phase 2.3 — resolving conflicting config across machines needs a human, and an
+unattended rebase can leave the repo mid-rebase with no one to finish it.
+
+Local work is already committed at this point, so nothing is at risk; it is simply
+unpushed until someone resolves it. Say that plainly in the report so it does not
+read as data loss.
+
+### 2.3 Push
+
+```bash
+git -C "$repo" push
+```
+
+Skip if 2.2 failed. If the push is rejected, report it and stop — do not retry
+with force.
+
+**Skip this whole phase if the repo has no remote.** Say so once in the report:
+without a remote, this machine is versioned but nothing syncs anywhere.
 
 ---
 
@@ -266,7 +325,9 @@ Unguarded, it errors on every event on machines without that tool.
 Fleet sync — {repo}
 
   Links:      {N} ok, {M} relinked, {K} need attention
-  Pull:       {up to date | N commits: <oneline list>}
+  Committed:  {nothing local | <short message>: N added, M modified, K deleted}
+  Pull:       {up to date | N commits: <oneline list> | DIVERGED — not pushed}
+  Push:       {pushed <sha> | skipped: <reason> | no remote configured}
   Lint:       {clean | N finding(s), M fixed}
 
 {any unresolved finding, one per line}
@@ -274,6 +335,12 @@ Fleet sync — {repo}
 
 If anything is unresolved, say so in the summary line — do not report success with
 open findings buried above.
+
+**Never report a sync as complete when the push did not happen.** A diverged pull,
+a rejected push, or a missing remote all mean this machine's changes have not
+reached anywhere else, and the next machine to sync will get the old state. That is
+the exact failure this skill exists to prevent, so it belongs in the first line of
+the report, not buried in a field.
 
 **On a first run only** (Phase 0 reported `absent` and you cloned), add one line
 after the report: nothing runs this skill automatically, so drift goes unnoticed
