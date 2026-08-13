@@ -32,8 +32,8 @@ json_entry() {
   json="[$(json_entry foo skills/foo acme/foo),$(json_entry local skills/local null)]"
   printf '%s' "$json" | "$SCRIPT" "$REPO"
   run cat "$REPO/skills.manifest"
-  [[ "$output" == *"foo"$'\t'"acme/foo"* ]]
-  [[ "$output" != *"local"* ]]
+  [[ "$output" == *"foo"$'\t'"acme/foo"* ]] || return 1
+  [[ "$output" != *"local"* ]] || return 1
 }
 
 @test "filters out paths outside this repo's skills store" {
@@ -41,8 +41,8 @@ json_entry() {
   json="[$(json_entry foo skills/foo acme/foo),$(json_entry other /home/x/.cursor/skills/other acme/other)]"
   printf '%s' "$json" | "$SCRIPT" "$REPO"
   run cat "$REPO/skills.manifest"
-  [[ "$output" == *"foo"$'\t'"acme/foo"* ]]
-  [[ "$output" != *"other"* ]]
+  [[ "$output" == *"foo"$'\t'"acme/foo"* ]] || return 1
+  [[ "$output" != *"other"* ]] || return 1
 }
 
 @test "manifest is sorted by name" {
@@ -82,9 +82,9 @@ json_entry() {
   json="[$(json_entry foo skills/foo acme/foo)]"
   printf '%s' "$json" | "$SCRIPT" "$REPO"
   run cat "$REPO/.gitignore"
-  [[ "$output" == *"# fleet:skills start — generated, do not edit"* ]]
-  [[ "$output" == *"skills/foo/"* ]]
-  [[ "$output" == *"# fleet:skills end"* ]]
+  [[ "$output" == *"# fleet:skills start — generated, do not edit"* ]] || return 1
+  [[ "$output" == *"skills/foo/"* ]] || return 1
+  [[ "$output" == *"# fleet:skills end"* ]] || return 1
 }
 
 @test "gitignore block is updated in place as the manifest changes" {
@@ -97,8 +97,8 @@ json_entry() {
   printf '%s' "$json2" | "$SCRIPT" "$REPO"
 
   run cat "$REPO/.gitignore"
-  [[ "$output" == *"skills/bar/"* ]]
-  [[ "$output" != *"skills/foo/"* ]]
+  [[ "$output" == *"skills/bar/"* ]] || return 1
+  [[ "$output" != *"skills/foo/"* ]] || return 1
 }
 
 @test "gitignore preserves content outside the generated block" {
@@ -107,9 +107,9 @@ json_entry() {
   json="[$(json_entry foo skills/foo acme/foo)]"
   printf '%s' "$json" | "$SCRIPT" "$REPO"
   run cat "$REPO/.gitignore"
-  [[ "$output" == *"node_modules/"* ]]
-  [[ "$output" == *".DS_Store"* ]]
-  [[ "$output" == *"skills/foo/"* ]]
+  [[ "$output" == *"node_modules/"* ]] || return 1
+  [[ "$output" == *".DS_Store"* ]] || return 1
+  [[ "$output" == *"skills/foo/"* ]] || return 1
 }
 
 @test "gitignore preserves content on both sides of an existing block" {
@@ -118,10 +118,10 @@ json_entry() {
   json="[$(json_entry foo skills/foo acme/foo)]"
   printf '%s' "$json" | "$SCRIPT" "$REPO"
   run cat "$REPO/.gitignore"
-  [[ "$output" == *"before"* ]]
-  [[ "$output" == *"after"* ]]
-  [[ "$output" == *"skills/foo/"* ]]
-  [[ "$output" != *"skills/old/"* ]]
+  [[ "$output" == *"before"* ]] || return 1
+  [[ "$output" == *"after"* ]] || return 1
+  [[ "$output" == *"skills/foo/"* ]] || return 1
+  [[ "$output" != *"skills/old/"* ]] || return 1
 }
 
 @test "re-stamping is idempotent (exactly one block)" {
@@ -138,7 +138,7 @@ json_entry() {
   json="[$(json_entry foo skills/foo acme/foo)]"
   printf '%s' "$json" | "$SCRIPT" "$REPO"
   run cat "$REPO/.gitignore"
-  [[ "$output" == *".fleet-local.json"* ]]
+  [[ "$output" == *".fleet-local.json"* ]] || return 1
 }
 
 @test "gitignore always gets a static .skill-lock.json entry" {
@@ -146,7 +146,7 @@ json_entry() {
   json="[$(json_entry foo skills/foo acme/foo)]"
   printf '%s' "$json" | "$SCRIPT" "$REPO"
   run cat "$REPO/.gitignore"
-  [[ "$output" == *".skill-lock.json"* ]]
+  [[ "$output" == *".skill-lock.json"* ]] || return 1
 }
 
 @test "a repo other than \$HOME/.agents is skipped, not wiped" {
@@ -155,7 +155,7 @@ json_entry() {
   printf 'preexisting\tacme/preexisting\n' > "$other_repo/skills.manifest"
   run bash -c "printf '[]' | '$SCRIPT' '$other_repo'"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"SKILLS_STATE=skipped"* ]]
+  [[ "$output" == *"SKILLS_STATE=skipped"* ]] || return 1
   run cat "$other_repo/skills.manifest"
   [ "$output" = "$(printf 'preexisting\tacme/preexisting')" ]
 }
@@ -168,11 +168,59 @@ json_entry() {
 
   run bash -c "printf 'not json' | '$SCRIPT' '$REPO'"
   [ "$status" -ne 0 ]
-  [[ "$output" == *"SKILLS_STATE=failed"* ]]
-  [[ "$output" != *"Traceback"* ]]
+  [[ "$output" == *"SKILLS_STATE=failed"* ]] || return 1
+  [[ "$output" != *"Traceback"* ]] || return 1
 
   after="$(cat "$REPO/skills.manifest")"
   [ "$before" = "$after" ]
+}
+
+@test "a skipInstall entry survives regeneration even though it's absent from reality" {
+  mkdir -p "$REPO/skills/foo"
+  printf 'bar\tacme/bar\nfoo\tacme/foo\n' > "$REPO/skills.manifest"
+  printf '{"skipInstall":["bar"],"keepLocal":[]}' > "$REPO/.fleet-local.json"
+  json="[$(json_entry foo skills/foo acme/foo)]"
+  printf '%s' "$json" | "$SCRIPT" "$REPO"
+  run cat "$REPO/skills.manifest"
+  [[ "$output" == *"bar"$'\t'"acme/bar"* ]] || return 1
+  [[ "$output" == *"foo"$'\t'"acme/foo"* ]] || return 1
+}
+
+@test "a name passed as a failed-install argument survives regeneration" {
+  mkdir -p "$REPO/skills/foo"
+  printf 'bar\tacme/bar\nfoo\tacme/foo\n' > "$REPO/skills.manifest"
+  json="[$(json_entry foo skills/foo acme/foo)]"
+  printf '%s' "$json" | "$SCRIPT" "$REPO" bar
+  run cat "$REPO/skills.manifest"
+  [[ "$output" == *"bar"$'\t'"acme/bar"* ]] || return 1
+  [[ "$output" == *"foo"$'\t'"acme/foo"* ]] || return 1
+}
+
+@test "an entry absent for no recorded reason is dropped (genuine removal)" {
+  mkdir -p "$REPO/skills/foo"
+  printf 'bar\tacme/bar\nfoo\tacme/foo\n' > "$REPO/skills.manifest"
+  json="[$(json_entry foo skills/foo acme/foo)]"
+  printf '%s' "$json" | "$SCRIPT" "$REPO"
+  run cat "$REPO/skills.manifest"
+  [[ "$output" != *"bar"* ]] || return 1
+  [[ "$output" == *"foo"$'\t'"acme/foo"* ]] || return 1
+}
+
+@test "refuses to overwrite a non-empty manifest with an empty result" {
+  printf 'foo\tacme/foo\n' > "$REPO/skills.manifest"
+  before="$(cat "$REPO/skills.manifest")"
+  run bash -c "printf '[]' | '$SCRIPT' '$REPO'"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"REFUSING"* ]] || return 1
+  after="$(cat "$REPO/skills.manifest")"
+  [ "$before" = "$after" ]
+}
+
+@test "SKILLS_ALLOW_EMPTY_MANIFEST=1 confirms an intentional empty result" {
+  printf 'foo\tacme/foo\n' > "$REPO/skills.manifest"
+  run bash -c "printf '[]' | SKILLS_ALLOW_EMPTY_MANIFEST=1 '$SCRIPT' '$REPO'"
+  [ "$status" -eq 0 ]
+  [ ! -s "$REPO/skills.manifest" ]
 }
 
 @test "runs under zsh with no lost output" {
@@ -181,5 +229,5 @@ json_entry() {
   json="[$(json_entry foo skills/foo acme/foo)]"
   printf '%s' "$json" | zsh "$SCRIPT" "$REPO"
   run cat "$REPO/skills.manifest"
-  [[ "$output" == *"foo"* ]]
+  [[ "$output" == *"foo"* ]] || return 1
 }

@@ -28,25 +28,28 @@ Makes this machine match your personal agent repo.
 
 If the user asks what would change, or passes `--dry-run`, run **only the
 read-only pieces** — `link-plan.sh` (Phase 1's command), Phase 2.5's MCP
-verification block, Phase 2.6's step 1 (the `git ls-files --error-unmatch`
-tracked-check and the `skills-reconcile.sh` call, nothing that follows
-either), and `portability-lint.sh` (Phase 3's command) — then print the
-report from Phase 4 and stop. Phase 2.5's MCP block only reads `mcp.json`
-and checks whether each server's command resolves; it belongs in a dry run
-because that's exactly the kind of thing someone previewing a sync wants to
-see. Phase 2.6's step 1 is the same shape: `git ls-files --error-unmatch`
-only reads the index, and `skills-reconcile.sh` only reads the manifest,
-`.fleet-local.json`, and `npx skills list -g --json` output — both print
-findings without touching disk.
+verification block, Phase 2.6's step 0 *detection* block (the `git
+ls-files --error-unmatch` tracked-check and the `.gitignore` presence
+check — not the fix block right after it) and step 1 (the
+`skills-reconcile.sh` call, nothing that follows it), and
+`portability-lint.sh` (Phase 3's command) — then print the report from
+Phase 4 and stop. Phase 2.5's MCP block only reads `mcp.json` and checks
+whether each server's command resolves; it belongs in a dry run because
+that's exactly the kind of thing someone previewing a sync wants to see.
+Phase 2.6's step 0 detection and step 1 are the same shape: `git ls-files
+--error-unmatch` and `grep` only read, and `skills-reconcile.sh` only
+reads the manifest, `.fleet-local.json`, and `npx skills list -g --json`
+output — all of them print findings without touching disk.
 
 Skip everything else, explicitly:
 
 - **Phase 2** (commit, pull, push) — writes to the repo and the remote.
 - **Phase 2.5's plugin half** (marketplace add / plugin install) — installs
   software. Run only its MCP verification block, not this one.
-- **Phase 2.6's step 0** (the `.skill-lock.json` migration: `git rm
+- **Phase 2.6's step 0 fix block** (the `.gitignore` write, `git rm
   --cached`, commit, push) — a write, and a one-time repo migration, not
-  something a preview should perform.
+  something a preview should perform. Only step 0's detection block above
+  it belongs in a dry run.
 - **Phase 2.6's step 2 (installs, removals, override writes) and step 3
   (the `skills-manifest.sh` regeneration)** — running either would write
   real files or install real software; skip both. Only step 1's read/
@@ -531,26 +534,56 @@ removal shows up as exactly what it is: a manifest entry that's gone while
 the skill is still on disk here, i.e. an `EXTRA` — offered for removal like
 any other, in step 2 below.
 
+**Detect first — read-only, dry-run safe:**
+
 ```bash
 repo="${FLEET_REPO:-$HOME/.agents}"
+gitignore="$repo/.gitignore"
+
 git -C "$repo" ls-files --error-unmatch .skill-lock.json >/dev/null 2>&1 \
   && echo "TRACKED" || echo "not tracked"
+
+for line in ".fleet-local.json" ".skill-lock.json"; do
+  grep -qxF "$line" "$gitignore" 2>/dev/null && echo "gitignored: $line" || echo "missing from .gitignore: $line"
+done
 ```
 
-If `not tracked`, this repo has already migrated (or never vendored it) —
-move on. If `TRACKED`, explain the above and offer to fix it once:
+If it printed `not tracked` and both lines `gitignored: ...`, this repo has
+already migrated (or never vendored it) — move on, nothing to fix.
+
+Otherwise, explain the above and fix everything this step is responsible
+for in one write:
 
 ```bash
 repo="${FLEET_REPO:-$HOME/.agents}"
-git -C "$repo" rm --cached .skill-lock.json
-git -C "$repo" commit -m "fleet: untrack .skill-lock.json (breaks third-party skill removal propagation)"
-git -C "$repo" push || echo "push failed — will retry on a future sync; do not force"
+gitignore="$repo/.gitignore"
+for line in ".fleet-local.json" ".skill-lock.json"; do
+  grep -qxF "$line" "$gitignore" 2>/dev/null || printf '%s\n' "$line" >> "$gitignore"
+done
+
+git -C "$repo" add .gitignore
+git -C "$repo" rm --cached .skill-lock.json --ignore-unmatch -q
+if git -C "$repo" diff --cached --quiet; then
+  echo "nothing to commit"
+else
+  git -C "$repo" commit -q -m "fleet: untrack .skill-lock.json and gitignore it (breaks third-party skill removal propagation)"
+  git -C "$repo" push || echo "push failed — will retry on a future sync; do not force"
+fi
 ```
 
-This runs even on a machine with no `npx`/`node` — it's a git-only fix for
-a git-only problem. `skills-manifest.sh` (step 3 below) also gitignores
-`.skill-lock.json` going forward, so a fresh repo never tracks it in the
-first place.
+**The gitignore lines are written here, unconditionally — not only by step
+3.** Step 3 (and the gitignore lines it maintains) is skipped whenever
+`npx`/`node` is missing or `$repo` isn't `$HOME/.agents`. On such a
+machine, untracking `.skill-lock.json` without also gitignoring it here
+would leave it an untracked file sitting in the worktree — the next sync's
+Phase 2 commit (`git add -A`, correct in that phase, see its own note)
+stages and commits it right back, every single run. Step 0 runs
+unconditionally, so its fix has to be self-contained rather than depend on
+a step that might not run this time. `--ignore-unmatch` keeps the fix block
+safe to run even when only the `.gitignore` lines were missing and
+`.skill-lock.json` was never tracked. `skills-manifest.sh` (step 3 below)
+also ensures both lines are present as a second, idempotent pass whenever
+it does run — harmless overlap, not a second source of truth.
 
 ### Guard — the rest of this phase needs `npx`, `node`, and `$repo` at exactly `$HOME/.agents`
 
@@ -636,20 +669,27 @@ the manifest, and only the developer knows which side is right this time.
 yes:
 
 ```bash
-npx skills add "<source>" -s "<name>" -a claude -g -y
+npx skills add "<source>" -s "<name>" -a claude-code -g -y
 ```
 
-`-a claude` matters: without an explicit agent, `npx skills add` registers
-the skill with every agent it detects, writing into `~/.cursor`, `~/.pi`,
-and `~/.codex` — the exact directories this plugin must never touch, since
-those agents manage their own registrations. `-a claude` scopes the
-install to this store's own registration. (Confirm the flag name against
-`npx skills add --help` on the installed CLI version if it differs.)
+`-a claude-code` matters, and the value is exact — verified against the
+installed CLI: without an explicit agent, `npx skills add` registers the
+skill with every agent it detects, writing into `~/.cursor`, `~/.pi`, and
+`~/.codex` — the exact directories this plugin must never touch, since
+those agents manage their own registrations. `-a claude` (no `-code`) is
+**not** a valid agent name for this CLI — it prints `Invalid agents: claude`,
+exits 1, and installs nothing, which silently empties the store and makes
+step 3 regenerate a 0-byte manifest. Use `-a claude-code`, exactly.
 
-If the install command fails (network, registry, bad source) that's a
-**failure**, not a decline — report `install failed: <name> (<source>)` as
-an unresolved finding, same as an unfixed lint finding, and leave it out of
-the manifest for now; don't write anything to overrides for it.
+If the install command fails (network, registry, bad source, or any other
+non-zero exit) that's a **failure**, not a decline — report `install
+failed: <name> (<source>)` as an unresolved finding, same as an unfixed
+lint finding. **Remember this name** — literally, in this conversation, the
+same way step 1's plan is read rather than carried in a shell variable —
+and pass it to step 3 below so a transient failure doesn't silently
+un-declare the skill; don't write anything to overrides for it, since a
+decline and a failure must stay distinguishable (see Overrides, below, and
+step 3's manifest-preservation rule).
 
 If the developer instead **declines** the install — a deliberate "not on
 this machine" — that's not a failure, record it so sync stops asking:
@@ -666,8 +706,8 @@ outcomes on the table:
 
 - **Add to the manifest** (the normal case) — no action needed now; the
   skill is already in `listing`, so step 3's regeneration picks it up.
-- **Remove it** — `npx skills remove "<name>" -a claude -g -y`. If this
-  fails, report `remove failed: <name>` as an unresolved finding — a
+- **Remove it** — `npx skills remove "<name>" -a claude-code -g -y`. If
+  this fails, report `remove failed: <name>` as an unresolved finding — a
   different state from a decline, and it should read differently.
 - **Leave it undeclared, for now** — a deliberate decline; record it:
   `keepLocal` (see Overrides, below).
@@ -739,15 +779,31 @@ Skills local deviations: skipInstall <name>, … | keepLocal <name>, … | none
 
 ### 3. Regenerate — only after step 2 has run
 
+**The manifest is the shared declaration; `skipInstall` and a this-run
+install failure are this machine's local reasons a declared entry isn't
+here.** A local reason must never edit the shared declaration. So this
+step's output is the *union* of: third-party skills actually present in
+the store right now, **plus** entries already in the committed manifest
+that are absent here *for a recorded reason* — `skipInstall`, or named as a
+failed install in step 2 above. An entry absent with no recorded reason at
+all is a genuine removal and correctly drops out — that's the only case
+this step is allowed to un-declare something.
+
 ```bash
 repo="${FLEET_REPO:-$HOME/.agents}"
 listing="$(npx skills list -g --json 2>/dev/null)"
 if [ -z "$listing" ] || ! printf '%s' "$listing" | python3 -c 'import json,sys; json.load(sys.stdin)' >/dev/null 2>&1; then
   echo "SKILLS_STATE=failed: npx skills list -g --json produced no parseable output — manifest not regenerated"
 else
-  printf '%s' "$listing" | "$CLAUDE_PLUGIN_ROOT/scripts/skills-manifest.sh" "$repo"
+  printf '%s' "$listing" | "$CLAUDE_PLUGIN_ROOT/scripts/skills-manifest.sh" "$repo" <failed-name> <failed-name> ...
 fi
 ```
+
+Pass every name step 2 reported as `install failed:` this run as a trailing
+argument, literally — the same names already visible in this
+conversation's step 2 output, not a shell variable carried over from an
+earlier block (nothing persists between blocks; see Phase 0). No failures
+this run → no trailing arguments.
 
 Deliberately a **fresh** `npx skills list -g --json` call, not anything
 captured in step 1 — installs and removals in step 2 changed reality since
@@ -758,11 +814,34 @@ overwrite a good manifest with an empty one — `skills-manifest.sh` never
 opens the manifest file for writing until its own JSON parse has already
 succeeded, so a failed fetch leaves the existing manifest untouched either
 way, but the shell-level check keeps the failure visible instead of a
-silent no-op. `skills-manifest.sh` filters to entries with a non-null
-`source` under `$HOME/.agents/skills/`, writes the sorted `name<TAB>source`
-manifest, and rewrites the `# fleet:skills start` … `# fleet:skills end`
-block in `.gitignore` to match — one `skills/<name>/` line per entry —
-without touching anything else in that file.
+silent no-op.
+
+`skills-manifest.sh` filters `listing` to entries with a non-null `source`
+under `$HOME/.agents/skills/`, reads the *old* manifest and `.fleet-local.json`
+before touching either, computes the union described above, writes the
+sorted `name<TAB>source` result, and rewrites the `# fleet:skills start` …
+`# fleet:skills end` block in `.gitignore` to match — one `skills/<name>/`
+line per entry — without touching anything else in that file.
+
+**Backstop.** If the old manifest had at least one entry and the computed
+result has none, the script refuses to write and exits non-zero instead —
+this exact shape (a good manifest silently replaced by an empty one) has
+already caused a silent wipe twice this review, by two different routes.
+Report the refusal as an unresolved finding. If every declared skill is
+genuinely gone from this machine and that's really intended, rerun with
+`SKILLS_ALLOW_EMPTY_MANIFEST=1` to confirm it explicitly — never set that
+automatically on the developer's behalf.
+
+**This step depends on Phase 1 having already re-linked `skills`.** `npx
+skills` resolves the Claude Code skills directory through `~/.claude/skills`
+(or `$CLAUDE_CONFIG_DIR/skills`) to decide where to write; when that path is
+the symlink Phase 1 maintains, the install lands in the canonical
+`$HOME/.agents/skills` store and this filter keeps it. If that path is ever
+a real directory instead — Phase 1 skipped, run out of order, or this phase
+invoked standalone — installs land there instead, `npx skills list` reports
+that path, `$HOME/.agents/skills/` never matches it, and every install
+this phase just offered gets silently dropped and re-offered next run.
+Phase 2.6 must always run after Phase 1 in the same sync, never on its own.
 
 ---
 

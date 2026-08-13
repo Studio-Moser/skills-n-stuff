@@ -32,7 +32,7 @@ json_entry() {
   printf 'foo\tacme/foo\n' > "$REPO/skills.manifest"
   run bash -c "printf '[]' | '$SCRIPT' '$REPO'"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"INSTALL"$'\t'"foo"$'\t'"acme/foo"* ]]
+  [[ "$output" == *"INSTALL"$'\t'"foo"$'\t'"acme/foo"* ]] || return 1
 }
 
 @test "manifest entry in skipInstall is reported SKIP-INSTALL, not INSTALL" {
@@ -46,7 +46,7 @@ json_entry() {
   mkdir -p "$REPO/skills/bar"
   json="[$(json_entry bar skills/bar acme/bar)]"
   run bash -c "printf '%s' '$json' | '$SCRIPT' '$REPO'"
-  [[ "$output" == *"EXTRA"$'\t'"bar"$'\t'"acme/bar"* ]]
+  [[ "$output" == *"EXTRA"$'\t'"bar"$'\t'"acme/bar"* ]] || return 1
 }
 
 @test "extra skill in keepLocal is reported KEEP-LOCAL, not EXTRA" {
@@ -54,8 +54,8 @@ json_entry() {
   printf '{"skipInstall":[],"keepLocal":["bar"]}' > "$REPO/.fleet-local.json"
   json="[$(json_entry bar skills/bar acme/bar)]"
   run bash -c "printf '%s' '$json' | '$SCRIPT' '$REPO'"
-  [[ "$output" == *"KEEP-LOCAL"$'\t'"bar"* ]]
-  [[ "$output" != *"EXTRA"$'\t'"bar"* ]]
+  [[ "$output" == *"KEEP-LOCAL"$'\t'"bar"* ]] || return 1
+  [[ "$output" != *"EXTRA"$'\t'"bar"* ]] || return 1
 }
 
 @test "entry present in both manifest and reality is not reported at all" {
@@ -71,7 +71,7 @@ json_entry() {
   json="[$(json_entry foo skills/foo acme/foo)]"
   run bash -c "printf '%s' '$json' | '$SCRIPT' '$REPO'"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"EXTRA"$'\t'"foo"* ]]
+  [[ "$output" == *"EXTRA"$'\t'"foo"* ]] || return 1
 }
 
 @test "absent .fleet-local.json is treated as no overrides" {
@@ -79,7 +79,7 @@ json_entry() {
   json="[$(json_entry foo skills/foo acme/foo)]"
   run bash -c "printf '%s' '$json' | '$SCRIPT' '$REPO'"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"EXTRA"* ]]
+  [[ "$output" == *"EXTRA"* ]] || return 1
 }
 
 @test "a locally-authored skill (source: null) is never reported EXTRA" {
@@ -103,21 +103,21 @@ json_entry() {
   printf 'foo\tacme/foo\n' > "$other_repo/skills.manifest"
   run bash -c "printf '[]' | '$SCRIPT' '$other_repo'"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"SKILLS_STATE=skipped"* ]]
-  [[ "$output" != *"INSTALL"* ]]
+  [[ "$output" == *"SKILLS_STATE=skipped"* ]] || return 1
+  [[ "$output" != *"INSTALL"* ]] || return 1
 }
 
 @test "invalid JSON on stdin fails cleanly, no traceback" {
   printf 'foo\tacme/foo\n' > "$REPO/skills.manifest"
   run bash -c "printf 'not json' | '$SCRIPT' '$REPO'"
   [ "$status" -ne 0 ]
-  [[ "$output" == *"SKILLS_STATE=failed"* ]]
-  [[ "$output" != *"Traceback"* ]]
+  [[ "$output" == *"SKILLS_STATE=failed"* ]] || return 1
+  [[ "$output" != *"Traceback"* ]] || return 1
 }
 
 @test "runs under zsh with no lost output" {
   command -v zsh >/dev/null 2>&1 || skip "zsh not available"
   printf 'foo\tacme/foo\n' > "$REPO/skills.manifest"
   run bash -c "printf '[]' | zsh '$SCRIPT' '$REPO'"
-  [[ "$output" == *"INSTALL"$'\t'"foo"* ]]
+  [[ "$output" == *"INSTALL"$'\t'"foo"* ]] || return 1
 }
