@@ -5,7 +5,8 @@ description: >-
   that decides which model does which work (cheap models for bulk/mechanical work,
   the strongest for ambiguous or taste-sensitive work). Lives at
   ${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml, one per
-  developer, shared across every repo. Trigger: "set up my model rubric",
+  developer; on machines with an agents repo the folder is a symlink into it,
+  so the rubric syncs across machines. Trigger: "set up my model rubric",
   "refresh my rubric", "which model should agents use", "my rubric is stale",
   or /machine:model-rubric.
   Do NOT use to route a specific task right now (just read the rubric), or to
@@ -28,6 +29,31 @@ machine="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/machine/*
 - `set` → read the file's `reviewed:` stamp. Current (≤14 days, no superseded
   models listed) → say so and stop. Otherwise offer a refresh.
 - `unset` → first-time setup.
+
+## 1.5 Decide where the rubric physically lives
+
+The read path is always `${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml`.
+Storage depends on whether this developer has an agents repo:
+
+```bash
+repo="${AGENTS_REPO:-$HOME/.agents}"
+config="${XDG_CONFIG_HOME:-$HOME/.config}"
+if [ -d "$repo/.git" ]; then echo "repo"; else echo "plain"; fi
+```
+
+- **`repo`** → the folder belongs in the repo so it syncs across machines. Ensure
+  `$config/studio-moser` is a symlink to `$repo/config/studio-moser`:
+  - Already a correct symlink → nothing to do.
+  - A real directory → move it into the repo, then link:
+    `mkdir -p "$repo/config" && mv "$config/studio-moser" "$repo/config/studio-moser" && ln -s "$repo/config/studio-moser" "$config/studio-moser"`.
+    Then ensure `$repo/.gitignore` contains `config/studio-moser/*.bak*`, and commit + push the repo.
+  - Absent → `mkdir -p "$repo/config/studio-moser" && ln -s "$repo/config/studio-moser" "$config/studio-moser"`.
+  `/machine:sync` verifies this link on every run (it is one of the six tracked entries).
+- **`plain`** → no repo on this machine; write to `$config/studio-moser/` as a real
+  directory (`mkdir -p`). Everything else proceeds identically.
+
+**Never replace the symlink with a real file/folder when writing or refreshing** — edit
+the file through the link. An atomic-replace of the directory severs sync silently.
 
 ## 2. Follow the canonical walkthrough
 
@@ -54,6 +80,13 @@ Follow it exactly. Two notes specific to running it from here:
   `sources`.
 - Where it calls for the target path, use
   `$("$machine/scripts/rubric-path.sh")`.
+- Where the walkthrough offers a **seed rubric**, use this plugin's copy:
+  `"$machine/skills/model-rubric/Default_Rubric.yml"`. Copy it to the target path
+  as the starting table, then follow the walkthrough's rules: drop rows whose
+  provider isn't in this developer's `capabilities`, fill `cost` from their cost
+  semantics, derive `routing` fresh, remove the `seed:` key, and set `reviewed:`
+  to today. A file still containing `seed: true`, `cost: null`, or `routing: {}`
+  is NOT set up — `--check` may pass on it, so verify these keys are gone.
 
 **On a refresh, keep the developer's taste scores and `capabilities` unchanged** —
 only the Artificial-Analysis-sourced axes (cost, intelligence) change. Do not
