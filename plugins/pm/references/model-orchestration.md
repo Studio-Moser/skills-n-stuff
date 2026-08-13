@@ -1,6 +1,6 @@
 # Model orchestration doctrine
 
-Canonical, **model-agnostic** source of truth for how PM skills route sub-agents across models and verify their output. `pm:setup` Phase 4.4 stamps the baseline reminder block below into a project's `AGENTS.md` (with `CLAUDE.md` importing it), and Phase 4.5 helps each developer create their own user-global rubric; `pm:sprint-dev`, `pm:dev-task`, and the `code-reviewer` agent read and enforce it. Keeping the baseline block here — in the version-controlled plugin — means every machine that installs the plugin behaves the same, instead of each machine's hand-edited global config drifting.
+Canonical, **model-agnostic** source of truth for how PM skills route sub-agents across models and verify their output. `pm:setup` Phase 4.4 stamps the baseline reminder block below into a project's `AGENTS.md` (with `CLAUDE.md` importing it), and each developer creates their own user-global rubric via `/fleet:model-rubric` (or `studio-baseline/Rubric_Setup.md` with no plugin); `pm:sprint-dev`, `pm:dev-task`, and the `code-reviewer` agent read and enforce it. Keeping the baseline block here — in the version-controlled plugin — means every machine that installs the plugin behaves the same, instead of each machine's hand-edited global config drifting.
 
 This file names no specific models. The concrete rubric (which models, what scores) is drafted **per user, per ecosystem, at setup time** and stored in the developer's user-global rubric file — see `skills/setup/SKILL.md` Phase 4.5 and `studio-baseline/Rubric_Setup.md` for its shape.
 

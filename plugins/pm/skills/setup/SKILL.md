@@ -3,8 +3,7 @@ name: setup
 description: >-
   Onboard PM to a new project. Detects workspace type (single-repo or multi-repo),
   wires up issue tracker backend (GitHub Issues or local), creates .pm/ config
-  directory, CONTEXT.md glossary, ADR template, out-of-scope rejection KB, and a
-  model-selection rubric that the dev/sprint skills route sub-agents by.
+  directory, CONTEXT.md glossary, ADR template, and out-of-scope rejection KB.
   If product-pulse is installed, reads shared config from pulse-config.yaml.
   Run once per workspace. Trigger: "setup pm", "initialize project management",
   "configure issue tracking", or /pm:setup.
@@ -140,18 +139,16 @@ Skip this batch if `pulse-config.yaml` already provided these values.
 
 ### Batch 5: Model-Routing Rubric
 
-`pm:sprint-dev` and `pm:dev-task` route each sub-agent to a model by task altitude — a cheaper capable model for clear-spec mechanical work, the strongest model for ambiguous or taste-sensitive work. That routing reads a **model-selection rubric** from this developer's **user-global** store (one file per dev, shared across every repo they touch — resolved via `"$CLAUDE_PLUGIN_ROOT/scripts/rubric-path.sh"`), not from this repo's `CLAUDE.md`/`AGENTS.md`. This batch just makes sure the dev has one; Phase 4.5 does the actual creation/refresh.
+`pm:sprint-dev` and `pm:dev-task` route each sub-agent to a model by task altitude. That routing reads a **model-selection rubric** from this developer's user-global store — one file per dev, shared across every repo:
 
-1. **Check whether it exists:**
+```bash
+ls "${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml" 2>/dev/null && echo set || echo unset
+```
 
-   ```bash
-   "$CLAUDE_PLUGIN_ROOT/scripts/rubric-path.sh" --check
-   ```
+- `set` → `"Found your model rubric — sprint-dev and dev-task will route by it."`
+- `unset` → `"No model rubric yet. Run /fleet:model-rubric to create one, or follow studio-baseline/Rubric_Setup.md if you don't have the fleet plugin."`
 
-   - `set` → tell the user: `"Found your model rubric at {path} — sprint-dev and dev-task will route by it."` Offer a refresh only if its `reviewed:` date is **>14 days** old, or it lists a model you can see has been superseded. Otherwise, nothing more to do here.
-   - `unset` → note that Phase 4.5 will walk them through creating one. Don't duplicate its creation steps here — just flag intent to opt in and move on.
-
-   Remember this `set`/`unset` result — Phase 4.5 reuses it instead of re-running the check.
+**pm does not create or refresh the rubric.** That is `fleet:model-rubric`'s job.
 
 ---
 
@@ -341,18 +338,16 @@ fi
 
 ---
 
-## Phase 4.5: Establish the Model-Selection Rubric
+## Phase 4.5: Model-Selection Rubric (referral)
 
-The rubric is **per developer, user-global** — one file at `$("$CLAUDE_PLUGIN_ROOT/scripts/rubric-path.sh")` (`${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml`), shared across every repo this dev touches — NOT written into the repo's `AGENTS.md`. The repo only carries the *reminder* to load it (stamped in Phase 4.4).
+The rubric is per developer and user-global at `${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml` — never written into the repo. pm consumes it; it does not own it.
 
-1. **Reuse Batch 5's check.** Batch 5 of the interview already ran `rubric-path.sh --check` for this pass — don't re-invoke it. Using that `set`/`unset` result:
+Using Batch 5's result:
 
-- `set` → tell the user their rubric is in place; offer a refresh if its `reviewed:` date is **>14 days** old or it lists a superseded model. A refresh re-pulls Artificial Analysis for cost + intelligence and keeps the dev's taste scores + capabilities. Done.
-- `unset` → walk them through creating one (next step).
+- `set` → nothing to do.
+- `unset` → tell the user: `"Run /fleet:model-rubric to set up model routing, or follow studio-baseline/Rubric_Setup.md if you don't have the fleet plugin installed."` Do not walk them through it here.
 
-2. **Create the rubric** by following the canonical walkthrough at `studio-baseline/Rubric_Setup.md` (read it from `$CLAUDE_PLUGIN_ROOT/../../studio-baseline/Rubric_Setup.md`, or fetch the raw URL). In short: if `ARTIFICIAL_ANALYSIS_API_KEY` is unset, first walk the dev through getting a free key and adding it to their shell env (they may decline — fall back to vendor docs / judgment); discover the current lineup **preferring the Artificial Analysis API** (`"$CLAUDE_PLUGIN_ROOT/scripts/fetch-model-data.sh"` → pricing → cost, coding/agentic index → intelligence); then **interview the dev question-by-question** (ecosystem/CLIs, axes, cost reality, hard-problem trust, taste, routing defaults) — do NOT open with a pre-scored table. Draft the table from their answers + the data, show it for confirmation and tweaks, then write the YAML to the path from `rubric-path.sh`. Stamp today's date in `reviewed:`. Stay inside the dev's own ecosystem — propose only models from families/CLIs they confirmed; add a cross-vendor tier (e.g. Codex) only if they confirm they have that CLI.
-
-3. **Migrate any legacy in-repo rubric.** If a prior setup wrote a "Picking the right models" section into this repo's `AGENTS.md`/`CLAUDE.md`, move its scores into the user-global rubric (if the dev confirms they're theirs) and delete that section from the repo file — the rubric no longer lives in the repo. Leave the Phase 4.4 baseline reminder in place.
+**Migrate any legacy in-repo rubric.** If a prior setup wrote a "Picking the right models" section into this repo's `AGENTS.md`/`CLAUDE.md`, move its scores into the user-global rubric (if the dev confirms they're theirs) and delete that section from the repo file. Leave the Phase 4.4 baseline reminder in place.
 
 ---
 
@@ -480,7 +475,7 @@ Files created:
   docs/adr/0000-template.md   — ADR template
   {planning files if created}
 
-Model rubric: {created at {user-global rubric-path.sh path} | found existing at {user-global rubric-path.sh path} | skipped}
+Model rubric: {found at user-global path | not set — run /fleet:model-rubric}
   {if created/found:} sprint-dev and dev-task route sub-agents by it.
 
 {If GitHub backend:}
@@ -553,6 +548,6 @@ Adjust the summary based on what was actually created — omit sections for skip
 
 - **No research reports**: That's fine. Set `research_dirs` to an empty list and skip the ingest recommendation in next steps. The user can add research directories later by editing `.pm/config.yml`.
 
-- **Model rubric location**: The rubric is always the single user-global store file (`"$CLAUDE_PLUGIN_ROOT/scripts/rubric-path.sh"`) — there's no repo-local copy to offer or reconcile. The repo itself only carries the Phase 4.4 baseline reminder block, which points a dev's agent at that store; it never holds the rubric's contents.
+- **Model rubric location**: The rubric is always the single user-global store file (`${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml`) — there's no repo-local copy to offer or reconcile. The repo itself only carries the Phase 4.4 baseline reminder block, which points a dev's agent at that store; it never holds the rubric's contents.
 
 - **Unknown ecosystem**: If you genuinely can't tell which model family you belong to, don't guess model names — ask the user which assistant/CLI they run this project with and rank the models they name.
