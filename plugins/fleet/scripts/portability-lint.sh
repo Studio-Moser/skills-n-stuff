@@ -9,18 +9,25 @@ set -euo pipefail
 repo="${1:-.}"
 cd "$repo"
 
+git rev-parse --git-dir >/dev/null 2>&1 || { echo "not a git repository: $repo" >&2; exit 1; }
+
 fail=0
 
 # 1. Symlink targets, read from the git index (mode 120000). Any absolute
 #    target is non-portable, whatever it points at.
+#    core.quotePath=false: non-ASCII names come through raw instead of
+#    C-quoted, so readlink sees the real path instead of a literal '"..."'.
 while IFS= read -r link; do
   [ -n "$link" ] || continue
-  target="$(readlink "$link")"
+  # A tracked symlink can be absent from the worktree (e.g. mid fleet:sync);
+  # readlink then fails. Don't let that abort the whole lint under set -e —
+  # just skip it and keep scanning everything else.
+  target="$(readlink "$link" || true)"
   case "$target" in
     /*) printf 'absolute symlink target: %s -> %s\n' "$link" "$target"; fail=1 ;;
   esac
 done <<EOF
-$(git ls-files -s | grep '^120000 ' | cut -f2-)
+$(git -c core.quotePath=false ls-files -s | grep '^120000 ' | cut -f2-)
 EOF
 
 # 2. File contents. Skip symlinks — handled above, and grep would follow them.
@@ -32,7 +39,7 @@ while IFS= read -r f; do
     fail=1
   fi
 done <<EOF
-$(git ls-files)
+$(git -c core.quotePath=false ls-files)
 EOF
 
 exit "$fail"

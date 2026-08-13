@@ -65,3 +65,28 @@ commit_all() {
   run "$SCRIPT" "$REPO"
   [ "$status" -eq 0 ]
 }
+
+@test "non-git directory fails loudly" {
+  NOTAREPO="${BATS_TEST_TMPDIR}/notarepo"
+  mkdir -p "$NOTAREPO"
+  run "$SCRIPT" "$NOTAREPO"
+  [ "$status" -eq 1 ]
+}
+
+@test "non-ASCII filename is still scanned" {
+  printf 'command: /Users/alice/.shelby/bin/hook\n' > "café.md"
+  commit_all
+  run "$SCRIPT" "$REPO"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"caf"* ]]
+}
+
+@test "tracked symlink missing from worktree still reports other findings" {
+  ln -s real missing-link
+  printf 'command: /Users/alice/.shelby/bin/hook\n' > bad.md
+  commit_all
+  rm missing-link
+  run "$SCRIPT" "$REPO"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"bad.md"* ]]
+}
