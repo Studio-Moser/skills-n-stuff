@@ -135,14 +135,19 @@ comparison didn't happen, so no status value is trustworthy:
 if [ -s "$diff_err" ]; then cat "$diff_err"; rm -f "$diff_err"; exit 1; fi
 ```
 
-This matters because BSD `diff -r` (macOS's default `diff`) exits **0**
-("identical") when a subdirectory it can't read produces a `diff: …:
-Permission denied` line on stderr, even while a *different*, readable part
-of the same tree genuinely differs — that combination is `diff_status=1`
-with a non-empty `diff_err`, which would otherwise walk straight into the
-keep/discard prompt below and `rm -r` a tree whose unreadable subtree was
-never actually compared. Checking stderr first, unconditionally, removes the
-need to repeat the check on every status branch.
+This matters because BSD `diff -r` (macOS's default `diff`) can leave a
+non-empty `diff_err` — a `diff: …: Permission denied` line from a
+subdirectory it can't read — under two distinct exit codes. If that
+unreadable subtree is the *only* difference, `diff -r` exits **0**
+("identical") even though part of the tree was never compared, which would
+otherwise walk straight into the keep/discard prompt below and `rm -r` a
+tree that was never actually fully compared. If a *different*, readable part
+of the same tree also genuinely differs, `diff -r` instead exits **1**
+(`diff_status=1`) for that real difference, while the unreadable subtree is
+still unchecked. Either exit code is untrustworthy once `diff_err` is
+non-empty, which is why it's checked first and unconditionally, before
+`diff_status` is read at all — removing the need to repeat the check on
+every status branch.
 
 Once `$diff_err` is confirmed empty, branch on `diff_status`:
 

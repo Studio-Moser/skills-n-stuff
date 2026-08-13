@@ -56,15 +56,13 @@ statusline-command.sh|claude/statusline-command.sh|file"
 
    rm -f "$HOME/agent-config-backup.tar" "$HOME/agent-config-backup.tar.gz"
    found=0
-   while IFS='|' read -r name rel kind; do
+   while IFS='| ' read -r name rel kind; do
      [ -n "$name" ] || continue
      if [ -e "$HOME/.claude/$name" ]; then
        tar rhf "$HOME/agent-config-backup.tar" -C "$HOME" ".claude/$name"
        found=1
      fi
-   done <<EOF
-   $entries
-   EOF
+   done <<< "$entries"
 
    if [ "$found" = 1 ]; then
      gzip -f "$HOME/agent-config-backup.tar"
@@ -108,7 +106,7 @@ statusline-command.sh|claude/statusline-command.sh|file"
    settings.json|claude/settings.json|file
    statusline-command.sh|claude/statusline-command.sh|file"
 
-   while IFS='|' read -r name rel kind; do
+   while IFS='| ' read -r name rel kind; do
      [ -n "$name" ] || continue
      link="$HOME/.claude/$name"
      want="$HOME/.agents/$rel"
@@ -120,15 +118,59 @@ statusline-command.sh|claude/statusline-command.sh|file"
      else
        echo "== $name: absent on this machine"
      fi
-   done <<EOF
-   $entries
-   EOF
+   done <<< "$entries"
    ```
 
    For every entry reported **REAL**, ask the developer which side wins — one
    entry at a time. If the machine's version wins, copy it into the repo
    **immediately**, before deciding the next entry (and commit it there if the
    developer wants it tracked):
+
+   **If `settings.json` is one of the entries being copied in — here or in step
+   4b — lift `skillOverrides` out of it first.** That key is one machine's
+   active-skill selection; copying it into the shared repo as part of
+   `settings.json` would commit it for every machine that clones the repo,
+   which is exactly the per-machine concern the flat, unscoped repo layout is
+   supposed to keep local. Merge it into `settings.local.json` — **merge, not
+   overwrite** — that file already holds `permissions`, `enabledPlugins`, and
+   `disabledMcpjsonServers`, and overwriting it would lose all three:
+
+   The script is captured as a quoted variable, not a heredoc — a heredoc's
+   closing marker has the same indented-terminator trap as the `entries`
+   loops above, and unlike shell data, Python source can't tolerate the
+   markdown list's leading spaces on every line either. `sed 's/^   //'`
+   strips exactly that 3-space list indent (the same width every block in
+   this step already sits at) before Python ever sees the text, so Python's
+   own indentation is what's left:
+
+   ```bash
+   lift_script='import json, sys
+   settings_path, local_path = sys.argv[1], sys.argv[2]
+   with open(settings_path) as f:
+       settings = json.load(f)
+   overrides = settings.pop("skillOverrides", None)
+   if overrides is None:
+       print("no skillOverrides in settings.json — nothing to lift")
+   else:
+       try:
+           with open(local_path) as f:
+               local = json.load(f)
+       except FileNotFoundError:
+           local = {}
+       local["skillOverrides"] = overrides       # merge: only this key changes
+       with open(local_path, "w") as f:
+           json.dump(local, f, indent=2)
+       with open(settings_path, "w") as f:
+           json.dump(settings, f, indent=2)
+       print("lifted skillOverrides into settings.local.json")'
+
+   printf '%s\n' "$lift_script" | sed 's/^   //' | \
+     python3 - "$HOME/.claude/settings.json" "$HOME/.claude/settings.local.json"
+   ```
+
+   Run this before the `cp` below copies `settings.json` into the repo — once
+   it's committed there with `skillOverrides` still inside, every other
+   machine that pulls it inherits this machine's active skills.
 
    ```bash
    # directory (skills) — contents, not the directory itself:
@@ -155,7 +197,7 @@ statusline-command.sh|claude/statusline-command.sh|file"
    settings.json|claude/settings.json|file
    statusline-command.sh|claude/statusline-command.sh|file"
 
-   while IFS='|' read -r name rel kind; do
+   while IFS='| ' read -r name rel kind; do
      [ -n "$name" ] || continue
      link="$HOME/.claude/$name"
      want="$HOME/.agents/$rel"
@@ -166,9 +208,7 @@ statusline-command.sh|claude/statusline-command.sh|file"
      rm -rf "$link"
      ln -sfn "$want" "$link"
      echo "== $name: linked -> $want"
-   done <<EOF
-   $entries
-   EOF
+   done <<< "$entries"
    ```
 
    `rm -rf` here is safe unconditionally: by this point every REAL entry's content
@@ -179,7 +219,35 @@ statusline-command.sh|claude/statusline-command.sh|file"
    link *inside* that path instead, which is why the removal has to happen first
    on every branch, not only the symlink-to-directory case.
 
-   Skip to step 5.
+   Before removing the backup tarball from step 1, verify what's now linked
+   actually resolves and parses — reuse step 4d's verification loop verbatim
+   (it already reports `not linked (repo had none)` for any entry the repo
+   lacks, so it's safe even when `statusline-command.sh` was never present):
+
+   ```bash
+   entries="skills|skills|dir
+   CLAUDE.md|claude/CLAUDE.md|file
+   settings.json|claude/settings.json|file
+   statusline-command.sh|claude/statusline-command.sh|file"
+
+   while IFS='| ' read -r name rel kind; do
+     [ -n "$name" ] || continue
+     link="$HOME/.claude/$name"
+     if [ ! -e "$link" ] && [ ! -L "$link" ]; then echo "== $name: not linked (repo had none)"; continue; fi
+     target="$(readlink -f "$link" 2>/dev/null)"
+     if [ -z "$target" ] || [ ! -e "$target" ]; then echo "== $name: DANGLING -> $(readlink "$link")"; continue; fi
+     if [ "$kind" = dir ]; then
+       [ -n "$(ls -A "$link" 2>/dev/null)" ] && echo "== $name: ok, populated" || echo "== $name: EMPTY"
+     elif [ "$name" = settings.json ]; then
+       python3 -m json.tool "$link" >/dev/null 2>&1 && echo "== $name: ok, parses" || echo "== $name: FAILED to parse"
+     else
+       echo "== $name: ok"
+     fi
+   done <<< "$entries"
+   ```
+
+   Only delete the backup tarball once every line reads `ok` (or the expected
+   `not linked` for an entry that was never present). Then continue to step 5.
 
 4. **Build the repo from loose config.** Order matters — step 4b is destructive if
    run before 4a.
@@ -194,7 +262,38 @@ statusline-command.sh|claude/statusline-command.sh|file"
    b. **Initialise the repo and copy every entry in** — copy, don't move; the
       originals stay in place as a fallback until they're verified and explicitly
       removed in step 4d. Skip any entry not present on this machine rather than
-      failing on it (`statusline-command.sh` is commonly absent):
+      failing on it (`statusline-command.sh` is commonly absent).
+
+      **First, if `$HOME/.claude/settings.json` exists, lift `skillOverrides`
+      out of it** — same script as step 3, redeclared here since blocks may
+      run in separate shells. The loop below copies `settings.json` into the
+      repo exactly as it finds it, so this has to run before the loop, not
+      after:
+
+      ```bash
+      lift_script='import json, sys
+      settings_path, local_path = sys.argv[1], sys.argv[2]
+      with open(settings_path) as f:
+          settings = json.load(f)
+      overrides = settings.pop("skillOverrides", None)
+      if overrides is None:
+          print("no skillOverrides in settings.json — nothing to lift")
+      else:
+          try:
+              with open(local_path) as f:
+                  local = json.load(f)
+          except FileNotFoundError:
+              local = {}
+          local["skillOverrides"] = overrides       # merge: only this key changes
+          with open(local_path, "w") as f:
+              json.dump(local, f, indent=2)
+          with open(settings_path, "w") as f:
+              json.dump(settings, f, indent=2)
+          print("lifted skillOverrides into settings.local.json")'
+
+      printf '%s\n' "$lift_script" | sed 's/^      //' | \
+        python3 - "$HOME/.claude/settings.json" "$HOME/.claude/settings.local.json"
+      ```
 
       ```bash
       mkdir -p "$HOME/.agents/claude" "$HOME/.agents/skills"
@@ -205,14 +304,12 @@ statusline-command.sh|claude/statusline-command.sh|file"
       settings.json|claude/settings.json|file
       statusline-command.sh|claude/statusline-command.sh|file"
 
-      while IFS='|' read -r name rel kind; do
+      while IFS='| ' read -r name rel kind; do
         [ -n "$name" ] || continue
         src="$HOME/.claude/$name"
         if [ ! -e "$src" ]; then echo "== $name: not on this machine, skipping"; continue; fi
         if [ "$kind" = dir ]; then cp -R "$src/." "$HOME/.agents/$rel/"; else cp "$src" "$HOME/.agents/$rel"; fi
-      done <<EOF
-      $entries
-      EOF
+      done <<< "$entries"
 
       git add skills claude && git commit -m "Initial commit: skills tree and claude config"
       ```
@@ -231,7 +328,7 @@ statusline-command.sh|claude/statusline-command.sh|file"
       settings.json|claude/settings.json|file
       statusline-command.sh|claude/statusline-command.sh|file"
 
-      while IFS='|' read -r name rel kind; do
+      while IFS='| ' read -r name rel kind; do
         [ -n "$name" ] || continue
         link="$HOME/.claude/$name"
         if [ ! -e "$link" ] && [ ! -L "$link" ]; then echo "== $name: not linked (repo had none)"; continue; fi
@@ -244,9 +341,7 @@ statusline-command.sh|claude/statusline-command.sh|file"
         else
           echo "== $name: ok"
         fi
-      done <<EOF
-      $entries
-      EOF
+      done <<< "$entries"
       ```
 
       Only delete the backup tarball once every line reads `ok` (or the expected

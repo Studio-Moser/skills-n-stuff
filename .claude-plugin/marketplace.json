@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Claude Code plugins by Studio Moser — strategy, research, design, and product development tools.",
-    "version": "0.13.1",
+    "version": "0.14.0",
     "pluginRoot": "./plugins"
   },
   "plugins": [
