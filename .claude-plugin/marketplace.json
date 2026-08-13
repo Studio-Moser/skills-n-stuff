@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Claude Code plugins by Studio Moser — strategy, research, design, and product development tools.",
-    "version": "0.14.0",
+    "version": "0.15.0",
     "pluginRoot": "./plugins"
   },
   "plugins": [
@@ -227,6 +227,36 @@
         "claude-desktop",
         "macos",
         "multi-account"
+      ]
+    },
+    {
+      "name": "generate",
+      "source": "./plugins/generate",
+      "description": "Governed image, video, and audio generation over the Kie.ai MCP. The models are the easy part — this adds the discipline around them: prices a batch and stops for confirmation before spending, downloads every result locally before URLs expire, and logs the prompt that produced each file.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Studio Moser"
+      },
+      "license": "MIT",
+      "keywords": [
+        "image-generation",
+        "video-generation",
+        "kie-ai",
+        "nano-banana",
+        "gpt-image",
+        "veo3",
+        "budget-guard",
+        "provenance",
+        "ad-creative",
+        "generative-media"
+      ],
+      "category": "productivity",
+      "tags": [
+        "generative-media",
+        "image-generation",
+        "video-generation",
+        "kie-ai",
+        "design"
       ]
     },
     {

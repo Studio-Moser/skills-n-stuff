@@ -1,0 +1,35 @@
+{
+  "name": "generate",
+  "version": "0.1.0",
+  "description": "Governed image, video, and audio generation over the Kie.ai MCP. Prices a batch and stops for confirmation before spending, downloads every result locally, and logs the prompt that made it.",
+  "author": {
+    "name": "Studio Moser",
+    "url": "https://github.com/Studio-Moser"
+  },
+  "repository": "https://github.com/Studio-Moser/skills-n-stuff",
+  "license": "MIT",
+  "keywords": [
+    "image-generation",
+    "video-generation",
+    "kie-ai",
+    "nano-banana",
+    "gpt-image",
+    "veo3",
+    "budget-guard",
+    "provenance"
+  ],
+  "userConfig": {
+    "output_dir": {
+      "type": "string",
+      "title": "Generations directory",
+      "description": "Where generated media and Generations.jsonl are written (e.g. design/_generated or ~/Generations)",
+      "sensitive": false
+    },
+    "default_budget_usd": {
+      "type": "string",
+      "title": "Default budget per invocation (USD)",
+      "description": "Estimated spend allowed before the skill stops and asks. Defaults to 2.00.",
+      "sensitive": false
+    }
+  }
+}
