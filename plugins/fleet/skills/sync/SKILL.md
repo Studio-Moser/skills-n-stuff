@@ -26,14 +26,25 @@ Makes this machine match your personal agent repo.
 
 ## Dry run
 
-If the user asks what would change, or passes `--dry-run`, run **only the two
-read-only scripts** — `link-plan.sh` (Phase 1's command) and
-`portability-lint.sh` (Phase 3's command) — then print the report from
-Phase 4 and stop. Do **not** follow Phase 1's action column
-(create/re-link/remove) or Phase 3's fix suggestions in dry-run mode — those
-are writes, not part of the dry run. Nothing is created, moved, or removed.
-Both scripts are read-only, so this is safe to offer unprompted when the
-user seems unsure.
+If the user asks what would change, or passes `--dry-run`, run **only the
+read-only pieces** — `link-plan.sh` (Phase 1's command), Phase 2.5's MCP
+verification block, and `portability-lint.sh` (Phase 3's command) — then
+print the report from Phase 4 and stop. Phase 2.5's MCP block only reads
+`mcp.json` and checks whether each server's command resolves; it belongs in a
+dry run because that's exactly the kind of thing someone previewing a sync
+wants to see.
+
+Skip everything else, explicitly:
+
+- **Phase 2** (commit, pull, push) — writes to the repo and the remote.
+- **Phase 2.5's plugin half** (marketplace add / plugin install) — installs
+  software. Run only its MCP verification block, not this one.
+- Phase 1's action column (create/re-link/remove) and Phase 3's fix
+  suggestions — both are writes, not part of the dry run.
+
+Nothing is created, installed, moved, or removed. The three pieces that do
+run are read-only, so this is safe to offer unprompted when the user seems
+unsure.
 
 ---
 
@@ -304,19 +315,25 @@ plugins, only reporting for MCP servers.
 
 ### Plugins — install what's missing, automatically
 
-The inventory is already in the tracked `settings.json`; nothing new needs
-tracking. `extraKnownMarketplaces` names the marketplaces this developer's
-config expects; `enabledPlugins` names the plugins. **Merge
-`settings.local.json` over `settings.json` first** — a local `false` for a
-plugin the shared file marks `true` is a deliberate per-machine override (how
-a local fork wins over a marketplace plugin of the same name), and installing
-it anyway would overwrite that choice. Local wins.
+The inventory is already in the tracked `settings.json` — read the **repo's**
+copy (`$repo/claude/settings.json`), the same file the MCP check below reads
+`mcp.json` from, not the possibly-drifted live file at `$claude/settings.json`
+(Phase 1 runs first and would have already flagged or fixed any such drift,
+but reading the repo copy here keeps both halves of this phase consistent on
+principle rather than by coincidence). `extraKnownMarketplaces` names the
+marketplaces this developer's config expects; `enabledPlugins` names the
+plugins. **Merge `settings.local.json` over it** — `settings.local.json` is
+never tracked (it's machine-local by design, per the "keep machine-local
+things local" table), so it's always read from `$claude`, live. A local
+`false` for a plugin the shared file marks `true` is a deliberate per-machine
+override (how a local fork wins over a marketplace plugin of the same name),
+and installing it anyway would overwrite that choice. Local wins.
 
 ```bash
 repo="${FLEET_REPO:-$HOME/.agents}"
 claude="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 
-plugin_reconcile_script='import json, re, subprocess, sys
+plugin_reconcile_script='import json, re, shutil, subprocess, sys
 
 def load(path):
     try:
@@ -324,6 +341,10 @@ def load(path):
             return json.load(f)
     except FileNotFoundError:
         return {}
+
+if shutil.which("claude") is None:
+    print("PLUGINS_STATE=skipped: claude CLI not on PATH")
+    raise SystemExit(0)
 
 settings = load(sys.argv[1])
 local = load(sys.argv[2])
@@ -333,8 +354,12 @@ enabled = dict(settings.get("enabledPlugins", {}))
 enabled.update(local.get("enabledPlugins", {}))  # local wins over shared
 
 def names(cmd):
-    out = subprocess.run(cmd, capture_output=True, text=True).stdout
-    return {m.group(1) for m in re.finditer(r"❯\s+(\S+)", out)}
+    r = subprocess.run(cmd, capture_output=True, text=True)
+    if r.returncode != 0:
+        cmd_str = " ".join(cmd)
+        print(f"PLUGINS_STATE=failed: running {cmd_str} exited {r.returncode}: {(r.stderr or r.stdout).strip()}")
+        raise SystemExit(0)
+    return {m.group(1) for m in re.finditer(r"❯\s+(\S+)", r.stdout)}
 
 have_marketplaces = names(["claude", "plugin", "marketplace", "list"])
 have_plugins = names(["claude", "plugin", "list"])
@@ -369,8 +394,14 @@ else:
     print(f"PLUGINS_STATE=added {len(added_marketplaces)} marketplace(s), installed {len(installed_plugins)} — restart to apply")
 '
 
-printf '%s\n' "$plugin_reconcile_script" | python3 - "$claude/settings.json" "$claude/settings.local.json"
+printf '%s\n' "$plugin_reconcile_script" | python3 - "$repo/claude/settings.json" "$claude/settings.local.json"
 ```
+
+`names()` fails closed: a non-zero exit from `claude plugin list` or
+`claude plugin marketplace list` reports `PLUGINS_STATE=failed: ...` and
+stops rather than treating empty/error output as "nothing installed," which
+would otherwise try to install everything. The `claude` CLI itself missing
+from `$PATH` is checked up front the same way, before any subprocess call.
 
 Anything printed to stderr above (a failed marketplace add or plugin install)
 is a finding — carry it into the Phase 4 report the same way an unfixed lint
@@ -413,20 +444,28 @@ disabled = set(load(local_path).get("disabledMcpjsonServers", []))
 
 active = {n: c for n, c in servers.items() if n not in disabled}
 unresolved = []
+remote = 0
 for name, cfg in active.items():
     cmd = cfg.get("command", "")
     if not cmd:
+        # URL/SSE-style server: no local command to verify, so it is neither
+        # checked nor "ok" — count it separately rather than folding it into
+        # a verified count it never earned.
+        remote += 1
         continue
     ok = os.access(cmd, os.X_OK) if cmd.startswith("/") else shutil.which(cmd) is not None
     if not ok:
         unresolved.append((name, cmd))
 
-if not unresolved:
-    print(f"MCP_STATE={len(active)} server(s) ok")
-else:
-    print(f"MCP_STATE={len(active) - len(unresolved)} ok, {len(unresolved)} unresolved")
-    for name, cmd in unresolved:
-        print(f"MCP_FINDING={name} → {cmd} (not present on this machine)")
+ok_count = len(active) - remote - len(unresolved)
+parts = [f"{ok_count} ok"]
+if remote:
+    parts.append(f"{remote} remote (no local command)")
+if unresolved:
+    parts.append(f"{len(unresolved)} unresolved")
+print("MCP_STATE=" + ", ".join(parts))
+for name, cmd in unresolved:
+    print(f"MCP_FINDING={name} → {cmd} (not present on this machine)")
 '
 
 printf '%s\n' "$mcp_reconcile_script" | python3 - "$repo/claude/mcp.json" "$claude/settings.local.json"
@@ -479,8 +518,9 @@ Fleet sync — {repo}
   Committed:  {nothing local | <short message>: N added, M modified, K deleted}
   Pull:       {up to date | N commits: <oneline list> | DIVERGED — not pushed}
   Push:       {pushed <sha> | skipped: <reason> | no remote configured}
-  Plugins:    {up to date | added N marketplace(s), installed M — restart to apply}
-  MCP:        {N server(s) ok | N ok, M unresolved: <names>}
+  Plugins:    {up to date | added N marketplace(s), installed M — restart to apply |
+               skipped: claude CLI not on PATH | failed: <reason>}
+  MCP:        {N ok | N ok, M remote (no local command) | N ok, M unresolved: <names>}
   Lint:       {clean | N finding(s), M fixed}
 
 {any unresolved finding, one per line}
@@ -488,9 +528,12 @@ Fleet sync — {repo}
 
 If anything is unresolved, say so in the summary line — do not report success with
 open findings buried above. That includes a failed marketplace add or plugin
-install from Phase 2.5 (report it the same as an unfixed lint finding) and any
-MCP server whose command didn't resolve (list each as `<name> → <command> (not
-present on this machine)` alongside the other unresolved findings).
+install from Phase 2.5, `claude` missing from `$PATH`, or `claude plugin list` /
+`claude plugin marketplace list` itself failing (report any of these the same as
+an unfixed lint finding) and any MCP server whose command didn't resolve (list
+each as `<name> → <command> (not present on this machine)` alongside the other
+unresolved findings). A server with no `command` (a URL/SSE-style server) is
+not a finding — it's counted separately as "remote," never folded into "ok."
 
 **Never report a sync as complete when the push did not happen.** A diverged pull,
 a rejected push, or a missing remote all mean this machine's changes have not
