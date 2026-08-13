@@ -31,7 +31,6 @@ You are NOT the triage agent -- that's `/pm:triage`. You sync state; others clas
 - **Non-destructive.** Never close or modify an issue without evidence (a merged commit on the default branch, user confirmation for stale items). When in doubt, flag for the user.
 - **No fabrication.** Domain term proposals and ADR proposals are grounded in actual commits and diffs. Do not invent terms or decisions.
 - **Error tolerant.** If one repo or one phase fails, log the error and continue with the rest.
-- **Advisory-only where noted.** The model-rubric freshness check (Phase 5.5) never edits the rubric — it flags staleness and defers the refresh to `/pm:setup`.
 
 ---
 
@@ -281,18 +280,6 @@ candidates found/created/skipped.
 
 ---
 
-## Phase 5.5: Model-Rubric Freshness (advisory)
-
-A quick read-only check so the model-selection rubric that `sprint-dev`/`dev-task` route by doesn't quietly rot. **This phase never rewrites the rubric** — it only flags staleness and points at `/pm:setup`, which owns the discovery-and-rescore machinery.
-
-1. Resolve the developer's rubric with `"$CLAUDE_PLUGIN_ROOT/scripts/rubric-path.sh"`. If `--check` reports `unset`, print `"No personal model rubric set — run /pm:setup or follow studio-baseline/Rubric_Setup.md to create one."` and end the phase.
-
-2. If found, read its `reviewed {date}` stamp. Flag it as stale when the stamp is more than 14 days old, missing entirely, or you can see it lists a model that's since been superseded. Otherwise print `"Model rubric current (reviewed {date})."` and end.
-
-3. If stale, don't fix it here — surface it: `"Model rubric at {path} looks stale (reviewed {date} / lists {superseded model}). Run /pm:setup to refresh it — it'll re-check the current lineup and rescore."` Record for the summary.
-
----
-
 ## Phase 6: Update State
 
 Write the current timestamp to `.pm/state.yml` as `last_reconcile`, preserving other fields.
@@ -351,8 +338,6 @@ CONTEXT.md:
 ADRs:
   Candidates found:      {L}
   ADRs created:          {M}
-
-Model rubric:            {current (reviewed {date}) | STALE — run /pm:setup | not found}
 
 {If GitHub: "Issues updated in {owner}/{repo}"}
 {If local: "Items updated in {items_dir}"}
