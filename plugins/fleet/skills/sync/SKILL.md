@@ -93,9 +93,17 @@ Each line ends in a state:
 |---|---|---|
 | `ok` | correct symlink | nothing |
 | `ABSENT` | no such path in `$claude` | create the link |
-| `REAL-FILE` | a real file (or directory — `skills` is one of the four tracked entries) sits where the link should be | **diff first** (below) |
+| `REAL-FILE` | a real file (or directory — `skills` is one of the five tracked entries) sits where the link should be | **diff first** (below) |
 | `RELINK(->X)` | symlink points somewhere else | show `X`, confirm, re-link |
 | `MISSING-IN-REPO` | the repo has no such file | report; do not create anything |
+
+**`mcp.json` is tracked like the rest, but the portability lint in Phase 3 doesn't
+fully cover it.** That lint only flags literal `/Users/<name>` or `/home/<name>` paths;
+`mcp.json` typically holds paths like `/Applications/Some.app/Contents/Helpers/Server`,
+which pass the lint but are still machine-specific. Tracking it is right — the
+inventory should migrate — but each server's command needs to be verified as
+actually present on this machine, not assumed to be. That happens in Phase 2.5,
+not here.
 
 **`MISSING-IN-REPO` is checked first and masks the other states.** If the
 repo lacks the file, `link-plan.sh` reports `MISSING-IN-REPO` for that entry
@@ -287,6 +295,149 @@ without a remote, this machine is versioned but nothing syncs anywhere.
 
 ---
 
+## Phase 2.5: Reconcile installed plugins and MCP servers
+
+The repo is current now (Phase 2 committed, pulled, and pushed it), so this
+phase reads the tracked config as the source of truth for what *should* be on
+this machine and reconciles reality against it — installing what's missing for
+plugins, only reporting for MCP servers.
+
+### Plugins — install what's missing, automatically
+
+The inventory is already in the tracked `settings.json`; nothing new needs
+tracking. `extraKnownMarketplaces` names the marketplaces this developer's
+config expects; `enabledPlugins` names the plugins. **Merge
+`settings.local.json` over `settings.json` first** — a local `false` for a
+plugin the shared file marks `true` is a deliberate per-machine override (how
+a local fork wins over a marketplace plugin of the same name), and installing
+it anyway would overwrite that choice. Local wins.
+
+```bash
+repo="${FLEET_REPO:-$HOME/.agents}"
+claude="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+
+plugin_reconcile_script='import json, re, subprocess, sys
+
+def load(path):
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
+
+settings = load(sys.argv[1])
+local = load(sys.argv[2])
+
+marketplaces = settings.get("extraKnownMarketplaces", {})
+enabled = dict(settings.get("enabledPlugins", {}))
+enabled.update(local.get("enabledPlugins", {}))  # local wins over shared
+
+def names(cmd):
+    out = subprocess.run(cmd, capture_output=True, text=True).stdout
+    return {m.group(1) for m in re.finditer(r"❯\s+(\S+)", out)}
+
+have_marketplaces = names(["claude", "plugin", "marketplace", "list"])
+have_plugins = names(["claude", "plugin", "list"])
+
+added_marketplaces = []
+for name, cfg in marketplaces.items():
+    if name in have_marketplaces:
+        continue
+    repo = cfg.get("source", {}).get("repo")
+    if not repo:
+        continue
+    r = subprocess.run(["claude", "plugin", "marketplace", "add", repo], capture_output=True, text=True)
+    if r.returncode == 0:
+        added_marketplaces.append(name)
+        have_marketplaces.add(name)
+    else:
+        print(f"marketplace add failed: {name} ({repo}): {(r.stderr or r.stdout).strip()}", file=sys.stderr)
+
+installed_plugins = []
+for name, on in enabled.items():
+    if not on or name in have_plugins:
+        continue
+    r = subprocess.run(["claude", "plugin", "install", name], capture_output=True, text=True)
+    if r.returncode == 0:
+        installed_plugins.append(name)
+    else:
+        print(f"plugin install failed: {name}: {(r.stderr or r.stdout).strip()}", file=sys.stderr)
+
+if not added_marketplaces and not installed_plugins:
+    print("PLUGINS_STATE=up to date")
+else:
+    print(f"PLUGINS_STATE=added {len(added_marketplaces)} marketplace(s), installed {len(installed_plugins)} — restart to apply")
+'
+
+printf '%s\n' "$plugin_reconcile_script" | python3 - "$claude/settings.json" "$claude/settings.local.json"
+```
+
+Anything printed to stderr above (a failed marketplace add or plugin install)
+is a finding — carry it into the Phase 4 report the same way an unfixed lint
+finding is carried, never silently. **Plugin installs need a restart to take
+effect** — the `PLUGINS_STATE` line already says so whenever it installed
+anything; repeat it in the report.
+
+### MCP servers — verify, report, never auto-install
+
+Read the tracked `claude/mcp.json` (skip cleanly if absent — not every
+developer runs MCP servers). For each entry under `mcpServers`, confirm its
+`command` actually resolves on this machine: an absolute path must be
+executable, a bare name must resolve on `$PATH`. **Do not attempt to install
+anything here** — an MCP entry points at an arbitrary binary (an app bundle, a
+local CLI, a script); there is no generic install, and guessing a package
+manager would be worse than a clear message naming what to install by hand.
+Also honour `disabledMcpjsonServers` in `settings.local.json` — a server
+disabled on this machine is not a finding.
+
+```bash
+repo="${FLEET_REPO:-$HOME/.agents}"
+claude="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+
+mcp_reconcile_script='import json, os, shutil, sys
+
+def load(path):
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
+
+mcp_path, local_path = sys.argv[1], sys.argv[2]
+if not os.path.exists(mcp_path):
+    print("MCP_STATE=not tracked")
+    raise SystemExit(0)
+
+servers = load(mcp_path).get("mcpServers", {})
+disabled = set(load(local_path).get("disabledMcpjsonServers", []))
+
+active = {n: c for n, c in servers.items() if n not in disabled}
+unresolved = []
+for name, cfg in active.items():
+    cmd = cfg.get("command", "")
+    if not cmd:
+        continue
+    ok = os.access(cmd, os.X_OK) if cmd.startswith("/") else shutil.which(cmd) is not None
+    if not ok:
+        unresolved.append((name, cmd))
+
+if not unresolved:
+    print(f"MCP_STATE={len(active)} server(s) ok")
+else:
+    print(f"MCP_STATE={len(active) - len(unresolved)} ok, {len(unresolved)} unresolved")
+    for name, cmd in unresolved:
+        print(f"MCP_FINDING={name} → {cmd} (not present on this machine)")
+'
+
+printf '%s\n' "$mcp_reconcile_script" | python3 - "$repo/claude/mcp.json" "$claude/settings.local.json"
+```
+
+Report any unresolved server, naming the server and the missing command, e.g.
+`shelby-memory → /Applications/Shelby.app/Contents/Helpers/ShelbyMCP (not
+present on this machine)`.
+
+---
+
 ## Phase 3: Portability lint
 
 ```bash
@@ -328,13 +479,18 @@ Fleet sync — {repo}
   Committed:  {nothing local | <short message>: N added, M modified, K deleted}
   Pull:       {up to date | N commits: <oneline list> | DIVERGED — not pushed}
   Push:       {pushed <sha> | skipped: <reason> | no remote configured}
+  Plugins:    {up to date | added N marketplace(s), installed M — restart to apply}
+  MCP:        {N server(s) ok | N ok, M unresolved: <names>}
   Lint:       {clean | N finding(s), M fixed}
 
 {any unresolved finding, one per line}
 ```
 
 If anything is unresolved, say so in the summary line — do not report success with
-open findings buried above.
+open findings buried above. That includes a failed marketplace add or plugin
+install from Phase 2.5 (report it the same as an unfixed lint finding) and any
+MCP server whose command didn't resolve (list each as `<name> → <command> (not
+present on this machine)` alongside the other unresolved findings).
 
 **Never report a sync as complete when the push did not happen.** A diverged pull,
 a rejected push, or a missing remote all mean this machine's changes have not

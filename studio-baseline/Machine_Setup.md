@@ -13,7 +13,8 @@ The personal layer is **one private git repo per developer**, conventionally at
 └── claude/
     ├── CLAUDE.md
     ├── settings.json          permissions, hooks, statusLine, enabledPlugins
-    └── statusline-command.sh  referenced by settings.json — they travel together
+    ├── statusline-command.sh  referenced by settings.json — they travel together
+    └── mcp.json               MCP server definitions
 ```
 
 | link | target |
@@ -22,20 +23,30 @@ The personal layer is **one private git repo per developer**, conventionally at
 | `~/.claude/CLAUDE.md` | `~/.agents/claude/CLAUDE.md` |
 | `~/.claude/settings.json` | `~/.agents/claude/settings.json` |
 | `~/.claude/statusline-command.sh` | `~/.agents/claude/statusline-command.sh` |
+| `~/.claude/mcp.json` | `~/.agents/claude/mcp.json` |
 
-**The four rows above are "the entries."** Every step below that touches more than
+**`mcp.json` is tracked like the rest, but its portability isn't fully covered by
+the lint in step 5.** That lint only flags literal `/Users/<name>` or `/home/<name>` paths;
+`mcp.json` typically holds paths like `/Applications/Some.app/Contents/Helpers/Server`,
+which pass the lint but are still machine-specific. Tracking it is right — the
+inventory should migrate — but each server's command needs to be verified as
+present on this machine, not assumed. `/fleet:sync` does that verification
+(Phase 2.5); this bootstrap doc does not attempt it.
+
+**The five rows above are "the entries."** Every step below that touches more than
 one of them is written as a loop over the same list, redeclared verbatim at the top
 of that step's command block (blocks may run in separate shells, so nothing set in
 one persists into the next). Copy it exactly — don't hand-unroll it into separate
-per-entry lines. That's what makes adding a fifth entry later a one-line edit
-repeated in a few places instead of a hunt through prose for every place "the four"
+per-entry lines. That's what makes adding a sixth entry later a one-line edit
+repeated in a few places instead of a hunt through prose for every place "the five"
 were listed out by hand:
 
 ```bash
 entries="skills|skills|dir
 CLAUDE.md|claude/CLAUDE.md|file
 settings.json|claude/settings.json|file
-statusline-command.sh|claude/statusline-command.sh|file"
+statusline-command.sh|claude/statusline-command.sh|file
+mcp.json|claude/mcp.json|file"
 ```
 
 (`name|rel|kind` — `name` under `~/.claude`, `rel` under `~/.agents`, `kind` is
@@ -43,7 +54,7 @@ statusline-command.sh|claude/statusline-command.sh|file"
 
 ## Steps
 
-1. **Back up whatever is on this machine for these four entries, before anything
+1. **Back up whatever is on this machine for these five entries, before anything
    else.** Both paths below can remove real files — the clone path (step 3) has an
    unconditional removal a few lines into it, and it's the only net either path
    gets:
@@ -52,7 +63,8 @@ statusline-command.sh|claude/statusline-command.sh|file"
    entries="skills|skills|dir
    CLAUDE.md|claude/CLAUDE.md|file
    settings.json|claude/settings.json|file
-   statusline-command.sh|claude/statusline-command.sh|file"
+   statusline-command.sh|claude/statusline-command.sh|file
+   mcp.json|claude/mcp.json|file"
 
    rm -f "$HOME/agent-config-backup.tar" "$HOME/agent-config-backup.tar.gz"
    found=0
@@ -104,7 +116,8 @@ statusline-command.sh|claude/statusline-command.sh|file"
    entries="skills|skills|dir
    CLAUDE.md|claude/CLAUDE.md|file
    settings.json|claude/settings.json|file
-   statusline-command.sh|claude/statusline-command.sh|file"
+   statusline-command.sh|claude/statusline-command.sh|file
+   mcp.json|claude/mcp.json|file"
 
    while IFS='| ' read -r name rel kind; do
      [ -n "$name" ] || continue
@@ -195,7 +208,8 @@ statusline-command.sh|claude/statusline-command.sh|file"
    entries="skills|skills|dir
    CLAUDE.md|claude/CLAUDE.md|file
    settings.json|claude/settings.json|file
-   statusline-command.sh|claude/statusline-command.sh|file"
+   statusline-command.sh|claude/statusline-command.sh|file
+   mcp.json|claude/mcp.json|file"
 
    while IFS='| ' read -r name rel kind; do
      [ -n "$name" ] || continue
@@ -228,7 +242,8 @@ statusline-command.sh|claude/statusline-command.sh|file"
    entries="skills|skills|dir
    CLAUDE.md|claude/CLAUDE.md|file
    settings.json|claude/settings.json|file
-   statusline-command.sh|claude/statusline-command.sh|file"
+   statusline-command.sh|claude/statusline-command.sh|file
+   mcp.json|claude/mcp.json|file"
 
    while IFS='| ' read -r name rel kind; do
      [ -n "$name" ] || continue
@@ -302,7 +317,8 @@ statusline-command.sh|claude/statusline-command.sh|file"
       entries="skills|skills|dir
       CLAUDE.md|claude/CLAUDE.md|file
       settings.json|claude/settings.json|file
-      statusline-command.sh|claude/statusline-command.sh|file"
+      statusline-command.sh|claude/statusline-command.sh|file
+      mcp.json|claude/mcp.json|file"
 
       while IFS='| ' read -r name rel kind; do
         [ -n "$name" ] || continue
@@ -326,7 +342,8 @@ statusline-command.sh|claude/statusline-command.sh|file"
       entries="skills|skills|dir
       CLAUDE.md|claude/CLAUDE.md|file
       settings.json|claude/settings.json|file
-      statusline-command.sh|claude/statusline-command.sh|file"
+      statusline-command.sh|claude/statusline-command.sh|file
+      mcp.json|claude/mcp.json|file"
 
       while IFS='| ' read -r name rel kind; do
         [ -n "$name" ] || continue
@@ -377,7 +394,6 @@ statusline-command.sh|claude/statusline-command.sh|file"
    | | why |
    |---|---|
    | `~/.claude/settings.local.json` | machine-local by design; holds `skillOverrides` |
-   | `~/.claude/mcp.json` | hardcodes app paths that differ per machine |
    | `~/.claude/projects/` | session state and per-project memory |
    | any tool's own store (e.g. `~/.shelby/`) | credentials and per-machine databases |
 
