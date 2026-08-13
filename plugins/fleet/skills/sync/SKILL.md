@@ -28,17 +28,23 @@ Makes this machine match your personal agent repo.
 
 If the user asks what would change, or passes `--dry-run`, run **only the
 read-only pieces** — `link-plan.sh` (Phase 1's command), Phase 2.5's MCP
-verification block, and `portability-lint.sh` (Phase 3's command) — then
-print the report from Phase 4 and stop. Phase 2.5's MCP block only reads
-`mcp.json` and checks whether each server's command resolves; it belongs in a
-dry run because that's exactly the kind of thing someone previewing a sync
-wants to see.
+verification block, Phase 2.6's read/compare/report step, and
+`portability-lint.sh` (Phase 3's command) — then print the report from
+Phase 4 and stop. Phase 2.5's MCP block only reads `mcp.json` and checks
+whether each server's command resolves; it belongs in a dry run because
+that's exactly the kind of thing someone previewing a sync wants to see.
+Phase 2.6's `skills-reconcile.sh` call is the same shape: it only reads the
+manifest, `.fleet-local.json`, and `npx skills list -g --json` output, and
+prints findings — nothing on disk changes.
 
 Skip everything else, explicitly:
 
 - **Phase 2** (commit, pull, push) — writes to the repo and the remote.
 - **Phase 2.5's plugin half** (marketplace add / plugin install) — installs
   software. Run only its MCP verification block, not this one.
+- **Phase 2.6's installs, removals, manifest write, and `.gitignore`
+  write** — everything after the `skills-reconcile.sh` call. Running
+  `skills-manifest.sh` in a dry run would write real files; skip it.
 - Phase 1's action column (create/re-link/remove) and Phase 3's fix
   suggestions — both are writes, not part of the dry run.
 
@@ -477,6 +483,180 @@ present on this machine)`.
 
 ---
 
+## Phase 2.6: Reconcile third-party skills
+
+**The store.** `$repo/skills/<name>` holds the real code for a skill; `$claude/skills`
+is a symlink to it, so this developer's other agent config already reads it
+directly — Phase 1 covers that link like any other tracked entry. Some of
+those skills are authored right here in the repo; others are installed from
+elsewhere with `npx skills` (vercel-labs) and should be *declared*, not
+vendored. `npx skills list -g --json` reports every skill on this machine
+across every agent, each with a `source` field — `null` for locally-authored
+skills, `"owner/repo"` for an installed third-party one. That field is the
+only thing that tells the two apart; a skill's own files don't say where it
+came from.
+
+`$repo/skills.manifest` is the developer's **declared** set of third-party
+skills — one `name<TAB>source` line each, sorted, generated, never
+hand-edited. It's regenerated from reality at the end of this phase, so a
+skill removed by any means (this machine, another machine, or by hand)
+simply disappears from the next regeneration. Other agents (Cursor, Pi,
+Codex) symlink into the same store and manage themselves — never touch
+`~/.cursor`, `~/.pi`, or `~/.codex`, and the manifest only ever covers
+entries whose `path` falls under `$repo/skills/`.
+
+**Guard first — this phase needs `npx` and `node`:**
+
+```bash
+command -v npx >/dev/null 2>&1 && command -v node >/dev/null 2>&1 \
+  || echo "SKILLS_STATE=skipped: npx/node not on PATH"
+```
+
+If that printed, skip the rest of this phase, carry `SKILLS_STATE=skipped:
+...` into the Phase 4 report, and move on to Phase 3. Never let a missing
+`npx` traceback into the middle of a sync.
+
+**Order matters, which is why this phase is five numbered steps run in this
+exact sequence, not whatever order is convenient:**
+
+1. Read the committed manifest.
+2. Install anything it declares that isn't on this machine yet.
+3. Detect **extras** — installed here, not declared.
+4. Detect **removals** — the same signal as step 3, read the other way (below).
+5. Only now, regenerate the manifest and `.gitignore` block from reality.
+
+Regeneration has to come **last**. It captures whatever `npx skills list`
+reports *at the moment it runs* — if that moment is before steps 2–4 have
+changed this machine to match the manifest (the common case: a fresh
+machine with an empty `skills/` directory), regenerating would capture that
+empty state, overwrite the committed manifest with nothing, and the
+developer's declaration is gone. Steps 2–4 have to change reality first;
+step 5 only ever records reality as it now stands.
+
+### 1–2. Read the manifest, install what's missing
+
+```bash
+repo="${FLEET_REPO:-$HOME/.agents}"
+listing="$(npx skills list -g --json 2>/dev/null)" \
+  || { echo "SKILLS_STATE=failed: npx skills list -g --json"; }
+plan="$(printf '%s' "$listing" | "$CLAUDE_PLUGIN_ROOT/scripts/skills-reconcile.sh" "$repo")"
+printf '%s\n' "$plan"
+```
+
+`skills-reconcile.sh` reads the committed `skills.manifest` (absent file →
+treated as empty — a first run, not an error) and `.fleet-local.json`
+(absent → no overrides), diffs both against the `listing` JSON, and prints
+one line per finding: `INSTALL`, `SKIP-INSTALL`, `EXTRA`, or `KEEP-LOCAL`
+(tab-separated: kind, name, and source where relevant). It writes nothing —
+the same read-only-report role `link-plan.sh` plays for Phase 1.
+
+Act on every `INSTALL` line:
+
+```bash
+repo="${FLEET_REPO:-$HOME/.agents}"
+printf '%s\n' "$plan" | while IFS=$'\t' read -r kind name source; do
+  [ "$kind" = "INSTALL" ] || continue
+  npx skills add "$source" -s "$name" -g -y \
+    && echo "installed: $name ($source)" \
+    || echo "install failed: $name ($source) — offer to add to skipInstall (see overrides)"
+done
+```
+
+Report every `SKIP-INSTALL` line too — the developer (or a previous run)
+already declined this one; do not attempt it and do not re-ask.
+
+### 3–4. Extras and removals — one detection, one offer
+
+An `EXTRA` line names a skill that's on this machine, has a real `source`,
+and isn't in the manifest. That single fact has two equally plausible
+stories behind it — it was just installed here and never declared, or it
+*was* declared and the developer removed it from the manifest on another
+machine, and this machine hasn't caught up yet ("the manifest lost an
+entry" while the skill itself is still sitting in `$repo/skills/`). Nothing
+in the data distinguishes those two stories, so this phase doesn't try to —
+it asks once, with both outcomes on the table:
+
+- **Add to the manifest** (the normal case) — no action needed now; the
+  skill is already in `listing`, so step 5's regeneration picks it up.
+- **Remove it** — `npx skills remove <name> -g -y`.
+- **Neither, for now** — legitimate; record the decline so sync stops
+  asking every run (see overrides, below).
+
+### Overrides
+
+`$repo/.fleet-local.json` records deliberate per-machine deviations so a
+decline doesn't get re-asked forever:
+
+```json
+{"skipInstall": ["name", "…"], "keepLocal": ["name", "…"]}
+```
+
+- `skipInstall` — declared in the manifest, deliberately not wanted on this
+  machine. Usually hand-edited directly (a developer knows in advance a
+  heavy skill only belongs on one machine); also offer to add a name here
+  when its `INSTALL` attempt above fails, so a broken or unwanted source
+  isn't retried every run.
+- `keepLocal` — present on this machine, deliberately left undeclared. Add a
+  name here when the extras offer above is declined outright.
+
+To add a name, load the file (treat absent as `{"skipInstall": [],
+"keepLocal": []}`), append if not already present, keep each array sorted,
+and write it back:
+
+```bash
+repo="${FLEET_REPO:-$HOME/.agents}"
+
+override_script='import json, sys
+
+path, kind, name = sys.argv[1], sys.argv[2], sys.argv[3]
+try:
+    with open(path) as f:
+        data = json.load(f)
+except FileNotFoundError:
+    data = {}
+data.setdefault("skipInstall", [])
+data.setdefault("keepLocal", [])
+if name not in data[kind]:
+    data[kind].append(name)
+    data[kind].sort()
+with open(path, "w") as f:
+    json.dump(data, f, indent=2)
+    f.write("\n")
+'
+
+printf '%s\n' "$override_script" | python3 - "$repo/.fleet-local.json" keepLocal "<name>"
+```
+
+Use `kind=skipInstall` for a declined/failed install instead. `.fleet-local.json`
+is machine-local by design — it must never be committed; `skills-manifest.sh`
+(step 5) keeps it gitignored in the static part of `.gitignore`, outside the
+generated block.
+
+**Report deviations once per run**, even when nothing changed this time —
+otherwise a standing decline becomes invisible permanent state:
+
+```
+Skills local deviations: skipInstall <name>, … | keepLocal <name>, … | none
+```
+
+### 5. Regenerate — only after 2–4 have run
+
+```bash
+repo="${FLEET_REPO:-$HOME/.agents}"
+npx skills list -g --json 2>/dev/null | "$CLAUDE_PLUGIN_ROOT/scripts/skills-manifest.sh" "$repo"
+```
+
+Deliberately a **fresh** `npx skills list -g --json` call, not the `$listing`
+captured in steps 1–2 — installs and removals in steps 2–4 changed reality
+since then, and regenerating from a stale `$listing` would write back
+exactly the drift this phase exists to fix. `skills-manifest.sh` filters to
+entries with a non-null `source` under `$repo/skills/`, writes the sorted
+`name<TAB>source` manifest, and rewrites the `# fleet:skills start` … `# fleet:skills
+end` block in `.gitignore` to match — one `skills/<name>/` line per entry —
+without touching anything else in that file.
+
+---
+
 ## Phase 3: Portability lint
 
 ```bash
@@ -521,8 +701,11 @@ Fleet sync — {repo}
   Plugins:    {up to date | added N marketplace(s), installed M — restart to apply |
                skipped: claude CLI not on PATH | failed: <reason>}
   MCP:        {N ok | N ok, M remote (no local command) | N ok, M unresolved: <names>}
+  Skills:     {N declared, M installed, K extra | up to date |
+               skipped: npx/node not on PATH | failed: <reason>}
   Lint:       {clean | N finding(s), M fixed}
 
+{Skills local deviations line, only when skipInstall or keepLocal is non-empty}
 {any unresolved finding, one per line}
 ```
 
@@ -530,10 +713,11 @@ If anything is unresolved, say so in the summary line — do not report success 
 open findings buried above. That includes a failed marketplace add or plugin
 install from Phase 2.5, `claude` missing from `$PATH`, or `claude plugin list` /
 `claude plugin marketplace list` itself failing (report any of these the same as
-an unfixed lint finding) and any MCP server whose command didn't resolve (list
+an unfixed lint finding), any MCP server whose command didn't resolve (list
 each as `<name> → <command> (not present on this machine)` alongside the other
-unresolved findings). A server with no `command` (a URL/SSE-style server) is
-not a finding — it's counted separately as "remote," never folded into "ok."
+unresolved findings), and any Phase 2.6 `install failed` or `npx skills remove`
+failure. A server with no `command` (a URL/SSE-style server) is not a finding —
+it's counted separately as "remote," never folded into "ok."
 
 **Never report a sync as complete when the push did not happen.** A diverged pull,
 a rejected push, or a missing remote all mean this machine's changes have not
