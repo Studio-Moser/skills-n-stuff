@@ -79,6 +79,15 @@ Capture full-page screenshots of websites with scroll-triggered animation suppor
 
 [Full documentation](plugins/site-capture/README.md)
 
+### Generate
+
+Governed image, video, and audio generation over the Kie.ai MCP. Prices a batch and stops for confirmation before spending, downloads every result locally before its URL expires, and logs the prompt that produced each file.
+
+**Skills:**
+- `/generate:generate` — Generate media with a budget guard, local archive, and prompt log
+
+[Full documentation](plugins/generate/README.md)
+
 ### Research Scout (Deprecated)
 
 > **Deprecated:** Use `/product-pulse:deep-dive` instead.
