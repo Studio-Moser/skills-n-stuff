@@ -223,7 +223,8 @@ trello:
 After writing, validate immediately:
 
 ```bash
-"$CLAUDE_PLUGIN_ROOT/scripts/validate-config.sh" "$primary_repo_root/.pm/config.yml"
+pm="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/pm/*/ 2>/dev/null | sort -V | tail -1)}"; pm="${pm%/}"
+"$pm/scripts/validate-config.sh" "$primary_repo_root/.pm/config.yml"
 ```
 
 If validation fails, surface the errors and stop — do not proceed to Phase 6T.
@@ -319,18 +320,20 @@ fi
 
 ```bash
 BODY="$(mktemp)"
+pm="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/pm/*/ 2>/dev/null | sort -V | tail -1)}"; pm="${pm%/}"
 curl -fsS "https://raw.githubusercontent.com/Studio-Moser/skills-n-stuff/main/studio-baseline/AGENTS_Baseline.md" -o "$BODY" \
-  || cp "$CLAUDE_PLUGIN_ROOT/../../studio-baseline/AGENTS_Baseline.md" "$BODY" 2>/dev/null \
+  || cp "$pm/../../studio-baseline/AGENTS_Baseline.md" "$BODY" 2>/dev/null \
   || { echo "could not obtain baseline body"; }
 ```
 
 3. Stamp it (idempotent — safe to re-run; never clobbers the repo's own content) — but only if the fetch actually produced a body. An empty `$BODY` means both the fetch and the bundled fallback failed; stamping it would wipe out any existing block instead of preserving it, so skip the stamp and say so:
 
 ```bash
+pm="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/pm/*/ 2>/dev/null | sort -V | tail -1)}"; pm="${pm%/}"
 if [ ! -s "$BODY" ]; then
   echo "Could not obtain the baseline block (offline, and no bundled copy found). Skipping the baseline stamp — re-run /pm:setup with network access or a full plugin checkout."
 else
-  "$CLAUDE_PLUGIN_ROOT/scripts/stamp-baseline.sh" "$TARGET" "$BODY"
+  "$pm/scripts/stamp-baseline.sh" "$TARGET" "$BODY"
 fi
 ```
 

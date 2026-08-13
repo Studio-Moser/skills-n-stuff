@@ -22,19 +22,19 @@ setup() {
   REPO="$(cd "${BATS_TEST_DIRNAME}/../../.." && pwd)"
 }
 
-@test "no fleet skill body invokes a plugin script via \$CLAUDE_PLUGIN_ROOT" {
-  # Scoped to fleet deliberately. The same defect exists today in
-  # plugins/pm/skills/{setup,ingest} (5 sites) and
-  # plugins/generate/skills/generate (4 sites) — confirmed by widening this
-  # glob to plugins/*. Those are separate plugins with their own release
-  # cadence; widen this glob once they are fixed, and this guard will hold
-  # the whole repo.
+@test "no skill body invokes a plugin script via \$CLAUDE_PLUGIN_ROOT" {
+  # Repo-wide. Was fleet-scoped when first written because pm and generate
+  # carried the same defect; both were fixed, so this now guards everything.
+  #
+  # Load-time `!`…`` substitution is expanded by Claude Code before the agent
+  # sees it and is unaffected — pm relies on that form in four skills and it
+  # must keep working. Only bash the agent executes itself is checked.
   run python3 - "$REPO" <<'PY'
 import glob, os, re, sys
 
 repo = sys.argv[1]
 bad = []
-for path in sorted(glob.glob(os.path.join(repo, "plugins/fleet/skills/*/SKILL.md"))):
+for path in sorted(glob.glob(os.path.join(repo, "plugins/*/skills/*/SKILL.md"))):
     src = open(path).read()
     rel = os.path.relpath(path, repo)
     for block in re.findall(r"```bash\n(.*?)\n```", src, re.S):

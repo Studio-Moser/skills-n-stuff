@@ -93,7 +93,8 @@ To use a local file as a reference — a brand asset, a previous generation you 
 to edit or animate — upload it to a temporary public host and pass the returned URL:
 
 ```bash
-"${CLAUDE_PLUGIN_ROOT}/scripts/host-reference.sh" path/to/brand-mark.png
+gen="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/generate/*/ 2>/dev/null | sort -V | tail -1)}"; gen="${gen%/}"
+"$gen/scripts/host-reference.sh" path/to/brand-mark.png
 # → https://litterbox.catbox.moe/abc123.png
 ```
 
@@ -138,7 +139,8 @@ Every returned URL goes through the archiver, which downloads the asset and appe
 its provenance line to `Generations.jsonl` in the same folder:
 
 ```bash
-"${CLAUDE_PLUGIN_ROOT}/scripts/save-generation.sh" \
+gen="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/generate/*/ 2>/dev/null | sort -V | tail -1)}"; gen="${gen%/}"
+"$gen/scripts/save-generation.sh" \
   --url "RESULT_URL" \
   --dir "OUTPUT_DIR" \
   --model "gpt_image_2" \
@@ -235,6 +237,7 @@ for line in open('Generations.jsonl'):
 Self-check the scripts after editing either one (both run offline):
 
 ```bash
-"${CLAUDE_PLUGIN_ROOT}/scripts/save-generation.sh" --self-check
-"${CLAUDE_PLUGIN_ROOT}/scripts/host-reference.sh" --self-check
+gen="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/generate/*/ 2>/dev/null | sort -V | tail -1)}"; gen="${gen%/}"
+"$gen/scripts/save-generation.sh" --self-check
+"$gen/scripts/host-reference.sh" --self-check
 ```
