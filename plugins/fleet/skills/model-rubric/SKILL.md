@@ -21,7 +21,8 @@ Owns creating and refreshing the per-developer model-routing rubric.
 ## 1. Check current state
 
 ```bash
-"$CLAUDE_PLUGIN_ROOT/scripts/rubric-path.sh" --check
+fleet="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/fleet/*/ 2>/dev/null | sort -V | tail -1)}"; fleet="${fleet%/}"
+"$fleet/scripts/rubric-path.sh" --check
 ```
 
 - `set` → read the file's `reviewed:` stamp. Current (≤14 days, no superseded
@@ -35,14 +36,14 @@ The full procedure lives in `studio-baseline/Rubric_Setup.md` and is deliberatel
 that file is the single source of truth. Read it:
 
 ```bash
-cat "$CLAUDE_PLUGIN_ROOT/../../studio-baseline/Rubric_Setup.md" 2>/dev/null \
+cat "$fleet/../../studio-baseline/Rubric_Setup.md" 2>/dev/null \
   || echo "fetch https://raw.githubusercontent.com/Studio-Moser/skills-n-stuff/main/studio-baseline/Rubric_Setup.md"
 ```
 
 Follow it exactly. Two notes specific to running it from here:
 
 - Where it calls for live model data, use
-  `"$CLAUDE_PLUGIN_ROOT/scripts/fetch-model-data.sh"`. Exit code 3 means no
+  `"$fleet/scripts/fetch-model-data.sh"`. Exit code 3 means no
   `ARTIFICIAL_ANALYSIS_API_KEY` — fall back to vendor docs and judgment, and record
   `sources: [judgment]`. Exit code 4 (request failed, e.g. network) or 5 (response
   parsed but no row yielded a figure — the API shape likely changed) are **not**
@@ -52,7 +53,7 @@ Follow it exactly. Two notes specific to running it from here:
   docs/judgment if it persists, noting the reason (not just `judgment`) under
   `sources`.
 - Where it calls for the target path, use
-  `$("$CLAUDE_PLUGIN_ROOT/scripts/rubric-path.sh")`.
+  `$("$fleet/scripts/rubric-path.sh")`.
 
 **On a refresh, keep the developer's taste scores and `capabilities` unchanged** —
 only the Artificial-Analysis-sourced axes (cost, intelligence) change. Do not
@@ -61,7 +62,8 @@ re-interview.
 ## 3. Confirm
 
 ```bash
-"$CLAUDE_PLUGIN_ROOT/scripts/rubric-path.sh" --check
+fleet="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/fleet/*/ 2>/dev/null | sort -V | tail -1)}"; fleet="${fleet%/}"
+"$fleet/scripts/rubric-path.sh" --check
 ```
 
 Expected: `set`. Report the path and the `reviewed:` date.
