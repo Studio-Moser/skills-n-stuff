@@ -147,7 +147,7 @@ chmod +x plugins/fleet/tests/run-tests.sh
 ./plugins/fleet/tests/run-tests.sh
 ```
 
-Expected: all 6 fail — `portability-lint.sh` does not exist.
+Expected: all 6 fail — `portability-lint.sh` does not exist. (Three further tests cover the guards below, bringing the file to 9.)
 
 - [ ] **Step 3: Write the implementation**
 
@@ -165,18 +165,25 @@ set -euo pipefail
 repo="${1:-.}"
 cd "$repo"
 
+git rev-parse --git-dir >/dev/null 2>&1 || { echo "not a git repository: $repo" >&2; exit 1; }
+
 fail=0
 
 # 1. Symlink targets, read from the git index (mode 120000). Any absolute
 #    target is non-portable, whatever it points at.
+#    core.quotePath=false: non-ASCII names come through raw instead of
+#    C-quoted, so readlink sees the real path instead of a literal '"..."'.
 while IFS= read -r link; do
   [ -n "$link" ] || continue
-  target="$(readlink "$link")"
+  # A tracked symlink can be absent from the worktree (e.g. mid fleet:sync);
+  # readlink then fails. Don't let that abort the whole lint under set -e —
+  # just skip it and keep scanning everything else.
+  target="$(readlink "$link" || true)"
   case "$target" in
     /*) printf 'absolute symlink target: %s -> %s\n' "$link" "$target"; fail=1 ;;
   esac
 done <<EOF
-$(git ls-files -s | grep '^120000 ' | cut -f2-)
+$(git -c core.quotePath=false ls-files -s | grep '^120000 ' | cut -f2-)
 EOF
 
 # 2. File contents. Skip symlinks — handled above, and grep would follow them.
@@ -188,13 +195,21 @@ while IFS= read -r f; do
     fail=1
   fi
 done <<EOF
-$(git ls-files)
+$(git -c core.quotePath=false ls-files)
 EOF
 
 exit "$fail"
 ```
 
 Note the `<<EOF` heredocs rather than `< <(...)` process substitution: the latter is a bashism that breaks when the script is invoked via `sh`.
+
+Three guards are load-bearing, each closing a false negative in a lint whose whole job is catching false negatives:
+
+- **`git rev-parse --git-dir`** — without it, `git ls-files` fails inside the heredoc substitution, its status is discarded, both loops get empty input, and a non-git directory reports *clean*. Tasks 4 and 5 use this as a gate.
+- **`core.quotePath=false`** on both `ls-files` calls — git's default C-quotes non-ASCII names (`"caf\303\251.md"`), so `[ -f "$f" ]` fails and the file is never scanned.
+- **`readlink ... || true`** — a tracked symlink absent from the worktree (plausible mid-`fleet:sync`) otherwise fails under `set -e`, killing the script before the contents pass and exiting 1 with *no output*, violating this script's stated contract.
+
+Each has a regression test; the suite is 9 tests, not 6.
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
@@ -203,7 +218,7 @@ chmod +x plugins/fleet/scripts/portability-lint.sh
 ./plugins/fleet/tests/run-tests.sh
 ```
 
-Expected: `6 tests, 0 failures`. Paste the output into the PR.
+Expected: `9 tests, 0 failures`. Paste the output into the PR.
 
 - [ ] **Step 5: Commit**
 
@@ -246,7 +261,7 @@ git mv plugins/pm/tests/rubric-path.bats plugins/fleet/tests/rubric-path.bats
 ./plugins/pm/tests/run-tests.sh
 ```
 
-Expected: fleet `10 tests, 0 failures` (6 lint + 4 rubric-path); pm passes with 4 fewer tests than before (32). If pm fails, a pm test referenced the moved script — fix by pointing it at the constant, not by restoring the copy.
+Expected: fleet `13 tests, 0 failures` (9 lint + 4 rubric-path); pm passes with 4 fewer tests than before (32). If pm fails, a pm test referenced the moved script — fix by pointing it at the constant, not by restoring the copy.
 
 - [ ] **Step 3: Write the plugin manifest**
 
@@ -358,7 +373,7 @@ python3 -c "import json;[json.load(open(f)) for f in ['.claude-plugin/marketplac
 ./plugins/fleet/tests/run-tests.sh
 ```
 
-Expected: `JSON OK`, then `10 tests, 0 failures`.
+Expected: `JSON OK`, then `13 tests, 0 failures`.
 
 ```bash
 git add plugins/fleet/.claude-plugin/plugin.json plugins/fleet/README.md plugins/fleet/scripts/rubric-path.sh plugins/fleet/scripts/fetch-model-data.sh plugins/fleet/tests/rubric-path.bats .claude-plugin/marketplace.json
@@ -507,7 +522,7 @@ chmod +x plugins/fleet/scripts/link-plan.sh
 ./plugins/fleet/tests/run-tests.sh
 ```
 
-Expected: `16 tests, 0 failures`. Paste into the PR.
+Expected: `19 tests, 0 failures`. Paste into the PR.
 
 - [ ] **Step 5: Commit**
 
@@ -1017,7 +1032,7 @@ grep -c "Machine_Setup" studio-baseline/README.md
 ./plugins/fleet/tests/run-tests.sh
 ```
 
-Expected: `name: model-rubric`, `1`, and `16 tests, 0 failures`.
+Expected: `name: model-rubric`, `1`, and `19 tests, 0 failures`.
 
 Then confirm the doc's own lint snippet works, since it is copy-pasted advice:
 
@@ -1142,7 +1157,7 @@ print('plugin.json',a,'| marketplace',b); assert a==b=='0.16.0', 'version mismat
 ./plugins/fleet/tests/run-tests.sh
 ```
 
-Expected: the assert passes, pm reports `32 tests, 0 failures`, fleet `16 tests, 0 failures`.
+Expected: the assert passes, pm reports `32 tests, 0 failures`, fleet `19 tests, 0 failures`.
 
 Then verify the trimmed skill still parses and shrank:
 
