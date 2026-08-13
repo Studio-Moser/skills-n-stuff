@@ -5,15 +5,15 @@
     "email": "tim@studiomoser.com"
   },
   "metadata": {
-    "description": "Claude Code plugins by Studio Moser — strategy, research, design, and product development tools.",
-    "version": "0.15.0",
+    "description": "Claude Code plugins by Studio Moser \u2014 strategy, research, design, and product development tools.",
+    "version": "0.16.0",
     "pluginRoot": "./plugins"
   },
   "plugins": [
     {
       "name": "design-critic-loop",
       "source": "./plugins/design-critic-loop",
-      "description": "Raise any design to a high bar with the Gauntlet Loop: instead of letting the generator grade its own homework, spin up independent fresh-context critics (brief / system / craft) that judge against an explicit definition of done and iterate until they pass. Pins down what 'done' means first — asking the user for goals and reference examples when the bar is unclear — then loops build→critique→fix until it converges. Reusable by any design skill.",
+      "description": "Raise any design to a high bar with the Gauntlet Loop: instead of letting the generator grade its own homework, spin up independent fresh-context critics (brief / system / craft) that judge against an explicit definition of done and iterate until they pass. Pins down what 'done' means first \u2014 asking the user for goals and reference examples when the bar is unclear \u2014 then loops build\u2192critique\u2192fix until it converges. Reusable by any design skill.",
       "version": "0.1.1",
       "author": {
         "name": "Studio Moser"
@@ -106,7 +106,7 @@
     {
       "name": "product-pulse",
       "source": "./plugins/product-pulse",
-      "description": "Strategic intelligence system for product teams. Weekly strategy briefs, daily market research, and deep-dive analysis — a three-cadence intelligence system that keeps you focused on what matters.",
+      "description": "Strategic intelligence system for product teams. Weekly strategy briefs, daily market research, and deep-dive analysis \u2014 a three-cadence intelligence system that keeps you focused on what matters.",
       "author": {
         "name": "Studio Moser"
       },
@@ -180,7 +180,7 @@
         "sync",
         "agent-config"
       ],
-      "version": "0.1.0"
+      "version": "0.2.0"
     },
     {
       "name": "site-capture",
@@ -232,7 +232,7 @@
     {
       "name": "generate",
       "source": "./plugins/generate",
-      "description": "Governed image, video, and audio generation over the Kie.ai MCP. The models are the easy part — this adds the discipline around them: prices a batch and stops for confirmation before spending, downloads every result locally before URLs expire, and logs the prompt that produced each file.",
+      "description": "Governed image, video, and audio generation over the Kie.ai MCP. The models are the easy part \u2014 this adds the discipline around them: prices a batch and stops for confirmation before spending, downloads every result locally before URLs expire, and logs the prompt that produced each file.",
       "version": "0.1.0",
       "author": {
         "name": "Studio Moser"

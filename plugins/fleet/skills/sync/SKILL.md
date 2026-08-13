@@ -110,7 +110,8 @@ than write-in-place silently converts a symlink back into a real file, and sync
 stops working with no signal. This phase is how that gets noticed.
 
 ```bash
-"$CLAUDE_PLUGIN_ROOT/scripts/link-plan.sh" "$repo"
+fleet="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/fleet/*/ 2>/dev/null | sort -V | tail -1)}"; fleet="${fleet%/}"
+"$fleet/scripts/link-plan.sh" "$repo"
 ```
 
 Each line ends in a state:
@@ -624,11 +625,12 @@ first; step 3 only ever records reality as it now stands.
 
 ```bash
 repo="${FLEET_REPO:-$HOME/.agents}"
+fleet="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/fleet/*/ 2>/dev/null | sort -V | tail -1)}"; fleet="${fleet%/}"
 listing="$(npx skills list -g --json 2>/dev/null)"
 if [ -z "$listing" ] || ! printf '%s' "$listing" | python3 -c 'import json,sys; json.load(sys.stdin)' >/dev/null 2>&1; then
   echo "SKILLS_STATE=failed: npx skills list -g --json produced no parseable output"
 else
-  printf '%s' "$listing" | "$CLAUDE_PLUGIN_ROOT/scripts/skills-reconcile.sh" "$repo"
+  printf '%s' "$listing" | "$fleet/scripts/skills-reconcile.sh" "$repo"
 fi
 ```
 
@@ -791,11 +793,12 @@ this step is allowed to un-declare something.
 
 ```bash
 repo="${FLEET_REPO:-$HOME/.agents}"
+fleet="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/fleet/*/ 2>/dev/null | sort -V | tail -1)}"; fleet="${fleet%/}"
 listing="$(npx skills list -g --json 2>/dev/null)"
 if [ -z "$listing" ] || ! printf '%s' "$listing" | python3 -c 'import json,sys; json.load(sys.stdin)' >/dev/null 2>&1; then
   echo "SKILLS_STATE=failed: npx skills list -g --json produced no parseable output — manifest not regenerated"
 else
-  printf '%s' "$listing" | "$CLAUDE_PLUGIN_ROOT/scripts/skills-manifest.sh" "$repo" <failed-name> <failed-name> ...
+  printf '%s' "$listing" | "$fleet/scripts/skills-manifest.sh" "$repo" <failed-name> <failed-name> ...
 fi
 ```
 
@@ -848,7 +851,8 @@ Phase 2.6 must always run after Phase 1 in the same sync, never on its own.
 ## Phase 3: Portability lint
 
 ```bash
-"$CLAUDE_PLUGIN_ROOT/scripts/portability-lint.sh" "$repo"
+fleet="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/fleet/*/ 2>/dev/null | sort -V | tail -1)}"; fleet="${fleet%/}"
+"$fleet/scripts/portability-lint.sh" "$repo"
 ```
 
 Non-zero exit means something tracked in the repo carries a machine-specific
