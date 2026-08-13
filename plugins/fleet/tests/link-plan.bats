@@ -63,6 +63,16 @@ link_all() {
   [ "$(echo "$output" | grep -c ' ok$')" -eq 4 ]
 }
 
+@test "a correct symlink with a relative target is reported ok" {
+  link_all
+  rm "$CLAUDE_CONFIG_DIR/CLAUDE.md"
+  # Relative target that still resolves to the right file — must not be a
+  # false RELINK.
+  (cd "$CLAUDE_CONFIG_DIR" && ln -s "../$(basename "$REPO")/claude/CLAUDE.md" CLAUDE.md)
+  run "$SCRIPT" "$REPO"
+  echo "$output" | grep -qE '^CLAUDE\.md +-> +claude/CLAUDE\.md +ok$'
+}
+
 @test "read-only: leaves REAL-FILE and RELINK drift untouched" {
   link_all
   rm "$CLAUDE_CONFIG_DIR/settings.json"

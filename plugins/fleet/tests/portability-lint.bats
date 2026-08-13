@@ -90,3 +90,15 @@ commit_all() {
   [ "$status" -eq 1 ]
   [[ "$output" == *"bad.md"* ]]
 }
+
+@test "invoked from a subdirectory still scans the whole repo" {
+  printf 'command: /Users/alice/.shelby/bin/hook\n' > bad.md
+  mkdir -p sub
+  printf 'harmless\n' > sub/ok.md
+  commit_all
+  # Mirrors real usage: `portability-lint.sh .` run from a subdirectory of
+  # the repo. A root-level violation must still be caught.
+  run bash -c 'cd "$1/sub" && "$2" .' _ "$REPO" "$SCRIPT"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"bad.md"* ]]
+}

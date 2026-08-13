@@ -11,6 +11,10 @@ cd "$repo"
 
 git rev-parse --git-dir >/dev/null 2>&1 || { echo "not a git repository: $repo" >&2; exit 1; }
 
+# Move to the repo root so `git ls-files` below always covers the whole
+# repo, not just the directory this script happened to be invoked from.
+cd "$(git rev-parse --show-toplevel)"
+
 fail=0
 
 # 1. Symlink targets, read from the git index (mode 120000). Any absolute

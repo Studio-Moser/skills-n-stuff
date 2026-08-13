@@ -176,13 +176,15 @@ Once `$diff_err` is confirmed empty, branch on `diff_status`:
   `diff`, but treat it the same as the stderr case above: stop and report,
   take no action.
 
-  Clean up the temp file once done: `rm -f "$diff_err"`.
+**Whichever branch fires, clean up the temp file once done:**
+`rm -f "$diff_err"`. All three branches above create and leave `$diff_err`
+behind — this isn't specific to the `>= 2` case.
 
-  A plain `diff -u` here is a data-loss trap: non-recursive `diff` against
-  two directories prints only `Common subdirectories: …` and exits 0 even
-  when their contents differ, so the "no differences" branch would fire and
-  delete a `skills` tree that might hold this machine's only copy of local
-  edits. `-r` is required, not optional.
+A plain `diff -u` here is a data-loss trap: non-recursive `diff` against
+two directories prints only `Common subdirectories: …` and exits 0 even
+when their contents differ, so the "no differences" branch would fire and
+delete a `skills` tree that might hold this machine's only copy of local
+edits. `-r` is required, not optional.
 
 To create or re-link, use:
 
