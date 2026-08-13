@@ -6,13 +6,16 @@ set -euo pipefail
 repo="${1:-$HOME/.agents}"
 repo="${repo%/}"
 claude="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+config="${XDG_CONFIG_HOME:-$HOME/.config}"
 
-# "<name under ~/.claude>|<path under repo>"
-entries="skills|skills
-CLAUDE.md|claude/CLAUDE.md
-settings.json|claude/settings.json
-statusline-command.sh|claude/statusline-command.sh
-mcp.json|claude/mcp.json"
+# "<root>|<name under that root>|<path under repo>"
+# roots: claude = $CLAUDE_CONFIG_DIR (default ~/.claude); config = $XDG_CONFIG_HOME (default ~/.config)
+entries="claude|skills|skills
+claude|CLAUDE.md|claude/CLAUDE.md
+claude|settings.json|claude/settings.json
+claude|statusline-command.sh|claude/statusline-command.sh
+claude|mcp.json|claude/mcp.json
+config|studio-moser|config/studio-moser"
 
 # Resolve $1 to an absolute, symlink-free path, following relative and
 # chained symlink targets by hand (portable to bash 3.2 / macOS, no
@@ -38,9 +41,14 @@ resolve_path() {
 }
 
 status=0
-while IFS='|' read -r name rel; do
+while IFS='|' read -r root name rel; do
   [ -n "$name" ] || continue
-  link="$claude/$name"
+  case "$root" in
+    claude) base="$claude" ;;
+    config) base="$config" ;;
+    *) echo "link-plan.sh: unknown root '$root' in entries" >&2; exit 2 ;;
+  esac
+  link="$base/$name"
   want="$repo/$rel"
 
   # ponytail: MISSING-IN-REPO is checked before REAL-FILE/RELINK and masks
