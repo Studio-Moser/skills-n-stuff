@@ -25,10 +25,14 @@ Makes this machine match your personal agent repo.
 
 ## Dry run
 
-If the user asks what would change, or passes `--dry-run`, run Phases 1 and 3
-only, print the report from Phase 4, and stop. Nothing is created, moved, or
-removed. Both scripts are read-only, so this is safe to offer unprompted when
-the user seems unsure.
+If the user asks what would change, or passes `--dry-run`, run **only the two
+read-only scripts** — `link-plan.sh` (Phase 1's command) and
+`portability-lint.sh` (Phase 3's command) — then print the report from
+Phase 4 and stop. Do **not** follow Phase 1's action column
+(create/re-link/remove) or Phase 3's fix suggestions in dry-run mode — those
+are writes, not part of the dry run. Nothing is created, moved, or removed.
+Both scripts are read-only, so this is safe to offer unprompted when the
+user seems unsure.
 
 ---
 
@@ -36,8 +40,13 @@ the user seems unsure.
 
 ```bash
 repo="${FLEET_REPO:-$HOME/.agents}"
+claude="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 [ -d "$repo/.git" ] && echo "found" || echo "absent"
 ```
+
+`link-plan.sh` resolves `$claude` the same way internally — use this `$claude`
+variable everywhere below instead of hardcoding `~/.claude` or `$HOME/.claude`,
+so the skill and the script always agree on which directory is being managed.
 
 **absent** — first run on this machine. Ask the user for their private repo URL;
 do not guess one. Then:
@@ -72,22 +81,63 @@ Each line ends in a state:
 | state | meaning | action |
 |---|---|---|
 | `ok` | correct symlink | nothing |
-| `ABSENT` | no such path in `~/.claude` | create the link |
-| `REAL-FILE` | a real file sits where the link should be | **diff first** (below) |
+| `ABSENT` | no such path in `$claude` | create the link |
+| `REAL-FILE` | a real file (or directory — `skills` is one of the four tracked entries) sits where the link should be | **diff first** (below) |
 | `RELINK(->X)` | symlink points somewhere else | show `X`, confirm, re-link |
 | `MISSING-IN-REPO` | the repo has no such file | report; do not create anything |
 
-**On `REAL-FILE`, never overwrite silently.** That file may hold edits made on this
-machine since the link broke:
+**`MISSING-IN-REPO` is checked first and masks the other states.** If the
+repo lacks the file, `link-plan.sh` reports `MISSING-IN-REPO` for that entry
+no matter what `$claude` currently has there (a real file, a drifted
+symlink, or nothing) — the five states are not independent signals about
+both sides at once. Don't infer "no real file exists on this machine" from a
+`MISSING-IN-REPO` line.
+
+**`RELINK(->X)` can be a false positive on a working link.** The script
+compares the symlink target to the expected path as a raw string, not a
+resolved path, so a symlink using a *relative* target that still resolves to
+the right file also reports `RELINK`. Before re-linking, resolve `X` (e.g.
+`readlink -f "$claude/<name>"`) and compare it to `$repo/<rel>`; if they
+match, leave the link alone — re-linking would just churn a working link.
+
+**On `REAL-FILE`, never overwrite silently.** That file may hold edits made on
+this machine since the link broke. `skills` is a *directory*, so the diff must
+be recursive, and its exit status must be branched on explicitly rather than
+swallowed:
 
 ```bash
-diff -u "$repo/<rel>" "$HOME/.claude/<name>" || true
+diff -ru "$repo/<rel>" "$claude/<name>"
+status=$?
 ```
 
-- **No differences** → remove the stray file and re-link.
-- **Differences** → show the diff and ask: keep the machine's version (copy it into
-  the repo, then re-link), or discard it (re-link to the repo's version). Never pick
-  for the user.
+- **`status` = 0 (identical)** → remove the stray file (or `rm -r` the stray
+  directory) and re-link.
+- **`status` = 1 (differs)** → show the diff and ask: keep the machine's
+  version (copy it into the repo, then re-link), or discard it (re-link to
+  the repo's version). Never pick for the user.
+- **`status` >= 2 (error — e.g. a missing or unreadable path)** → stop and
+  report. Do **not** remove or re-link anything; an error is not the same as
+  "no differences."
+
+  A plain `diff -u` here is a data-loss trap: non-recursive `diff` against
+  two directories prints only `Common subdirectories: …` and exits 0 even
+  when their contents differ, so the "no differences" branch would fire and
+  delete a `skills` tree that might hold this machine's only copy of local
+  edits. `-r` is required, not optional.
+
+To create or re-link, use:
+
+```bash
+ln -sfn "$repo/<rel>" "$claude/<name>"
+```
+
+The target must be the **absolute** path `"$repo/<rel>"` — `link-plan.sh`
+compares symlink targets as raw strings (see the `RELINK` false-positive note
+above), so a relative target would report `RELINK` on every future run even
+though it resolves correctly. Use `-sfn`, not plain `-sf`: against an
+existing symlink-to-directory (`skills` again) `ln -sf` dereferences the old
+link and writes the new one *inside* its target instead of replacing it,
+silently no-opping while still exiting 0.
 
 ---
 
@@ -149,7 +199,6 @@ Fleet sync — {repo}
   Links:      {N} ok, {M} relinked, {K} need attention
   Pull:       {up to date | N commits: <oneline list>}
   Lint:       {clean | N finding(s), M fixed}
-  Skills:     {count} available
 
 {any unresolved finding, one per line}
 ```
@@ -172,14 +221,20 @@ machines:
 ```
 
 ```bash
+command -v yq >/dev/null 2>&1 || { echo "yq not found — install it to use Phase 5 (push)."; exit 1; }
 yq -r '.machines[].host' "$repo/fleet.yml"
 ```
 
 Confirm the host list with the user, then for each:
 
 ```bash
-ssh -o BatchMode=yes -o ConnectTimeout=8 "$host" 'cd ~/.agents && git pull --ff-only' 2>&1
+ssh -o BatchMode=yes -o ConnectTimeout=8 "$host" 'cd "${FLEET_REPO:-$HOME/.agents}" && git pull --ff-only' 2>&1
 ```
+
+The remote path expression matches Phase 0's local resolution (`$FLEET_REPO`
+if the remote machine has it set, else `$HOME/.agents`) rather than a
+hardcoded `~/.agents`, so pushing is consistent with how this machine finds
+its own repo.
 
 - Unreachable → report and continue to the next host. One offline machine is not
   a failure of the run.
