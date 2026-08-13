@@ -48,6 +48,11 @@ claude="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 variable everywhere below instead of hardcoding `~/.claude` or `$HOME/.claude`,
 so the skill and the script always agree on which directory is being managed.
 
+**Each phase below may run as a separate command, in a separate shell.**
+`$repo` and `$claude` do not persist across that boundary. Re-run the two
+`repo=`/`claude=` assignments above at the top of any later command block
+that references them, rather than assuming Phase 0's values are still set.
+
 **absent** — first run on this machine. Ask the user for their private repo URL;
 do not guess one. Then:
 
@@ -106,18 +111,30 @@ be recursive, and its exit status must be branched on explicitly rather than
 swallowed:
 
 ```bash
-diff -ru "$repo/<rel>" "$claude/<name>"
+diff -ru "$repo/<rel>" "$claude/<name>" 2>diff.err
 status=$?
 ```
 
-- **`status` = 0 (identical)** → remove the stray file (or `rm -r` the stray
-  directory) and re-link.
+- **`status` = 0 (identical) AND `diff.err` is empty** → remove the stray
+  file (or `rm -r` the stray directory) and re-link.
 - **`status` = 1 (differs)** → show the diff and ask: keep the machine's
-  version (copy it into the repo, then re-link), or discard it (re-link to
-  the repo's version). Never pick for the user.
-- **`status` >= 2 (error — e.g. a missing or unreadable path)** → stop and
-  report. Do **not** remove or re-link anything; an error is not the same as
-  "no differences."
+  version, or discard it. Never pick for the user. **Either way, remove the
+  stray path before re-linking** — re-linking does not itself replace a real
+  file or directory (see the `ln -sfn` note below), so skipping the removal
+  step lands the new link inside the surviving path instead of replacing it,
+  and the run reports success while the drift persists:
+  - *keep*: copy `$claude/<name>` into `$repo/<rel>` (commit it in the repo
+    if the user wants it tracked), **then `rm -r "$claude/<name>"`**, then
+    `ln -sfn`.
+  - *discard*: **`rm -r "$claude/<name>"`**, then `ln -sfn` to the repo's
+    version.
+- **`status` >= 2, OR `diff.err` is non-empty (e.g. any `diff:` line — a
+  missing or unreadable path)** → stop and report. Do **not** remove or
+  re-link anything; an error is not the same as "no differences." This
+  matters because BSD `diff -r` (macOS's default `diff`) exits **0** when a
+  subdirectory it can't read produces a `diff: …: Permission denied` line on
+  stderr — the exit status alone is not reliable for directories, only the
+  combination of exit status and stderr is.
 
   A plain `diff -u` here is a data-loss trap: non-recursive `diff` against
   two directories prints only `Common subdirectories: …` and exits 0 even
@@ -134,10 +151,18 @@ ln -sfn "$repo/<rel>" "$claude/<name>"
 The target must be the **absolute** path `"$repo/<rel>"` — `link-plan.sh`
 compares symlink targets as raw strings (see the `RELINK` false-positive note
 above), so a relative target would report `RELINK` on every future run even
-though it resolves correctly. Use `-sfn`, not plain `-sf`: against an
-existing symlink-to-directory (`skills` again) `ln -sf` dereferences the old
-link and writes the new one *inside* its target instead of replacing it,
-silently no-opping while still exiting 0.
+though it resolves correctly.
+
+`-sfn` only repoints an **existing symlink** (that's what its `-n` guards —
+it treats the destination as the link itself, not as a directory to drop the
+link into). It does **not** replace a real file or a real directory: run
+against a real path — including a `REAL-FILE` directory like `skills`, or a
+`skills` directory left over after only *part* of a status = 1 cleanup ran —
+`ln -sfn` creates `"$claude/<name>/<basename of $repo/<rel>>"` inside the
+surviving path and exits 0, reporting success while nothing was actually
+replaced. The real file or directory **must be removed (or moved aside)
+first**, on every branch that re-links over an existing path, not only the
+symlink-to-directory case.
 
 ---
 
