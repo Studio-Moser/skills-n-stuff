@@ -52,6 +52,9 @@ Constraints:
 - Do not commit, push, deploy, or edit global config.
 - Follow existing component and test patterns.
 - Reuse existing code and platform features; shortest working diff; no speculative abstractions.
+- This is a non-interactive run: no user is present to answer questions or approve
+  plans. Do not stop at any plan-approval or confirmation gate — proceed directly
+  to implementation within the scope above.
 
 Verification:
 - Run the focused component tests if available.
@@ -65,6 +68,30 @@ Report:
 ```
 
 Keep prompts simple and self-contained. Codex is not Claude: it does what you tell it and little more, so state the goal, constraints, and verification plainly and skip elaborate persona or process instructions.
+
+## Success-shaped failures to check for
+
+**The approval-gate no-op.** Session-level instructions on the machine (e.g. the
+superpowers plugin enabled in Codex) can make Codex plan and then halt asking the
+user to "reply approved" — which non-interactive `exec` can never answer. Codex
+then exits 0 having changed nothing, which looks like success. The non-interactive
+constraint line in the prompt above preempts this; still, always confirm via
+`git status --short` that files actually changed before trusting the report. If
+Codex halted at a gate anyway, resume the session with the approval:
+
+```bash
+cd "$REPO"   # resume rejects -C/-s/-m; re-pass sandbox and model as -c overrides
+codex exec resume --last \
+  -c sandbox_mode="workspace-write" \
+  -c model="<model>" -c model_reasoning_effort="<effort>" \
+  "approved" > "$ARTIFACT_DIR/report2.md" 2>&1
+```
+
+**"Verified" that verified nothing.** Codex reports whatever command it ran; that
+command may not cover the change (e.g. a repo where `npm run check` is only
+typecheck + lint, no tests). Treat Codex's verification claims as unverified until
+you re-run the real test suite yourself — step 6 is mandatory, not optional, and
+must include the tests, not just the command Codex happened to name.
 
 ## Review After Codex
 
