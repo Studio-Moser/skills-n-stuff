@@ -89,8 +89,8 @@ Follow it exactly. Two notes specific to running it from here:
   is NOT set up — `--check` may pass on it, so verify these keys are gone.
 
 **On a refresh, keep the developer's taste scores and `capabilities` unchanged** —
-only the Artificial-Analysis-sourced axes (cost, intelligence) change. Do not
-re-interview.
+re-pull AA and DeepSWE and update only the data-sourced axes (cost,
+intelligence, swe). Do not re-interview.
 
 ## 3. Confirm
 

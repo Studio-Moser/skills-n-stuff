@@ -23,7 +23,7 @@ link_all() {
   ln -s "$REPO/config/studio-moser" "$XDG_CONFIG_HOME/studio-moser"
 }
 
-@test "all five links correct -> exit 0, every line ok" {
+@test "all six links correct -> exit 0, every line ok" {
   link_all
   run "$SCRIPT" "$REPO"
   [ "$status" -eq 0 ]
