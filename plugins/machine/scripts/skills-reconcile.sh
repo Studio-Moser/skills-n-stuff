@@ -2,7 +2,7 @@
 # Compare the committed skills.manifest against reality (`npx skills list
 # -g --json`, read on stdin) and this machine's local overrides
 # ($repo/.fleet-local.json). READ-ONLY — prints a plan, installs/removes
-# nothing. fleet:sync's Phase 2.6 acts on this output.
+# nothing. machine:sync's Phase 2.6 acts on this output.
 #
 # One line per finding, tab-separated:
 #   INSTALL      <name>  <source>   manifest entry not on this machine — offer to install
@@ -15,13 +15,13 @@ repo="${1:?usage: skills-reconcile.sh <repo>  (reads npx skills list -g --json o
 repo="${repo%/}"
 
 # `npx skills` hardcodes its install directory to $HOME/.agents/skills
-# (getCanonicalSkillsDir) — it never looks at $FLEET_REPO. Diffing against
+# (getCanonicalSkillsDir) — it never looks at $AGENTS_REPO. Diffing against
 # "$repo/skills/" when $repo points somewhere else would make every real
 # install look uninstalled and every declared entry look missing. Skip
 # cleanly instead of reporting that.
 canonical_agents="${HOME%/}/.agents"
 if [ "$repo" != "$canonical_agents" ]; then
-  echo "SKILLS_STATE=skipped: skill management requires \$FLEET_REPO=\$HOME/.agents (npx skills always installs under \$HOME/.agents/skills); this repo is $repo"
+  echo "SKILLS_STATE=skipped: skill management requires \$AGENTS_REPO=\$HOME/.agents (npx skills always installs under \$HOME/.agents/skills); this repo is $repo"
   exit 0
 fi
 store="$canonical_agents/skills/"

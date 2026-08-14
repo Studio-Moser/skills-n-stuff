@@ -7,20 +7,20 @@ description: >-
   stays current. Re-links anything that drifted back into ~/.claude, lints for paths
   that would be wrong on another machine, and optionally triggers a pull on your
   other machines. Trigger: "sync my config", "sync my machines", "update my skills from
-  my repo", "is this machine up to date", or /fleet:sync.
+  my repo", "is this machine up to date", or /machine:sync.
   Do NOT use for setting up a machine that has no plugins yet (follow
   studio-baseline/Machine_Setup.md), for creating the model rubric (that's
-  /fleet:model-rubric), or for anything in a project repo — sync only touches this
+  /machine:model-rubric), or for anything in a project repo — sync only touches this
   developer's user-global agent config.
 effort: low
 allowed-tools: "Bash Read Edit"
 ---
 
-# Fleet — Sync
+# Machine — Sync
 
 Makes this machine match your personal agent repo.
 
-**Default repo:** `$HOME/.agents`. If `$FLEET_REPO` is set, use that instead.
+**Default repo:** `$HOME/.agents`. If `$AGENTS_REPO` is set, use that instead.
 
 ---
 
@@ -66,7 +66,7 @@ unsure.
 ## Phase 0: Locate the repo
 
 ```bash
-repo="${FLEET_REPO:-$HOME/.agents}"
+repo="${AGENTS_REPO:-$HOME/.agents}"
 claude="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 [ -d "$repo/.git" ] && echo "found" || echo "absent"
 ```
@@ -110,8 +110,8 @@ than write-in-place silently converts a symlink back into a real file, and sync
 stops working with no signal. This phase is how that gets noticed.
 
 ```bash
-fleet="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/fleet/*/ 2>/dev/null | sort -V | tail -1)}"; fleet="${fleet%/}"
-"$fleet/scripts/link-plan.sh" "$repo"
+machine="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/machine/*/ 2>/dev/null | sort -V | tail -1)}"; machine="${machine%/}"
+"$machine/scripts/link-plan.sh" "$repo"
 ```
 
 Each line ends in a state:
@@ -120,7 +120,7 @@ Each line ends in a state:
 |---|---|---|
 | `ok` | correct symlink | nothing |
 | `ABSENT` | no such path in `$claude` | create the link |
-| `REAL-FILE` | a real file (or directory — `skills` is one of the five tracked entries) sits where the link should be | **diff first** (below) |
+| `REAL-FILE` | a real file (or directory — `skills` and `studio-moser` are directories among the six tracked entries) sits where the link should be | **diff first** (below) |
 | `RELINK(->X)` | symlink points somewhere else | show `X`, confirm, re-link |
 | `MISSING-IN-REPO` | the repo has no such file | report; do not create anything |
 
@@ -233,6 +233,13 @@ compares symlink targets as raw strings (see the `RELINK` false-positive note
 above), so a relative target would report `RELINK` on every future run even
 though it resolves correctly.
 
+**The `studio-moser` entry lives under `${XDG_CONFIG_HOME:-$HOME/.config}`, not `$claude`.**
+For it, the link is `"${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser"` and the target is
+`"$repo/config/studio-moser"`. Create the parent first — `mkdir -p "${XDG_CONFIG_HOME:-$HOME/.config}"` —
+a fresh machine may not have it. The REAL-FILE diff/keep/merge procedure applies to it exactly
+as it does to `skills` (both are directories). When keeping the machine's copy, also ensure
+`$repo/.gitignore` covers `config/studio-moser/*.bak*` so local backup files never sync.
+
 `-sfn` only repoints an **existing symlink** (that's what its `-n` guards —
 it treats the destination as the link itself, not as a directory to drop the
 link into). It does **not** replace a real file or a real directory: run
@@ -276,7 +283,7 @@ Then stage everything and commit, deletions included:
 
 ```bash
 git -C "$repo" add -A
-git -C "$repo" commit -m "fleet: sync from {hostname} — {N} added, {M} modified, {K} deleted"
+git -C "$repo" commit -m "machine: sync from {hostname} — {N} added, {M} modified, {K} deleted"
 ```
 
 `add -A` is correct **here and only here**: this repo contains exactly one
@@ -346,7 +353,7 @@ override (how a local fork wins over a marketplace plugin of the same name),
 and installing it anyway would overwrite that choice. Local wins.
 
 ```bash
-repo="${FLEET_REPO:-$HOME/.agents}"
+repo="${AGENTS_REPO:-$HOME/.agents}"
 claude="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 
 plugin_reconcile_script='import json, re, shutil, subprocess, sys
@@ -438,7 +445,7 @@ Also honour `disabledMcpjsonServers` in `settings.local.json` — a server
 disabled on this machine is not a finding.
 
 ```bash
-repo="${FLEET_REPO:-$HOME/.agents}"
+repo="${AGENTS_REPO:-$HOME/.agents}"
 claude="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 
 mcp_reconcile_script='import json, os, shutil, sys
@@ -496,7 +503,7 @@ present on this machine)`.
 ## Phase 2.6: Reconcile third-party skills
 
 **The store.** `npx skills` (vercel-labs) hardcodes its install directory to
-`$HOME/.agents/skills` — it never looks at `$FLEET_REPO`. When this
+`$HOME/.agents/skills` — it never looks at `$AGENTS_REPO`. When this
 developer's repo *is* `$HOME/.agents` (the default), `$repo/skills/<name>`
 holds the real code for a skill and `$claude/skills` is a symlink to it, so
 other agent config already reads it directly (Phase 1 covers that link like
@@ -538,7 +545,7 @@ any other, in step 2 below.
 **Detect first — read-only, dry-run safe:**
 
 ```bash
-repo="${FLEET_REPO:-$HOME/.agents}"
+repo="${AGENTS_REPO:-$HOME/.agents}"
 gitignore="$repo/.gitignore"
 
 git -C "$repo" ls-files --error-unmatch .skill-lock.json >/dev/null 2>&1 \
@@ -556,7 +563,7 @@ Otherwise, explain the above and fix everything this step is responsible
 for in one write:
 
 ```bash
-repo="${FLEET_REPO:-$HOME/.agents}"
+repo="${AGENTS_REPO:-$HOME/.agents}"
 gitignore="$repo/.gitignore"
 for line in ".fleet-local.json" ".skill-lock.json"; do
   grep -qxF "$line" "$gitignore" 2>/dev/null || printf '%s\n' "$line" >> "$gitignore"
@@ -567,7 +574,7 @@ git -C "$repo" rm --cached .skill-lock.json --ignore-unmatch -q
 if git -C "$repo" diff --cached --quiet; then
   echo "nothing to commit"
 else
-  git -C "$repo" commit -q -m "fleet: untrack .skill-lock.json and gitignore it (breaks third-party skill removal propagation)"
+  git -C "$repo" commit -q -m "machine: untrack .skill-lock.json and gitignore it (breaks third-party skill removal propagation)"
   git -C "$repo" push || echo "push failed — will retry on a future sync; do not force"
 fi
 ```
@@ -599,7 +606,7 @@ traceback into the middle of a sync.
 
 `skills-manifest.sh` and `skills-reconcile.sh` each carry a second guard
 internally: if `$repo` isn't exactly `$HOME/.agents` (an overridden
-`$FLEET_REPO`), every real install's `path` fails to match the hardcoded
+`$AGENTS_REPO`), every real install's `path` fails to match the hardcoded
 store from the section above, which would otherwise make everything look
 uninstalled and regenerate an empty manifest. Both scripts print their own
 `SKILLS_STATE=skipped: ...` and exit 0 without touching any file in that
@@ -624,13 +631,13 @@ first; step 3 only ever records reality as it now stands.
 ### 1. Read the manifest, compare to reality
 
 ```bash
-repo="${FLEET_REPO:-$HOME/.agents}"
-fleet="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/fleet/*/ 2>/dev/null | sort -V | tail -1)}"; fleet="${fleet%/}"
+repo="${AGENTS_REPO:-$HOME/.agents}"
+machine="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/machine/*/ 2>/dev/null | sort -V | tail -1)}"; machine="${machine%/}"
 listing="$(npx skills list -g --json 2>/dev/null)"
 if [ -z "$listing" ] || ! printf '%s' "$listing" | python3 -c 'import json,sys; json.load(sys.stdin)' >/dev/null 2>&1; then
   echo "SKILLS_STATE=failed: npx skills list -g --json produced no parseable output"
 else
-  printf '%s' "$listing" | "$fleet/scripts/skills-reconcile.sh" "$repo"
+  printf '%s' "$listing" | "$machine/scripts/skills-reconcile.sh" "$repo"
 fi
 ```
 
@@ -742,7 +749,7 @@ To add a name, load the file (treat absent as `{"skipInstall": [],
 and write it back:
 
 ```bash
-repo="${FLEET_REPO:-$HOME/.agents}"
+repo="${AGENTS_REPO:-$HOME/.agents}"
 
 override_script='import json, sys
 
@@ -792,13 +799,13 @@ all is a genuine removal and correctly drops out — that's the only case
 this step is allowed to un-declare something.
 
 ```bash
-repo="${FLEET_REPO:-$HOME/.agents}"
-fleet="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/fleet/*/ 2>/dev/null | sort -V | tail -1)}"; fleet="${fleet%/}"
+repo="${AGENTS_REPO:-$HOME/.agents}"
+machine="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/machine/*/ 2>/dev/null | sort -V | tail -1)}"; machine="${machine%/}"
 listing="$(npx skills list -g --json 2>/dev/null)"
 if [ -z "$listing" ] || ! printf '%s' "$listing" | python3 -c 'import json,sys; json.load(sys.stdin)' >/dev/null 2>&1; then
   echo "SKILLS_STATE=failed: npx skills list -g --json produced no parseable output — manifest not regenerated"
 else
-  printf '%s' "$listing" | "$fleet/scripts/skills-manifest.sh" "$repo" <failed-name> <failed-name> ...
+  printf '%s' "$listing" | "$machine/scripts/skills-manifest.sh" "$repo" <failed-name> <failed-name> ...
 fi
 ```
 
@@ -851,8 +858,8 @@ Phase 2.6 must always run after Phase 1 in the same sync, never on its own.
 ## Phase 3: Portability lint
 
 ```bash
-fleet="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/fleet/*/ 2>/dev/null | sort -V | tail -1)}"; fleet="${fleet%/}"
-"$fleet/scripts/portability-lint.sh" "$repo"
+machine="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/machine/*/ 2>/dev/null | sort -V | tail -1)}"; machine="${machine%/}"
+"$machine/scripts/portability-lint.sh" "$repo"
 ```
 
 Non-zero exit means something tracked in the repo carries a machine-specific
@@ -884,7 +891,7 @@ Unguarded, it errors on every event on machines without that tool.
 ## Phase 4: Report
 
 ```
-Fleet sync — {repo}
+Machine sync — {repo}
 
   Links:      {N} ok, {M} relinked, {K} need attention
   Committed:  {nothing local | <short message>: N added, M modified, K deleted}
@@ -927,7 +934,7 @@ the report, not buried in a field.
 
 **On a first run only** (Phase 0 reported `absent` and you cloned), add one line
 after the report: nothing runs this skill automatically, so drift goes unnoticed
-until someone runs it again. Offer to set up a recurring `/fleet:sync` with
+until someone runs it again. Offer to set up a recurring `/machine:sync` with
 whichever scheduler they already use — their agent tool's scheduled tasks, `cron`,
 `launchd`. Daily is plenty. Ask which they prefer; do not pick one, and do not
 install anything unasked. Say it once and drop it — repeating this on every sync
@@ -937,11 +944,16 @@ is noise.
 
 ## Phase 5: Push (optional)
 
-Only if `$repo/fleet.yml` exists. Skip this phase entirely otherwise; never
-create `fleet.yml` unprompted.
+Only if `$repo/machine.yml` exists. Skip this phase entirely otherwise; never
+create `machine.yml` unprompted.
+
+**Legacy name.** If `$repo/machine.yml` is absent but `$repo/fleet.yml` exists
+(a repo from before this plugin's rename), don't skip silently — tell the
+user their push config is still under the old name and offer to rename it:
+`mv "$repo/fleet.yml" "$repo/machine.yml"`.
 
 ```yaml
-# fleet.yml
+# machine.yml
 machines:
   - host: studio-mini      # ssh target: a Host from ~/.ssh/config, or user@addr
   - host: laptop
@@ -949,16 +961,16 @@ machines:
 
 ```bash
 command -v yq >/dev/null 2>&1 || { echo "yq not found — install it to use Phase 5 (push)."; exit 1; }
-yq -r '.machines[].host' "$repo/fleet.yml"
+yq -r '.machines[].host' "$repo/machine.yml"
 ```
 
 Confirm the host list with the user, then for each:
 
 ```bash
-ssh -o BatchMode=yes -o ConnectTimeout=8 "$host" 'cd "${FLEET_REPO:-$HOME/.agents}" && git pull --ff-only' 2>&1
+ssh -o BatchMode=yes -o ConnectTimeout=8 "$host" 'cd "${AGENTS_REPO:-$HOME/.agents}" && git pull --ff-only' 2>&1
 ```
 
-The remote path expression matches Phase 0's local resolution (`$FLEET_REPO`
+The remote path expression matches Phase 0's local resolution (`$AGENTS_REPO`
 if the remote machine has it set, else `$HOME/.agents`) rather than a
 hardcoded `~/.agents`, so pushing is consistent with how this machine finds
 its own repo.
@@ -969,10 +981,10 @@ its own repo.
 
 **Be honest about what this proves.** A remote `git pull` says the remote repo
 advanced. It does **not** confirm the remote machine re-linked correctly — that
-needs `fleet:sync` run there. Report what was attempted, not what succeeded:
+needs `machine:sync` run there. Report what was attempted, not what succeeded:
 
 ```
 Pushed to {N}/{M} machines. {list}
 Unreachable: {list}
-A pull is not a relink — run /fleet:sync on a machine if its links may have drifted.
+A pull is not a relink — run /machine:sync on a machine if its links may have drifted.
 ```

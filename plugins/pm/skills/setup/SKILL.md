@@ -146,9 +146,9 @@ ls "${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml" 2>/dev/null
 ```
 
 - `set` → `"Found your model rubric — sprint-dev and dev-task will route by it."`
-- `unset` → `"No model rubric yet. Run /fleet:model-rubric to create one, or follow studio-baseline/Rubric_Setup.md if you don't have the fleet plugin."`
+- `unset` → `"No model rubric yet. Run /machine:model-rubric to create one, or follow studio-baseline/Rubric_Setup.md if you don't have the machine plugin."`
 
-**pm does not create or refresh the rubric.** That is `fleet:model-rubric`'s job.
+**pm does not create or refresh the rubric.** That is `machine:model-rubric`'s job.
 
 ---
 
@@ -348,7 +348,7 @@ The rubric is per developer and user-global at `${XDG_CONFIG_HOME:-$HOME/.config
 Using Batch 5's result:
 
 - `set` → nothing to do.
-- `unset` → tell the user: `"Run /fleet:model-rubric to set up model routing, or follow studio-baseline/Rubric_Setup.md if you don't have the fleet plugin installed."` Do not walk them through it here.
+- `unset` → tell the user: `"Run /machine:model-rubric to set up model routing, or follow studio-baseline/Rubric_Setup.md if you don't have the machine plugin installed."` Do not walk them through it here.
 
 **Migrate any legacy in-repo rubric.** If a prior setup wrote a "Picking the right models" section into this repo's `AGENTS.md`/`CLAUDE.md`, move its scores into the user-global rubric (if the dev confirms they're theirs) and delete that section from the repo file. Leave the Phase 4.4 baseline reminder in place.
 
@@ -478,7 +478,7 @@ Files created:
   docs/adr/0000-template.md   — ADR template
   {planning files if created}
 
-Model rubric: {found at user-global path | not set — run /fleet:model-rubric}
+Model rubric: {found at user-global path | not set — run /machine:model-rubric}
   {if created/found:} sprint-dev and dev-task route sub-agents by it.
 
 {If GitHub backend:}

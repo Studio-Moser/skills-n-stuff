@@ -5,7 +5,7 @@
 # WRITE: overwrites skills.manifest and the generated .gitignore block.
 # Everything in .gitignore outside the markers is preserved verbatim.
 #
-# Called by fleet:sync's Phase 2.6 — and only after that phase's installs
+# Called by machine:sync's Phase 2.6 — and only after that phase's installs
 # have run. Regenerating from a fresh machine's `npx skills list` output
 # before anything is installed would produce an empty manifest and wipe the
 # developer's declaration; see sync/SKILL.md Phase 2.6 for the ordering.
@@ -24,13 +24,13 @@ shift
 failed_names="$*"
 
 # `npx skills` hardcodes its install directory to $HOME/.agents/skills
-# (getCanonicalSkillsDir) — it never looks at $FLEET_REPO. Filtering by
+# (getCanonicalSkillsDir) — it never looks at $AGENTS_REPO. Filtering by
 # "$repo/skills/" when $repo points somewhere else would make every real
 # install look uninstalled, and step 1 below would happily write an empty
 # manifest over a real one. Skip cleanly instead of producing that.
 canonical_agents="${HOME%/}/.agents"
 if [ "$repo" != "$canonical_agents" ]; then
-  echo "SKILLS_STATE=skipped: skill management requires \$FLEET_REPO=\$HOME/.agents (npx skills always installs under \$HOME/.agents/skills); this repo is $repo"
+  echo "SKILLS_STATE=skipped: skill management requires \$AGENTS_REPO=\$HOME/.agents (npx skills always installs under \$HOME/.agents/skills); this repo is $repo"
   exit 0
 fi
 store="$canonical_agents/skills/"
@@ -91,7 +91,7 @@ for entry in data:
 #     the declaration; absence here is not a removal for everyone else.
 #   keepLocal — here but deliberately undeclared. Do not add it. Without this,
 #     a "leave it undeclared" choice was written into the manifest on the very
-#     same run and pushed fleet-wide, which is the mirror of the bug above.
+#     same run and pushed to every machine, which is the mirror of the bug above.
 #
 # Anything declared-but-absent with no recorded reason is a genuine removal and
 # correctly drops out — that is the only case allowed to un-declare something.

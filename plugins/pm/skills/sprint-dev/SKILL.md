@@ -268,7 +268,7 @@ git worktree add .claude/worktrees/pulse-{cluster}-{date} -b pulse/{cluster}-{YY
 
 ### 2B. Dispatch Sub-Agent
 
-**Pick the model and effort per task altitude.** Load the current developer's rubric from `${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml` (if missing, offer to run `/fleet:model-rubric` — or follow `studio-baseline/Rubric_Setup.md` with no plugin — before dispatching, or fall back to the default model). Route by it: route clear-spec / mechanical implementation to a cheaper capable model, reserve the strongest model for ambiguous or taste-sensitive work (UI, copy, API/SDK design), and keep reasoning effort matched to difficulty rather than defaulting to the ceiling. If no rubric exists, dispatch with the default model. Pass the chosen model via the `Agent` `model` parameter; don't predefine reviewer/explorer/adversarial archetypes — let the orchestrator pick roles per task.
+**Pick the model and effort per task altitude.** Load the current developer's rubric from `${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml` (if missing, offer to run `/machine:model-rubric` — or follow `studio-baseline/Rubric_Setup.md` with no plugin — before dispatching, or fall back to the default model). Route by it: route clear-spec / mechanical implementation to a cheaper capable model, reserve the strongest model for ambiguous or taste-sensitive work (UI, copy, API/SDK design), and keep reasoning effort matched to difficulty rather than defaulting to the ceiling. If no rubric exists, dispatch with the default model. Dispatch the chosen `model@effort` routing value per `references/model-orchestration.md` (split it; `via: codex` rows dispatch through the codex skills; natives pass Agent `model` tier + `effort`); don't predefine reviewer/explorer/adversarial archetypes — let the orchestrator pick roles per task.
 
 Build a comprehensive sub-agent prompt with:
 - Batch items (number, description, priority, size, spec link)
@@ -304,10 +304,10 @@ Dispatch independent PRs in parallel. Conflicting PRs run sequentially.
 
 Ownership in the prompt is an instruction, not a guarantee — nothing stops a worker editing outside its paths. When batches run genuinely in parallel, give each one its own worktree (`git worktree add ../{repo}-{batch} -b {branch} origin/main`, `isolation: 'worktree'` for workflow agents) so collisions are impossible rather than merely discouraged. See the concurrent-sessions section of `pm:house-rules`.
 
-**Pick the model per batch from the rubric** (`${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml`) and **always pass it explicitly** — omitting `model` inherits the session model, which silently defeats the routing. Clear-spec/mechanical batches → `routing.bulk`; user-facing batches (UI, copy, API surface) → a model with `taste >= routing.taste_min`. Unsure between two tiers → take the cheaper and escalate on failure.
+**Pick the model per batch from the rubric** (`${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml`) and **always dispatch per `references/model-orchestration.md`** — split each `model@effort` value, honor `via:`, and pass model + effort explicitly; omitting either inherits session defaults and silently defeats the routing. Clear-spec/mechanical batches → `routing.bulk`; latency-sensitive single steps → `routing.quick`; unattended fan-out → `routing.batch` (only if set — never for attended work); user-facing batches (UI, copy, API surface) → a row with `taste >= routing.taste_min`. Unsure between two tiers → take the cheaper and escalate on failure.
 
 ```
-Agent(subagent_type="general-purpose", model=<from rubric>, prompt=built_prompt)
+Agent(subagent_type="general-purpose", model=<tier from rubric>, effort=<effort from rubric>, prompt=built_prompt)
 ```
 
 Three or more independent batches is the case for a dynamic workflow instead of loose parallel Agent calls — propose it with its rough shape and cost, and wait for a yes unless the session has already opted in to multi-agent orchestration. Inside the script, every `agent()` carries its own `model`.
@@ -322,7 +322,7 @@ After each sub-agent creates its PR, run the `code-review` skill against that PR
 
 If any issues clear the bar, run the fix loop (max 2 rounds):
 
-1. Dispatch a follow-up sub-agent on the same branch (check out the PR branch), passing `model` explicitly — `routing.bulk` for mechanical fixes, the batch's original model when the finding is subtle.
+1. Dispatch a follow-up sub-agent on the same branch (check out the PR branch), dispatched per `references/model-orchestration.md`'s procedure — `routing.bulk` for mechanical fixes, the batch's original model@effort when the finding is subtle.
 2. For each filtered issue, either fix it **or** dispute it: if the finding is wrong for this codebase (a false positive, or it contradicts the spec — e.g. flagging content as "too short" that the spec says should be short), leave the code as-is and record a one-line justification instead of forcing a change. Disputes are legitimate; don't pad or distort correct work to satisfy a bad finding.
 3. Run the full verify protocol (tests/build/lint/typecheck per project) and **paste the actual output** — never report "passing" without evidence.
 4. Commit as new commits — `fix: address code review findings`. Push to the same branch (never force push).

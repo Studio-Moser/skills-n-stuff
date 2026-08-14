@@ -1,18 +1,42 @@
 # Model orchestration doctrine
 
-Canonical, **model-agnostic** source of truth for how PM skills route sub-agents across models and verify their output. `pm:setup` Phase 4.4 stamps the baseline reminder block below into a project's `AGENTS.md` (with `CLAUDE.md` importing it), and each developer creates their own user-global rubric via `/fleet:model-rubric` (or `studio-baseline/Rubric_Setup.md` with no plugin); `pm:sprint-dev`, `pm:dev-task`, and the `code-reviewer` agent read and enforce it. Keeping the baseline block here — in the version-controlled plugin — means every machine that installs the plugin behaves the same, instead of each machine's hand-edited global config drifting.
+Canonical, **model-agnostic** source of truth for how PM skills route sub-agents across models and verify their output. `pm:setup` Phase 4.4 stamps the baseline reminder block below into a project's `AGENTS.md` (with `CLAUDE.md` importing it), and each developer creates their own user-global rubric via `/machine:model-rubric` (or `studio-baseline/Rubric_Setup.md` with no plugin); `pm:sprint-dev`, `pm:dev-task`, and the `code-reviewer` agent read and enforce it. Keeping the baseline block here — in the version-controlled plugin — means every machine that installs the plugin behaves the same, instead of each machine's hand-edited global config drifting.
 
-This file names no specific models. The concrete rubric (which models, what scores) is drafted **per user, per ecosystem, at setup time** and stored in the developer's user-global rubric file — created via `/fleet:model-rubric`, or by following `studio-baseline/Rubric_Setup.md` directly (plugin-free); that doc defines its shape.
+This file names no specific models. The concrete rubric (which models, what scores) is drafted **per user, per ecosystem, at setup time** and stored in the developer's user-global rubric file — created via `/machine:model-rubric`, or by following `studio-baseline/Rubric_Setup.md` directly (plugin-free); that doc defines its shape.
 
 ---
 
 ## What lives where
 
-- **Routing philosophy** → the shared `studio-baseline` (house-rules + the `AGENTS.md` reminder block), reaching every dev plugin-free. **The rubric itself** → each developer's user-global store `${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml`, NOT the repo. The repo's `AGENTS.md` only reminds the agent to load it; `/fleet:model-rubric` creates it (or `studio-baseline/Rubric_Setup.md` directly, plugin-free). pm reads the rubric — it does not create or refresh it.
+- **Routing philosophy** → the shared `studio-baseline` (house-rules + the `AGENTS.md` reminder block), reaching every dev plugin-free. **The rubric itself** → each developer's user-global store `${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml`, NOT the repo. The repo's `AGENTS.md` only reminds the agent to load it; `/machine:model-rubric` creates it (or `studio-baseline/Rubric_Setup.md` directly, plugin-free). pm reads the rubric — it does not create or refresh it.
 - **Verification behavior** → baked into the skills themselves (`sprint-dev` Phase 2C, `dev-task` step 5, `code-reviewer` agent). Travels with the plugin.
 - **Cross-vendor worker capability** (e.g. an OpenAI Codex executor) → optional, capability-gated skills in this plugin (`codex-review`, `codex-implementation`, `codex-computer-use`), inert unless the `codex` CLI is present. Travels with the plugin; activates only where the CLI exists.
 
 The point: nothing orchestration-related needs to live in a machine's global config. Install the plugin + run `pm:setup` per repo, and any machine behaves identically (degrading gracefully where a capability like Codex isn't installed).
+
+---
+
+## Dispatching a routing value
+
+Rubric routing values are `<model>@<effort>` strings (e.g. `sol-class-model@medium`), and
+`models:` rows are keyed by *(name, effort)* — the same model may appear at several efforts.
+To dispatch one:
+
+1. Split the value on `@` → model name + effort.
+2. Find the `models:` row matching both. If it carries `via: <cli>` (e.g. `via: codex`),
+   dispatch through that CLI's skills (`pm:codex-implementation`, `pm:codex-review`,
+   `pm:codex-computer-use`) — the Agent tool cannot run cross-vendor models, and passing
+   the raw string as `model` is an error.
+3. Otherwise map the name to the Agent tool tier — `claude-fable-*`→`fable`,
+   `claude-opus-*`→`opus`, `claude-sonnet-*`→`sonnet`, `claude-haiku-*`→`haiku` — and pass
+   the effort through the Agent `effort` parameter (`low|medium|high|xhigh|max`).
+4. Pass **both** explicitly on every dispatch. Omitting either inherits the session
+   default and silently defeats the routing.
+
+Routing keys: `default` (everyday driver), `bulk` (clear-spec mechanical), `quick`
+(latency-sensitive single steps), `batch` (unattended fan-out only — never route work
+someone is waiting on), `taste_min` (floor for user-facing work), `review`,
+`independent` (cross-vendor adversarial read — ask before spawning).
 
 ---
 
@@ -31,7 +55,7 @@ A bare "see AGENTS.md" link is weaker than an `@AGENTS.md` import — the import
 
 ### The rubric
 
-The scored rubric below — the table plus the "how to apply" bullets — is **not** part of the baseline block and is never written into the repo. It's the content that lives in each developer's user-global store (`${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml`, shape defined by `studio-baseline/Rubric_Setup.md`), created by `/fleet:model-rubric` or by any agent following `studio-baseline/Rubric_Setup.md` directly (plugin-free). It's reproduced here to illustrate what the rubric contains and how to apply it, filled with the **current** models of whatever ecosystem the setup assistant belongs to (looked up live at setup time, not from training-cutoff memory):
+The scored rubric below — the table plus the "how to apply" bullets — is **not** part of the baseline block and is never written into the repo. It's the content that lives in each developer's user-global store (`${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml`, shape defined by `studio-baseline/Rubric_Setup.md`), created by `/machine:model-rubric` or by any agent following `studio-baseline/Rubric_Setup.md` directly (plugin-free). It's reproduced here to illustrate what the rubric contains and how to apply it, filled with the **current** models of whatever ecosystem the setup assistant belongs to (looked up live at setup time, not from training-cutoff memory): Rubric rows are keyed by (name, effort) and routing values are `model@effort` — see "Dispatching a routing value" above.
 
 ```markdown
 ## Picking the right models for workflows and subagents

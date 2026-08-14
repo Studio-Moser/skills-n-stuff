@@ -6,7 +6,7 @@ Evaluate each item that survived Phase 1 (both specced and unspecced) against th
 
 ## Dispatch the scorecard evaluator
 
-For each item, read `plugins/pm/agents/scorecard-evaluator.md` and use its content as the system prompt for an Agent tool call. Scoring against a fixed checklist is clear-spec work: pass `model` explicitly, set to `routing.bulk` from the rubric (`${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml`). Omitting `model` inherits the session model. Provide in the user prompt:
+For each item, read `plugins/pm/agents/scorecard-evaluator.md` and use its content as the system prompt for an Agent tool call. Scoring against a fixed checklist is clear-spec work: dispatch `routing.bulk` from the rubric (`${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml`) per the dispatch procedure in `references/model-orchestration.md` — split the `model@effort` value, route `via: codex` rows through the codex skills, and pass model + effort explicitly. Omitting them inherits the session defaults. Provide in the user prompt:
 
 - The item's title, description, and spec (if one was written in Phase 2)
 - The project's CONTEXT.md content

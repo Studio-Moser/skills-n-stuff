@@ -2,7 +2,7 @@
 
 You are helping a developer bring a machine in line with their personal agent
 configuration. This works with **no plugin installed** — you need only a shell and
-git. Once done, the `fleet` plugin automates the repeated work.
+git. Once done, the `machine` plugin automates the repeated work.
 
 The personal layer is **one private git repo per developer**, conventionally at
 `~/.agents`, linked into `~/.claude`:
@@ -10,11 +10,13 @@ The personal layer is **one private git repo per developer**, conventionally at
 ```
 ~/.agents/
 ├── skills/                    every skill; flat, every machine gets all of them
-└── claude/
-    ├── CLAUDE.md
-    ├── settings.json          permissions, hooks, statusLine, enabledPlugins
-    ├── statusline-command.sh  referenced by settings.json — they travel together
-    └── mcp.json               MCP server definitions
+├── claude/
+│   ├── CLAUDE.md
+│   ├── settings.json          permissions, hooks, statusLine, enabledPlugins
+│   ├── statusline-command.sh  referenced by settings.json — they travel together
+│   └── mcp.json               MCP server definitions
+└── config/
+    └── studio-moser/          model-rubric.yml and other cross-machine config
 ```
 
 | link | target |
@@ -24,54 +26,69 @@ The personal layer is **one private git repo per developer**, conventionally at
 | `~/.claude/settings.json` | `~/.agents/claude/settings.json` |
 | `~/.claude/statusline-command.sh` | `~/.agents/claude/statusline-command.sh` |
 | `~/.claude/mcp.json` | `~/.agents/claude/mcp.json` |
+| `${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser` | `~/.agents/config/studio-moser` |
+
+**The `studio-moser` row links under `${XDG_CONFIG_HOME:-$HOME/.config}`, not
+under `~/.claude`** — it's cross-tool config (currently just
+`model-rubric.yml`), not a Claude Code file. Its parent directory usually
+doesn't exist yet on a fresh machine: `mkdir -p "${XDG_CONFIG_HOME:-$HOME/.config}"`
+before linking into it.
 
 **`mcp.json` is tracked like the rest, but its portability isn't fully covered by
 the lint in step 5.** That lint only flags literal `/Users/<name>` or `/home/<name>` paths;
 `mcp.json` typically holds paths like `/Applications/Some.app/Contents/Helpers/Server`,
 which pass the lint but are still machine-specific. Tracking it is right — the
 inventory should migrate — but each server's command needs to be verified as
-present on this machine, not assumed. `/fleet:sync` does that verification
+present on this machine, not assumed. `/machine:sync` does that verification
 (Phase 2.5); this bootstrap doc does not attempt it.
 
-**The five rows above are "the entries."** Every step below that touches more than
+**The six rows above are "the entries."** Every step below that touches more than
 one of them is written as a loop over the same list, redeclared verbatim at the top
 of that step's command block (blocks may run in separate shells, so nothing set in
 one persists into the next). Copy it exactly — don't hand-unroll it into separate
-per-entry lines. That's what makes adding a sixth entry later a one-line edit
-repeated in a few places instead of a hunt through prose for every place "the five"
+per-entry lines. That's what makes adding another entry later a one-line edit
+repeated in a few places instead of a hunt through prose for every place "the six"
 were listed out by hand:
 
 ```bash
-entries="skills|skills|dir
-CLAUDE.md|claude/CLAUDE.md|file
-settings.json|claude/settings.json|file
-statusline-command.sh|claude/statusline-command.sh|file
-mcp.json|claude/mcp.json|file"
+entries="skills|skills|dir|claude
+CLAUDE.md|claude/CLAUDE.md|file|claude
+settings.json|claude/settings.json|file|claude
+statusline-command.sh|claude/statusline-command.sh|file|claude
+mcp.json|claude/mcp.json|file|claude
+studio-moser|config/studio-moser|dir|config"
 ```
 
-(`name|rel|kind` — `name` under `~/.claude`, `rel` under `~/.agents`, `kind` is
-`dir` or `file` so loops can branch: `skills` needs `-R`/`-r` forms, the rest don't.)
+(`name|rel|kind|root` — `name` under the `root`, `rel` under `~/.agents`, `kind` is
+`dir` or `file` so loops can branch: `skills` and `studio-moser` need `-R`/`-r`
+forms, the rest don't. `root` is `claude` (`~/.claude`) for every entry except
+`studio-moser`, which is `config` (`${XDG_CONFIG_HOME:-$HOME/.config}`).)
 
 ## Steps
 
-1. **Back up whatever is on this machine for these five entries, before anything
+1. **Back up whatever is on this machine for these six entries, before anything
    else.** Both paths below can remove real files — the clone path (step 3) has an
    unconditional removal a few lines into it, and it's the only net either path
    gets:
 
    ```bash
-   entries="skills|skills|dir
-   CLAUDE.md|claude/CLAUDE.md|file
-   settings.json|claude/settings.json|file
-   statusline-command.sh|claude/statusline-command.sh|file
-   mcp.json|claude/mcp.json|file"
+   entries="skills|skills|dir|claude
+   CLAUDE.md|claude/CLAUDE.md|file|claude
+   settings.json|claude/settings.json|file|claude
+   statusline-command.sh|claude/statusline-command.sh|file|claude
+   mcp.json|claude/mcp.json|file|claude
+   studio-moser|config/studio-moser|dir|config"
 
    rm -f "$HOME/agent-config-backup.tar" "$HOME/agent-config-backup.tar.gz"
    found=0
-   while IFS='| ' read -r name rel kind; do
+   while IFS='| ' read -r name rel kind root; do
      [ -n "$name" ] || continue
-     if [ -e "$HOME/.claude/$name" ]; then
-       tar rhf "$HOME/agent-config-backup.tar" -C "$HOME" ".claude/$name"
+     case "$root" in
+       claude) base="$HOME/.claude" ;;
+       config) base="${XDG_CONFIG_HOME:-$HOME/.config}" ;;
+     esac
+     if [ -e "$base/$name" ]; then
+       tar rhf "$HOME/agent-config-backup.tar" -C "$base" "$name"
        found=1
      fi
    done <<< "$entries"
@@ -113,15 +130,20 @@ mcp.json|claude/mcp.json|file"
    when something did):
 
    ```bash
-   entries="skills|skills|dir
-   CLAUDE.md|claude/CLAUDE.md|file
-   settings.json|claude/settings.json|file
-   statusline-command.sh|claude/statusline-command.sh|file
-   mcp.json|claude/mcp.json|file"
+   entries="skills|skills|dir|claude
+   CLAUDE.md|claude/CLAUDE.md|file|claude
+   settings.json|claude/settings.json|file|claude
+   statusline-command.sh|claude/statusline-command.sh|file|claude
+   mcp.json|claude/mcp.json|file|claude
+   studio-moser|config/studio-moser|dir|config"
 
-   while IFS='| ' read -r name rel kind; do
+   while IFS='| ' read -r name rel kind root; do
      [ -n "$name" ] || continue
-     link="$HOME/.claude/$name"
+     case "$root" in
+       claude) base="$HOME/.claude" ;;
+       config) base="${XDG_CONFIG_HOME:-$HOME/.config}" ;;
+     esac
+     link="$base/$name"
      want="$HOME/.agents/$rel"
      if [ -L "$link" ]; then
        echo "== $name: existing symlink -> $(readlink "$link")"
@@ -190,6 +212,8 @@ mcp.json|claude/mcp.json|file"
    cp -R "$HOME/.claude/skills/." "$HOME/.agents/skills/"
    # a file — same form for CLAUDE.md, settings.json, or statusline-command.sh:
    cp "$HOME/.claude/settings.json" "$HOME/.agents/claude/settings.json"
+   # studio-moser is a directory too, but it lives under config, not claude:
+   cp -R "${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/." "$HOME/.agents/config/studio-moser/"
    ```
 
    Do this for **every** entry the machine wins, not only the ones that come to
@@ -201,19 +225,24 @@ mcp.json|claude/mcp.json|file"
    each), remove what's on the machine and link — but only for entries the repo
    actually has. Linking to a path the repo lacks would create a dangling symlink
    instead of correctly leaving that entry absent (this is also the loop step 4
-   reuses to replace originals with symlinks, and the one `/fleet:sync`'s own
+   reuses to replace originals with symlinks, and the one `/machine:sync`'s own
    `link-plan.sh` mirrors):
 
    ```bash
-   entries="skills|skills|dir
-   CLAUDE.md|claude/CLAUDE.md|file
-   settings.json|claude/settings.json|file
-   statusline-command.sh|claude/statusline-command.sh|file
-   mcp.json|claude/mcp.json|file"
+   entries="skills|skills|dir|claude
+   CLAUDE.md|claude/CLAUDE.md|file|claude
+   settings.json|claude/settings.json|file|claude
+   statusline-command.sh|claude/statusline-command.sh|file|claude
+   mcp.json|claude/mcp.json|file|claude
+   studio-moser|config/studio-moser|dir|config"
 
-   while IFS='| ' read -r name rel kind; do
+   while IFS='| ' read -r name rel kind root; do
      [ -n "$name" ] || continue
-     link="$HOME/.claude/$name"
+     case "$root" in
+       claude) base="$HOME/.claude" ;;
+       config) base="${XDG_CONFIG_HOME:-$HOME/.config}"; mkdir -p "$base" ;;
+     esac
+     link="$base/$name"
      want="$HOME/.agents/$rel"
      if [ ! -e "$want" ]; then
        echo "== $name: repo has no $rel — leaving $link as-is, not linking"
@@ -239,15 +268,20 @@ mcp.json|claude/mcp.json|file"
    lacks, so it's safe even when `statusline-command.sh` was never present):
 
    ```bash
-   entries="skills|skills|dir
-   CLAUDE.md|claude/CLAUDE.md|file
-   settings.json|claude/settings.json|file
-   statusline-command.sh|claude/statusline-command.sh|file
-   mcp.json|claude/mcp.json|file"
+   entries="skills|skills|dir|claude
+   CLAUDE.md|claude/CLAUDE.md|file|claude
+   settings.json|claude/settings.json|file|claude
+   statusline-command.sh|claude/statusline-command.sh|file|claude
+   mcp.json|claude/mcp.json|file|claude
+   studio-moser|config/studio-moser|dir|config"
 
-   while IFS='| ' read -r name rel kind; do
+   while IFS='| ' read -r name rel kind root; do
      [ -n "$name" ] || continue
-     link="$HOME/.claude/$name"
+     case "$root" in
+       claude) base="$HOME/.claude" ;;
+       config) base="${XDG_CONFIG_HOME:-$HOME/.config}" ;;
+     esac
+     link="$base/$name"
      if [ ! -e "$link" ] && [ ! -L "$link" ]; then echo "== $name: not linked (repo had none)"; continue; fi
      target="$(readlink -f "$link" 2>/dev/null)"
      if [ -z "$target" ] || [ ! -e "$target" ]; then echo "== $name: DANGLING -> $(readlink "$link")"; continue; fi
@@ -311,23 +345,28 @@ mcp.json|claude/mcp.json|file"
       ```
 
       ```bash
-      mkdir -p "$HOME/.agents/claude" "$HOME/.agents/skills"
+      mkdir -p "$HOME/.agents/claude" "$HOME/.agents/skills" "$HOME/.agents/config"
       cd "$HOME/.agents" && git init -b main
 
-      entries="skills|skills|dir
-      CLAUDE.md|claude/CLAUDE.md|file
-      settings.json|claude/settings.json|file
-      statusline-command.sh|claude/statusline-command.sh|file
-      mcp.json|claude/mcp.json|file"
+      entries="skills|skills|dir|claude
+      CLAUDE.md|claude/CLAUDE.md|file|claude
+      settings.json|claude/settings.json|file|claude
+      statusline-command.sh|claude/statusline-command.sh|file|claude
+      mcp.json|claude/mcp.json|file|claude
+      studio-moser|config/studio-moser|dir|config"
 
-      while IFS='| ' read -r name rel kind; do
+      while IFS='| ' read -r name rel kind root; do
         [ -n "$name" ] || continue
-        src="$HOME/.claude/$name"
+        case "$root" in
+          claude) base="$HOME/.claude" ;;
+          config) base="${XDG_CONFIG_HOME:-$HOME/.config}" ;;
+        esac
+        src="$base/$name"
         if [ ! -e "$src" ]; then echo "== $name: not on this machine, skipping"; continue; fi
-        if [ "$kind" = dir ]; then cp -R "$src/." "$HOME/.agents/$rel/"; else cp "$src" "$HOME/.agents/$rel"; fi
+        if [ "$kind" = dir ]; then mkdir -p "$HOME/.agents/$rel"; cp -R "$src/." "$HOME/.agents/$rel/"; else cp "$src" "$HOME/.agents/$rel"; fi
       done <<< "$entries"
 
-      git add skills claude && git commit -m "Initial commit: skills tree and claude config"
+      git add skills claude config && git commit -m "Initial commit: skills tree and claude config"
       ```
 
    c. **Apply the two rules in step 5** to what you just committed.
@@ -339,15 +378,20 @@ mcp.json|claude/mcp.json|file"
       and parses:
 
       ```bash
-      entries="skills|skills|dir
-      CLAUDE.md|claude/CLAUDE.md|file
-      settings.json|claude/settings.json|file
-      statusline-command.sh|claude/statusline-command.sh|file
-      mcp.json|claude/mcp.json|file"
+      entries="skills|skills|dir|claude
+      CLAUDE.md|claude/CLAUDE.md|file|claude
+      settings.json|claude/settings.json|file|claude
+      statusline-command.sh|claude/statusline-command.sh|file|claude
+      mcp.json|claude/mcp.json|file|claude
+      studio-moser|config/studio-moser|dir|config"
 
-      while IFS='| ' read -r name rel kind; do
+      while IFS='| ' read -r name rel kind root; do
         [ -n "$name" ] || continue
-        link="$HOME/.claude/$name"
+        case "$root" in
+          claude) base="$HOME/.claude" ;;
+          config) base="${XDG_CONFIG_HOME:-$HOME/.config}" ;;
+        esac
+        link="$base/$name"
         if [ ! -e "$link" ] && [ ! -L "$link" ]; then echo "== $name: not linked (repo had none)"; continue; fi
         target="$(readlink -f "$link" 2>/dev/null)"
         if [ -z "$target" ] || [ ! -e "$target" ]; then echo "== $name: DANGLING -> $(readlink "$link")"; continue; fi
@@ -396,8 +440,8 @@ mcp.json|claude/mcp.json|file"
    | `~/.claude/settings.local.json` | machine-local by design; holds `skillOverrides` |
    | `~/.claude/projects/` | session state and per-project memory |
    | any tool's own store (e.g. `~/.shelby/`) | credentials and per-machine databases |
-   | `$repo/.fleet-local.json` | fleet:sync's own per-machine overrides for third-party skills (`skipInstall`/`keepLocal`) |
-   | `$repo/.skill-lock.json` | `npx skills`' lockfile; tracking it lets one machine's removal reappear as "no source" on another and get silently re-vendored — see fleet's README |
+   | `$repo/.fleet-local.json` | machine:sync's own per-machine overrides for third-party skills (`skipInstall`/`keepLocal`) |
+   | `$repo/.skill-lock.json` | `npx skills`' lockfile; tracking it lets one machine's removal reappear as "no source" on another and get silently re-vendored — see machine's README |
 
    Syncing a memory tool's *configuration* does not sync its *memories*.
 
@@ -417,15 +461,15 @@ mcp.json|claude/mcp.json|file"
 
 ## Afterwards
 
-Install the `fleet` plugin and use `/fleet:sync` for the ongoing work — it does the
+Install the `machine` plugin and use `/machine:sync` for the ongoing work — it does the
 link check, pull, and portability lint above on demand, and can push to other
-machines. Set up model routing with `/fleet:model-rubric`, or follow
+machines. Set up model routing with `/machine:model-rubric`, or follow
 [`Rubric_Setup.md`](https://raw.githubusercontent.com/Studio-Moser/skills-n-stuff/main/studio-baseline/Rubric_Setup.md)
 if you have no plugins.
 
 ### Schedule the sync — do this now, not later
 
-**Nothing runs `/fleet:sync` for you.** Setting up the repo does not keep it true:
+**Nothing runs `/machine:sync` for you.** Setting up the repo does not keep it true:
 your config drifts the moment a tool upgrades a skill, a plugin toggle rewrites
 `settings.json`, or you edit a skill on one machine. Detection exists; nothing
 triggers it.
@@ -435,7 +479,7 @@ upgrade consolidated eighteen standalone skills into one within a day of setup �
 all of it uncommitted, so any other machine cloning that repo would have received
 the pre-upgrade state.
 
-**Set up a recurring `/fleet:sync` with whatever scheduler you already use** —
+**Set up a recurring `/machine:sync` with whatever scheduler you already use** —
 your agent tool's scheduled tasks, `cron`, `launchd`, a CI job, whatever you'll
 actually keep. Daily is plenty; this is drift, not an outage. Ask the developer
 which they prefer rather than choosing for them, and confirm the schedule exists
@@ -443,7 +487,7 @@ before you call setup complete.
 
 Two things to get right whichever tool you pick:
 
-- **Have it report, not act silently.** `/fleet:sync` asks before it removes,
+- **Have it report, not act silently.** `/machine:sync` asks before it removes,
   re-links, or discards anything, and an unattended run must not answer those
   prompts for you. A scheduled run that surfaces "3 entries drifted, 1 needs a
   decision" is doing its job; one that resolves them alone is a data-loss risk on

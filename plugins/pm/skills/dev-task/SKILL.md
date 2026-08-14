@@ -35,7 +35,7 @@ Guide ONE person through ONE development task, foreground and interactive, the S
 ### 1. Frame
 - If a memory MCP is connected (e.g. shelby-memory), recall relevant prior context; skip silently if not. See references/memory-integration.md.
 - Read the repo's `CLAUDE.md` / `AGENTS.md` if present.
-- Load your model rubric from `${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml`. If it's missing, offer to run `/fleet:model-rubric` (or follow `studio-baseline/Rubric_Setup.md` with no plugin) — this is user-global, done once. Use it when choosing models for any sub-agent work.
+- Load your model rubric from `${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml`. If it's missing, offer to run `/machine:model-rubric` (or follow `studio-baseline/Rubric_Setup.md` with no plugin) — this is user-global, done once. Use it when choosing models for any sub-agent work.
 - Restate the task in one or two sentences and the definition of done.
 - Name any unknowns or risks. If the ask is genuinely ambiguous or large, **REQUIRED SUB-SKILL:** Use superpowers:brainstorming before planning.
 
@@ -55,7 +55,7 @@ Guide ONE person through ONE development task, foreground and interactive, the S
 
 ### 5. Review
 - Self-review against the pm:house-rules security + quality checklist — but per house-rules Verification, your own pass is a first draft, not proof.
-- Then run `/code-review`, or dispatch the `code-reviewer` subagent for an independent read that re-runs the tests itself — pass `model` explicitly, set to `routing.review` from the rubric (`${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml`); omitting it inherits the session model. If you want an adversarial read of *your own* diff by a model that hasn't seen this conversation, that's `routing.independent` — ask first, it's the expensive option. Fix every BLOCKER and any SUGGESTION you agree with; dispute wrong findings per house-rules rather than distorting correct code.
+- Then run `/code-review`, or dispatch the `code-reviewer` subagent for an independent read that re-runs the tests itself — dispatch `routing.review` from the rubric (`${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml`) per `references/model-orchestration.md`'s dispatch procedure — split the `model@effort` value, honor `via:`, pass model + effort explicitly. If you want an adversarial read of *your own* diff by a model that hasn't seen this conversation, that's `routing.independent` — ask first, it's the expensive option. Fix every BLOCKER and any SUGGESTION you agree with; dispute wrong findings per house-rules rather than distorting correct code.
 
 ### 6. Verify — GATE
 - Run the project's tests/build/lint. **REQUIRED SUB-SKILL:** Use superpowers:verification-before-completion.

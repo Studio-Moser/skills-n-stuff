@@ -141,7 +141,7 @@ For each new report, determine its type from the filename and dispatch the **ing
 
 **CRITICAL**: Dispatch all report analysts in a single message as parallel Agent tool calls.
 
-For each report, read `plugins/pm/agents/ingestion-analyst.md` and use its content as the system prompt for an Agent tool call. Report extraction is clear-spec bulk work: pass `model` explicitly, set to `routing.bulk` from the rubric (`${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml`). Omitting `model` inherits the session model and burns a frontier tier on mechanical extraction. Provide in the user prompt:
+For each report, read `plugins/pm/agents/ingestion-analyst.md` and use its content as the system prompt for an Agent tool call. Report extraction is clear-spec bulk work: dispatch `routing.bulk` from the rubric (`${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml`) per the dispatch procedure in `references/model-orchestration.md` (split `model@effort`; `via: codex` rows go through the codex skills; pass model + effort explicitly — omitting them burns a frontier tier at frontier effort on mechanical extraction). Provide in the user prompt:
 
 - The full text of the report (read the file)
 - The report type (from classification above)
