@@ -44,6 +44,7 @@ atomic replace-the-directory — that severs the sync silently.
    - `default:` the everyday driver — best swe-per-cost among reachable rows. **When a `via: codex` tier is reachable, that's the default** — those rows are codex handoffs (the `pm:codex-*` skills), not Agent calls. A mid-tier Claude model (e.g. Sonnet) is a fallback for machines without the codex CLI, not the bulk driver.
    - `bulk:` clear-spec / mechanical multi-step work — usually the same as `default`.
    - `quick:` short single-step turns where latency beats depth — a low-effort row (a `via: codex` low-effort row where codex is present).
+   - `explore:` read-only research and codebase mapping — the cheapest reachable Claude row. Native Agent only: findings must return into the orchestrator's context, and the built-in Explore agent is read-only. This is Sonnet's legitimate role even where codex exists.
    - `batch:` unattended fan-out ONLY, and only if a near-free high-swe row exists (omit otherwise; never route interactive work here).
    - `taste_min:` the floor for user-facing work (house default: 9).
    - `review:` plan/implementation reviews — the highest-swe row that isn't wasteful.
