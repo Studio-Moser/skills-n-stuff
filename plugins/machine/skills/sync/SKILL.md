@@ -31,8 +31,9 @@ read-only pieces** — `link-plan.sh` (Phase 1's command), Phase 2.5's MCP
 verification block, Phase 2.6's step 0 *detection* block (the `git
 ls-files --error-unmatch` tracked-check and the `.gitignore` presence
 check — not the fix block right after it) and step 1 (the
-`skills-reconcile.sh` call, nothing that follows it), and
-`portability-lint.sh` (Phase 3's command) — then print the report from
+`skills-reconcile.sh` call, nothing that follows it),
+`portability-lint.sh` (Phase 3's command), and `rubric-audit.sh` (Phase 3.5's
+command — it only reads transcripts) — then print the report from
 Phase 4 and stop. Phase 2.5's MCP block only reads `mcp.json` and checks
 whether each server's command resolves; it belongs in a dry run because
 that's exactly the kind of thing someone previewing a sync wants to see.

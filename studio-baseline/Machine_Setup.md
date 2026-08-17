@@ -11,6 +11,7 @@ The personal layer is **one private git repo per developer**, conventionally at
 ~/.agents/
 ├── skills/                    every skill; flat, every machine gets all of them
 ├── claude/
+│   ├── output-styles/         custom output styles (House Style)
 │   ├── CLAUDE.md
 │   ├── settings.json          permissions, hooks, statusLine, enabledPlugins
 │   ├── statusline-command.sh  referenced by settings.json — they travel together
@@ -22,6 +23,7 @@ The personal layer is **one private git repo per developer**, conventionally at
 | link | target |
 |------|--------|
 | `~/.claude/skills` | `~/.agents/skills` |
+| `~/.claude/output-styles` | `~/.agents/claude/output-styles` |
 | `~/.claude/CLAUDE.md` | `~/.agents/claude/CLAUDE.md` |
 | `~/.claude/settings.json` | `~/.agents/claude/settings.json` |
 | `~/.claude/statusline-command.sh` | `~/.agents/claude/statusline-command.sh` |
