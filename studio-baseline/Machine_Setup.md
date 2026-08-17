@@ -61,7 +61,7 @@ studio-moser|config/studio-moser|dir|config"
 ```
 
 (`name|rel|kind|root` — `name` under the `root`, `rel` under `~/.agents`, `kind` is
-`dir` or `file` so loops can branch: `skills` and `studio-moser` need `-R`/`-r`
+`dir` or `file` so loops can branch: `skills`, `output-styles`, and `studio-moser` need `-R`/`-r`
 forms, the rest don't. `root` is `claude` (`~/.claude`) for every entry except
 `studio-moser`, which is `config` (`${XDG_CONFIG_HOME:-$HOME/.config}`).)
 
@@ -354,7 +354,6 @@ forms, the rest don't. `root` is `claude` (`~/.claude`) for every entry except
       cd "$HOME/.agents" && git init -b main
 
       entries="skills|skills|dir|claude
-
       output-styles|claude/output-styles|dir|claude
       CLAUDE.md|claude/CLAUDE.md|file|claude
       settings.json|claude/settings.json|file|claude
