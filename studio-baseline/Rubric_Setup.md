@@ -41,9 +41,9 @@ atomic replace-the-directory — that severs the sync silently.
 6. **Draft the table** — one row per *(model, effort)* pair worth routing to, scored 1–10 on cost / intelligence / taste, with `swe:` carrying the DeepSWE number. Where a **seed rubric** is available (the `machine` plugin ships one at `plugins/machine/skills/model-rubric/Default_Rubric.yml`), start from it: keep its taste scores and anti-pattern notes, **drop rows whose provider isn't in this developer's `capabilities`**, and fill in `cost` from this developer's semantics. Working plugin-free, build the table from steps 3–4 directly. Mark rows reached through a cross-vendor CLI with `via: <cli>`. Show the table and let them tweak — their edits override the seed.
 
 7. **Derive `routing` from the table — never copy it.** Routing names concrete *(model, effort)* pairs as `<model>@<effort>` strings, so it is only valid for the capabilities it was derived from:
-   - `default:` the everyday driver — best swe-per-cost among reachable rows.
+   - `default:` the everyday driver — best swe-per-cost among reachable rows. **When a `via: codex` tier is reachable, that's the default** — those rows are codex handoffs (the `pm:codex-*` skills), not Agent calls. A mid-tier Claude model (e.g. Sonnet) is a fallback for machines without the codex CLI, not the bulk driver.
    - `bulk:` clear-spec / mechanical multi-step work — usually the same as `default`.
-   - `quick:` short single-step turns where latency beats depth — a low-effort row.
+   - `quick:` short single-step turns where latency beats depth — a low-effort row (a `via: codex` low-effort row where codex is present).
    - `batch:` unattended fan-out ONLY, and only if a near-free high-swe row exists (omit otherwise; never route interactive work here).
    - `taste_min:` the floor for user-facing work (house default: 9).
    - `review:` plan/implementation reviews — the highest-swe row that isn't wasteful.
