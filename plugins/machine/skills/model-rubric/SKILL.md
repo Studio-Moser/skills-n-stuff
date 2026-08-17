@@ -48,7 +48,7 @@ if [ -d "$repo/.git" ]; then echo "repo"; else echo "plain"; fi
     `mkdir -p "$repo/config" && mv "$config/studio-moser" "$repo/config/studio-moser" && ln -s "$repo/config/studio-moser" "$config/studio-moser"`.
     Then ensure `$repo/.gitignore` contains `config/studio-moser/*.bak*`, and commit + push the repo.
   - Absent → `mkdir -p "$repo/config/studio-moser" && ln -s "$repo/config/studio-moser" "$config/studio-moser"`.
-  `/machine:sync` verifies this link on every run (it is one of the six tracked entries).
+  `/machine:sync` verifies this link on every run (it is one of the seven tracked entries).
 - **`plain`** → no repo on this machine; write to `$config/studio-moser/` as a real
   directory (`mkdir -p`). Everything else proceeds identically.
 
