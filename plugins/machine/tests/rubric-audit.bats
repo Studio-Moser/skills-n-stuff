@@ -40,6 +40,8 @@ write_fixture() {
 @test "sub-agent transcripts are excluded from dispatch counts" {
   write_fixture
   run "$SCRIPT" --projects "${BATS_TEST_TMPDIR}/projects"
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -qE 'by model: +fable 1 · opus 1 · sonnet 1 · haiku 0'
   [[ "$output" != *"haiku 1"* ]]
 }
 
