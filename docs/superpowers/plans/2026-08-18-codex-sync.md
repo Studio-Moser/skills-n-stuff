@@ -4,7 +4,7 @@
 
 **Goal:** Bring Codex under the same personal-config sync as Claude Code: Codex's global instructions (`~/.codex/AGENTS.md`) become a tracked, *derived* file rendered from House Style + CLAUDE.md's discipline block, verified by `machine:sync` as an 8th tracked entry; and Codex's skills come from the same manifest-managed store as Claude's instead of stale one-off copies.
 
-**Architecture:** One new script, `render-codex-agents.sh`, composes `codex/AGENTS.md` in the agents repo from three existing sources (House Style body, CLAUDE.md's `## Engineering discipline` section, CLAUDE.md's Shelby block) plus two CLAUDE.md rules that apply to a worker agent (no hallucination, file naming) — so House Style stays the single thing you iterate on. `link-plan.sh` gains a third root, `codex` (`${CODEX_HOME:-$HOME/.codex}`), and the entry `codex|AGENTS.md|codex/AGENTS.md`. `machine:sync` gains Phase 1.5 (render, before commit) and a `Derived:` report line, and Codex's skills need no registration at all. **Correction recorded during Task 4 (live test):** Codex reads the shared store `~/.agents/skills` natively — the `skills` CLI records it as an agent of those paths without creating anything under `~/.codex/skills`, and the comma form `-a claude-code,codex` is rejected by the CLI — so Phase 2.6 keeps `-a claude-code` and its prose now states the mechanism. **Policy, stated:** the sync skill previously said it must never touch `~/.codex`; from now on it manages exactly one thing there — the `AGENTS.md` symlink — and nothing else (`config.toml`, `hooks.json`, `skills/`, Codex-bundled skills stay Codex's). The stale Jul-14 copies in `~/.codex/skills` were the only real defect; Task 4 removes them.
+**Architecture:** One new script, `render-codex-agents.sh`, composes `codex/AGENTS.md` in the agents repo from three existing sources (House Style body, CLAUDE.md's `## Engineering discipline` section, CLAUDE.md's Shelby block) plus two CLAUDE.md rules that apply to a worker agent (no hallucination, file naming) — so House Style stays the single thing you iterate on. `link-plan.sh` gains a third root, `codex` (`${CODEX_HOME:-$HOME/.codex}`), and the entry `codex|AGENTS.md|codex/AGENTS.md`. `machine:sync` gains step 2.25 (render after the pull, before the push — final review moved it there so a first sync on another machine can't diverge; if the render regenerates, it commits before pushing) and a `Derived:` report line, and Codex's skills need no registration at all. **Correction recorded during Task 4 (live test):** Codex reads the shared store `~/.agents/skills` natively — the `skills` CLI records it as an agent of those paths without creating anything under `~/.codex/skills`, and the comma form `-a claude-code,codex` is rejected by the CLI — so Phase 2.6 keeps `-a claude-code` and its prose now states the mechanism. **Policy, stated:** the sync skill previously said it must never touch `~/.codex`; from now on it manages exactly one thing there — the `AGENTS.md` symlink — and nothing else (`config.toml`, `hooks.json`, `skills/`, Codex-bundled skills stay Codex's). The stale Jul-14 copies in `~/.codex/skills` were the only real defect; Task 4 removes them.
 
 **Tech Stack:** bash 3.2-portable scripts (`plugins/machine/scripts/`), bats tests, Markdown skill/doc files, `npx skills` CLI, `codex` CLI for the live check.
 
@@ -31,7 +31,7 @@
 - `plugins/machine/scripts/link-plan.sh` — Task 2: third root + 8th entry.
 - `plugins/machine/tests/link-plan.bats` — Task 2: fixture + counts 7→8, `CODEX_HOME` export.
 - `studio-baseline/Machine_Setup.md` — Task 2: entries blocks 7→8 rows, every `case "$root"` block gains `codex)`, tree + table + root-explanation prose, "seven"→"eight".
-- `plugins/machine/skills/sync/SKILL.md` — Task 2: "seven tracked"→"eight"; Phase 1.5 render; Phase 4 `Derived:` line; dry-run note. Task 3: Phase 2.6 prose — Codex reads the store natively, `-a claude-code` stays; policy stated.
+- `plugins/machine/skills/sync/SKILL.md` — Task 2: "seven tracked"→"eight"; Phase 2.25 render; Phase 4 `Derived:` line; dry-run note. Task 3: Phase 2.6 prose — Codex reads the store natively, `-a claude-code` stays; policy stated.
 - `plugins/machine/skills/model-rubric/SKILL.md` — Task 2: "seven"→"eight".
 - `plugins/machine/.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` — Task 3: machine 0.5.0.
 - `docs/superpowers/plans/2026-08-18-codex-sync.md` — this plan; committed in Task 3.
@@ -41,7 +41,7 @@
 
 **This machine** — Task 4 only
 - `~/.codex/AGENTS.md` — old real file backed up to `~/.codex/AGENTS.md.bak-2026-08-18`, replaced by symlink → `~/.agents/codex/AGENTS.md`.
-- `~/.codex/skills/` — 13 stale Jul-14 copies of pm/product-pulse skills removed (list in Task 4); manifest skills re-registered for codex as symlinks.
+- `~/.codex/skills/` — 13 stale Jul-14 copies of pm/product-pulse skills removed (list in Task 4); no registration needed — Codex reads `~/.agents/skills` natively (verified).
 
 ---
 
@@ -306,7 +306,7 @@ EOF
 - Modify: `plugins/machine/scripts/link-plan.sh` (roots comment ~line 12, `entries` ~13–20, `case "$root"` ~46–50; add `codex=` variable after `config=` at ~line 9)
 - Modify: `plugins/machine/tests/link-plan.bats` (setup, link_all, two count assertions)
 - Modify: `studio-baseline/Machine_Setup.md` (tree ~12–20, table ~22–30, "seven"→"eight" at 47/52/72, root-explanation ~64–68, all seven `entries=` blocks, all six `case "$root"` blocks at ~92/149/249/289/370/401)
-- Modify: `plugins/machine/skills/sync/SKILL.md` (line 124 "seven tracked entries"; new `## Phase 1.5: Render derived files` before `## Phase 2: Commit, pull, push`; Phase 4 report `Derived:` line after `Links:`; Dry run section note)
+- Modify: `plugins/machine/skills/sync/SKILL.md` (line 124 "seven tracked entries"; new `## Phase 2.25: Render derived files` before `## Phase 2: Commit, pull, push`; Phase 4 report `Derived:` line after `Links:`; Dry run section note)
 - Modify: `plugins/machine/skills/model-rubric/SKILL.md` line 51 "seven"→"eight"
 
 **Interfaces:**
@@ -373,7 +373,7 @@ to
 (a) Line 124: `among the seven tracked entries` → `among the eight tracked entries`.
 (b) Directly before `## Phase 2: Commit, pull, push`, insert:
 ````markdown
-## Phase 1.5: Render derived files
+## Phase 2.25: Render derived files
 
 ```bash
 repo="${AGENTS_REPO:-$HOME/.agents}"
@@ -396,7 +396,7 @@ into the report. Never hand-edit `codex/AGENTS.md`; the next sync overwrites it.
 ```
   Derived:    {codex/AGENTS.md unchanged | codex/AGENTS.md regenerated | failed: <reason>}
 ```
-(d) Dry run section: in the "Skip everything else, explicitly:" list add a bullet: `- **Phase 1.5** (render `codex/AGENTS.md`) — a write; report `Derived: [skipped in dry run]`.`
+(d) Dry run section: in the "Skip everything else, explicitly:" list add a bullet: `- **Phase 2.25** (render `codex/AGENTS.md`) — a write; report `Derived: [skipped in dry run]`.`
 
 - [ ] **Step 5: model-rubric/SKILL.md line 51**: `one of the seven tracked entries` → `one of the eight tracked entries`.
 
@@ -408,7 +408,7 @@ plugins/machine/tests/run-tests.sh 2>&1 | grep -c '^ok'; plugins/machine/tests/r
 grep -c 'AGENTS.md|codex/AGENTS.md|file|codex' studio-baseline/Machine_Setup.md      # 7
 grep -c 'codex) base=' studio-baseline/Machine_Setup.md                                # 6
 grep -c 'seven' studio-baseline/Machine_Setup.md plugins/machine/skills/sync/SKILL.md plugins/machine/skills/model-rubric/SKILL.md   # 0 0 0
-grep -n '^## Phase 1.5: Render derived files$\|^  Derived:' plugins/machine/skills/sync/SKILL.md
+grep -n '^## Phase 2.25: Render derived files$\|^  Derived:' plugins/machine/skills/sync/SKILL.md
 CODEX_HOME=$(mktemp -d) bash plugins/machine/scripts/link-plan.sh ~/.agents | tail -1   # AGENTS.md -> codex/AGENTS.md MISSING-IN-REPO (repo has no codex/ yet — expected until Task 4)
 ```
 Expected: all `ok` (82 = 75 + 6 render + 1 link-plan), 0 `not ok`; 7; 6; 0/0/0; two line numbers; last line `MISSING-IN-REPO`.
@@ -423,7 +423,7 @@ machine: track ~/.codex/AGENTS.md as the eighth synced entry; sync renders it
 
 link-plan.sh gains a codex root (${CODEX_HOME:-$HOME/.codex}) and the entry
 codex|AGENTS.md|codex/AGENTS.md; bats + Machine_Setup blocks/table/tree/case
-blocks follow. machine:sync gains Phase 1.5 (render-codex-agents.sh before
+blocks follow. machine:sync gains Phase 2.25 (render-codex-agents.sh before
 commit) and a Derived: report line.
 
 Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
@@ -483,7 +483,9 @@ grep -c 'a claude-code -g' plugins/machine/skills/sync/SKILL.md         # 2 (add
 plugins/machine/tests/run-tests.sh 2>&1 | grep -c '^not ok'            # 0
 git add plugins/machine/skills/sync/SKILL.md plugins/machine/.claude-plugin/plugin.json .claude-plugin/marketplace.json docs/superpowers/plans/2026-08-18-codex-sync.md
 git commit -F - << 'EOF'
-machine 0.5.0: Codex under sync — AGENTS.md rendered + tracked, skills registered for codex
+machine 0.5.0: Codex under sync — AGENTS.md rendered + tracked, skills need no registration
+
+(Note: the real commit 98b3b02 carries the pre-correction subject "skills registered for codex"; the correction landed in aa29ac8.)
 
 Phase 2.6 prose states that Codex reads ~/.agents/skills natively (no
 registration; -a claude-code stays). Policy: this plugin manages exactly the
@@ -533,7 +535,7 @@ cd ~ && codex exec --skip-git-repo-check -s read-only "Do not use tools. In two 
 ```
 Expected: line 1 quotes `# Rules`; line 2 `yes`.
 
-- [ ] **Step 4: Codex skills — remove stale copies, register manifest skills for codex**
+- [ ] **Step 4: Codex skills — remove stale copies; prove Codex reads the shared store**
 
 The 13 stale copies (all dated Jul 14, pm/product-pulse content, Claude-orchestration workflows Codex doesn't run) — remove exactly these and nothing else:
 ```bash
@@ -561,4 +563,4 @@ Run `/machine:sync --dry-run` in a Claude session and confirm the report has `Li
 
 **Placeholder scan.** None. Task 2 Step 3(d) permits a python one-off but states the exact row and the verifying greps.
 
-**Name consistency.** Script `render-codex-agents.sh` + `RENDER_STATE=` (Task 1 contract, Task 2 Phase 1.5 + `Derived:` line, Task 4). Entry `AGENTS.md -> codex/AGENTS.md`, root `codex`, env `CODEX_HOME` (Task 2 script/tests/docs, Task 4 link-plan expectation). Agent id `claude-code` only (Task 3 prose, Task 4 Step 4 proves Codex needs none). Version 0.5.0 (Task 3 both manifests).
+**Name consistency.** Script `render-codex-agents.sh` + `RENDER_STATE=` (Task 1 contract, Task 2 Phase 2.25 + `Derived:` line, Task 4). Entry `AGENTS.md -> codex/AGENTS.md`, root `codex`, env `CODEX_HOME` (Task 2 script/tests/docs, Task 4 link-plan expectation). Agent id `claude-code` only (Task 3 prose, Task 4 Step 4 proves Codex needs none). Version 0.5.0 (Task 3 both manifests).
