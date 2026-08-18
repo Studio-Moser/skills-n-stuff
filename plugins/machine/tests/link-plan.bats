@@ -4,7 +4,7 @@ setup() {
   SCRIPT="${BATS_TEST_DIRNAME}/../scripts/link-plan.sh"
   REPO="${BATS_TEST_TMPDIR}/agents"
   export CLAUDE_CONFIG_DIR="${BATS_TEST_TMPDIR}/claude"
-  mkdir -p "$REPO/skills" "$REPO/claude" "$CLAUDE_CONFIG_DIR"
+  mkdir -p "$REPO/skills" "$REPO/claude" "$REPO/claude/output-styles" "$CLAUDE_CONFIG_DIR"
   : > "$REPO/claude/CLAUDE.md"
   : > "$REPO/claude/settings.json"
   : > "$REPO/claude/statusline-command.sh"
@@ -16,6 +16,7 @@ setup() {
 
 link_all() {
   ln -s "$REPO/skills" "$CLAUDE_CONFIG_DIR/skills"
+  ln -s "$REPO/claude/output-styles" "$CLAUDE_CONFIG_DIR/output-styles"
   ln -s "$REPO/claude/CLAUDE.md" "$CLAUDE_CONFIG_DIR/CLAUDE.md"
   ln -s "$REPO/claude/settings.json" "$CLAUDE_CONFIG_DIR/settings.json"
   ln -s "$REPO/claude/statusline-command.sh" "$CLAUDE_CONFIG_DIR/statusline-command.sh"
@@ -23,11 +24,11 @@ link_all() {
   ln -s "$REPO/config/studio-moser" "$XDG_CONFIG_HOME/studio-moser"
 }
 
-@test "all six links correct -> exit 0, every line ok" {
+@test "all seven links correct -> exit 0, every line ok" {
   link_all
   run "$SCRIPT" "$REPO"
   [ "$status" -eq 0 ]
-  [ "$(echo "$output" | grep -c ' ok$')" -eq 6 ]
+  [ "$(echo "$output" | grep -c ' ok$')" -eq 7 ]
 }
 
 @test "missing link is reported ABSENT and exits 1" {
@@ -74,7 +75,7 @@ link_all() {
   link_all
   run "$SCRIPT" "${REPO}/"
   [ "$status" -eq 0 ]
-  [ "$(echo "$output" | grep -c ' ok$')" -eq 6 ]
+  [ "$(echo "$output" | grep -c ' ok$')" -eq 7 ]
 }
 
 @test "a correct symlink with a relative target is reported ok" {

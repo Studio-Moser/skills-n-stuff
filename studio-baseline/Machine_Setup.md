@@ -11,6 +11,7 @@ The personal layer is **one private git repo per developer**, conventionally at
 ~/.agents/
 ├── skills/                    every skill; flat, every machine gets all of them
 ├── claude/
+│   ├── output-styles/         custom output styles (House Style)
 │   ├── CLAUDE.md
 │   ├── settings.json          permissions, hooks, statusLine, enabledPlugins
 │   ├── statusline-command.sh  referenced by settings.json — they travel together
@@ -22,6 +23,7 @@ The personal layer is **one private git repo per developer**, conventionally at
 | link | target |
 |------|--------|
 | `~/.claude/skills` | `~/.agents/skills` |
+| `~/.claude/output-styles` | `~/.agents/claude/output-styles` |
 | `~/.claude/CLAUDE.md` | `~/.agents/claude/CLAUDE.md` |
 | `~/.claude/settings.json` | `~/.agents/claude/settings.json` |
 | `~/.claude/statusline-command.sh` | `~/.agents/claude/statusline-command.sh` |
@@ -42,16 +44,17 @@ inventory should migrate — but each server's command needs to be verified as
 present on this machine, not assumed. `/machine:sync` does that verification
 (Phase 2.5); this bootstrap doc does not attempt it.
 
-**The six rows above are "the entries."** Every step below that touches more than
+**The seven rows above are "the entries."** Every step below that touches more than
 one of them is written as a loop over the same list, redeclared verbatim at the top
 of that step's command block (blocks may run in separate shells, so nothing set in
 one persists into the next). Copy it exactly — don't hand-unroll it into separate
 per-entry lines. That's what makes adding another entry later a one-line edit
-repeated in a few places instead of a hunt through prose for every place "the six"
+repeated in a few places instead of a hunt through prose for every place "the seven"
 were listed out by hand:
 
 ```bash
 entries="skills|skills|dir|claude
+output-styles|claude/output-styles|dir|claude
 CLAUDE.md|claude/CLAUDE.md|file|claude
 settings.json|claude/settings.json|file|claude
 statusline-command.sh|claude/statusline-command.sh|file|claude
@@ -60,19 +63,20 @@ studio-moser|config/studio-moser|dir|config"
 ```
 
 (`name|rel|kind|root` — `name` under the `root`, `rel` under `~/.agents`, `kind` is
-`dir` or `file` so loops can branch: `skills` and `studio-moser` need `-R`/`-r`
+`dir` or `file` so loops can branch: `skills`, `output-styles`, and `studio-moser` need `-R`/`-r`
 forms, the rest don't. `root` is `claude` (`~/.claude`) for every entry except
 `studio-moser`, which is `config` (`${XDG_CONFIG_HOME:-$HOME/.config}`).)
 
 ## Steps
 
-1. **Back up whatever is on this machine for these six entries, before anything
+1. **Back up whatever is on this machine for these seven entries, before anything
    else.** Both paths below can remove real files — the clone path (step 3) has an
    unconditional removal a few lines into it, and it's the only net either path
    gets:
 
    ```bash
    entries="skills|skills|dir|claude
+   output-styles|claude/output-styles|dir|claude
    CLAUDE.md|claude/CLAUDE.md|file|claude
    settings.json|claude/settings.json|file|claude
    statusline-command.sh|claude/statusline-command.sh|file|claude
@@ -131,6 +135,7 @@ forms, the rest don't. `root` is `claude` (`~/.claude`) for every entry except
 
    ```bash
    entries="skills|skills|dir|claude
+   output-styles|claude/output-styles|dir|claude
    CLAUDE.md|claude/CLAUDE.md|file|claude
    settings.json|claude/settings.json|file|claude
    statusline-command.sh|claude/statusline-command.sh|file|claude
@@ -230,6 +235,7 @@ forms, the rest don't. `root` is `claude` (`~/.claude`) for every entry except
 
    ```bash
    entries="skills|skills|dir|claude
+   output-styles|claude/output-styles|dir|claude
    CLAUDE.md|claude/CLAUDE.md|file|claude
    settings.json|claude/settings.json|file|claude
    statusline-command.sh|claude/statusline-command.sh|file|claude
@@ -269,6 +275,7 @@ forms, the rest don't. `root` is `claude` (`~/.claude`) for every entry except
 
    ```bash
    entries="skills|skills|dir|claude
+   output-styles|claude/output-styles|dir|claude
    CLAUDE.md|claude/CLAUDE.md|file|claude
    settings.json|claude/settings.json|file|claude
    statusline-command.sh|claude/statusline-command.sh|file|claude
@@ -349,6 +356,7 @@ forms, the rest don't. `root` is `claude` (`~/.claude`) for every entry except
       cd "$HOME/.agents" && git init -b main
 
       entries="skills|skills|dir|claude
+      output-styles|claude/output-styles|dir|claude
       CLAUDE.md|claude/CLAUDE.md|file|claude
       settings.json|claude/settings.json|file|claude
       statusline-command.sh|claude/statusline-command.sh|file|claude
@@ -379,6 +387,7 @@ forms, the rest don't. `root` is `claude` (`~/.claude`) for every entry except
 
       ```bash
       entries="skills|skills|dir|claude
+      output-styles|claude/output-styles|dir|claude
       CLAUDE.md|claude/CLAUDE.md|file|claude
       settings.json|claude/settings.json|file|claude
       statusline-command.sh|claude/statusline-command.sh|file|claude

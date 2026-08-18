@@ -34,8 +34,9 @@ To dispatch one:
    default and silently defeats the routing.
 
 Routing keys: `default` (everyday driver), `bulk` (clear-spec mechanical), `quick`
-(latency-sensitive single steps), `batch` (unattended fan-out only — never route work
-someone is waiting on), `taste_min` (floor for user-facing work), `review`,
+(latency-sensitive single steps), `explore` (read-only research — native Agent only,
+findings must return to the orchestrator), `batch` (unattended fan-out only — never
+route work someone is waiting on), `taste_min` (floor for user-facing work), `review`,
 `independent` (cross-vendor adversarial read — ask before spawning).
 
 ---

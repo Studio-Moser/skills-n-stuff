@@ -31,8 +31,9 @@ read-only pieces** — `link-plan.sh` (Phase 1's command), Phase 2.5's MCP
 verification block, Phase 2.6's step 0 *detection* block (the `git
 ls-files --error-unmatch` tracked-check and the `.gitignore` presence
 check — not the fix block right after it) and step 1 (the
-`skills-reconcile.sh` call, nothing that follows it), and
-`portability-lint.sh` (Phase 3's command) — then print the report from
+`skills-reconcile.sh` call, nothing that follows it),
+`portability-lint.sh` (Phase 3's command), and `rubric-audit.sh` (Phase 3.5's
+command — it only reads transcripts) — then print the report from
 Phase 4 and stop. Phase 2.5's MCP block only reads `mcp.json` and checks
 whether each server's command resolves; it belongs in a dry run because
 that's exactly the kind of thing someone previewing a sync wants to see.
@@ -120,7 +121,7 @@ Each line ends in a state:
 |---|---|---|
 | `ok` | correct symlink | nothing |
 | `ABSENT` | no such path in `$claude` | create the link |
-| `REAL-FILE` | a real file (or directory — `skills` and `studio-moser` are directories among the six tracked entries) sits where the link should be | **diff first** (below) |
+| `REAL-FILE` | a real file (or directory — `skills`, `output-styles`, and `studio-moser` are directories among the seven tracked entries) sits where the link should be | **diff first** (below) |
 | `RELINK(->X)` | symlink points somewhere else | show `X`, confirm, re-link |
 | `MISSING-IN-REPO` | the repo has no such file | report; do not create anything |
 
@@ -888,6 +889,22 @@ Unguarded, it errors on every event on machines without that tool.
 
 ---
 
+## Phase 3.5: Rubric audit
+
+```bash
+machine="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/machine/*/ 2>/dev/null | sort -V | tail -1)}"; machine="${machine%/}"
+"$machine/scripts/rubric-audit.sh" --days 7 || true
+```
+
+Read-only. Reports how sub-agents were actually routed over the last week: dispatches
+by `model` param, `UNSET` count, haiku count, and codex handoffs. Exit `1` means a
+finding — an omitted `model` (routing by inheritance) or a haiku dispatch — carry it
+into the report. Exit `3` means python3 is missing; report `skipped: python3 not on
+PATH`. Do not try to fix past dispatches; the point is to see drift, and to notice
+when bulk work is landing on native sub-agents instead of the codex handoff.
+
+---
+
 ## Phase 4: Report
 
 ```
@@ -905,6 +922,8 @@ Machine sync — {repo}
                failed: <reason>}
   Skills local deviations: skipInstall <name>, … | keepLocal <name>, … | none
   Lint:       {clean | N finding(s), M fixed}
+  Rubric:     {N dispatches, all explicit, 0 haiku, K codex handoffs |
+               N dispatches: U unset, H haiku — see below | skipped: python3 not on PATH}
 
 {any unresolved finding, one per line}
 ```
@@ -924,7 +943,7 @@ unresolved findings), and any Phase 2.6 `install failed` or `remove failed`
 line — both are distinct from a recorded decline (`skipInstall`/`keepLocal`,
 reported in the deviations line above, not here) and must stay visible until
 fixed. A server with no `command` (a URL/SSE-style server) is not a finding —
-it's counted separately as "remote," never folded into "ok."
+it's counted separately as "remote," never folded into "ok." A rubric-audit finding (any UNSET or haiku dispatch) is unresolved in the same sense — list it, do not fold it into a clean summary.
 
 **Never report a sync as complete when the push did not happen.** A diverged pull,
 a rejected push, or a missing remote all mean this machine's changes have not

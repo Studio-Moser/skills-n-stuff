@@ -11,6 +11,7 @@ config="${XDG_CONFIG_HOME:-$HOME/.config}"
 # "<root>|<name under that root>|<path under repo>"
 # roots: claude = $CLAUDE_CONFIG_DIR (default ~/.claude); config = $XDG_CONFIG_HOME (default ~/.config)
 entries="claude|skills|skills
+claude|output-styles|claude/output-styles
 claude|CLAUDE.md|claude/CLAUDE.md
 claude|settings.json|claude/settings.json
 claude|statusline-command.sh|claude/statusline-command.sh

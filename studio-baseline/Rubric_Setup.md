@@ -44,6 +44,7 @@ atomic replace-the-directory — that severs the sync silently.
    - `default:` the everyday driver — best swe-per-cost among reachable rows. **When a `via: codex` tier is reachable, that's the default** — those rows are codex handoffs (the `pm:codex-*` skills), not Agent calls. A mid-tier Claude model (e.g. Sonnet) is a fallback for machines without the codex CLI, not the bulk driver.
    - `bulk:` clear-spec / mechanical multi-step work — usually the same as `default`.
    - `quick:` short single-step turns where latency beats depth — a low-effort row (a `via: codex` low-effort row where codex is present).
+   - `explore:` read-only research and codebase mapping — the cheapest reachable Claude row. Native Agent only: findings must return into the orchestrator's context, and the built-in Explore agent is read-only. This is Sonnet's legitimate role even where codex exists.
    - `batch:` unattended fan-out ONLY, and only if a near-free high-swe row exists (omit otherwise; never route interactive work here).
    - `taste_min:` the floor for user-facing work (house default: 9).
    - `review:` plan/implementation reviews — the highest-swe row that isn't wasteful.
@@ -66,6 +67,7 @@ routing:
   default: <model>@<effort>
   bulk: <model>@<effort>
   quick: <model>@<effort>
+  explore: <model>@<effort>      # read-only research — native Agent only
   # batch: <model>@<effort>       # only if an unattended near-free row exists
   taste_min: 9
   review: <model>@<effort>
@@ -76,7 +78,7 @@ routing:
    - **Routing values are `<model>@<effort>` — split them on `@`.** If the named row carries `via: <cli>`, dispatch through that CLI's integration (with the pm plugin: its `codex-*` skills) — an Agent-tool call cannot run a cross-vendor model. Otherwise map the model to the Agent tool's tier (`claude-fable-*`→`fable`, `claude-opus-*`→`opus`, `claude-sonnet-*`→`sonnet`, `claude-haiku-*`→`haiku`) and pass the effort through the Agent `effort` parameter.
    - **Pass model AND effort explicitly on every dispatch** — every Agent-tool call and every `agent()` call inside a workflow script. Omitting either silently inherits the session default, and the routing does nothing. This is the one rule that makes the rest of the rubric real.
    - Defaults, not limits — escalate to a stronger row without asking if output misses the bar.
-   - Bulk/mechanical/clear-spec → `routing.bulk`. Short latency-sensitive turns → `routing.quick`. User-facing (UI, copy, API) → a row with `taste >= routing.taste_min`. Reviews → `routing.review`. Unattended fan-out → `routing.batch` if set, and never for work someone is waiting on.
+   - Bulk/mechanical/clear-spec → `routing.bulk`. Short latency-sensitive turns → `routing.quick`. Read-only research and codebase mapping → `routing.explore` (a native Agent call; findings must return into your context). User-facing (UI, copy, API) → a row with `taste >= routing.taste_min`. Reviews → `routing.review`. Unattended fan-out → `routing.batch` if set, and never for work someone is waiting on.
    - **Independence is its own axis.** `routing.independent` is for an adversarial read of *your own* plan or diff by a model that hasn't seen your context. Propose it and wait for a yes rather than spawning one unprompted; run it standalone after a workflow finishes, never as a workflow stage.
    - Raise effort before raising tier — on current data, one effort step buys more agentic quality than one model step.
    - Re-check when a newer model ships or after **14 days**, then update `reviewed:`. On refresh, re-pull AA and DeepSWE; **keep taste scores and `capabilities`** — only data-sourced axes change. No re-interview.
