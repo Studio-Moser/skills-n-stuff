@@ -409,13 +409,38 @@ for name, on in enabled.items():
     r = subprocess.run(["claude", "plugin", "install", name], capture_output=True, text=True)
     if r.returncode == 0:
         installed_plugins.append(name)
+        have_plugins.add(name)
     else:
         print(f"plugin install failed: {name}: {(r.stderr or r.stdout).strip()}", file=sys.stderr)
 
-if not added_marketplaces and not installed_plugins:
+# Update pass: refresh every marketplace, then bring each enabled plugin to the
+# latest version the marketplace resolves. Third-party marketplaces have
+# auto-update OFF by default, so without this a machine only ever gets the
+# version it first installed.
+r = subprocess.run(["claude", "plugin", "marketplace", "update"], capture_output=True, text=True)
+if r.returncode != 0:
+    print(f"marketplace update failed: {(r.stderr or r.stdout).strip()}", file=sys.stderr)
+
+updated_plugins = []
+for name, on in enabled.items():
+    if not on or name not in have_plugins:
+        continue
+    r = subprocess.run(["claude", "plugin", "update", name], capture_output=True, text=True)
+    out = (r.stdout or "") + (r.stderr or "")
+    if r.returncode != 0:
+        print(f"plugin update failed: {name}: {out.strip()}", file=sys.stderr)
+    elif "updated from" in out:
+        updated_plugins.append(name)
+
+# Orphans: registered on this machine but not declared in shared settings.
+# Report only — removal uninstalls the marketplace plugins, so the user runs it.
+for name in sorted(have_marketplaces - set(marketplaces) - {"claude-plugins-official"}):
+    print(f"orphan marketplace: {name} registered here but not in shared settings — remove with: claude plugin marketplace remove {name}  (also uninstalls its plugins)", file=sys.stderr)
+
+if not added_marketplaces and not installed_plugins and not updated_plugins:
     print("PLUGINS_STATE=up to date")
 else:
-    print(f"PLUGINS_STATE=added {len(added_marketplaces)} marketplace(s), installed {len(installed_plugins)} — restart to apply")
+    print(f"PLUGINS_STATE=added {len(added_marketplaces)} marketplace(s), installed {len(installed_plugins)}, updated {len(updated_plugins)} — restart or /reload-plugins to apply")
 '
 
 printf '%s\n' "$plugin_reconcile_script" | python3 - "$repo/claude/settings.json" "$claude/settings.local.json"
@@ -432,6 +457,18 @@ is a finding — carry it into the Phase 4 report the same way an unfixed lint
 finding is carried, never silently. **Plugin installs need a restart to take
 effect** — the `PLUGINS_STATE` line already says so whenever it installed
 anything; repeat it in the report.
+
+The update pass runs every time: `claude plugin marketplace update` refreshes all
+registered marketplaces, then `claude plugin update <name>` runs for each enabled
+plugin. This exists because third-party marketplaces have auto-update **off** by
+default — a machine that only installs would stay on its first-installed version
+forever. `updated K` in `PLUGINS_STATE` counts plugins whose version actually
+changed; a `plugin update failed:` line is a finding. An `orphan marketplace:`
+line means this machine has a marketplace registered that shared settings no
+longer declare (a retired plugin's source, typically). Sync never removes it —
+removal also uninstalls that marketplace's plugins — so carry the printed
+`claude plugin marketplace remove <name>` command into the report for the user
+to run.
 
 ### MCP servers — verify, report, never auto-install
 
@@ -914,8 +951,9 @@ Machine sync — {repo}
   Committed:  {nothing local | <short message>: N added, M modified, K deleted}
   Pull:       {up to date | N commits: <oneline list> | DIVERGED — not pushed}
   Push:       {pushed <sha> | skipped: <reason> | no remote configured}
-  Plugins:    {up to date | added N marketplace(s), installed M — restart to apply |
-               skipped: claude CLI not on PATH | failed: <reason>}
+  Plugins:    {up to date | added N marketplace(s), installed M, updated K — restart or
+               /reload-plugins to apply | skipped: claude CLI not on PATH | failed: <reason>}
+  Orphans:    {none | <name> — remove with: claude plugin marketplace remove <name>}
   MCP:        {N ok | N ok, M remote (no local command) | N ok, M unresolved: <names>}
   Skills:     {N declared, M installed, K extra | up to date |
                skipped: npx/node not on PATH | skipped: repo is not $HOME/.agents |

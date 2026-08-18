@@ -1,6 +1,6 @@
 {
   "name": "machine",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Keep personal agent configuration identical across every machine you work on. Links a private repo of skills, global instructions, and shared Claude Code settings into ~/.claude, detects drift and non-portable paths, and optionally pushes to other machines. Also owns the per-developer model-routing rubric and syncs it through the same repo.",
   "author": {
     "name": "Studio Moser",
