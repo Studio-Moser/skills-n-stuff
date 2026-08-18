@@ -44,6 +44,7 @@ output — all of them print findings without touching disk.
 
 Skip everything else, explicitly:
 
+- **Phase 1.5** (render `codex/AGENTS.md`) — a write; report `Derived: [skipped in dry run]`.
 - **Phase 2** (commit, pull, push) — writes to the repo and the remote.
 - **Phase 2.5's plugin half** (marketplace add / plugin install) — installs
   software. Run only its MCP verification block, not this one.
@@ -121,7 +122,7 @@ Each line ends in a state:
 |---|---|---|
 | `ok` | correct symlink | nothing |
 | `ABSENT` | no such path in `$claude` | create the link |
-| `REAL-FILE` | a real file (or directory — `skills`, `output-styles`, and `studio-moser` are directories among the seven tracked entries) sits where the link should be | **diff first** (below) |
+| `REAL-FILE` | a real file (or directory — `skills`, `output-styles`, and `studio-moser` are directories among the eight tracked entries) sits where the link should be | **diff first** (below) |
 | `RELINK(->X)` | symlink points somewhere else | show `X`, confirm, re-link |
 | `MISSING-IN-REPO` | the repo has no such file | report; do not create anything |
 
@@ -251,6 +252,24 @@ surviving path and exits 0, reporting success while nothing was actually
 replaced. The real file or directory **must be removed (or moved aside)
 first**, on every branch that re-links over an existing path, not only the
 symlink-to-directory case.
+
+---
+
+## Phase 1.5: Render derived files
+
+```bash
+repo="${AGENTS_REPO:-$HOME/.agents}"
+machine="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/machine/*/ 2>/dev/null | sort -V | tail -1)}"; machine="${machine%/}"
+"$machine/scripts/render-codex-agents.sh" "$repo"
+```
+
+`codex/AGENTS.md` is Codex's global instructions and is **generated** from the
+Claude-side sources (`claude/output-styles/House Style.md` and `claude/CLAUDE.md`)
+so House Style stays the one file you edit. This runs before Phase 2 so a
+regenerated file is committed with everything else. `RENDER_STATE=unchanged` and
+`regenerated` are both fine; `RENDER_STATE=failed: <reason>` (exit 3) means a
+source or a required section is missing — nothing was written; carry the reason
+into the report. Never hand-edit `codex/AGENTS.md`; the next sync overwrites it.
 
 ---
 
@@ -948,6 +967,7 @@ when bulk work is landing on native sub-agents instead of the codex handoff.
 Machine sync — {repo}
 
   Links:      {N} ok, {M} relinked, {K} need attention
+  Derived:    {codex/AGENTS.md unchanged | codex/AGENTS.md regenerated | failed: <reason>}
   Committed:  {nothing local | <short message>: N added, M modified, K deleted}
   Pull:       {up to date | N commits: <oneline list> | DIVERGED — not pushed}
   Push:       {pushed <sha> | skipped: <reason> | no remote configured}
