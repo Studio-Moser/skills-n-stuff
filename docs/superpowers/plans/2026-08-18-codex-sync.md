@@ -371,7 +371,7 @@ to
 - [ ] **Step 4: sync/SKILL.md**
 
 (a) Line 124: `among the seven tracked entries` → `among the eight tracked entries`.
-(b) Directly before `## Phase 2: Commit, pull, push`, insert:
+(b) *(As-executed note: the final review relocated this section to `### 2.25 Render derived files` between `### 2.2 Pull` and `### 2.3 Push`, rendering after the pull and committing only if regenerated — see the shipped SKILL.md. The block below is the original draft.)* Directly before `## Phase 2: Commit, pull, push`, insert:
 ````markdown
 ## Phase 2.25: Render derived files
 
