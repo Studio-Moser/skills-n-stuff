@@ -584,10 +584,12 @@ don't say where it came from.
 skills — one `name<TAB>source` line each, sorted, generated, never
 hand-edited. It's regenerated from reality at the end of this phase, so a
 skill removed by any means (this machine, another machine, or by hand)
-simply disappears from the next regeneration. Other agents (Cursor, Pi,
-Codex) symlink into the same store and manage themselves — never touch
-`~/.cursor`, `~/.pi`, or `~/.codex`, and the manifest only ever covers
-entries whose `path` falls under `$HOME/.agents/skills/`.
+simply disappears from the next regeneration. Other agents (Cursor, Pi, …)
+symlink into the same store and manage themselves — never touch `~/.cursor`
+or `~/.pi`. Codex is the one exception: this plugin registers manifest skills
+for it too (`-a claude-code,codex`, step 2 below) and links its `AGENTS.md`
+(Phase 1), and touches nothing else under `~/.codex`. The manifest only ever
+covers entries whose `path` falls under `$HOME/.agents/skills/`.
 
 ### 0. One-time migration: untrack `.skill-lock.json`
 
