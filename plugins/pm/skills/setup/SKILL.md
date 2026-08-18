@@ -372,7 +372,7 @@ else
 fi
 ```
 
-- `marketplace: missing` → tell the user: `"The studio-moser marketplace isn't registered on this machine, so pm can't update. Add it with /plugin marketplace add Studio-Moser/skills-n-stuff, then enable auto-update (below)."`
+- `marketplace: missing` → tell the user: `"The studio-moser marketplace isn't registered on this machine, so pm can't update. Add it with /plugin marketplace add Studio-Moser/skills-n-stuff, then enable auto-update (below)."` — and stop there; do not also give the `autoupdate: off` message or offer the update commands, since they cannot succeed without the marketplace.
 - `autoupdate: off` (or `unknown`) → tell the user: `"Auto-update is off for studio-moser (Claude Code's default for third-party marketplaces), so pm won't pick up new versions on its own. Turn it on: /plugin → Marketplaces → studio-moser → Enable auto-update. Want me to pull the latest now? I'd run: claude plugin marketplace update studio-moser && claude plugin update pm@studio-moser"` — and run those two commands only if they say yes. Both need a restart or `/reload-plugins` to apply; say so.
 - `marketplace: registered` and `autoupdate: on` → one line: `"studio-moser marketplace is registered and auto-updating."`
 
@@ -505,8 +505,8 @@ Files created:
   {planning files if created}
 
 Model rubric: {found at user-global path | not set — run /machine:model-rubric}
-Plugin updates: {studio-moser auto-updating | auto-update OFF — enable via /plugin → Marketplaces | marketplace missing}
   {if created/found:} sprint-dev and dev-task route sub-agents by it.
+Plugin updates: {studio-moser auto-updating | auto-update OFF — enable via /plugin → Marketplaces | marketplace missing}
 
 {If GitHub backend:}
 GitHub labels created: {N} labels in {owner}/{repo}
