@@ -367,7 +367,7 @@ it before linking).)
       ```
 
       ```bash
-      mkdir -p "$HOME/.agents/claude" "$HOME/.agents/skills" "$HOME/.agents/config"
+      mkdir -p "$HOME/.agents/claude" "$HOME/.agents/skills" "$HOME/.agents/config" "$HOME/.agents/codex"
       cd "$HOME/.agents" && git init -b main
 
       entries="skills|skills|dir|claude
@@ -391,7 +391,7 @@ it before linking).)
         if [ "$kind" = dir ]; then mkdir -p "$HOME/.agents/$rel"; cp -R "$src/." "$HOME/.agents/$rel/"; else cp "$src" "$HOME/.agents/$rel"; fi
       done <<< "$entries"
 
-      git add skills claude config && git commit -m "Initial commit: skills tree and claude config"
+      git add skills claude config codex && git commit -m "Initial commit: skills tree, claude config, codex instructions"
       ```
 
    c. **Apply the two rules in step 5** to what you just committed.
