@@ -7,16 +7,19 @@ repo="${1:-$HOME/.agents}"
 repo="${repo%/}"
 claude="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 config="${XDG_CONFIG_HOME:-$HOME/.config}"
+codex="${CODEX_HOME:-$HOME/.codex}"
 
 # "<root>|<name under that root>|<path under repo>"
-# roots: claude = $CLAUDE_CONFIG_DIR (default ~/.claude); config = $XDG_CONFIG_HOME (default ~/.config)
+# roots: claude = $CLAUDE_CONFIG_DIR (default ~/.claude); config = $XDG_CONFIG_HOME (default ~/.config);
+#        codex = $CODEX_HOME (default ~/.codex)
 entries="claude|skills|skills
 claude|output-styles|claude/output-styles
 claude|CLAUDE.md|claude/CLAUDE.md
 claude|settings.json|claude/settings.json
 claude|statusline-command.sh|claude/statusline-command.sh
 claude|mcp.json|claude/mcp.json
-config|studio-moser|config/studio-moser"
+config|studio-moser|config/studio-moser
+codex|AGENTS.md|codex/AGENTS.md"
 
 # Resolve $1 to an absolute, symlink-free path, following relative and
 # chained symlink targets by hand (portable to bash 3.2 / macOS, no
@@ -47,6 +50,7 @@ while IFS='|' read -r root name rel; do
   case "$root" in
     claude) base="$claude" ;;
     config) base="$config" ;;
+    codex) base="$codex" ;;
     *) echo "link-plan.sh: unknown root '$root' in entries" >&2; exit 2 ;;
   esac
   link="$base/$name"
