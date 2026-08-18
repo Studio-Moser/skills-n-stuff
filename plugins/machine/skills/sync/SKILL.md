@@ -586,9 +586,9 @@ hand-edited. It's regenerated from reality at the end of this phase, so a
 skill removed by any means (this machine, another machine, or by hand)
 simply disappears from the next regeneration. Other agents (Cursor, Pi, …)
 symlink into the same store and manage themselves — never touch `~/.cursor`
-or `~/.pi`. Codex is the one exception: this plugin registers manifest skills
-for it too (`-a claude-code,codex`, step 2 below) and links its `AGENTS.md`
-(Phase 1), and touches nothing else under `~/.codex`. The manifest only ever
+or `~/.pi`. Codex reads the store natively, so it needs no registration and
+this plugin writes nothing under `~/.codex/skills`; the only thing it manages
+under `~/.codex` is the `AGENTS.md` link (Phase 1). The manifest only ever
 covers entries whose `path` falls under `$HOME/.agents/skills/`.
 
 ### 0. One-time migration: untrack `.skill-lock.json`
@@ -745,20 +745,21 @@ the manifest, and only the developer knows which side is right this time.
 yes:
 
 ```bash
-npx skills add "<source>" -s "<name>" -a claude-code,codex -g -y
+npx skills add "<source>" -s "<name>" -a claude-code -g -y
 ```
 
-`-a claude-code,codex` matters, and the values are exact — verified against the
+`-a claude-code` matters, and the value is exact — verified against the
 installed CLI: without an explicit agent, `npx skills add` registers the skill
 with every agent it detects, writing into `~/.cursor`, `~/.pi`, and others that
-manage their own registrations. This plugin manages exactly two agents' skill
-registrations — Claude Code and Codex — and both read the same store,
-`~/.agents/skills`, through per-skill symlinks the CLI creates (never pass
-`--copy`; copies go stale). `-a claude` (no `-code`) is **not** a valid agent
-name — it prints `Invalid agents: claude`, exits 1, installs nothing, and would
-let step 3 regenerate a 0-byte manifest. Use `-a claude-code,codex`, exactly.
-Inside `~/.codex` this plugin touches only `skills/<name>` symlinks and the
-`AGENTS.md` link (Phase 1); `config.toml`, `hooks.json`, `skills/.system`, and
+manage their own registrations. Codex needs no registration at all: it
+reads the shared store `~/.agents/skills` natively, so every skill this manifest
+installs is already available to Codex (verified live — Codex lists the store's
+skills with nothing under `~/.codex/skills`). Never seed `~/.codex/skills`
+with copies (`--copy`); they go stale. `-a claude` (no `-code`) is **not** a
+valid agent name — it prints `Invalid agents: claude`, exits 1, installs
+nothing, and would let step 3 regenerate a 0-byte manifest. Use
+`-a claude-code`, exactly. Inside `~/.codex` this plugin touches only the
+`AGENTS.md` link (Phase 1); `config.toml`, `hooks.json`, `skills/`, and
 Codex-bundled skills are Codex's own.
 
 If the install command fails (network, registry, bad source, or any other
@@ -786,7 +787,7 @@ outcomes on the table:
 
 - **Add to the manifest** (the normal case) — no action needed now; the
   skill is already in `listing`, so step 3's regeneration picks it up.
-- **Remove it** — `npx skills remove "<name>" -a claude-code,codex -g -y`. If
+- **Remove it** — `npx skills remove "<name>" -a claude-code -g -y`. If
   this fails, report `remove failed: <name>` as an unresolved finding — a
   different state from a decline, and it should read differently.
 - **Leave it undeclared, for now** — a deliberate decline; record it:
