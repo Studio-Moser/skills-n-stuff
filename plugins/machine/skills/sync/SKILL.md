@@ -743,17 +743,21 @@ the manifest, and only the developer knows which side is right this time.
 yes:
 
 ```bash
-npx skills add "<source>" -s "<name>" -a claude-code -g -y
+npx skills add "<source>" -s "<name>" -a claude-code,codex -g -y
 ```
 
-`-a claude-code` matters, and the value is exact — verified against the
-installed CLI: without an explicit agent, `npx skills add` registers the
-skill with every agent it detects, writing into `~/.cursor`, `~/.pi`, and
-`~/.codex` — the exact directories this plugin must never touch, since
-those agents manage their own registrations. `-a claude` (no `-code`) is
-**not** a valid agent name for this CLI — it prints `Invalid agents: claude`,
-exits 1, and installs nothing, which silently empties the store and makes
-step 3 regenerate a 0-byte manifest. Use `-a claude-code`, exactly.
+`-a claude-code,codex` matters, and the values are exact — verified against the
+installed CLI: without an explicit agent, `npx skills add` registers the skill
+with every agent it detects, writing into `~/.cursor`, `~/.pi`, and others that
+manage their own registrations. This plugin manages exactly two agents' skill
+registrations — Claude Code and Codex — and both read the same store,
+`~/.agents/skills`, through per-skill symlinks the CLI creates (never pass
+`--copy`; copies go stale). `-a claude` (no `-code`) is **not** a valid agent
+name — it prints `Invalid agents: claude`, exits 1, installs nothing, and would
+let step 3 regenerate a 0-byte manifest. Use `-a claude-code,codex`, exactly.
+Inside `~/.codex` this plugin touches only `skills/<name>` symlinks and the
+`AGENTS.md` link (Phase 1); `config.toml`, `hooks.json`, `skills/.system`, and
+Codex-bundled skills are Codex's own.
 
 If the install command fails (network, registry, bad source, or any other
 non-zero exit) that's a **failure**, not a decline — report `install
@@ -780,7 +784,7 @@ outcomes on the table:
 
 - **Add to the manifest** (the normal case) — no action needed now; the
   skill is already in `listing`, so step 3's regeneration picks it up.
-- **Remove it** — `npx skills remove "<name>" -a claude-code -g -y`. If
+- **Remove it** — `npx skills remove "<name>" -a claude-code,codex -g -y`. If
   this fails, report `remove failed: <name>` as an unresolved finding — a
   different state from a decline, and it should read differently.
 - **Leave it undeclared, for now** — a deliberate decline; record it:
