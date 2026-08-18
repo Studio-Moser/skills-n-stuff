@@ -154,7 +154,7 @@
         "triage",
         "sprint"
       ],
-      "version": "0.16.1"
+      "version": "0.17.1"
     },
     {
       "name": "machine",
@@ -180,7 +180,7 @@
         "sync",
         "agent-config"
       ],
-      "version": "0.4.0"
+      "version": "0.4.1"
     },
     {
       "name": "site-capture",

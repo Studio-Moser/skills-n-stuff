@@ -16,6 +16,8 @@ Add the marketplace:
 /plugin marketplace add ./skills-n-stuff
 ```
 
+Then turn on auto-update — Claude Code leaves it **off** by default for third-party marketplaces, so without this you stay on whatever version you first installed: `/plugin` → **Marketplaces** → `studio-moser` → **Enable auto-update**. (Or refresh by hand any time: `/plugin marketplace update studio-moser` then `/plugin update <plugin>@studio-moser`.)
+
 Then install plugins:
 
 ```bash

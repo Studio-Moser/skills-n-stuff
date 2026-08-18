@@ -352,6 +352,32 @@ Using Batch 5's result:
 
 **Migrate any legacy in-repo rubric.** If a prior setup wrote a "Picking the right models" section into this repo's `AGENTS.md`/`CLAUDE.md`, move its scores into the user-global rubric (if the dev confirms they're theirs) and delete that section from the repo file. Leave the Phase 4.4 baseline reminder in place.
 
+## Phase 4.6: Plugin freshness (referral)
+
+pm ships through the `studio-moser` marketplace. **Third-party marketplaces have
+auto-update off by default**, so a developer who added it once may be running a
+months-old pm without knowing. Check, report, offer — do not change their
+Claude Code configuration for them.
+
+```bash
+if command -v claude >/dev/null 2>&1; then
+  claude plugin marketplace list 2>/dev/null | grep -q 'studio-moser' && echo "marketplace: registered" || echo "marketplace: missing"
+  python3 - << 'PY' 2>/dev/null || echo "autoupdate: unknown"
+import json, os
+d = json.load(open(os.path.expanduser("~/.claude/plugins/known_marketplaces.json")))
+print("autoupdate:", "on" if d.get("studio-moser", {}).get("autoUpdate") else "off")
+PY
+else
+  echo "claude CLI not on PATH — skip"
+fi
+```
+
+- `marketplace: missing` → tell the user: `"The studio-moser marketplace isn't registered on this machine, so pm can't update. Add it with /plugin marketplace add Studio-Moser/skills-n-stuff, then enable auto-update (below)."` — and stop there; do not also give the `autoupdate: off` message or offer the update commands, since they cannot succeed without the marketplace.
+- `autoupdate: off` (or `unknown`) → tell the user: `"Auto-update is off for studio-moser (Claude Code's default for third-party marketplaces), so pm won't pick up new versions on its own. Turn it on: /plugin → Marketplaces → studio-moser → Enable auto-update. Want me to pull the latest now? I'd run: claude plugin marketplace update studio-moser && claude plugin update pm@studio-moser"` — and run those two commands only if they say yes. Both need a restart or `/reload-plugins` to apply; say so.
+- `marketplace: registered` and `autoupdate: on` → one line: `"studio-moser marketplace is registered and auto-updating."`
+
+If the developer also has the `machine` plugin, `/machine:sync` runs the same update pass on every sync — mention it once, then move on.
+
 ---
 
 ## Phase 5: Create ADR Directory
@@ -480,6 +506,7 @@ Files created:
 
 Model rubric: {found at user-global path | not set — run /machine:model-rubric}
   {if created/found:} sprint-dev and dev-task route sub-agents by it.
+Plugin updates: {studio-moser auto-updating | auto-update OFF — enable via /plugin → Marketplaces | marketplace missing}
 
 {If GitHub backend:}
 GitHub labels created: {N} labels in {owner}/{repo}

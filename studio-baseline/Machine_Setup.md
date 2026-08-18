@@ -471,8 +471,19 @@ forms, the rest don't. `root` is `claude` (`~/.claude`) for every entry except
 ## Afterwards
 
 Install the `machine` plugin and use `/machine:sync` for the ongoing work — it does the
-link check, pull, and portability lint above on demand, and can push to other
-machines. Set up model routing with `/machine:model-rubric`, or follow
+link check, pull, and portability lint above on demand, keeps every plugin on the
+latest marketplace version, and can push to other machines:
+
+```bash
+claude plugin marketplace add Studio-Moser/skills-n-stuff
+claude plugin install machine@studio-moser
+```
+
+Then run `/machine:sync` once — it installs the rest of your plugins from the synced
+`settings.json` and updates them. Turn on auto-update for `studio-moser` as well
+(`/plugin` → **Marketplaces** → `studio-moser` → **Enable auto-update**; Claude Code
+defaults it off for third-party marketplaces) so updates also arrive between syncs.
+Set up model routing with `/machine:model-rubric`, or follow
 [`Rubric_Setup.md`](https://raw.githubusercontent.com/Studio-Moser/skills-n-stuff/main/studio-baseline/Rubric_Setup.md)
 if you have no plugins.
 
