@@ -31,7 +31,7 @@
 - `plugins/machine/scripts/link-plan.sh` — Task 2: third root + 8th entry.
 - `plugins/machine/tests/link-plan.bats` — Task 2: fixture + counts 7→8, `CODEX_HOME` export.
 - `studio-baseline/Machine_Setup.md` — Task 2: entries blocks 7→8 rows, every `case "$root"` block gains `codex)`, tree + table + root-explanation prose, "seven"→"eight".
-- `plugins/machine/skills/sync/SKILL.md` — Task 2: "seven tracked"→"eight"; Phase 1.5 render; Phase 4 `Derived:` line; dry-run note. Task 3: Phase 2.6 `-a claude-code,codex` + policy prose.
+- `plugins/machine/skills/sync/SKILL.md` — Task 2: "seven tracked"→"eight"; Phase 1.5 render; Phase 4 `Derived:` line; dry-run note. Task 3: Phase 2.6 prose — Codex reads the store natively, `-a claude-code` stays; policy stated.
 - `plugins/machine/skills/model-rubric/SKILL.md` — Task 2: "seven"→"eight".
 - `plugins/machine/.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` — Task 3: machine 0.5.0.
 - `docs/superpowers/plans/2026-08-18-codex-sync.md` — this plan; committed in Task 3.
@@ -432,40 +432,32 @@ EOF
 
 ---
 
-### Task 3: Codex skills via the manifest (`-a claude-code,codex`), policy prose, version bump
+### Task 3: Codex skills — state the mechanism (no registration needed), policy prose, version bump
 
 **Files:**
 - Modify: `plugins/machine/skills/sync/SKILL.md` — Phase 2.6 step 2 install command (line ~719) and the paragraph beneath it (~721–729)
 - Modify: `plugins/machine/.claude-plugin/plugin.json` (`0.4.1` → `0.5.0`), `.claude-plugin/marketplace.json` (machine → `0.5.0`)
 - Add: `docs/superpowers/plans/2026-08-18-codex-sync.md` (this plan)
 
-- [ ] **Step 1: Phase 2.6 command + prose**
+- [ ] **Step 1: Phase 2.6 prose (commands unchanged)**
 
-Change
-```
-npx skills add "<source>" -s "<name>" -a claude-code -g -y
-```
-to
-```
-npx skills add "<source>" -s "<name>" -a claude-code,codex -g -y
-```
-Replace the paragraph that begins `` `-a claude-code` matters, and the value is exact `` and ends `Use `-a claude-code`, exactly.` with:
+Leave the add command as `npx skills add "<source>" -s "<name>" -a claude-code -g -y` and the removal bullet as `npx skills remove "<name>" -a claude-code -g -y` — Codex reads the store natively, so no agent registration is needed and the comma form is invalid. Replace the paragraph beneath the add command (it begins `` `-a claude-code` matters, and the value is exact ``) with:
 ```markdown
-`-a claude-code,codex` matters, and the values are exact — verified against the
+`-a claude-code` matters, and the value is exact — verified against the
 installed CLI: without an explicit agent, `npx skills add` registers the skill
 with every agent it detects, writing into `~/.cursor`, `~/.pi`, and others that
-manage their own registrations. This plugin manages exactly two agents' skill
-registrations — Claude Code and Codex — and both read the same store,
-`~/.agents/skills`, through per-skill symlinks the CLI creates (never pass
-`--copy`; copies go stale). `-a claude` (no `-code`) is **not** a valid agent
-name — it prints `Invalid agents: claude`, exits 1, installs nothing, and would
-let step 3 regenerate a 0-byte manifest. Use `-a claude-code,codex`, exactly.
-Inside `~/.codex` this plugin touches only `skills/<name>` symlinks and the
-`AGENTS.md` link (Phase 1); `config.toml`, `hooks.json`, `skills/.system`, and
+manage their own registrations. Codex needs no registration at all: it reads
+the shared store `~/.agents/skills` natively, so every skill this manifest
+installs is already available to Codex (verified live — Codex lists the store's
+skills with nothing under `~/.codex/skills`). Never seed `~/.codex/skills`
+with copies (`--copy`); they go stale. `-a claude` (no `-code`) is **not** a
+valid agent name — it prints `Invalid agents: claude`, exits 1, installs
+nothing, and would let step 3 regenerate a 0-byte manifest. Use
+`-a claude-code`, exactly. Inside `~/.codex` this plugin touches only the
+`AGENTS.md` link (Phase 1); `config.toml`, `hooks.json`, `skills/`, and
 Codex-bundled skills are Codex's own.
 ```
-
-Also change the Phase 2.6 removal command (a few paragraphs later) from `npx skills remove "<name>" -a claude-code -g -y` to `npx skills remove "<name>" -a claude-code,codex -g -y` — removals must unregister both agents or Codex symlinks linger.
+And in the Phase 2.6 intro, replace the sentence naming Codex among agents whose directories are never touched with: "Codex reads the store natively, so it needs no registration and this plugin writes nothing under `~/.codex/skills`; the only thing it manages under `~/.codex` is the `AGENTS.md` link (Phase 1)."
 
 - [ ] **Step 2: Bump machine to 0.5.0**
 
@@ -486,17 +478,16 @@ Expected `machine 0.5.0`; `{'machine': '0.5.0', 'pm': '0.17.1'}`.
 
 ```bash
 cd ~/Projects/skills-n-stuff
-grep -c 'a claude-code,codex' plugins/machine/skills/sync/SKILL.md     # 4 (add + remove commands, prose twice)
-grep -c 'a claude-code -g' plugins/machine/skills/sync/SKILL.md         # 0
+grep -c 'claude-code,codex' plugins/machine/skills/sync/SKILL.md       # 0
+grep -c 'a claude-code -g' plugins/machine/skills/sync/SKILL.md         # 2 (add + remove)
 plugins/machine/tests/run-tests.sh 2>&1 | grep -c '^not ok'            # 0
 git add plugins/machine/skills/sync/SKILL.md plugins/machine/.claude-plugin/plugin.json .claude-plugin/marketplace.json docs/superpowers/plans/2026-08-18-codex-sync.md
 git commit -F - << 'EOF'
 machine 0.5.0: Codex under sync — AGENTS.md rendered + tracked, skills registered for codex
 
-Phase 2.6 registers manifest skills for both claude-code and codex (per-skill
-symlinks into ~/.agents/skills). States the policy change: this plugin now
-manages exactly the AGENTS.md link and skills/<name> symlinks in ~/.codex,
-nothing else there. Adds the codex-sync plan.
+Phase 2.6 prose states that Codex reads ~/.agents/skills natively (no
+registration; -a claude-code stays). Policy: this plugin manages exactly the
+AGENTS.md link under ~/.codex, nothing else there. Adds the codex-sync plan.
 
 Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
 EOF
@@ -551,12 +542,12 @@ ls ~/.codex/skills
 ```
 Expected: 13 `removed` lines; remaining: `.system codex-primary-runtime figma-implement-design gh-address-comments playwright use-railway` (Codex-bundled / third-party — untouched).
 
-Then register the manifest's skills for codex (this is exactly what sync Phase 2.6 will do from now on; running it once by hand here proves the agent id and the symlink behaviour):
+Then prove Codex sees the shared store without any registration:
 ```bash
-cd ~ && while IFS=$'\t' read -r name source; do [ -n "$name" ] && npx -y skills add "$source" -s "$name" -a claude-code,codex -g -y 2>&1 | tail -1; done < ~/.agents/skills.manifest
-ls -la ~/.codex/skills | grep -E '^l' 
+cd ~ && codex exec --skip-git-repo-check -s read-only "Do not use tools. One line: list the names of the skills available to you, comma-separated." 2>/dev/null | tail -1
+ls -la ~/.codex/skills | grep -cE '^l' || true
 ```
-Expected: for `impeccable` (the one manifest entry today) a symlink `~/.codex/skills/impeccable -> …/.agents/skills/impeccable`; `~/.claude/skills/impeccable` unchanged.
+Expected: the list includes the store's skills (e.g. `impeccable`, `swiftui-specialist`, `c-bounds-safety`) and the second command prints `0` — no per-agent symlinks exist or are needed.
 
 - [ ] **Step 5: Baseline sync report**
 
@@ -566,8 +557,8 @@ Run `/machine:sync --dry-run` in a Claude session and confirm the report has `Li
 
 ## Self-review
 
-**Spec coverage.** D1 (derived, tracked, linked Codex AGENTS.md as 8th entry, rendered by sync) → Tasks 1, 2, 4. D2 (skills from the shared store via `-a claude-code,codex`; stale copies removed; policy stated) → Tasks 3, 4. D3 (leave config/hooks local) → Global Constraints "Never edit". Machine bump → Task 3. Proof Codex loads the file → Task 4 Step 3. Runnable checks: render script has 6 bats; link-plan gains 1; live `codex exec`.
+**Spec coverage.** D1 (derived, tracked, linked Codex AGENTS.md as 8th entry, rendered by sync) → Tasks 1, 2, 4. D2 (Codex reads the shared store natively — verified; stale copies removed; policy stated) → Tasks 3, 4. D3 (leave config/hooks local) → Global Constraints "Never edit". Machine bump → Task 3. Proof Codex loads the file → Task 4 Step 3. Runnable checks: render script has 6 bats; link-plan gains 1; live `codex exec`.
 
 **Placeholder scan.** None. Task 2 Step 3(d) permits a python one-off but states the exact row and the verifying greps.
 
-**Name consistency.** Script `render-codex-agents.sh` + `RENDER_STATE=` (Task 1 contract, Task 2 Phase 1.5 + `Derived:` line, Task 4). Entry `AGENTS.md -> codex/AGENTS.md`, root `codex`, env `CODEX_HOME` (Task 2 script/tests/docs, Task 4 link-plan expectation). Agent ids `claude-code,codex` (Task 3 command + prose, Task 4 Step 4). Version 0.5.0 (Task 3 both manifests).
+**Name consistency.** Script `render-codex-agents.sh` + `RENDER_STATE=` (Task 1 contract, Task 2 Phase 1.5 + `Derived:` line, Task 4). Entry `AGENTS.md -> codex/AGENTS.md`, root `codex`, env `CODEX_HOME` (Task 2 script/tests/docs, Task 4 link-plan expectation). Agent id `claude-code` only (Task 3 prose, Task 4 Step 4 proves Codex needs none). Version 0.5.0 (Task 3 both manifests).
