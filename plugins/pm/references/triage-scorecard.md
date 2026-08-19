@@ -1,14 +1,23 @@
 # Triage — Phase 3: Score
 
-Loaded by `pm:triage` at Phase 3. Backend-independent — scoring reads the item and its spec, and writes nothing to the tracker (Phase 4 does that).
+Loaded by `pm:triage` at Phase 3. Backend-independent — scoring reads the item and its
+spec. The inline fix loop may persist spec content through the Phase 2 Step 2c path, but
+Phase 3 must not write tracker status, owner, or verdict fields; Phase 4 owns those
+writes.
 
-Evaluate each item that survived Phase 1 (both specced and unspecced) against the agent-ready scorecard.
+Use the already-loaded `references/work-readiness.md` as the readiness source of truth.
+Evaluate each item carried forward from Phase 2 against the agent-ready scorecard. Score
+XL child items independently; do not score their goal epic.
 
 ## Dispatch the scorecard evaluator
 
 For each item, read `plugins/pm/agents/scorecard-evaluator.md` and use its content as the system prompt for an Agent tool call. Scoring against a fixed checklist is clear-spec work: dispatch `routing.bulk` from the rubric (`${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml`) per the dispatch procedure in `references/model-orchestration.md` — split the `model@effort` value, route `via: codex` rows through the codex skills, and pass model + effort explicitly. Omitting them inherits the session defaults. Provide in the user prompt:
 
 - The item's title, description, and spec (if one was written in Phase 2)
+- The item's labels and an explicit `Bug claim: yes|no` value, determined from the same
+  signals as Phase 2 (`bug` label or a body describing broken behavior)
+- The item's persisted `Established` and `Unresolved` notes
+- The content of `references/work-readiness.md`
 - The project's CONTEXT.md content
 - The `.pm/out-of-scope/` directory listing
 - The list of configured repos from `pulse-config.yaml`
@@ -20,12 +29,23 @@ The agent returns a per-criterion PASS/FAIL with explanations and a verdict.
 ```
 Agent-Ready Scorecard:
 1. [ ] Clear description (what, not how)
-2. [ ] Explicit acceptance criteria
+2. [ ] Explicit acceptance criteria and Testing Seam
 3. [ ] Linked code references with target repo
 4. [ ] Negative constraints (cross-refs .pm/out-of-scope/)
-5. [ ] Bounded scope (single deliverable, one repo)
-6. [ ] No open design questions
+5. [ ] Bounded scope (one delivery slice, one repo, explicit Blockers)
+6. [ ] No unresolved question or hypothesis controls the approach
 ```
+
+## Readiness gate
+
+Before applying a numeric verdict, apply every applicable completion condition from
+`references/work-readiness.md` without substituting a local definition. Require the
+`Testing Seam` value to satisfy the canonical Testing Seam selection rule in
+`references/work-readiness.md`.
+
+If any check fails, the readiness gate is `FAIL` and the verdict is `needs-info`
+regardless of the numeric score. A user may supply evidence or fix the spec and rescore,
+but a score or ownership override cannot bypass this gate.
 
 ## Present results
 
@@ -34,39 +54,33 @@ For each item, show:
 ```
 --- Scorecard: {title} ---
 Score: {X}/6
+Readiness gate: {PASS|FAIL} — {explanation}
 
 1. {PASS|FAIL} Clear description        — {explanation}
-2. {PASS|FAIL} Acceptance criteria       — {explanation}
+2. {PASS|FAIL} Acceptance criteria/seam  — {selection and explanation}
 3. {PASS|FAIL} Code references           — {explanation}
 4. {PASS|FAIL} Negative constraints      — {explanation}
 5. {PASS|FAIL} Bounded scope             — {explanation}
-6. {PASS|FAIL} No open design questions  — {explanation}
+6. {PASS|FAIL} No controlling unknowns   — {explanation}
 
 Verdict: {status/ready+owner/ai | status/ready+owner/human | needs-info}
 ```
-
-## Claim verification (bugs)
-
-A bug report's description is a claim, not a fact — verification is the step that separates triage from ad-hoc labelling. Before any bug-flavored item (label `bug`, or a body describing broken behavior) can receive a `status/ready` verdict, attempt to verify it:
-
-- **Reproduce it** from the reported steps, or confirm the failing code path by reading the code (cite the path).
-- **Confirmed** → note the repro/code path in the spec or a comment; proceed to the verdict.
-- **Could not reproduce / claim contradicts the code** → cap the verdict at `needs-info` and record what you tried. The user can override to promote anyway.
-- **Verification impractical** (needs hardware, credentials, or a long-running setup) → say so explicitly and let the user decide; never silently skip.
-
-Enhancements skip this gate — there is no claim to verify.
 
 ## Verdict thresholds
 
 | Score | Verdict | Meaning |
 |-------|---------|---------|
-| 6/6 | `status/ready` + `owner/ai` | Fully specced, agent can pick up immediately |
-| 4-5/6 | `status/ready` + `owner/human` | Minor gaps — human should review before agent work |
+| 6/6 | `status/ready` + `owner/ai` | Fully specced and readiness gate passes |
+| 4-5/6 | `status/ready` + `owner/human` | Minor gaps and readiness gate passes |
 | 0-3/6 | `needs-info` (stays as `status/needs-triage`) | Major gaps — not ready for anyone |
+
+A failed readiness gate always yields `needs-info`, including at 4-6/6.
 
 ## User decision
 
-For items scoring 6/6, recommend `status/ready` + `owner/ai`. For 4-5/6, recommend `status/ready` + `owner/human`. For 0-3/6, recommend `needs-info`.
+For items with a passing readiness gate, recommend `status/ready` + `owner/ai` at
+6/6 and `status/ready` + `owner/human` at 4-5/6. Recommend `needs-info` for 0-3/6
+or any failed readiness gate.
 
 Ask the user:
 
@@ -76,7 +90,8 @@ Accept verdict? (yes / fix / human / info / skip)
 
 - **yes** — accept the recommended verdict
 - **fix** — fix the failing criteria now. For each FAIL, present the suggested fix from the scorecard evaluator and apply it to the spec inline. After fixing, re-score (loop back through the scorecard for changed criteria only).
-- **human** — override to `status/ready` + `owner/human` regardless of score
+- **human** — choose `status/ready` + `owner/human` when the readiness gate passes,
+  regardless of numeric score
 - **info** — override to `needs-info` (leave as `status/needs-triage` for later)
 - **skip** — skip this item, leave unchanged
 
@@ -96,4 +111,6 @@ Apply this fix? (yes / edit / skip)
 - **edit** — user provides their own text for this criterion
 - **skip** — leave this criterion as-is (it will still FAIL)
 
-After all fixes are applied, update the spec in the backend (same write path as Phase 2 Step 2c) and re-evaluate only the fixed criteria.
+After all fixes are applied, update the spec in the backend (same write path as Phase 2
+Step 2c) without changing tracker status, owner, or verdict fields. Rerun the full
+readiness gate and re-evaluate only the fixed score criteria.

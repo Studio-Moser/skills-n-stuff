@@ -107,6 +107,7 @@ Size the ceremony to the change. Name the class in one line before you start ("P
 
 - Establish a baseline first: run the existing suite before you change anything. Once per batch for polish.
 - Add tests for new behavior. Cover the obvious edge cases (empty, error, boundary).
+- For every non-trivial change, name the highest stable existing testing seam, including its procedure and expected result. When direct proof is impractical, test the nearest observable indirect contract.
 - Run the suite before each commit, and at minimum before the PR — once per checkpoint for a polish batch, not after every edit — and **show the output**; never claim "tests pass" without pasting evidence.
 - If tests fail, fix them before opening the PR.
 

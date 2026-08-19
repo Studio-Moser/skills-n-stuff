@@ -1,6 +1,6 @@
 ---
 name: codex-review
-description: Ask the Codex CLI (running whatever model it's configured with) for an independent code review of uncommitted changes, a branch diff, a commit, or a specific implementation. This is how the Codex model is invoked for review work. Use when the user asks Claude to have Codex review work, when the model-selection rubric calls for a cross-vendor review perspective, or when Codex should audit a diff, find bugs or regressions, or compare Claude's implementation against requirements. For a review by Claude itself, use the normal review process instead.
+description: Use when an explicit request or model-routing decision calls for the Codex CLI to independently review a fixed diff, commit, branch, or implementation. Do not use for the current agent's ordinary native review.
 ---
 
 # Codex Review
@@ -13,10 +13,12 @@ Prefer Claude's normal review process for small local checks. Do not delegate re
 
 ## Workflow
 
-1. Identify the review target: uncommitted changes, base branch, commit SHA, PR checkout, or specific files.
+1. Load `references/review-proof.md` and establish its fixed point for the review target.
 2. Create a temporary artifact directory for the Codex report.
-3. Run `codex review` with a focused review prompt.
-4. Read Codex's report and verify important claims against the code before presenting them.
+3. Run `codex review` with the fixed point, task requirements, and available proof in a
+   focused review prompt.
+4. Confirm the target still matches the fixed point, then verify important findings
+   against the code before presenting them. Apply the reference's completion conditions.
 
 Use one of these command shapes:
 
@@ -40,7 +42,11 @@ codex -C "$PWD" review --commit <sha> - < "$PROMPT" > "$REPORT"
 Ask Codex to use a code-review stance:
 
 ```text
-Review these changes for bugs, regressions, missing tests, security issues, and requirement mismatches.
+Read `plugins/pm/references/review-proof.md` and apply its review contract to this fixed
+point: {base/head SHAs or uncommitted snapshot digest}.
+
+Requirements: {approved issue, spec, or "none available"}
+Available verification and proof: {commands, results, and artifacts, or "none"}
 
 Prioritize findings over summary. For each finding include:
 - severity
@@ -48,7 +54,8 @@ Prioritize findings over summary. For each finding include:
 - concrete failure mode
 - suggested fix direction
 
-Do not edit files. If there are no substantive findings, say so and name any residual test gaps.
+Report the contract's axis results, evidence classifications, completion state, and
+approval verdict. Do not edit files or invent evidence.
 ```
 
 Add task-specific context when useful: requirements, risky areas, expected behavior, relevant tests, or files Claude is unsure about.

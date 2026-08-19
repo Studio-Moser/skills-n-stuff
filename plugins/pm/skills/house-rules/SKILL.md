@@ -1,6 +1,6 @@
 ---
 name: house-rules
-description: Use when making any code change and you need Studio Moser conventions for branch naming, file/documentation naming, commit messages, PR format, testing discipline, or pre-commit security checks, or when you just need a quick convention lookup. Loaded by pm:dev-task and pm:sprint-dev.
+description: Use when a code change needs Studio Moser conventions for change classes, branches, file naming, commits, pull requests, testing, or pre-commit security checks.
 ---
 
 # House Rules

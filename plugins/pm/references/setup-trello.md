@@ -1,13 +1,10 @@
 # Trello Backend Setup for /pm:setup
 
-This is the Trello-backend setup detail for `/pm:setup`, split out of the main
-`SKILL.md` for progressive disclosure — only load this when the user picks the
-Trello backend. It covers two steps in the setup flow: the Batch 1.5 interview
-(during Phase 2) and Phase 6T (list/label/webhook provisioning, after
-`.pm/config.yml` is written). Follow Batch 1.5 first, return to the main
-skill flow, then come back here for Phase 6T when you reach it.
+Load this only when the user selects the Trello backend. It covers the backend
+interview, Phase 3 config generation, and Phase 6 provisioning. Return to the
+main skill between sections.
 
-## Batch 1.5: Trello Setup (only when backend == trello)
+## Backend Interview
 
 Ask these in sequence. Each step uses an MCP tool; do not proceed past a failed call.
 
@@ -64,6 +61,43 @@ Ask these in sequence. Each step uses an MCP tool; do not proceed past a failed 
 6. **Webhook URL.** Ask: "What URL should Trello send card events to? (Leave blank to skip — events won't reach Shelby until you fill this in. Example: https://shelby.example.com/webhooks/trello.)"
 
    Store as `trello.webhook_url`.
+
+## Generate .pm/config.yml
+
+Use these values in the backend-specific placeholder in the main skill's shared
+config. Copy the canonical example from
+`plugins/pm/schemas/pm-config.trello.example.yml` for fields the user did not
+customize.
+
+```yaml
+backend: trello
+
+trello:
+  webhook_url: "{webhook URL from interview step 6, or empty string}"
+  boards:
+    {for each selected board, emit:}
+    - id: "{board id}"
+      name: "{board name}"
+      lists:
+        needs_triage:    "{user-confirmed name}"
+        ready_for_agent: "{user-confirmed name}"
+        in_progress:     "{user-confirmed name}"
+        review:          "{user-confirmed name}"
+        done:            "{user-confirmed name}"
+        needs_changes:   "{user-confirmed name}"
+        blocked:         "{user-confirmed name}"
+      approval_steps: [{from interview}]
+      review_policy: "{from interview, default self}"
+      worker_instructions: "{from interview, default empty}"
+  statuses:
+    needs_triage:    [ready_for_agent, rejected]
+    ready_for_agent: [in_progress]
+    in_progress:     [review, blocked, needs_changes]
+    review:          [done, needs_changes]
+    done:            [needs_changes]
+    needs_changes:   [in_progress]
+    blocked:         [in_progress, cancelled]
+```
 
 ## Phase 6T: Set Up Trello Lists, Labels & Webhook (skip if backend != trello)
 

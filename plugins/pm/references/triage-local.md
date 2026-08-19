@@ -32,6 +32,62 @@ yq -i '.labels -= ["status/needs-triage"] | .labels += ["rejected"] | .closed_at
 yq -i '.labels -= ["status/needs-triage"] | .labels += ["duplicate"] | .duplicate_of = {duplicate_number} | .closed_at = "{ISO 8601 timestamp}"' "$item_file"
 ```
 
+## Phase 2, Step 2b.1: Create XL epic and children — Local
+
+Run only after the user approves the displayed XL split. The current item's numeric
+prefix is the epic identifier. Convert that item to an epic-only goal container:
+
+```bash
+epic_number=$(basename "$item_file" | sed -E 's/^([0-9]+)-.*/\1/')
+yq -i '.labels = ["epic"] | .body = "{confirmed Goal/Why body}" | del(.spec)' "$item_file"
+
+last_num=$(ls "$items_dir" | grep -oE '^[0-9]+' | sort -n | tail -1)
+next_num=$(( ${last_num:-0} + 1 ))
+xl_child_ids=()
+```
+
+For each confirmed child, in blocker-first order, derive `child_file` from `next_num`
+using the Phase 2 Step 2c slug rule:
+
+```bash
+slug=$(echo "{child title}" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/^-//;s/-$//' | cut -c1-60)
+child_file="$items_dir/${next_num}-${slug}.yml"
+```
+
+Write this existing local-item shape; `blockers` contains earlier child numbers from
+`xl_child_ids`, or an empty list:
+
+```yaml
+title: "{child title}"
+body: |
+  {child summary}
+labels:
+  - status/needs-triage
+  - "size/{child_size}"
+parent_epic: {epic_number}
+blockers: [{earlier child numbers}]
+created_at: "{ISO 8601 timestamp}"
+```
+
+After writing each `$child_file`, return its identifier to the shared flow and advance
+the counter:
+
+```bash
+xl_child_ids+=("$next_num")
+# xl-phase3-selection:start
+phase3_items=()
+for candidate in "${triage_items[@]}"; do
+  [ "$candidate" = "$item_file" ] || phase3_items+=("$candidate")
+done
+phase3_items+=("$child_file")
+triage_items=("${phase3_items[@]}")
+# xl-phase3-selection:end
+next_num=$((next_num + 1))
+```
+
+This replaces the original XL parent in `triage_items` with its children. The resulting
+array is the Phase 3 carry-forward collection; the epic item is absent.
+
 ## Phase 2, Step 2c: Write spec to backend — Local
 
 Write the spec to `planning/specs/{number}-{slug}.md`:
@@ -44,7 +100,10 @@ slug=$(echo "{title}" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed '
 spec_file="$specs_dir/${number}-${slug}.md"
 ```
 
-Use the spec body template from SKILL.md (§ Step 2c), but wrap it in a spec header (matching `planning/specs/_TEMPLATE.md`): add `# Spec: {title}` plus frontmatter fields (Backlog #, Size, Priority, Created, Status: draft) before the `## Goal` section.
+Use the canonical spec content from `references/triage-spec-flow.md` (§ Step 2c), but
+wrap it in a spec header (matching `planning/specs/_TEMPLATE.md`): add `# Spec: {title}`
+plus frontmatter fields (Backlog #, Size, Priority, Created, Status: draft) before the
+`## Goal` section.
 
 Also update the local item's YAML to reference the spec:
 

@@ -16,13 +16,47 @@
 
 {Why this matters now. Link to research report or strategic brief if applicable.}
 
+## Readiness Notes
+
+Field meanings: `references/work-readiness.md`.
+
+### Established
+
+{value}
+
+### Unresolved
+
+{value}
+
+## Code References
+
+- `{repo_name}/{path/to/file.ext}` — {what it does}
+
 ## Approach
 
 {How to implement. Be specific enough that an agent can follow without ambiguity.}
 
+## Delivery Slice
+
+### Outcome
+
+{value}
+
+### Blockers
+
+{value}
+
+### Testing Seam
+
+{value}
+
+### Proof
+
+{value}
+
 ## Chunks
 
-For L/XL items, break into ordered chunks that can be committed independently.
+For L items, list ordered implementation steps within this one delivery slice.
 
 1. {Chunk 1}
 2. {Chunk 2}

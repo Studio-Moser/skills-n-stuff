@@ -87,7 +87,7 @@ EOF
   sed -i.bak '/^## Engineering discipline$/d' "$REPO/claude/CLAUDE.md"
   run "$SCRIPT" "$REPO"
   [ "$status" -eq 3 ]
-  [[ "$output" == RENDER_STATE=failed:* ]]
+  [[ "$output" == RENDER_STATE=failed:* ]] || return 1
   [ ! -e "$REPO/codex/AGENTS.md" ]
 }
 

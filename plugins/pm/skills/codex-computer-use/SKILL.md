@@ -1,6 +1,6 @@
 ---
 name: codex-computer-use
-description: Ask the Codex CLI (running whatever model it's configured with) to run local app verification that needs computer use, browser automation, simulators, screenshots, app launching, or independent runtime inspection. This is how the Codex model is invoked for computer-use work. Use when the user asks Claude to test a flow, verify UI behavior, inspect a running app, capture screenshots, or report confirmation and feedback about implemented behavior that benefits from computer use functionality.
+description: Use when a request needs the Codex CLI to independently operate or inspect a local app, browser, simulator, or screenshot-capable UI. Do not use for checks available through code reading, typechecking, linting, or ordinary tests.
 ---
 
 # Codex Computer Use

@@ -1,16 +1,9 @@
 ---
 name: sprint-dev
 description: >-
-  Interactive sprint worker. Reads status/ready + owner/ai items from GitHub Issues
-  (or local backlog), presents them with context, groups into proposed PRs,
-  and waits for your approval before building. Dispatches parallel sub-agents
-  with self-review and full testing. Reads CONTEXT.md for domain terminology
-  and .pm/out-of-scope/ for negative constraints. Trigger: "let's build",
-  "work the backlog", "what can we ship", "sprint", or /pm:sprint-dev.
-  Do NOT use for a single named change (that's /pm:dev-task), for classifying
-  or speccing items that are not yet status/ready (that's /pm:triage), or for
-  syncing completed work (that's /pm:reconcile) — sprint-dev only batches and
-  builds items already marked status/ready + owner/ai.
+  Use when the user wants to build one or more already-ready `owner/ai` backlog items
+  from a configured tracker. Do not use for one named change, an untriaged item, or
+  tracker reconciliation.
 effort: high
 allowed-tools: "Bash Read Write Edit Agent Skill"
 ---
@@ -28,7 +21,8 @@ Interactive skill that reads ready items from GitHub Issues (or local backlog), 
 ## Ground Rules
 
 - **Never auto-build.** Always present the proposal and wait for user approval.
-- **Parallel when safe.** Dispatch independent PRs in parallel when they don't touch the same files.
+- **Work the frontier.** Dispatch only delivery slices on the unblocked frontier.
+- **Schedule collisions.** Apply the scheduling-collision rule in `references/work-readiness.md`; choose isolation or run sequentially for each collision.
 - **Every PR must pass.** Sub-agents run self-review + full test suite before PRing.
 - **Trust the check, not the worker.** A sub-agent's self-review and "tests pass" are its opening claim, not proof. Phase 2C independently re-executes verification and loops findings back until the check actually passes — no code merges on a worker's own say-so, the orchestrator's included.
 - **Backlog is sacred.** Only the orchestrator edits the backlog, never sub-agents.
@@ -122,6 +116,10 @@ git push origin "$default_branch"
 
 ## Phase 1: Parse, Filter & Propose
 
+**Load `references/work-readiness.md` now.** Use it as the source of truth for delivery
+slices, blockers, the unblocked frontier, testing seams, proof, and scheduling
+collisions. Do not redefine those terms here.
+
 ### 1.1 Load Ready Items
 
 Load items based on the configured backend.
@@ -164,6 +162,13 @@ If a spec has no Code References table or no Base SHA, treat as Yellow with a no
 
 Primary pool: items from the configured backend with `status/ready` + `owner/ai` labels and Green or Yellow freshness.
 
+For each primary-pool item, read its approved item body or spec and capture the
+canonical `Outcome`, `Blockers`, `Testing Seam`, and current `Proof`. Resolve each
+blocking edge against the current tracker state. Apply the canonical unblocked-frontier
+and delivery-slice packaging rules from `references/work-readiness.md`. Return items
+with missing readiness fields to triage, and retain blocked items for the proposal's
+blocked section.
+
 Quick wins pool: S-sized items from `{backlog.ideas}` Ideas subsections (present separately as available for user promotion).
 
 Exclusions:
@@ -175,7 +180,8 @@ Exclusions:
 
 ### 1.5 Cluster Into Proposed PRs
 
-Group items by relatedness — items that touch the same files, the same domain area, or the same feature scope should be in the same PR. Use the product context to understand the project structure.
+Start with the unblocked frontier and package proposed PRs using the delivery-slice rule
+in `references/work-readiness.md`. Use relatedness only to name and order the proposals.
 
 General cluster categories (adapt to the project):
 - **deps** — Package updates, version bumps, security patches
@@ -187,8 +193,10 @@ General cluster categories (adapt to the project):
 - **ui** — Frontend components, pages, visualizations
 - **misc** — Items that don't clearly fit
 
-Collision detection: items modifying the same files MUST go in the same cluster.
-Batch size cap: max 8 items per batch.
+Collision scheduling: compare the likely paths for every pair of proposed slices. For
+each scheduling collision, record whether the slices will use isolated worktrees or run
+sequentially. Apply the remaining collision and batch-boundary rules from
+`references/work-readiness.md`.
 
 For multi-repo projects, also route each item to its target repo based on the product context.
 
@@ -218,6 +226,11 @@ Red: {N} items (need re-spec, skipped)
 
 PR 1: {cluster name} ({N} items)
 Branch: pulse/{cluster}-{YYYY-MM-DD}
+  Outcome: {Outcome}
+  Blockers: {Blockers or none}
+  Testing Seam: {procedure and expected result}
+  Proof: {current proof state; normally unproven before implementation}
+  Schedule: {parallel | isolated from PR N | sequential after PR N}
   #{n} {item description}
      Source: GitHub Issue #{n} | Local .pm/items/{n}-{slug}.yml
      Spec: planning/specs/{n}-{slug}.md (if exists)
@@ -239,6 +252,10 @@ PR 2: ...
 --- Flagged for Re-spec ---
 
   #{n} {item description} — {reason for Red freshness}
+
+--- Blocked ---
+
+  #{n} {item description} — waiting on {Blockers}
 
 --- Not Included ---
 {N} items excluded (ideas without promotion, monitor, manual)
@@ -272,6 +289,8 @@ git worktree add .claude/worktrees/pulse-{cluster}-{date} -b pulse/{cluster}-{YY
 
 Build a comprehensive sub-agent prompt with:
 - Batch items (number, description, priority, size, spec link)
+- Delivery slice fields from the approved item or spec: `Outcome`, `Blockers`,
+  `Testing Seam`, and current `Proof`
 - **For L/XL items with specs**: include the full spec content — sub-agent follows the Chunks order
 - **For S/M items**: include research report context and item description
 - Product context (tech stack, conventions, test commands)
@@ -295,12 +314,21 @@ Build a comprehensive sub-agent prompt with:
    - Completeness — all batch items addressed or explicitly noted as skipped
    - Spec compliance — all Acceptance Criteria met for specced items
 5. **Verify** — Run project test/build commands from product context
+   - Execute the named `Testing Seam`, record the command or procedure and actual
+     result in `Proof`, and do not call the slice complete without that proof.
 6. **Commit** — Atomic commits, clear messages
 7. **Discovered work** — If you find something that needs to be done but isn't in your current spec, do NOT do it inline. Instead, create a GitHub Issue (or note for the orchestrator) tagged `spawned-during-sprint` with a description of what was found and why it matters. Your definition of done stays fixed to the original spec.
 
-Dispatch independent PRs in parallel. Conflicting PRs run sequentially.
+Dispatch non-colliding slices in parallel. For a scheduling collision, follow the
+approved isolation decision or run the slices sequentially.
 
-**State file ownership up front.** Batch grouping keeps *known* conflicts apart, but parallel workers still collide on files neither batch's items named — shared types, barrel exports, config, lockfiles. Before dispatching, list the paths each batch is expected to touch and put them in that worker's prompt: "You own `{paths}`. Do not edit files owned by another batch — if your work requires a change outside your paths, stop and report it to the orchestrator instead of making it." Overlaps you find while building that list are a signal the batches should run sequentially.
+**State file ownership up front.** Collision scheduling keeps known overlaps ordered or
+isolated, but parallel workers can still discover paths neither slice named — shared
+types, barrel exports, config, lockfiles. Before dispatching, list the paths each batch
+is expected to touch and put them in that worker's prompt: "You own `{paths}`. Do not
+edit files owned by another batch — if your work requires a change outside your paths,
+stop and report it to the orchestrator instead of making it." A newly discovered
+overlap means the affected slices must run sequentially unless they are isolated.
 
 Ownership in the prompt is an instruction, not a guarantee — nothing stops a worker editing outside its paths. When batches run genuinely in parallel, give each one its own worktree (`git worktree add ../{repo}-{batch} -b {branch} origin/main`, `isolation: 'worktree'` for workflow agents) so collisions are impossible rather than merely discouraged. See the concurrent-sessions section of `pm:house-rules`.
 
@@ -314,9 +342,15 @@ Three or more independent batches is the case for a dynamic workflow instead of 
 
 ### 2C. Independent Check & Fix Loop
 
-The sub-agent's own "done / tests pass" is a **claim, not proof** — it self-reviewed and self-verified, so it can't be the final word. Every PR gets an independent check that re-executes the work, and findings loop back until the check actually passes.
+Load `references/review-proof.md` and use it as the source of truth for the review
+target, report, evidence, and completion gate. Give the same independent reviewer the
+approved requirements and current `Testing Seam` proof. Findings loop back to the
+implementer until the reference's completion conditions hold for the current fixed
+point or the PR is reported as blocked.
 
-After each sub-agent creates its PR, run the `code-review` skill against that PR. The review **re-runs the project's verification itself** (build/tests/lint/typecheck) rather than trusting the sub-agent's reported result, and scores each issue 0-100 for confidence (0 = false positive, 25 = somewhat, 50 = moderate, 75 = high, 100 = certain).
+After each sub-agent creates its PR, run the `code-review` skill against that PR. Keep
+the existing one-reviewer policy. Score each issue 0-100 for confidence (0 = false
+positive, 25 = somewhat, 50 = moderate, 75 = high, 100 = certain).
 
 **Filter**: keep issues with a confidence score **above 24** (i.e., 25+).
 
@@ -335,10 +369,13 @@ Report inline:
 
 ```
 Independent Check: {cluster}
+  Fixed point: {base/head SHAs or snapshot digest}
+  Axes: {contract report summary}
   Issues found: {N}   Above threshold (>24): {N}
   Round 1 fixed: {N}  disputed: {N}
   Round 2 fixed: {N}  disputed: {N}   (only if a 2nd round ran)
   Re-check: {clean / N residual}
+  Completion: {complete / blocked and missing proof}
   Verify output: {pass/fail, pasted}
 ```
 
@@ -355,7 +392,9 @@ Branch: pulse/{cluster}-{date}
 PR: {URL}
 Items completed: #{n}, #{n}
 Items skipped: #{n} (reason)
+Outcome: {Outcome delivered / not delivered}
 Tests: {pass/fail}
+Proof: {Testing Seam command or procedure and actual result}
 Review: {issues found}
 Spec compliance: {met/partial/N/A}
 ```

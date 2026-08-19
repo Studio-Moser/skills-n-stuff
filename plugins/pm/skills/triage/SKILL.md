@@ -1,15 +1,9 @@
 ---
 name: triage
 description: >-
-  Process status/needs-triage items through the full pipeline: sort (reject/dedup),
-  spec (brainstorming + writing-plans for M/L/XL items), score against the
-  agent-ready checklist, and promote to status/ready (with owner/ai or owner/human)
-  or reject to out-of-scope. Interactive — you confirm every decision.
-  Trigger: "triage", "process backlog", "review incoming items", "spec items",
-  or /pm:triage. Do NOT use for building ready items (that's /pm:sprint-dev),
-  syncing completed work (that's /pm:reconcile), or ingesting raw research
-  (that's /pm:ingest) — triage only classifies, specs, scores, and promotes
-  needs-triage items.
+  Use when `status/needs-triage` items require keep, reject, or deduplication decisions
+  or readiness preparation before execution. Do not use for raw-report ingestion,
+  ready-item implementation, or tracker reconciliation.
 effort: high
 allowed-tools: "Bash Read Write Edit Agent Skill"
 paths: ["**/.pm/**", "**/planning/todos.md"]
@@ -200,20 +194,77 @@ If zero items were kept, print `"No items survived sorting. Triage complete."` a
 
 ---
 
-## Phase 2: Spec
+## Phase 2: Verify and Spec
+
+**Load `references/work-readiness.md` now.** Use it as the source of truth for claim
+verification, testing seams, delivery slices, blockers, and wide refactors. Do not
+redefine those terms in the item or spec.
+
+### Verify claims and stage resumption notes
+
+Before classification, brainstorming, or an implementation approach, separate what is
+known from what is proposed for every kept item. Do all investigation without mutating
+the tracker item.
+
+For a bug-flavored item (label `bug`, or a body describing broken behavior), verify the
+observed behavior before design:
+
+- Reproduce the reported behavior, or inspect a failing test, trace, or code path that
+  establishes it. Record the procedure, result, and evidence under `Established`.
+- Keep correlations and causal hypotheses under `Unresolved` unless evidence confirms
+  them. An unresolved hypothesis may guide investigation but must not choose the
+  implementation approach.
+- If verification is impractical because it needs unavailable hardware, credentials,
+  data, or a long-running setup, record the reason and attempted checks under
+  `Unresolved`.
+- If the behavior is neither verified nor impractical to verify, stop this item before
+  speccing and carry it to Phase 3 as `needs-info`.
+
+After the investigation, stage one replacement note for the current item. Stage the
+proposed readiness note in session memory; do not persist it yet.
+
+```markdown
+## Readiness Notes
+
+### Established
+{value}
+
+### Unresolved
+{value}
+```
+
+Present the complete staged note, then ask:
+
+```text
+Approve readiness notes? (yes / edit / skip)
+```
+
+Persist only after explicit user confirmation.
+
+- **yes** — replace any existing Readiness Notes section in the item body, card
+  description, or local item file with the displayed note.
+- **edit** — apply the user's edits in session memory, show the entire revised note, and
+  ask for confirmation again. Do not persist the edit before that confirmation.
+- **skip** — leave the item unchanged, stop processing it, and keep it in
+  `status/needs-triage`.
+
+After a later verification attempt, stage a complete replacement note and repeat this
+same approval gate. A prior confirmation never authorizes a new revision.
 
 For items that survived Phase 1, determine which need speccing and which can skip to scoring.
 
 ### Classify by size
 
-- **S-sized items** with a clear, complete description (the body already states what to build and has implicit acceptance criteria): skip speccing, proceed directly to Phase 3.
+- **S-sized items** with a clear, complete description that already represents one
+  delivery slice and names its `Outcome`, `Blockers`, `Testing Seam`, and `Proof`: skip
+  speccing and proceed directly to Phase 3.
 - **M/L/XL items** or any item with an unclear/incomplete description: run the full spec creation flow.
 
 Present the classification to the user:
 
 ```
 Phase 2 — Spec Planning
-  Skip to scoring (S-sized, clear): {list of titles}
+  Skip to scoring (S-sized, readiness fields present): {list of titles}
   Need speccing (M/L/XL or unclear):  {list of titles}
 
 Proceed with speccing? (yes / reorder / stop)
@@ -226,20 +277,26 @@ Proceed with speccing? (yes / reorder / stop)
 ### Spec creation flow (for each item needing a spec)
 
 One item at a time: brainstorm → write the implementation plan → write the spec to the
-backend in the shared Goal/Context/Code References/Approach/Chunks/Acceptance Criteria/
-Negative Constraints body → checkpoint with the user before the next item.
+backend in the shared Goal/Context/Readiness Notes/Code References/Approach/Delivery
+Slice/Chunks/Acceptance Criteria/Negative Constraints body → checkpoint with the user
+before the next item.
 
 **Load `references/triage-spec-flow.md` and follow it for each item.**
 
 Step 2c is a **(backend step)** — it also needs your loaded `references/triage-<backend>.md`.
 
+Carry forward to Phase 3 S-sized items that skip spec creation, all M/L items, and every
+child item created from an XL split. The XL goal epic itself is not an agent-ready item
+and is not scored or promoted to `status/ready`.
+
 ---
 
 ## Phase 3: Score
 
-Every item that survived Phase 1 is scored against the 6-point agent-ready scorecard by
-the `scorecard-evaluator` agent, bug claims are verified before any `status/ready` verdict,
-and the user accepts or overrides each verdict (with an inline fix-and-rescore loop).
+Every item carried forward from Phase 2 is scored against the 6-point agent-ready
+scorecard by the `scorecard-evaluator` agent. The readiness gate is applied before any
+`status/ready` verdict, and the user accepts or fixes each verdict (with an inline
+fix-and-rescore loop).
 
 **Load `references/triage-scorecard.md` and follow it for this phase.**
 
@@ -280,6 +337,10 @@ Determine the item's epic, in order of preference:
 1. **Explicit reference** in the item body (e.g. "Part of Epic 1 (#236)").
 2. **Infer from the open epics.** List currently open epics **(backend step — see `references/triage-<backend>.md` § Phase 4.3)** and match by area (memory work → the memory epic; a specific UI surface → that surface's epic; sync/reliability → the reliability epic; etc.). Per-surface UI work goes under that surface's epic, not a generic one.
 3. **Ask** if still ambiguous: "Which epic does this belong under? {short list}". Pick before promoting.
+
+If the item already has the selected parent relationship, capture that epic identifier
+and treat this step as satisfied. Do not write the same relationship again. This is the
+normal path for children created by the Phase 2 XL split.
 
 **Creating a new epic (when none fits).** If the area genuinely has no epic yet, create one before linking — don't force the item under an ill-fitting parent. An epic is a **goal container**, so author it accordingly:
 
