@@ -84,6 +84,8 @@ Applies to docs, notes, specs, and any file you create whose name you control.
 
 ## Change class
 
+**Gate first: is this a change to code or config in a repo?** If not — research, writing, analysis, a question, planning, ops, a one-off script you run and throw away, anything that doesn't land in a repo — there is no change class and no engineering workflow: no brainstorm, no plan, no TDD, no review gate, no sub-agent by default. Do the thing, in house style. Only repo changes get a class.
+
 Size the ceremony to the change. Name the class in one line before you start ("Polish: gates at the checkpoint") so the human can override it in one word. When unsure, say the class and take the smaller one. This is the explicit instruction that lets a session skip a skill's workflow (brainstorm, plan) when the class doesn't call for it. A class never skips a gate it requires; it decides which gates apply and when they run.
 
 - **Polish** — styling, spacing, copy; no logic change; one file per edit. No brainstorm; no plan (the class line is the plan); no sub-agent for the edits. Edit, verify the one thing that shows it (a screenshot, a targeted check), keep going. Baseline suite once per batch, not per edit. The suite, the review, and the single commit run **at the checkpoint**.
