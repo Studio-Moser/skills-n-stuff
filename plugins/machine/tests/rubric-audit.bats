@@ -31,7 +31,7 @@ write_fixture() {
   write_fixture
   run "$SCRIPT" --projects "${BATS_TEST_TMPDIR}/projects"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"1 session(s)"* ]]
+  [[ "$output" == *"1 session(s)"* ]] || return 1
   echo "$output" | grep -qE 'Agent dispatches: +3 total — model set: 3, UNSET: 0'
   echo "$output" | grep -qE 'by model: +fable 1 · opus 1 · sonnet 1 · haiku 0'
   echo "$output" | grep -qE 'Codex handoffs: +2 \(codex exec/review Bash calls: 1, pm:codex-\* skills: 1\)'
@@ -66,7 +66,7 @@ write_fixture() {
   touch -t 202001010000 "$PROJ/abc123.jsonl"
   run "$SCRIPT" --projects "${BATS_TEST_TMPDIR}/projects" --days 7
   [ "$status" -eq 0 ]
-  [[ "$output" == *"0 session(s)"* ]]
+  [[ "$output" == *"0 session(s)"* ]] || return 1
   echo "$output" | grep -qE 'Agent dispatches: +0 total'
 }
 
