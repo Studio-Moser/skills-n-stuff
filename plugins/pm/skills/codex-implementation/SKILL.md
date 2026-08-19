@@ -1,6 +1,6 @@
 ---
 name: codex-implementation
-description: Ask the Codex CLI (running whatever model it's configured with) to implement a bounded, well-specified change in the repo. This is how the Codex model is invoked for implementation work. Use when the model-selection rubric routes bulk or mechanical implementation to Codex, when the user asks Claude to have Codex implement something, or when a parallel implementation agent should produce a patch in a worktree. For work Claude should own directly, implement it yourself instead.
+description: Use when model routing or an explicit request calls for the Codex CLI to implement one bounded delivery slice in a worktree. Do not use for implementation the current agent should own directly.
 ---
 
 # Codex Implementation

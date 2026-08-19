@@ -1,12 +1,8 @@
 ---
 name: setup
 description: >-
-  Onboard PM to a new project. Detects workspace type (single-repo or multi-repo),
-  wires up issue tracker backend (GitHub Issues or local), creates .pm/ config
-  directory, CONTEXT.md glossary, ADR template, and out-of-scope rejection KB.
-  If product-pulse is installed, reads shared config from pulse-config.yaml.
-  Run once per workspace. Trigger: "setup pm", "initialize project management",
-  "configure issue tracking", or /pm:setup.
+  Use when PM has not yet been configured for a workspace, or when the user explicitly
+  requests reconfiguration of its issue-tracker backend.
 disable-model-invocation: true
 effort: medium
 allowed-tools: "Bash Read Write Edit ToolSearch"

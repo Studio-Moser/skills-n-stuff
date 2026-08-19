@@ -49,3 +49,41 @@ sys.exit(1 if bad else 0)
 PY
   [ "$status" -eq 0 ]
 }
+
+@test "PM skill descriptions are concise invocation conditions" {
+  run python3 - "$REPO" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+try:
+    import yaml
+except ImportError:
+    print("SKIP: pyyaml unavailable")
+    sys.exit(0)
+
+repo = Path(sys.argv[1])
+failures = []
+for path in sorted((repo / "plugins/pm/skills").glob("*/SKILL.md")):
+    match = re.match(r"^---\n(.*?)\n---\n", path.read_text(), re.S)
+    if not match:
+        continue
+    description = yaml.safe_load(match.group(1))["description"].strip()
+    relative = path.relative_to(repo)
+    if not description.startswith("Use when "):
+        failures.append(f"{relative}: description must start with 'Use when '")
+    if len(description) > 500:
+        failures.append(f"{relative}: description exceeds 500 characters")
+    for process_marker in ("Trigger:", "Triggers include", "Workflow:"):
+        if process_marker.lower() in description.lower():
+            failures.append(f"{relative}: description includes process marker {process_marker!r}")
+
+if failures:
+    print("\n".join(failures))
+    raise SystemExit(1)
+PY
+  if [ "$status" -ne 0 ]; then
+    echo "$output"
+  fi
+  [ "$status" -eq 0 ]
+}

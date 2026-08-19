@@ -1,16 +1,9 @@
 ---
 name: sprint-dev
 description: >-
-  Interactive sprint worker. Reads status/ready + owner/ai items from GitHub Issues
-  (or local backlog), presents them with context, groups into proposed PRs,
-  and waits for your approval before building. Dispatches parallel sub-agents
-  with self-review and full testing. Reads CONTEXT.md for domain terminology
-  and .pm/out-of-scope/ for negative constraints. Trigger: "let's build",
-  "work the backlog", "what can we ship", "sprint", or /pm:sprint-dev.
-  Do NOT use for a single named change (that's /pm:dev-task), for classifying
-  or speccing items that are not yet status/ready (that's /pm:triage), or for
-  syncing completed work (that's /pm:reconcile) — sprint-dev only batches and
-  builds items already marked status/ready + owner/ai.
+  Use when the user wants to build one or more already-ready `owner/ai` backlog items
+  from a configured tracker. Do not use for one named change, an untriaged item, or
+  tracker reconciliation.
 effort: high
 allowed-tools: "Bash Read Write Edit Agent Skill"
 ---

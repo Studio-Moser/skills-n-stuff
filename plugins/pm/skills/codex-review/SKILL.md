@@ -1,6 +1,6 @@
 ---
 name: codex-review
-description: Ask the Codex CLI (running whatever model it's configured with) for an independent code review of uncommitted changes, a branch diff, a commit, or a specific implementation. This is how the Codex model is invoked for review work. Use when the user asks Claude to have Codex review work, when the model-selection rubric calls for a cross-vendor review perspective, or when Codex should audit a diff, find bugs or regressions, or compare Claude's implementation against requirements. For a review by Claude itself, use the normal review process instead.
+description: Use when an explicit request or model-routing decision calls for the Codex CLI to independently review a fixed diff, commit, branch, or implementation. Do not use for the current agent's ordinary native review.
 ---
 
 # Codex Review

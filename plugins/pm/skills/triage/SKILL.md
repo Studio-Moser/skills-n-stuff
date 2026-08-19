@@ -1,15 +1,9 @@
 ---
 name: triage
 description: >-
-  Process status/needs-triage items through the full pipeline: sort (reject/dedup),
-  spec (brainstorming + writing-plans for M/L/XL items), score against the
-  agent-ready checklist, and promote to status/ready (with owner/ai or owner/human)
-  or reject to out-of-scope. Interactive — you confirm every decision.
-  Trigger: "triage", "process backlog", "review incoming items", "spec items",
-  or /pm:triage. Do NOT use for building ready items (that's /pm:sprint-dev),
-  syncing completed work (that's /pm:reconcile), or ingesting raw research
-  (that's /pm:ingest) — triage only classifies, specs, scores, and promotes
-  needs-triage items.
+  Use when `status/needs-triage` items require keep, reject, or deduplication decisions
+  or readiness preparation before execution. Do not use for raw-report ingestion,
+  ready-item implementation, or tracker reconciliation.
 effort: high
 allowed-tools: "Bash Read Write Edit Agent Skill"
 paths: ["**/.pm/**", "**/planning/todos.md"]

@@ -642,3 +642,49 @@ PY
   fi
   [ "$status" -eq 0 ]
 }
+
+@test "House Rules and PM README expose the work-readiness behavior without redefining it" {
+  run python3 - "$REPO" <<'PY'
+from pathlib import Path
+import sys
+
+repo = Path(sys.argv[1])
+house = " ".join((repo / "studio-baseline/House_Rules.md").read_text().split()).lower()
+readme_text = (repo / "plugins/pm/README.md").read_text()
+readme = " ".join(readme_text.split()).lower()
+failures = []
+
+for phrase in (
+    "highest stable existing testing seam",
+    "procedure and expected result",
+    "nearest observable indirect contract",
+):
+    if phrase not in house:
+        failures.append(f"House Rules omits {phrase!r}")
+
+for phrase in (
+    "references/work-readiness.md",
+    "references/review-proof.md",
+    "verified claims",
+    "unblocked frontier",
+    "scheduling collisions",
+    "fixed review target",
+    "selected backend reference",
+):
+    if phrase not in readme:
+        failures.append(f"PM README omits {phrase!r}")
+
+if "## verified claims" in readme_text or "## delivery slices" in readme_text:
+    failures.append("PM README redefines canonical work-readiness sections")
+if "## fixed point" in readme_text or "## evidence expectations" in readme_text:
+    failures.append("PM README redefines canonical review-proof sections")
+
+if failures:
+    print("invalid Task 7 documentation contract: " + "; ".join(failures))
+    raise SystemExit(1)
+PY
+  if [ "$status" -ne 0 ]; then
+    echo "$output"
+  fi
+  [ "$status" -eq 0 ]
+}

@@ -1,14 +1,9 @@
 ---
 name: ingest
 description: >-
-  Read research reports from product-pulse (daily, weekly, deep-dive) and
-  create status/needs-triage items in the configured issue tracker. Diffs against
-  existing issues, current codebase, and out-of-scope rejections to avoid
-  duplicates. Uses ingestion watermarks to process only new reports.
-  Trigger: "ingest research", "process reports", "import findings",
-  or /pm:ingest. Do NOT use for classifying/speccing/scoring items
-  (that's /pm:triage) or syncing completed work (that's /pm:reconcile) —
-  ingest only turns research reports into status/needs-triage items.
+  Use when new Product Pulse daily, weekly, or deep-dive reports need importing into
+  the configured issue tracker. Do not use to triage existing candidates or reconcile
+  completed work.
 effort: low
 allowed-tools: "Bash Read Write Edit Agent"
 ---

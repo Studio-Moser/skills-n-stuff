@@ -10,20 +10,29 @@ PM is a **six-skill pipeline** that manages the full lifecycle of work items, fr
 
 | Skill | Role | When | What |
 |-------|------|------|------|
-| `/pm:setup` | Scaffolder | Once per workspace | Detects workspace layout, wires GitHub Issues, creates `.pm/` config and domain knowledge files, and stamps the model-routing reminder block into `AGENTS.md` |
-| `/pm:ingest` | Discoverer | After new research lands | Reads product-pulse reports, extracts actionable items, deduplicates, files `status/needs-triage` issues |
-| `/pm:triage` | Classifier | When items need decisions | Sort (reject/dedup), spec (brainstorm + write plans), score (6-point checklist), promote |
-| `/pm:sprint-dev` | Builder | When you're ready to ship | Picks ready items, groups into PRs, dispatches sub-agents with self-review and testing |
-| `/pm:dev-task` | Pair-programmer | Implementing one focused change | Guides plan→approve→branch→implement→review→verify→PR with house conventions; works with or without /pm:setup |
+| `/pm:setup` | Scaffolder | Once per workspace | Detects the workspace, loads only the selected backend reference, creates PM config and domain files, and stamps the shared agent baseline |
+| `/pm:ingest` | Discoverer | After new research lands | Separates source evidence from proposed outcomes, deduplicates candidates, and files `status/needs-triage` items through the selected backend |
+| `/pm:triage` | Classifier | When items need decisions | Verifies claims before design, prepares independently verifiable delivery slices, splits XL work under goal epics, scores, and promotes |
+| `/pm:sprint-dev` | Builder | When you're ready to ship | Selects the unblocked frontier, treats shared-file overlap as scheduling collisions, and dispatches approved slices with named proof |
+| `/pm:dev-task` | Pair-programmer | Implementing one focused change | Guides one approved delivery slice through implementation, evidence-backed review, and PR creation; works with or without `/pm:setup` |
 | `/pm:reconcile` | Janitor | After sprints or merges | Completion tracking, stale detection, blocker classification, CONTEXT.md and ADR proposals |
 
 ### Two build modes
 
-- **`/pm:sprint-dev`** — *work the backlog.* Reads ready items, clusters them into PRs, dispatches parallel sub-agents. Needs `/pm:setup` + a tracker.
-- **`/pm:dev-task`** — *walk me through this one task.* Interactive, foreground, teaching, hard approval gates. Works in any repo, no setup required.
+- **`/pm:sprint-dev`** — *work the backlog.* Selects unblocked ready slices, schedules collisions, then dispatches the approved PR set. Needs `/pm:setup` + a tracker.
+- **`/pm:dev-task`** — *walk me through this one task.* Interactive and foreground, with approval gates around one bounded change. Works in any repo, no setup required.
 
 Both defer to the shared `house-rules` skill for conventions.
 New to the team workflow? See [How we do dev tasks](docs/how-we-do-dev-tasks.md).
+
+### Readiness and proof
+
+Two canonical references govern PM's shared decisions:
+
+- [`references/work-readiness.md`](references/work-readiness.md) owns verified claims, testing seams, delivery slices, blockers, the unblocked frontier, and scheduling collisions.
+- [`references/review-proof.md`](references/review-proof.md) owns the fixed review target, applicable review axes, evidence levels, and approval conditions.
+
+Skills load those references only at the branch where their rules apply. This README describes the resulting behavior; the references own the definitions.
 
 ### Model routing & orchestration
 
@@ -60,8 +69,8 @@ status/needs-triage → [reject → out-of-scope/]
 ```
 
 - **Ingest** creates `status/needs-triage` items only -- never promotes beyond that
-- **Triage** sorts, specs, scores, and promotes (or rejects) with your approval
-- **Sprint-dev** moves items to `status/in-progress`, dispatches agents, creates PRs
+- **Triage** verifies reported behavior before design, prepares delivery slices, scores, and promotes (or rejects) with your approval
+- **Sprint-dev** moves approved frontier items to `status/in-progress`, dispatches agents, and creates PRs
 - **Reconcile** detects merged PRs and closes done items automatically
 
 ## Prerequisites
@@ -117,6 +126,7 @@ docs/adr/
 ```
 
 If `pulse-config.yaml` already exists (from Product Pulse setup), PM reads shared infrastructure from it. If not, setup creates a minimal one.
+After backend selection, setup loads exactly the selected backend reference; GitHub, local, and Trello procedures are not loaded together.
 
 ## Backends
 
@@ -410,16 +420,7 @@ Next Mon  cycle repeats
 
 ## Agent-Ready Scorecard
 
-Before an item can be promoted to `status/ready` + `owner/ai`, triage scores it against a 6-point checklist:
-
-1. **Clear description** -- states what, not how
-2. **Explicit acceptance criteria** -- measurable conditions for done
-3. **Linked code references** -- file paths with target repo specified
-4. **Negative constraints** -- cross-references `.pm/out-of-scope/` for what NOT to do
-5. **Bounded scope** -- single deliverable, one repo
-6. **No open design questions** -- all ambiguity resolved before execution
-
-Items that fail any criterion can be fixed inline during triage and re-scored. Items that pass all six are promoted to `status/ready` + `owner/ai`. Items with unfixable failures are promoted to `status/ready` + `owner/human` instead.
+Before promotion, triage applies the canonical checklist in [`references/triage-scorecard.md`](references/triage-scorecard.md) and the completion conditions from `work-readiness.md`. A numeric score cannot bypass a failed readiness gate. Fixable gaps can be corrected and re-scored; unresolved blockers or controlling hypotheses remain `status/needs-triage`.
 
 ## License
 

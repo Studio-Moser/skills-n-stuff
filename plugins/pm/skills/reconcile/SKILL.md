@@ -1,16 +1,9 @@
 ---
 name: reconcile
 description: >-
-  Sync project reality with the issue tracker. Scans git history for completed
-  items, detects stale work, classifies deferred blockers, updates epic
-  progress, normalizes epics (strips stray status labels, reshapes bodies to
-  Goal/Why), proposes CONTEXT.md updates and ADRs. Run after sprints, after
-  merges, or periodically.
-  Trigger: "reconcile", "sync issues", "clean up backlog", "check progress",
-  or /pm:reconcile.
-  Do NOT use for classifying/prioritizing NEW items (that's /pm:triage) or
-  building ready work (that's /pm:sprint-dev) — reconcile only syncs existing
-  state.
+  Use when the issue tracker may be stale after merges or sprints, or needs a periodic
+  reality check against git history and current project state. Do not use for deciding
+  new items or implementing ready work.
 effort: medium
 allowed-tools: "Bash Read Write Edit"
 ---
