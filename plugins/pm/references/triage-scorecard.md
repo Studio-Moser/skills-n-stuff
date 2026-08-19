@@ -40,8 +40,8 @@ Agent-Ready Scorecard:
 
 Before applying a numeric verdict, apply every applicable completion condition from
 `references/work-readiness.md` without substituting a local definition. Require the
-`Testing Seam` value to identify the highest stable existing boundary. If it chooses a
-lower boundary or adds a new seam, that same value must include a concrete reason.
+`Testing Seam` value to satisfy the canonical Testing Seam selection rule in
+`references/work-readiness.md`.
 
 If any check fails, the readiness gate is `FAIL` and the verdict is `needs-info`
 regardless of the numeric score. A user may supply evidence or fix the spec and rescore,

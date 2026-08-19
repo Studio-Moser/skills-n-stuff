@@ -74,12 +74,19 @@ the counter:
 
 ```bash
 xl_child_ids+=("$next_num")
-triage_items+=("$child_file")
+# xl-phase3-selection:start
+phase3_items=()
+for candidate in "${triage_items[@]}"; do
+  [ "$candidate" = "$item_file" ] || phase3_items+=("$candidate")
+done
+phase3_items+=("$child_file")
+triage_items=("${phase3_items[@]}")
+# xl-phase3-selection:end
 next_num=$((next_num + 1))
 ```
 
-The files added to `triage_items` are the Phase 3 carry-forward items. Do not add the
-epic item.
+This replaces the original XL parent in `triage_items` with its children. The resulting
+array is the Phase 3 carry-forward collection; the epic item is absent.
 
 ## Phase 2, Step 2c: Write spec to backend — Local
 

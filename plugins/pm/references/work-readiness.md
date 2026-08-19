@@ -28,7 +28,7 @@ A bug can enter a spec only after its observed behavior is verified or the item 
 
 ## Testing seams
 
-A testing seam is the highest stable boundary where a delivery outcome can be proved. A plan should prefer an existing seam over adding a lower-level check. An executable test, reproducible scenario, API boundary, UI flow, migration fixture, or equivalent check can serve as that seam. Name the seam before implementation, including the procedure and expected result.
+A testing seam is the highest stable boundary where a delivery outcome can be proved. A plan should prefer an existing seam over adding a lower-level check. An executable test, reproducible scenario, API boundary, UI flow, migration fixture, or equivalent check can serve as that seam. Name the seam before implementation, including the procedure and expected result. If the selected seam is lower than an existing stable boundary or must be newly added, the `Testing Seam` value includes the concrete reason.
 
 ### Completion conditions
 
@@ -43,13 +43,17 @@ A delivery slice is one independently deliverable, verifiable outcome. It carrie
 - **Testing seam**: the check that proves the outcome.
 - **Proof**: the executed check and result.
 
+Each proposed pull request completes one delivery slice. Multiple items may share a
+pull request only when they are required steps for that same outcome; separate outcomes
+remain separate slices even when they touch the same domain or files.
+
 ### Completion conditions
 
 A slice is ready to start only when its blockers are resolved and its outcome and testing seam are named. It is complete only when its outcome is delivered and its proof is recorded.
 
 ## Blocking edges and frontiers
 
-A blocking edge `A -> B` means B cannot produce its outcome until A is complete. The unblocked frontier is every ready slice whose blockers are resolved. Select work from that frontier before considering batch shape.
+A blocking edge `A -> B` means B cannot produce its outcome until A is complete. The unblocked frontier is every ready slice whose blockers are resolved and whose outcome and testing seam are named. The execution pool is the unblocked frontier; retain blocked slices for reporting but do not dispatch them. Select work from that frontier before considering batch shape.
 
 Shared files are scheduling collisions: order the colliding slices or isolate their changes. They do not automatically make the slices one outcome or one pull request.
 

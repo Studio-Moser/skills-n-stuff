@@ -19,8 +19,8 @@ import glob, os, re, sys
 try:
     import yaml
 except ImportError:
-    print("SKIP: pyyaml unavailable")
-    sys.exit(0)
+    print("ERROR: PyYAML is required for strict skill frontmatter validation. Install it with: python3 -m pip install PyYAML")
+    sys.exit(2)
 
 repo = sys.argv[1]
 bad = []
@@ -47,6 +47,9 @@ for rel, why in bad:
 print(f"checked={checked} bad={len(bad)}")
 sys.exit(1 if bad else 0)
 PY
+  if [ "$status" -ne 0 ]; then
+    echo "$output"
+  fi
   [ "$status" -eq 0 ]
 }
 
@@ -59,8 +62,8 @@ import sys
 try:
     import yaml
 except ImportError:
-    print("SKIP: pyyaml unavailable")
-    sys.exit(0)
+    print("ERROR: PyYAML is required for PM description validation. Install it with: python3 -m pip install PyYAML")
+    sys.exit(2)
 
 repo = Path(sys.argv[1])
 failures = []

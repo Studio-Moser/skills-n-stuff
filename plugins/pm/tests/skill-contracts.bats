@@ -30,6 +30,9 @@ required = {
     "completion conditions": "### Completion conditions",
     "highest stable testing seam": "highest stable boundary",
     "existing seam preference": "prefer an existing seam",
+    "lower or new seam exception": "If the selected seam is lower than an existing stable boundary or must be newly added",
+    "pull request slice packaging": "Each proposed pull request completes one delivery slice",
+    "frontier execution pool": "The execution pool is the unblocked frontier",
     "wide refactor sequence": "expand → migrate callers in green batches → contract",
     "triage route": "skills/triage/SKILL.md",
     "sprint route": "skills/sprint-dev/SKILL.md",
@@ -177,7 +180,8 @@ contracts = {
             "parent_epic",
             "blockers",
             "xl_child_ids",
-            'triage_items+=("$child_file")',
+            "# xl-phase3-selection:start",
+            'triage_items=("${phase3_items[@]}")',
         ),
     ),
     "Trello": (
@@ -215,6 +219,30 @@ PY
   [ "$status" -eq 0 ]
 }
 
+@test "local XL selection replaces the goal epic with its children" {
+  local reference="$REPO/plugins/pm/references/triage-local.md"
+  local selection_code
+
+  selection_code="$(awk '/# xl-phase3-selection:start/{capture=1; next} /# xl-phase3-selection:end/{capture=0} capture' "$reference")"
+  [ -n "$selection_code" ] || {
+    echo "triage-local.md has no executable XL Phase 3 selection block"
+    return 1
+  }
+
+  run env SELECTION_CODE="$selection_code" bash -c '
+    triage_items=("/tmp/104-parent.yml" "/tmp/88-other.yml")
+    item_file="/tmp/104-parent.yml"
+    child_file="/tmp/119-child.yml"
+    eval "$SELECTION_CODE"
+    child_file="/tmp/120-child.yml"
+    eval "$SELECTION_CODE"
+    printf "%s\n" "${triage_items[@]}"
+  '
+
+  [ "$status" -eq 0 ]
+  [ "$output" = $'/tmp/88-other.yml\n/tmp/119-child.yml\n/tmp/120-child.yml' ]
+}
+
 @test "spec consumers enforce the canonical testing seam without adding fields" {
   run python3 - "$REPO" <<'PY'
 from pathlib import Path
@@ -240,10 +268,16 @@ for label, text in (("scorecard", scorecard), ("evaluator", evaluator)):
     normalized = " ".join(text.split())
     if "Seam Selection" in text:
         failures.append(f"{label} evaluates a non-canonical Seam Selection field")
-    if "highest stable existing boundary" not in normalized:
-        failures.append(f"{label} does not enforce the preferred Testing Seam")
-    if "concrete reason" not in normalized:
-        failures.append(f"{label} does not require a lower/new Testing Seam reason")
+    if "canonical Testing Seam selection rule" not in normalized:
+        failures.append(f"{label} does not apply the canonical Testing Seam rule")
+    if "references/work-readiness.md" not in normalized:
+        failures.append(f"{label} does not route Testing Seam evaluation to work-readiness")
+    for copied_definition in (
+        "highest stable existing boundary",
+        "If it chooses a lower boundary or adds a new seam",
+    ):
+        if copied_definition in normalized:
+            failures.append(f"{label} duplicates the canonical Testing Seam definition")
 
 redefinitions = (
     "{Verified evidence and source}",
@@ -396,6 +430,20 @@ if "max 8 items per batch" in normalized_sprint:
     failures.append("sprint-dev retains the numeric batch cap")
 if "same files must go in the same cluster" in normalized_sprint:
     failures.append("sprint-dev still forces colliding outcomes into one batch")
+
+for copied_definition in (
+    "the execution pool is the unblocked frontier",
+    "each proposed pr must complete one delivery slice",
+    "shared paths are a scheduling collision",
+):
+    if copied_definition in normalized_sprint:
+        failures.append(f"sprint-dev duplicates canonical definition: {copied_definition}")
+for application_rule in (
+    "apply the canonical unblocked-frontier and delivery-slice packaging rules",
+    "for each scheduling collision",
+):
+    if application_rule not in normalized_sprint:
+        failures.append(f"sprint-dev omits canonical application instruction: {application_rule}")
 
 eval_section = evaluation[evaluation.find("## Colliding sprint items"):]
 for needle in (

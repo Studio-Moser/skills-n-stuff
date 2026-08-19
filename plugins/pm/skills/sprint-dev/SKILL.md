@@ -22,7 +22,7 @@ Interactive skill that reads ready items from GitHub Issues (or local backlog), 
 
 - **Never auto-build.** Always present the proposal and wait for user approval.
 - **Work the frontier.** Dispatch only delivery slices on the unblocked frontier.
-- **Schedule collisions.** Shared paths are a scheduling collision: isolate the slices or run them sequentially; do not merge different outcomes into one PR.
+- **Schedule collisions.** Apply the scheduling-collision rule in `references/work-readiness.md`; choose isolation or run sequentially for each collision.
 - **Every PR must pass.** Sub-agents run self-review + full test suite before PRing.
 - **Trust the check, not the worker.** A sub-agent's self-review and "tests pass" are its opening claim, not proof. Phase 2C independently re-executes verification and loops findings back until the check actually passes — no code merges on a worker's own say-so, the orchestrator's included.
 - **Backlog is sacred.** Only the orchestrator edits the backlog, never sub-agents.
@@ -164,10 +164,10 @@ Primary pool: items from the configured backend with `status/ready` + `owner/ai`
 
 For each primary-pool item, read its approved item body or spec and capture the
 canonical `Outcome`, `Blockers`, `Testing Seam`, and current `Proof`. Resolve each
-blocking edge against the current tracker state. The execution pool is the unblocked
-frontier: items whose blockers are resolved and whose outcome and testing seam are
-named. Return items with missing readiness fields to triage; retain blocked items for
-the proposal's blocked section but do not dispatch them.
+blocking edge against the current tracker state. Apply the canonical unblocked-frontier
+and delivery-slice packaging rules from `references/work-readiness.md`. Return items
+with missing readiness fields to triage, and retain blocked items for the proposal's
+blocked section.
 
 Quick wins pool: S-sized items from `{backlog.ideas}` Ideas subsections (present separately as available for user promotion).
 
@@ -180,11 +180,8 @@ Exclusions:
 
 ### 1.5 Cluster Into Proposed PRs
 
-Start with the unblocked frontier. Each proposed PR must complete one delivery slice:
-one independently verifiable outcome with one testing seam and recorded proof. Multiple
-items may share a PR only when they are steps required for that same outcome. Different
-outcomes remain separate slices even when they touch the same domain or files. Use
-relatedness only to name and order the proposals.
+Start with the unblocked frontier and package proposed PRs using the delivery-slice rule
+in `references/work-readiness.md`. Use relatedness only to name and order the proposals.
 
 General cluster categories (adapt to the project):
 - **deps** — Package updates, version bumps, security patches
@@ -196,11 +193,10 @@ General cluster categories (adapt to the project):
 - **ui** — Frontend components, pages, visualizations
 - **misc** — Items that don't clearly fit
 
-Collision scheduling: compare the likely paths for every pair of proposed slices.
-Shared paths are a scheduling collision. Record whether the slices will use isolated
-worktrees or run sequentially; do not force them into one batch. Slices without a
-collision may run in parallel. A batch has no numeric item cap: its boundary is the
-delivery-slice completion criterion.
+Collision scheduling: compare the likely paths for every pair of proposed slices. For
+each scheduling collision, record whether the slices will use isolated worktrees or run
+sequentially. Apply the remaining collision and batch-boundary rules from
+`references/work-readiness.md`.
 
 For multi-repo projects, also route each item to its target repo based on the product context.
 
