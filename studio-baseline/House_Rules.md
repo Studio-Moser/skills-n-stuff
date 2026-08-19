@@ -82,6 +82,16 @@ Applies to docs, notes, specs, and any file you create whose name you control.
 - **Never default to ALL CAPS.** `SUMMARY.md` → `Summary.md`, `NOTES.md` → `Notes.md`.
 - Exception: filenames fixed by tooling or ecosystem convention keep their mandated form — `README.md`, `CLAUDE.md`, `AGENTS.md`, `SKILL.md`, `LICENSE`, `Makefile`, etc.
 
+## Change class
+
+Size the ceremony to the change. Name the class in one line before you start ("Polish: gates at the checkpoint") so the human can override it in one word. When unsure, say the class and take the smaller one.
+
+- **Polish** — styling, spacing, copy, one file, no logic change, reversible in seconds. No brainstorm, no plan, no sub-agent. Edit, verify the one thing that shows it (a screenshot, a targeted check), keep going. The suite, the review, and the commit run **once at the checkpoint** — when the human says commit / PR / done, or the batch first touches logic — not after every edit.
+- **Small** — one bug or one behavior with a clear spec, roughly three files or fewer. No brainstorm. A bug goes through systematic debugging; new behavior gets a test for that one behavior. Targeted tests as you go, the full suite before the commit, one reviewer.
+- **Feature** — new behavior across files, design choices to make, or anything touching money, security, data, or auth. Brainstorm → plan → guided implementation → review, every gate.
+
+Escalators: a polish change that needs logic becomes Small. Security, data, payment, or auth is never Polish. A class never skips a gate it requires; it decides which gates apply and when they run.
+
 ## Implementation discipline
 
 - Take the shortest diff that fully solves the task. Reuse existing code, the stdlib, and native platform features before adding anything new.
@@ -93,7 +103,7 @@ Applies to docs, notes, specs, and any file you create whose name you control.
 
 - Establish a baseline first: run the existing suite before you change anything.
 - Add tests for new behavior. Cover the obvious edge cases (empty, error, boundary).
-- Run the suite after your change and **show the output** — never claim "tests pass" without pasting evidence.
+- Run the suite before you commit — once per checkpoint for a polish batch, not after every edit — and **show the output**; never claim "tests pass" without pasting evidence.
 - If tests fail, fix them before opening the PR.
 
 ## Verification

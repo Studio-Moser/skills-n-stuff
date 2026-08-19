@@ -4,7 +4,8 @@ description: >-
   Use when someone wants to implement a feature, fix a known bug, or make a focused
   code change in the current repo and be guided through it — including small or quick
   changes (a button, a one-line fix), which still go through the guided workflow
-  rather than being done ad hoc. Especially for teammates newer to the codebase or to
+  rather than being done ad hoc; a polish batch (styling/copy, no logic) runs the
+  gates once at the checkpoint instead of per edit. Especially for teammates newer to the codebase or to
   dev workflow. Triggers include "implement…", "fix this…", "add…", "build…",
   "patch…", "wire up…", "refactor this…", or /pm:dev-task.
   Do NOT use for: batching a backlog or sprint (use pm:sprint-dev), open-ended design
@@ -19,7 +20,7 @@ Guide ONE person through ONE development task, foreground and interactive, the S
 
 **REQUIRED SUB-SKILL:** Use pm:house-rules for all branch/commit/PR/test/security conventions. Do not restate them — defer.
 
-**Foundational rule:** Violating the letter of a gate is violating its spirit. "It's small" / "I'm in a hurry" are not exemptions.
+**Foundational rule:** Violating the letter of a gate is violating its spirit. "It's small" / "I'm in a hurry" are not exemptions. What *is* allowed is the **change class** from the house rules (Polish / Small / Feature): name it first; a **Polish** batch — styling, spacing, copy, no logic — runs the suite, the review, and the commit once at the checkpoint (when the user says commit / PR / done, or the batch first touches logic), not after every edit; Small and Feature run the gates as written below.
 
 ## When to use this vs. alternatives
 
