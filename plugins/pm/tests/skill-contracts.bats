@@ -498,3 +498,147 @@ PY
   fi
   [ "$status" -eq 0 ]
 }
+
+@test "ingest preserves source claims and loads only the selected backend procedure" {
+  run python3 - "$REPO" <<'PY'
+from pathlib import Path
+import sys
+
+repo = Path(sys.argv[1])
+skill = (repo / "plugins/pm/skills/ingest/SKILL.md").read_text()
+analyst = (repo / "plugins/pm/agents/ingestion-analyst.md").read_text()
+references = {
+    name: repo / f"plugins/pm/references/ingest-{name}.md"
+    for name in ("github", "local", "trello")
+}
+
+failures = []
+for name, path in references.items():
+    if not path.is_file():
+        failures.append(f"missing {path.relative_to(repo)}")
+
+for label, text in (("ingest", skill), ("ingestion analyst", analyst)):
+    normalized = " ".join(text.split()).lower()
+    for field in ("evidence", "proposed outcome", "rationale", "source", "confidence", "target repo"):
+        if field not in normalized:
+            failures.append(f"{label} omits {field}")
+    for stale_field in ("suggested_size", "suggested_priority"):
+        if stale_field in text:
+            failures.append(f"{label} still promotes source advice through {stale_field}")
+
+normalized_skill = " ".join(skill.split()).lower()
+for phrase in (
+    "references/ingest-${backend}.md",
+    "load exactly one",
+    "do not load any other ingest backend reference",
+    "proposal, not a commitment",
+):
+    if phrase.lower() not in normalized_skill:
+        failures.append(f"ingest dispatch omits: {phrase}")
+
+for backend_marker in (
+    "gh issue list",
+    "gh issue create",
+    "mcp__trello__get_cards_by_list_id",
+    "mcp__trello__add_card_to_list",
+    'items_dir="$primary_repo_root/',
+):
+    if backend_marker in skill:
+        failures.append(f"ingest keeps backend procedure inline: {backend_marker}")
+
+if all(path.is_file() for path in references.values()):
+    texts = {name: path.read_text() for name, path in references.items()}
+    required = {
+        "github": ("gh issue list", "gh issue create"),
+        "local": (".pm/items", "item_file", "status/needs-triage"),
+        "trello": ("mcp__trello__get_cards_by_list_id", "mcp__trello__add_card_to_list"),
+    }
+    for name, needles in required.items():
+        missing = [needle for needle in needles if needle not in texts[name]]
+        if missing:
+            failures.append(f"{name} ingest reference omits: {', '.join(missing)}")
+    contamination = {
+        "github": ("mcp__trello__", ".pm/items/"),
+        "local": ("gh issue ", "mcp__trello__"),
+        "trello": ("gh issue ", ".pm/items/"),
+    }
+    for name, forbidden in contamination.items():
+        found = [needle for needle in forbidden if needle in texts[name]]
+        if found:
+            failures.append(f"{name} ingest reference contains another backend: {', '.join(found)}")
+
+if failures:
+    print("invalid ingest disclosure contract: " + "; ".join(failures))
+    raise SystemExit(1)
+PY
+  if [ "$status" -ne 0 ]; then
+    echo "$output"
+  fi
+  [ "$status" -eq 0 ]
+}
+
+@test "setup loads one backend reference and keeps backend procedures behind it" {
+  run python3 - "$REPO" <<'PY'
+from pathlib import Path
+import sys
+
+repo = Path(sys.argv[1])
+skill = (repo / "plugins/pm/skills/setup/SKILL.md").read_text()
+references = {
+    name: (repo / f"plugins/pm/references/setup-{name}.md").read_text()
+    for name in ("github", "local", "trello")
+}
+
+failures = []
+normalized = " ".join(skill.split()).lower()
+for phrase in (
+    "references/setup-${backend}.md",
+    "load exactly one",
+    "do not load another setup backend reference",
+):
+    if phrase.lower() not in normalized:
+        failures.append(f"setup dispatch omits: {phrase}")
+
+for backend_marker in (
+    "gh label create",
+    "mcp__trello__list_boards",
+    "mcp__trello__add_list_to_board",
+    "TRELLO_API_KEY",
+    "backend: trello",
+    "setup-github-projects.md",
+):
+    if backend_marker in skill:
+        failures.append(f"setup keeps backend procedure inline: {backend_marker}")
+
+required = {
+    "github": ("## Generate .pm/config.yml", "gh label create", "setup-github-projects.md"),
+    "local": ("## Generate .pm/config.yml", ".pm/items"),
+    "trello": ("## Generate .pm/config.yml", "backend: trello", "mcp__trello__list_boards", "mcp__trello__add_list_to_board"),
+}
+for name, needles in required.items():
+    missing = [needle for needle in needles if needle not in references[name]]
+    if missing:
+        failures.append(f"{name} setup reference omits: {', '.join(missing)}")
+
+if "only if the user wants" not in references["github"].lower():
+    failures.append("GitHub setup does not gate the optional Projects reference")
+
+contamination = {
+    "github": ("mcp__trello__", ".pm/items/"),
+    "local": ("gh label create", "mcp__trello__"),
+    "trello": ("gh label create", ".pm/items/"),
+}
+for name, forbidden in contamination.items():
+    found = [needle for needle in forbidden if needle in references[name]]
+    if found:
+        failures.append(f"{name} setup reference contains another backend: {', '.join(found)}")
+
+if failures:
+    print("invalid setup disclosure contract: " + "; ".join(failures))
+    raise SystemExit(1)
+PY
+  if [ "$status" -ne 0 ]; then
+    echo "$output"
+  fi
+  [ "$status" -eq 0 ]
+}
