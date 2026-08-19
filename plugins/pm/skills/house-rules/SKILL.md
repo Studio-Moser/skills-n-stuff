@@ -11,6 +11,7 @@ Studio Moser conventions for code changes. **Canonical source:** [`studio-baseli
 - **Commits:** Conventional Commits, present tense, one logical change each.
 - **PRs:** imperative title < 72 chars; body always `## What` / `## Why` / `## Testing`; one PR per task.
 - **File naming:** Title Case with spaces; underscores when spaces can't be used; dashes only for version/topic segments; never default to ALL CAPS; tooling-fixed names (`README.md`, `SKILL.md`, …) keep their form.
+- **Change class:** name it first (Polish / Small / Feature); Polish — styling/copy, no logic — runs suite, review, and one commit at the checkpoint, not per edit; security/auth/payment/data-model flows are never Polish; a class never skips a gate it requires.
 - **Implementation discipline:** shortest diff that fully solves it; reuse existing code / stdlib / platform first; no speculative abstractions or unrequested refactors; fix the root cause, not the symptom.
 - **Testing:** baseline first, add tests for new behavior, show pasted output — never claim "passing" without evidence.
 - **Verification:** self-review is a first draft, not proof; an independent check reproduces the claimed result; dispute wrong findings rather than distorting correct code.
