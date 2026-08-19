@@ -10,8 +10,8 @@ Run each scenario with a fresh-context agent after the implementation commit:
 1. Start a new agent context with no implementation conversation, report, or prior eval
    output for the scenario under test.
 2. Give it the scenario's `Prompt` verbatim. Before answering, the agent must read the
-   current `plugins/pm/skills/triage/SKILL.md` and every reference that skill routes to
-   for the scenario. It must not rely on a summary of those files.
+   skill or agent named by the scenario's `Prompt` and every reference it routes to for
+   that scenario. It must not rely on a summary of those files.
 3. Keep the run dry: do not mutate a real tracker or project. The only permitted write
    is the scenario's observed result artifact.
 4. Have the fresh agent write that artifact at the listed path. It must include the

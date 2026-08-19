@@ -307,18 +307,39 @@ required = {
     ),
 }
 failures = []
+protocol_start = text.find("## Evaluation protocol")
+protocol_end = text.find("\n## ", protocol_start + 1)
+protocol_section = text[protocol_start:protocol_end]
 protocol = (
     "## Evaluation protocol",
     "fresh-context",
-    "read the current `plugins/pm/skills/triage/SKILL.md`",
+    "skill or agent named by the scenario's `Prompt`",
+    "every reference it routes to",
     "observed result artifact",
     "commit SHA",
     "controller appends each pass criterion",
 )
 normalized_text = " ".join(text.split()).lower()
-missing_protocol = [needle for needle in protocol if needle.lower() not in normalized_text]
+normalized_protocol = " ".join(protocol_section.split()).lower()
+missing_protocol = [needle for needle in protocol if needle.lower() not in normalized_protocol]
 if missing_protocol:
     failures.append("protocol: " + ", ".join(missing_protocol))
+if "plugins/pm/skills/triage/SKILL.md".lower() in normalized_protocol:
+    failures.append("protocol hard-codes the triage route for every scenario")
+
+route_contracts = {
+    "triage": ("## Unverified bug triage", "/pm:triage", "routed references"),
+    "sprint": ("## Colliding sprint items", "/pm:sprint-dev", "local sprint backend reference"),
+    "review": ("## Schema-changing review", "plugins/pm/agents/code-reviewer.md", "every reference it routes to"),
+}
+for label, (section_heading, *needles) in route_contracts.items():
+    start = text.find(section_heading)
+    end = text.find("\n## ", start + 1)
+    section = text[start:] if end == -1 else text[start:end]
+    normalized_section = " ".join(section.split()).lower()
+    missing = [needle for needle in needles if needle.lower() not in normalized_section]
+    if start == -1 or missing:
+        failures.append(f"{label} route: " + ", ".join(missing or [section_heading]))
 for label, needles in required.items():
     start = text.find(needles[0])
     if start == -1:
