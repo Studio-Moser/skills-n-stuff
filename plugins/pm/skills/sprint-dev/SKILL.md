@@ -353,9 +353,15 @@ Three or more independent batches is the case for a dynamic workflow instead of 
 
 ### 2C. Independent Check & Fix Loop
 
-The sub-agent's own "done / tests pass" is a **claim, not proof** — it self-reviewed and self-verified, so it can't be the final word. Every PR gets an independent check that re-executes the work, and findings loop back until the check actually passes.
+Load `references/review-proof.md` and use it as the source of truth for the review
+target, report, evidence, and completion gate. Give the same independent reviewer the
+approved requirements and current `Testing Seam` proof. Findings loop back to the
+implementer until the reference's completion conditions hold for the current fixed
+point or the PR is reported as blocked.
 
-After each sub-agent creates its PR, run the `code-review` skill against that PR. The review **re-runs the project's verification itself** (build/tests/lint/typecheck) rather than trusting the sub-agent's reported result, and scores each issue 0-100 for confidence (0 = false positive, 25 = somewhat, 50 = moderate, 75 = high, 100 = certain).
+After each sub-agent creates its PR, run the `code-review` skill against that PR. Keep
+the existing one-reviewer policy. Score each issue 0-100 for confidence (0 = false
+positive, 25 = somewhat, 50 = moderate, 75 = high, 100 = certain).
 
 **Filter**: keep issues with a confidence score **above 24** (i.e., 25+).
 
@@ -374,10 +380,13 @@ Report inline:
 
 ```
 Independent Check: {cluster}
+  Fixed point: {base/head SHAs or snapshot digest}
+  Axes: {contract report summary}
   Issues found: {N}   Above threshold (>24): {N}
   Round 1 fixed: {N}  disputed: {N}
   Round 2 fixed: {N}  disputed: {N}   (only if a 2nd round ran)
   Re-check: {clean / N residual}
+  Completion: {complete / blocked and missing proof}
   Verify output: {pass/fail, pasted}
 ```
 

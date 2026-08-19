@@ -399,3 +399,81 @@ PY
   fi
   [ "$status" -eq 0 ]
 }
+
+@test "review consumers use one fixed-point and blast-radius proof contract" {
+  run python3 - "$REPO" <<'PY'
+from pathlib import Path
+import sys
+
+repo = Path(sys.argv[1])
+reference_path = repo / "plugins/pm/references/review-proof.md"
+if not reference_path.is_file():
+    print(f"missing reference: {reference_path.relative_to(repo)}")
+    raise SystemExit(1)
+
+reference = reference_path.read_text()
+consumers = {
+    "code-reviewer": (repo / "plugins/pm/agents/code-reviewer.md").read_text(),
+    "codex-review": (repo / "plugins/pm/skills/codex-review/SKILL.md").read_text(),
+    "dev-task": (repo / "plugins/pm/skills/dev-task/SKILL.md").read_text(),
+    "sprint-dev": (repo / "plugins/pm/skills/sprint-dev/SKILL.md").read_text(),
+}
+evaluation = (repo / "plugins/pm/evals/PM Skill Eval.md").read_text()
+
+failures = []
+required_reference = {
+    "consumer pointers": "## Consumer pointers",
+    "fixed point": "## Fixed point",
+    "quality axis": "### Quality",
+    "spec axis": "### Spec fidelity",
+    "blast-radius axis": "### Blast radius",
+    "persisted-schema trigger": "Persisted data, schema, or migration",
+    "public-contract trigger": "Public API, protocol, wire format, or serialization",
+    "security trigger": "Authentication, authorization, permissions, or another security boundary",
+    "shared-runtime trigger": "Shared runtime, dependency, build, deployment, or configuration behavior",
+    "direct evidence": "Direct proof",
+    "supporting evidence": "Supporting evidence",
+    "unproven evidence": "Unproven",
+    "central assumption": "central safety assumption",
+    "completion": "## Completion conditions",
+    "reopen rule": "reopens review",
+}
+missing = [label for label, needle in required_reference.items() if needle not in reference]
+if missing:
+    failures.append("reference: " + ", ".join(missing))
+
+for label, text in consumers.items():
+    if "references/review-proof.md" not in text:
+        failures.append(f"{label} does not load review-proof")
+
+for label, text in consumers.items():
+    for heading in ("## Fixed point", "### Quality", "### Spec fidelity", "### Blast radius"):
+        if heading in text:
+            failures.append(f"{label} duplicates canonical definition: {heading}")
+
+eval_start = evaluation.find("## Schema-changing review")
+if eval_start == -1:
+    failures.append("schema-review eval section missing")
+else:
+    eval_section = evaluation[eval_start:]
+    for needle in (
+        "### Prompt",
+        "Schema Review Result.md",
+        "3333333333333333333333333333333333333333",
+        "fresh-install",
+        "upgrade-from-V1",
+        "central safety assumption",
+        "### Pass criteria",
+    ):
+        if needle.lower() not in eval_section.lower():
+            failures.append(f"schema-review eval omits {needle}")
+
+if failures:
+    print("invalid review-proof contract: " + "; ".join(failures))
+    raise SystemExit(1)
+PY
+  if [ "$status" -ne 0 ]; then
+    echo "$output"
+  fi
+  [ "$status" -eq 0 ]
+}

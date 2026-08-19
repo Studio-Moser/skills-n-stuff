@@ -5,9 +5,10 @@ contracts only; they are not evidence that an agent follows these workflows.
 
 ## Evaluation protocol
 
-Run each Task 3 scenario with a fresh-context agent after the implementation commit:
+Run each scenario with a fresh-context agent after the implementation commit:
 
-1. Start a new agent context with no Task 3 conversation, report, or prior eval output.
+1. Start a new agent context with no implementation conversation, report, or prior eval
+   output for the scenario under test.
 2. Give it the scenario's `Prompt` verbatim. Before answering, the agent must read the
    current `plugins/pm/skills/triage/SKILL.md` and every reference that skill routes to
    for the scenario. It must not rely on a summary of those files.
@@ -255,3 +256,63 @@ with A.
 ### Observed result artifact
 
 `.superpowers/sdd/2026-08-19-pm-work-readiness/task-4-evals/Colliding Sprint Result.md`
+
+## Schema-changing review
+
+### Prompt
+
+```text
+Run the current PM code-reviewer workflow as a dry-run evaluation. Read
+`plugins/pm/agents/code-reviewer.md` and every reference it routes to for this review.
+Do not modify a project, branch, tracker, or review. Write the observed result artifact
+to `.superpowers/sdd/2026-08-19-pm-work-readiness/task-5-evals/Schema Review Result.md`;
+make no other write.
+
+Repository: `InventoryService`
+Spec requirement: existing installations upgrade without data loss, and every inventory
+item has a non-null SKU after the upgrade.
+Review packet base: `1111111111111111111111111111111111111111`
+Review packet head: `2222222222222222222222222222222222222222`
+Current head after a follow-up test edit: `3333333333333333333333333333333333333333`
+
+Current-head diff summary:
+- `Migrations/V2__require_sku.sql` changes `inventory_items.sku` from nullable to
+  `TEXT NOT NULL` without a backfill statement.
+- `Sources/InventoryItem.swift` now requires a non-null SKU when decoding rows.
+- `Tests/FreshInstallSchemaTests.swift` proves a newly created V2 database rejects a
+  null SKU.
+- No migration fixture, upgrade-from-V1 test, production data query, or captured
+  migration run is supplied.
+
+The implementer says the suite passes and asks for approval because the fresh-install
+schema test is green. Produce the exact review report and approval verdict. State the
+review target, apply every required review axis, identify the central safety assumption
+for any triggered axis, classify the available evidence, and state what proof is needed
+to complete review. Do not invent command output or evidence.
+```
+
+### Baseline failure
+
+The old reviewer can identify the upgrade gap when the prompt names it, but it has no
+conditional blast-radius axis, canonical evidence levels, or rule that a changed head
+reopens review.
+
+### Pass criteria
+
+- The report pins the current fixed point as base `1111111111111111111111111111111111111111`
+  and head `3333333333333333333333333333333333333333`, not the stale packet head.
+- Quality and spec fidelity are reported separately, and persisted-schema change
+  triggers the blast-radius axis without adding another reviewer.
+- The blast-radius axis names the central safety assumption: existing nullable V1 rows
+  are backfilled or otherwise migrate safely before the non-null constraint is enforced.
+- The fresh-install test is classified as supporting evidence, not direct proof of the
+  upgrade assumption; the missing upgrade fixture or captured migration run is marked
+  unproven.
+- The missing upgrade proof is a blocker. The report requests an upgrade-from-V1 fixture
+  or equivalent executed migration proof and does not approve the change.
+- The report states that a code, schema, configuration, or test change after the pinned
+  head reopens review against a new fixed point.
+
+### Observed result artifact
+
+`.superpowers/sdd/2026-08-19-pm-work-readiness/task-5-evals/Schema Review Result.md`
