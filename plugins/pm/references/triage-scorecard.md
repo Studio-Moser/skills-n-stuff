@@ -29,7 +29,7 @@ The agent returns a per-criterion PASS/FAIL with explanations and a verdict.
 ```
 Agent-Ready Scorecard:
 1. [ ] Clear description (what, not how)
-2. [ ] Explicit acceptance criteria and Testing Seam selection
+2. [ ] Explicit acceptance criteria and Testing Seam
 3. [ ] Linked code references with target repo
 4. [ ] Negative constraints (cross-refs .pm/out-of-scope/)
 5. [ ] Bounded scope (one delivery slice, one repo, explicit Blockers)
@@ -39,9 +39,9 @@ Agent-Ready Scorecard:
 ## Readiness gate
 
 Before applying a numeric verdict, apply every applicable completion condition from
-`references/work-readiness.md` without substituting a local definition. Also require
-`Seam Selection` to identify the highest stable existing boundary. If the spec chooses
-a lower boundary or adds a new seam, require a concrete reason for that choice.
+`references/work-readiness.md` without substituting a local definition. Require the
+`Testing Seam` value to identify the highest stable existing boundary. If it chooses a
+lower boundary or adds a new seam, that same value must include a concrete reason.
 
 If any check fails, the readiness gate is `FAIL` and the verdict is `needs-info`
 regardless of the numeric score. A user may supply evidence or fix the spec and rescore,

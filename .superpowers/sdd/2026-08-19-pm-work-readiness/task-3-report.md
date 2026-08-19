@@ -68,23 +68,6 @@ numeric score outside 4-5/6. It was not applied because the binding design prese
 approval behavior; the new non-bypassable readiness gate supplies the required safety.
 The second CodeRabbit review returned zero findings.
 
-## Behavioral evaluations
-
-Ran deterministic walkthrough checks against the consumer instructions:
-
-```text
-PASS: unverified bug (4/4 conditions)
-PASS: L feature (3/3 conditions)
-PASS: XL split (4/4 conditions)
-```
-
-- The unverified bug stops before design, records observed behavior separately from the
-  cache-cause hypothesis, and cannot pass the readiness gate.
-- The L feature has one outcome with the four required slice fields and splits any
-  independent outcome into a separate item.
-- The XL item becomes a goal epic whose child slices carry blocking edges and are scored
-  independently; the parent is never dispatched.
-
 ## GREEN
 
 Commands:
@@ -132,14 +115,13 @@ git diff --check: no whitespace errors
 - **I2:** GitHub, local, and Trello now have backend-specific XL parent conversion,
   child creation, initial state, relationship, blocker-ID, and Phase 3 return paths.
   Existing parent relationships are idempotent in Phase 4.
-- **I3:** Specs include `Seam Selection`; the scorecard requires the highest stable
-  existing boundary or a concrete reason for a lower or new seam.
+- **I3:** The scorecard requires the highest stable existing boundary or a concrete
+  reason for a lower or new seam. The temporary extra field was removed in Fix Round 2.
 - **I4:** The template and spec flow expose canonical field names with `{value}` only.
   Their meanings remain in `references/work-readiness.md`; the prior Proof and Blockers
   guidance was removed.
-- **M1:** Focused contracts cover each defect with whitespace-insensitive checks where
-  Markdown wrapping is irrelevant. The eval now records reproducible commands for the
-  unverified-bug, L-feature, and XL cases.
+- **M1:** Focused structural contracts cover each defect with whitespace-insensitive
+  checks where Markdown wrapping is irrelevant. Behavioral execution is separate.
 
 ### RED
 
@@ -165,13 +147,6 @@ scorecard/evaluator do not enforce the preferred seam or exception reason;
 flow/template contain drifting Established, Unresolved, Blockers, and Proof guidance
 ```
 
-The behavioral-artifact contract was then added before the eval cases:
-
-```text
-not ok 1 PM readiness eval records reproducible triage walkthroughs
-missing reproducible PM eval: unverified bug command; L feature case/command; XL split case/command
-```
-
 Manual flow tracing found that Phase 4 could write an XL parent relationship a second
 time. Its assertion failed before the idempotency rule was added:
 
@@ -182,39 +157,13 @@ incomplete XL backend contract: shared flow does not make existing XL parent lin
 
 ### GREEN
 
-Focused contract:
-
-```text
-1..6
-ok 1 work-readiness reference defines the readiness rules and consumer routes
-ok 2 triage and specs consume work-readiness before design and preserve slice fields
-ok 3 readiness notes require explicit approval before persistence
-ok 4 XL splitting has executable procedures for every triage backend
-ok 5 spec consumers enforce seam selection without redefining readiness fields
-ok 6 PM readiness eval records reproducible triage walkthroughs
-```
+Focused structural contracts: 6/6 passed.
 
 PM suite:
 
 ```text
 1..35
 all 35 tests passed
-```
-
-Reproducible behavioral commands:
-
-```sh
-bats --filter "readiness notes require explicit approval" plugins/pm/tests/skill-contracts.bats
-bats --filter "spec consumers enforce seam selection" plugins/pm/tests/skill-contracts.bats
-bats --filter "XL splitting has executable procedures" plugins/pm/tests/skill-contracts.bats
-```
-
-Result:
-
-```text
-unverified bug: 1/1 passed
-L feature: 1/1 passed
-XL split: 1/1 passed
 ```
 
 ### Fix-round changed files
@@ -243,3 +192,69 @@ XL split: 1/1 passed
 - CodeRabbit review was attempted on the uncommitted fix diff but the service returned
   its free-CLI rate limit. Manual diff and flow review found and fixed the duplicate
   parent-link write described above.
+
+## Fix Round 2
+
+### Findings addressed
+
+- **M1:** Bats is now described and used only as structural protection. The three Task
+  3 eval cases contain complete dry-run prompts, observable pass criteria, and a
+  protocol requiring a fresh-context agent to read the current skill and routed
+  references before writing a result artifact. The controller will run those scenarios
+  after this commit.
+- **N1:** Removed the non-canonical extra seam field from every consumer. The canonical
+  `Testing Seam` value carries the boundary choice and, when a lower or new seam is
+  selected, its concrete rationale.
+
+### RED
+
+After changing the structural contracts first:
+
+```text
+1..6
+ok 1 work-readiness reference defines the readiness rules and consumer routes
+ok 2 triage and specs consume work-readiness before design and preserve slice fields
+ok 3 readiness notes require explicit approval before persistence
+ok 4 XL splitting has executable procedures for every triage backend
+not ok 5 spec consumers enforce the canonical testing seam without adding fields
+invalid seam/field consumer contract: flow, template, scorecard, and evaluator use a
+non-canonical extra field
+not ok 6 PM readiness eval defines fresh-context behavioral scenarios
+invalid PM behavioral eval contract: protocol, complete prompts, pass criteria, and
+artifact paths missing; eval mislabels structural checks as behavior
+```
+
+### GREEN
+
+Commands:
+
+```sh
+bats plugins/pm/tests/skill-contracts.bats
+plugins/pm/tests/run-tests.sh
+git diff --check
+```
+
+Result:
+
+```text
+focused structural contracts: 6/6 passed
+PM suite: 35/35 passed
+git diff --check: no whitespace errors
+```
+
+Fresh-agent behavioral results are intentionally not claimed here. The controller must
+run the committed prompts and inspect the observed artifacts listed in
+`plugins/pm/evals/PM Skill Eval.md`.
+
+### Fix-round self-review
+
+- Confirmed the extra field is absent from the triage skill, spec flow, template,
+  scorecard, and evaluator.
+- Confirmed highest-stable-boundary selection and lower/new-seam rationale remain part
+  of `Testing Seam` evaluation.
+- Confirmed the eval contains no Bats commands or structural-pass claims.
+- Confirmed each prompt fixes its backend, item data, evidence, approvals, requested
+  output, pass criteria, and observed artifact path.
+- CodeRabbit review was attempted on the uncommitted Fix Round 2 diff but remained
+  rate-limited. Manual review found and fixed the prompt's artifact-write contradiction
+  and assigned raw observation to the fresh agent while the controller owns grading.

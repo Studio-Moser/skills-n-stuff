@@ -262,8 +262,8 @@ For items that survived Phase 1, determine which need speccing and which can ski
 ### Classify by size
 
 - **S-sized items** with a clear, complete description that already represents one
-  delivery slice and names its `Outcome`, `Blockers`, `Testing Seam`, `Seam Selection`,
-  and `Proof`: skip speccing and proceed directly to Phase 3.
+  delivery slice and names its `Outcome`, `Blockers`, `Testing Seam`, and `Proof`: skip
+  speccing and proceed directly to Phase 3.
 - **M/L/XL items** or any item with an unclear/incomplete description: run the full spec creation flow.
 
 Present the classification to the user:

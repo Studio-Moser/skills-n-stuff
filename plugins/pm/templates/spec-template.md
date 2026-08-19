@@ -50,10 +50,6 @@ Field meanings: `references/work-readiness.md`.
 
 {value}
 
-### Seam Selection
-
-{value}
-
 ### Proof
 
 {value}

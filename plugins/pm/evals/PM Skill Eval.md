@@ -1,48 +1,191 @@
 # PM Skill Eval
 
-Behavioral pressure scenarios for PM workflow changes. Record the initial failure before changing a consumer and record the passing result after integration.
+Behavioral pressure scenarios for PM workflow changes. Bats tests are structural
+contracts only; they are not evidence that an agent follows these workflows.
+
+## Evaluation protocol
+
+Run each Task 3 scenario with a fresh-context agent after the implementation commit:
+
+1. Start a new agent context with no Task 3 conversation, report, or prior eval output.
+2. Give it the scenario's `Prompt` verbatim. Before answering, the agent must read the
+   current `plugins/pm/skills/triage/SKILL.md` and every reference that skill routes to
+   for the scenario. It must not rely on a summary of those files.
+3. Keep the run dry: do not mutate a real tracker or project. The only permitted write
+   is the scenario's observed result artifact.
+4. Have the fresh agent write that artifact at the listed path. It must include the
+   commit SHA under evaluation, files read, full observed response/transcript, proposed
+   tracker writes, and observed outcome.
+5. The controller appends each pass criterion marked PASS or FAIL with evidence and the
+   overall result. Missing output, inferred behavior, or a response that only quotes
+   the skill is a failure.
 
 ## Unverified bug triage
 
-**Scenario:** A report says a recent cache change causes duplicate invoices. The report includes the visible duplicate behavior and a suspected cache invalidation cause, but no reproduction or code-path evidence.
+### Prompt
 
-**Baseline failure:** The current flow can turn the suspected cause into a complete, passing spec before checking the behavior. Its scorecard can award 6/6 to that speculative spec.
+```text
+Run the current /pm:triage workflow as a dry-run evaluation. Read the current skill and
+its routed references first. Do not modify a real tracker or project files. Write the
+observed result artifact to
+`.superpowers/sdd/2026-08-19-pm-work-readiness/task-3-evals/Unverified Bug Result.md`;
+make no other write.
 
-**Pass condition:** Triage records the duplicate invoices as observed behavior, keeps cache invalidation unresolved unless evidence confirms it, and verifies the behavior before choosing an implementation approach or marking the item ready.
+Backend: GitHub
+Project context: Billing service in repo `billing-app`.
+Item: #184, "Duplicate invoices after payment retry"
+Labels: status/needs-triage, bug, size/L, repo/billing-app
+Body:
+  Support observed order `ord_77` produce invoices `inv_841` and `inv_842` after one
+  payment retry. The report says a cache change deployed yesterday probably stopped
+  invoice-key invalidation. There are no reproduction steps, failing tests, traces, or
+  inspected code paths. Verification does not require unavailable hardware,
+  credentials, or a long-running environment.
 
-**Reproducible check:**
-`bats --filter "readiness notes require explicit approval" plugins/pm/tests/skill-contracts.bats`
+Scripted user response for sorting: accept KEEP.
+
+Show the exact dry-run triage output through the point where this item is either allowed
+to enter design or stopped. Include the staged Readiness Notes, the approval question,
+proposed tracker writes, whether an implementation approach is chosen, and the
+readiness verdict. Do not invent evidence or a user approval that is not supplied.
+```
+
+### Baseline failure
+
+The old flow can turn the cache invalidation guess into a complete, passing spec before
+checking the behavior.
+
+### Pass criteria
+
+- The agent loads the current work-readiness reference before verification or design.
+- The visible duplicate-invoice report is kept separate from the cache invalidation
+  hypothesis; the hypothesis remains unresolved.
+- The notes are staged and shown with the explicit approval question. No proposed
+  tracker write occurs without a user answer.
+- Because the observed behavior is not verified and verification is practical, the
+  item stops before brainstorming or an implementation approach and remains
+  `needs-info` / `status/needs-triage`.
+- The agent does not award a ready verdict regardless of numeric score.
+
+### Observed result artifact
+
+`.superpowers/sdd/2026-08-19-pm-work-readiness/task-3-evals/Unverified Bug Result.md`
 
 ## L feature
 
-**Scenario:** An L-sized account-export feature has an existing UI-to-download flow that
-can prove its user-visible outcome. A draft plan proposes several implementation chunks
-and a new lower-level unit-test seam.
+### Prompt
 
-**Baseline failure:** The old spec shape can accept the chunks without one delivery
-slice, explicit blockers, or any reason for ignoring the existing stable flow.
+```text
+Run the current /pm:triage workflow as a dry-run evaluation. Read the current skill and
+its routed references first. Do not modify a real tracker or project files. Write the
+observed result artifact to
+`.superpowers/sdd/2026-08-19-pm-work-readiness/task-3-evals/L Feature Result.md`; make
+no other write.
 
-**Pass condition:** The spec contains one delivery slice and all required readiness
-fields. It selects the highest stable existing boundary, or records a concrete reason
-for choosing a lower or new seam.
+Backend: local
+Project context: Web application in repo `account-app`.
+Item file: `.pm/items/52-account-export.yml`
+Title: "Download account data as CSV"
+Labels: status/needs-triage, size/L
+Requested outcome: From Account Settings, a signed-in user can request an export and
+receive one CSV containing their profile and transaction rows.
+Existing code references:
+  - `account-app/src/settings/AccountExport.tsx` owns the user action.
+  - `account-app/src/api/export.ts` owns the download request.
+  - `account-app/tests/account-export.spec.ts` already drives Account Settings through
+    the downloaded file and asserts its visible CSV headers.
+Draft suggestion: add a new serializer unit-test seam instead of extending the existing
+UI-to-download flow.
+Known blockers: none.
 
-**Reproducible check:**
-`bats --filter "spec consumers enforce seam selection" plugins/pm/tests/skill-contracts.bats`
+Scripted user responses: accept KEEP; approve the displayed Readiness Notes; approve
+the speccing order. Do not approve final promotion automatically.
+
+Produce the exact proposed spec and scorecard output. Show one delivery slice, all
+canonical readiness fields, the chosen Testing Seam with procedure and expected result,
+and the verdict. Do not add fields that are absent from work-readiness.md.
+```
+
+### Baseline failure
+
+The old spec shape can accept implementation chunks without one delivery slice,
+explicit blockers, or a stable testing boundary.
+
+### Pass criteria
+
+- The proposed item contains one delivery slice with `Outcome`, `Blockers`, `Testing
+  Seam`, and `Proof` values and does not add `Seam Selection`.
+- `Testing Seam` chooses `tests/account-export.spec.ts` as the highest stable existing
+  boundary and names a procedure and expected result.
+- If the agent instead chooses the lower/new unit seam, the `Testing Seam` value itself
+  contains a concrete reason; rationale is not stored in a new field.
+- Implementation chunks remain steps inside the one outcome rather than independent
+  deliverables hidden in one item.
+- The scorecard evaluates the canonical fields and does not treat a mere seam name as
+  sufficient.
+
+### Observed result artifact
+
+`.superpowers/sdd/2026-08-19-pm-work-readiness/task-3-evals/L Feature Result.md`
 
 ## XL split
 
-**Scenario:** An XL identifier migration must expand a compatible schema, migrate
-callers in green batches, and contract the old path only after every caller moves.
+### Prompt
 
-**Baseline failure:** The old flow can leave the XL item as one oversized assignment
-and does not define how any backend creates, links, or returns its child identifiers.
+```text
+Run the current /pm:triage workflow as a dry-run evaluation. Read the current skill and
+its routed references first. Do not modify a real tracker or project files. Write the
+observed result artifact to
+`.superpowers/sdd/2026-08-19-pm-work-readiness/task-3-evals/XL Split Result.md`; make no
+other write.
 
-**Pass condition:** Triage creates a goal epic and blocker-first child slices. GitHub,
-local, and Trello each preserve their existing needs-triage state, record the epic
-relationship, and return child identifiers for independent scoring.
+Backend: local
+Items directory: `.pm/items`; highest existing numeric item ID: 118.
+Item file: `.pm/items/104-customer-identifier-migration.yml`
+Title: "Migrate customer identifiers from integers to UUIDs"
+Labels: status/needs-triage, size/XL
+Goal: Complete an identifier migration across the database, API, and web callers while
+keeping production green.
+Known caller groups:
+  - persistence compatibility layer and migration fixture
+  - API readers/writers
+  - web account and admin callers
+  - old integer path removal
+Required migration order: expand a compatible path, migrate callers in green batches,
+then contract the old path after all callers move.
 
-**Reproducible check:**
-`bats --filter "XL splitting has executable procedures" plugins/pm/tests/skill-contracts.bats`
+Scripted user responses: accept KEEP; approve the displayed Readiness Notes; approve
+the speccing order; approve the proposed XL split. Do not approve child promotion
+automatically.
+
+Show the exact proposed local-backend mutations and scorecard inputs without writing
+them. Include the converted parent, every child file/ID/initial label, parent link,
+blocking edges using actual child IDs, each child's canonical readiness fields and
+Testing Seam, and the Phase 3 carry-forward list.
+```
+
+### Baseline failure
+
+The old flow can leave the identifier migration as one oversized assignment and does
+not define how the backend creates, links, or returns child identifiers.
+
+### Pass criteria
+
+- Item 104 becomes a goal epic with the `epic` label only and is never scored or
+  dispatched as an implementation item.
+- The plan creates blocker-first child items starting at ID 119 for expand, caller
+  migration batches, and contract; every child remains `status/needs-triage` with
+  `parent_epic: 104`.
+- Blocking edges use created child IDs. The contract child is blocked until every
+  caller-migration child is complete.
+- Each child is one independently verifiable delivery slice with the canonical fields
+  and a Testing Seam appropriate to its outcome.
+- The returned `xl_child_ids` / Phase 3 list contains every child and excludes the epic.
+- No new tracker state or non-canonical readiness field is introduced.
+
+### Observed result artifact
+
+`.superpowers/sdd/2026-08-19-pm-work-readiness/task-3-evals/XL Split Result.md`
 
 ## Colliding sprint items
 

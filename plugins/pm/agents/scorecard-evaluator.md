@@ -19,11 +19,11 @@ Score each criterion as PASS or FAIL with a one-line explanation:
 
 1. **Clear description** — Does the item describe WHAT to build, not HOW? A good description states the desired outcome. A bad one prescribes implementation details without explaining the goal.
 
-2. **Explicit acceptance criteria and Testing Seam selection** — Are there specific,
-testable conditions that define "done"? Does `Seam Selection` identify the highest
-stable existing boundary? If it chooses a lower boundary or adds a new seam, FAIL
-unless it gives a concrete reason. Vague criteria like "works well" or "is performant"
-fail this check.
+2. **Explicit acceptance criteria and Testing Seam** — Are there specific, testable
+conditions that define "done"? Does `Testing Seam` identify the highest stable existing
+boundary? If it chooses a lower boundary or adds a new seam, FAIL unless that same value
+gives a concrete reason. Vague criteria like "works well" or "is performant" fail this
+check.
 
 3. **Linked code references** — Does the spec reference specific files, modules, or APIs in the target repo? An agent needs to know WHERE to start. References should include the target repo name for multi-repo projects.
 

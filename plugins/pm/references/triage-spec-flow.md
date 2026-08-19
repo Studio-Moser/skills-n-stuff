@@ -24,7 +24,7 @@ approach. It must not promote an `Unresolved` causal hypothesis into the approac
 After brainstorming produces a design direction, invoke the writing-plans skill. Pass the brainstorming output as context:
 
 ```
-Skill({ skill: "superpowers:writing-plans", args: "Write a spec for: {item title}\n\nEstablished: {value}\nUnresolved: {value}\nBrainstorming output: {brainstorm result summary}\nTarget repo: {repo path}\nRequired readiness fields: Outcome, Blockers, Testing Seam, Seam Selection, Proof\nField meanings: references/work-readiness.md" })
+Skill({ skill: "superpowers:writing-plans", args: "Write a spec for: {item title}\n\nEstablished: {value}\nUnresolved: {value}\nBrainstorming output: {brainstorm result summary}\nTarget repo: {repo path}\nRequired readiness fields: Outcome, Blockers, Testing Seam, Proof\nField meanings: references/work-readiness.md" })
 ```
 
 The writing-plans skill produces a structured implementation plan with tasks, code,
@@ -98,10 +98,6 @@ value; do not add local definitions.
 
 {value}
 
-### Seam Selection
-
-{value}
-
 ### Proof
 
 {value}
@@ -138,7 +134,6 @@ Spec complete for: {title}
   Chunks: {N}
   Slice: {Outcome}
   Testing seam: {Testing Seam}
-  Seam selection: {Seam Selection}
 
 Continue to next item? (yes / stop)
 ```

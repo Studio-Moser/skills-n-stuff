@@ -215,7 +215,7 @@ PY
   [ "$status" -eq 0 ]
 }
 
-@test "spec consumers enforce seam selection without redefining readiness fields" {
+@test "spec consumers enforce the canonical testing seam without adding fields" {
   run python3 - "$REPO" <<'PY'
 from pathlib import Path
 import sys
@@ -230,18 +230,20 @@ failures = []
 for label, text in (("flow", flow), ("template", template)):
     if "Field meanings: `references/work-readiness.md`" not in text:
         failures.append(f"{label} does not defer field meanings to work-readiness")
-    if "### Seam Selection" not in text:
-        failures.append(f"{label} omits Seam Selection")
-    for field in ("Established", "Unresolved", "Outcome", "Blockers", "Testing Seam", "Seam Selection", "Proof"):
+    if "Seam Selection" in text:
+        failures.append(f"{label} adds a non-canonical Seam Selection field")
+    for field in ("Established", "Unresolved", "Outcome", "Blockers", "Testing Seam", "Proof"):
         if f"### {field}\n\n{{value}}" not in text:
             failures.append(f"{label} does not expose {field} as a canonical value")
 
 for label, text in (("scorecard", scorecard), ("evaluator", evaluator)):
     normalized = " ".join(text.split())
+    if "Seam Selection" in text:
+        failures.append(f"{label} evaluates a non-canonical Seam Selection field")
     if "highest stable existing boundary" not in normalized:
-        failures.append(f"{label} does not enforce the preferred seam")
+        failures.append(f"{label} does not enforce the preferred Testing Seam")
     if "concrete reason" not in normalized:
-        failures.append(f"{label} does not require a lower/new seam reason")
+        failures.append(f"{label} does not require a lower/new Testing Seam reason")
 
 redefinitions = (
     "{Verified evidence and source}",
@@ -266,7 +268,7 @@ PY
   [ "$status" -eq 0 ]
 }
 
-@test "PM readiness eval records reproducible triage walkthroughs" {
+@test "PM readiness eval defines fresh-context behavioral scenarios" {
   run python3 - "$REPO" <<'PY'
 from pathlib import Path
 import sys
@@ -275,24 +277,64 @@ text = (Path(sys.argv[1]) / "plugins/pm/evals/PM Skill Eval.md").read_text()
 required = {
     "unverified bug": (
         "## Unverified bug triage",
-        'bats --filter "readiness notes require explicit approval" plugins/pm/tests/skill-contracts.bats',
+        "### Prompt",
+        "duplicate invoices",
+        "cache invalidation",
+        "Write the observed result artifact to",
+        "### Pass criteria",
+        "Unverified Bug Result.md",
     ),
     "L feature": (
         "## L feature",
-        'bats --filter "spec consumers enforce seam selection" plugins/pm/tests/skill-contracts.bats',
+        "### Prompt",
+        "account-export",
+        "tests/account-export.spec.ts",
+        "highest stable existing boundary",
+        "Write the observed result artifact to",
+        "### Pass criteria",
+        "L Feature Result.md",
     ),
     "XL split": (
         "## XL split",
-        'bats --filter "XL splitting has executable procedures" plugins/pm/tests/skill-contracts.bats',
+        "### Prompt",
+        "identifier migration",
+        "expand",
+        "migrate",
+        "contract",
+        "Write the observed result artifact to",
+        "### Pass criteria",
+        "XL Split Result.md",
     ),
 }
 failures = []
+protocol = (
+    "## Evaluation protocol",
+    "fresh-context",
+    "read the current `plugins/pm/skills/triage/SKILL.md`",
+    "observed result artifact",
+    "commit SHA",
+    "controller appends each pass criterion",
+)
+normalized_text = " ".join(text.split()).lower()
+missing_protocol = [needle for needle in protocol if needle.lower() not in normalized_text]
+if missing_protocol:
+    failures.append("protocol: " + ", ".join(missing_protocol))
 for label, needles in required.items():
-    missing = [needle for needle in needles if needle not in text]
+    start = text.find(needles[0])
+    if start == -1:
+        failures.append(f"{label}: {needles[0]}")
+        continue
+    next_start = text.find("\n## ", start + 1)
+    section = text[start:] if next_start == -1 else text[start:next_start]
+    normalized_section = " ".join(section.split()).lower()
+    missing = [needle for needle in needles[1:] if needle.lower() not in normalized_section]
     if missing:
         failures.append(f"{label}: {', '.join(missing)}")
+for forbidden in ("bats --filter", "**Reproducible check:**"):
+    if forbidden in text:
+        failures.append(f"eval mislabels structural checks as behavior: {forbidden}")
 if failures:
-    print("missing reproducible PM eval: " + "; ".join(failures))
+    print("invalid PM behavioral eval contract: " + "; ".join(failures))
     raise SystemExit(1)
 PY
   if [ "$status" -ne 0 ]; then
