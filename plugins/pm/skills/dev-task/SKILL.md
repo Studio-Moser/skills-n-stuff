@@ -36,12 +36,23 @@ Guide ONE person through ONE development task, foreground and interactive, the S
 ### 1. Frame
 - If a memory MCP is connected (e.g. shelby-memory), recall relevant prior context; skip silently if not. See references/memory-integration.md.
 - Read the repo's `CLAUDE.md` / `AGENTS.md` if present.
+- Load `references/work-readiness.md`. Use it as the source of truth for the delivery
+  slice and do not restate its field definitions.
 - Load your model rubric from `${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml`. If it's missing, offer to run `/machine:model-rubric` (or follow `studio-baseline/Rubric_Setup.md` with no plugin) — this is user-global, done once. Use it when choosing models for any sub-agent work.
-- Restate the task in one or two sentences and the definition of done.
+- Restate the task in one or two sentences and capture its `Outcome`, `Blockers`,
+  `Testing Seam`, and current `Proof` from the approved item or spec. If there is no
+  approved item, propose those values for approval with the plan.
+- Stop before planning when a blocker is unresolved. Name the blocker and the evidence
+  needed to resume instead of treating the task as ready.
 - Name any unknowns or risks. If the ask is genuinely ambiguous or large, **REQUIRED SUB-SKILL:** Use superpowers:brainstorming before planning.
 
 ### 2. Plan — GATE
 - Write a concise plan: 5–10 bullets, what you'll change, which files, edge cases. For multi-step work, **REQUIRED SUB-SKILL:** Use superpowers:writing-plans.
+- Show the delivery slice before the implementation steps:
+  - `Outcome`: {value}
+  - `Blockers`: {value or none}
+  - `Testing Seam`: {procedure and expected result}
+  - `Proof`: {current proof state; normally unproven before implementation}
 - **STOP. Present the plan and wait for the user to explicitly approve this plan.** Until then take no implementation action — no branching, no creating or editing files, no code.
 
 ### 3. Branch
@@ -53,6 +64,8 @@ Guide ONE person through ONE development task, foreground and interactive, the S
 - If behavior is mysterious, **REQUIRED SUB-SKILL:** Use superpowers:systematic-debugging.
 - Commit incrementally (conventional commits per pm:house-rules).
 - **If you discover unrelated work, do NOT do it inline.** Note it for the user; keep the definition of done fixed.
+- If implementation is delegated, include the approved delivery-slice fields verbatim
+  in the worker prompt. The worker owns that outcome, not adjacent cleanup.
 
 ### 5. Review
 - Self-review against the pm:house-rules security + quality checklist — but per house-rules Verification, your own pass is a first draft, not proof.
@@ -60,6 +73,9 @@ Guide ONE person through ONE development task, foreground and interactive, the S
 
 ### 6. Verify — GATE
 - Run the project's tests/build/lint. **REQUIRED SUB-SKILL:** Use superpowers:verification-before-completion.
+- Execute the named `Testing Seam` and update `Proof` with the command or procedure and
+  actual result. The task is incomplete if the outcome is not delivered or its proof
+  remains unproven.
 - **Run the commands yourself and paste the actual output here.** Never claim "passing" without pasted evidence.
 
 ### 7. PR

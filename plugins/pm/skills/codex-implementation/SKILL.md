@@ -12,12 +12,15 @@ Use Codex for bounded, clearly specified implementation work — typically in a 
 ## Workflow
 
 1. Pin the current state with `git status --short` and note any user changes already present.
-2. Define the implementation scope: files or behavior to change, files to avoid, constraints, and verification commands.
+2. Load `references/work-readiness.md`. Define one delivery slice with its approved
+   `Outcome`, `Blockers`, `Testing Seam`, and current `Proof`, plus files or behavior to
+   change, files to avoid, and constraints. If a blocker is unresolved, stop and report
+   it instead of invoking Codex.
 3. Create a temporary artifact directory for Codex's report.
 4. Run `codex exec` with repo write access.
 5. After Codex exits, inspect `git status` and `git diff`.
-6. Run the cheapest reliable verification yourself when practical.
-7. Report what Codex changed, what Claude verified, and any remaining risks.
+6. Execute the named `Testing Seam` yourself and record its actual result as `Proof`.
+7. Report what Codex changed, whether the outcome was delivered, the proof, and any remaining risks.
 
 Use this command shape:
 
@@ -41,6 +44,13 @@ Artifact directory: /tmp/codex-implementation.XXXXXX
 Goal:
 - Add keyboard navigation to the command palette.
 
+Delivery slice:
+- Outcome: Keyboard users can navigate, select, and dismiss command-palette results.
+- Blockers: none
+- Testing Seam: Run the existing command-palette component test through keyboard
+  navigation; ArrowUp/ArrowDown change the highlight, Enter selects, and Escape closes.
+- Proof: unproven before implementation
+
 Acceptance criteria:
 - ArrowUp and ArrowDown move the highlighted item.
 - Enter selects the highlighted item.
@@ -57,13 +67,14 @@ Constraints:
   to implementation within the scope above.
 
 Verification:
-- Run the focused component tests if available.
-- Otherwise run the nearest relevant typecheck or test command and explain the choice.
+- Execute the Testing Seam above and record the command and actual result as Proof.
+- Also run the nearest relevant typecheck or broader test command if the project requires it.
 
 Report:
 - Files changed
-- Behavioral summary
+- Outcome delivered or not delivered
 - Verification run and result
+- Proof from the Testing Seam
 - Anything blocked or uncertain
 ```
 

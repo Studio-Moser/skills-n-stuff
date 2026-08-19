@@ -189,8 +189,69 @@ not define how the backend creates, links, or returns child identifiers.
 
 ## Colliding sprint items
 
-**Scenario:** Items A and B deliver different user outcomes but both touch `Sources/AppState.swift`. Item C depends on A.
+### Prompt
 
-**Baseline failure:** The current sprint flow forces A and B into one pull request because they share a file, while C has no blocker field and can be selected in parallel with A.
+```text
+Run the current /pm:sprint-dev workflow as a dry-run evaluation through the proposal
+gate. Read the current skill, `references/work-readiness.md`, and the local sprint
+backend reference first. Do not modify a tracker, backlog, spec, source file, branch,
+or worktree. Write the observed result artifact to
+`.superpowers/sdd/2026-08-19-pm-work-readiness/task-4-evals/Colliding Sprint Result.md`;
+make no other write.
 
-**Pass condition:** The plan records `A -> C`, selects A and B only if both are on the unblocked frontier, and treats the shared file as a sequencing collision rather than an automatic batch.
+Backend: local
+Project context: Swift app in repo `SearchApp`; all three specs are fresh Green.
+All items have labels `status/ready`, `owner/ai`, `size/M`, and `priority/p1`.
+
+Item A, #201, "Persist draft filter selection"
+  Outcome: Reopening Search restores the user's saved draft filter.
+  Blockers: none
+  Testing Seam: Run `SearchAppTests/AppStateFilterPersistenceTests`; saving a filter,
+    recreating AppState, and opening Search restores the same filter.
+  Proof: unproven before implementation
+  Likely paths: `Sources/AppState.swift`,
+    `Tests/AppStateFilterPersistenceTests.swift`
+
+Item B, #202, "Show offline search status"
+  Outcome: Search shows an offline banner while connectivity is unavailable.
+  Blockers: none
+  Testing Seam: Run `SearchAppUITests/OfflineSearchBannerTests`; disabling connectivity
+    displays the banner and restoring connectivity removes it.
+  Proof: unproven before implementation
+  Likely paths: `Sources/AppState.swift`, `UITests/OfflineSearchBannerTests.swift`
+
+Item C, #203, "Share saved filters"
+  Outcome: A user can share a previously saved filter from Search.
+  Blockers: #201
+  Testing Seam: Run `SearchAppUITests/ShareSavedFilterTests`; a restored saved filter
+    produces a share sheet with the expected URL.
+  Proof: unproven before implementation
+  Likely paths: `Sources/AppState.swift`, `UITests/ShareSavedFilterTests.swift`
+
+No weekly brief, in-flight branch, out-of-scope constraint, or freshness exclusion
+changes this set. Show the exact proposed PRs, blocker edge, unblocked frontier,
+collision decision, and approval question. Do not invent approval or execute a PR.
+```
+
+### Baseline failure
+
+The old sprint flow forces A and B into one pull request because they share
+`Sources/AppState.swift`, while C has no blocker field and can be selected in parallel
+with A.
+
+### Pass criteria
+
+- The agent loads the current work-readiness reference and local backend reference.
+- The plan records `A -> C`; the unblocked frontier contains A and B and excludes C.
+- A and B remain separate delivery slices and proposed PRs because their outcomes and
+  testing seams differ.
+- Their shared `Sources/AppState.swift` path is a scheduling collision with an explicit
+  sequential or isolated-worktree decision, not a reason to combine them.
+- Each proposal shows `Outcome`, `Blockers`, `Testing Seam`, and current `Proof`; C is
+  shown as blocked rather than dispatched.
+- The agent asks for approval, performs no tracker or project mutation, and does not
+  invent approval.
+
+### Observed result artifact
+
+`.superpowers/sdd/2026-08-19-pm-work-readiness/task-4-evals/Colliding Sprint Result.md`

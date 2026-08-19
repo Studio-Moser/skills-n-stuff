@@ -342,3 +342,60 @@ PY
   fi
   [ "$status" -eq 0 ]
 }
+
+@test "execution consumers use readiness fields and schedule the unblocked frontier" {
+  run python3 - "$REPO" <<'PY'
+from pathlib import Path
+import sys
+
+repo = Path(sys.argv[1])
+sprint = (repo / "plugins/pm/skills/sprint-dev/SKILL.md").read_text()
+dev_task = (repo / "plugins/pm/skills/dev-task/SKILL.md").read_text()
+codex = (repo / "plugins/pm/skills/codex-implementation/SKILL.md").read_text()
+evaluation = (repo / "plugins/pm/evals/PM Skill Eval.md").read_text()
+
+failures = []
+for label, text in (("sprint-dev", sprint), ("dev-task", dev_task), ("codex-implementation", codex)):
+    if "references/work-readiness.md" not in text:
+        failures.append(f"{label} does not load work-readiness")
+    for field in ("Outcome", "Blockers", "Testing Seam", "Proof"):
+        if field not in text:
+            failures.append(f"{label} omits {field}")
+
+normalized_sprint = " ".join(sprint.split()).lower()
+for phrase in (
+    "unblocked frontier",
+    "scheduling collision",
+    "delivery slice",
+    "run sequentially",
+):
+    if phrase not in normalized_sprint:
+        failures.append(f"sprint-dev omits execution rule: {phrase}")
+if "max 8 items per batch" in normalized_sprint:
+    failures.append("sprint-dev retains the numeric batch cap")
+if "same files must go in the same cluster" in normalized_sprint:
+    failures.append("sprint-dev still forces colliding outcomes into one batch")
+
+eval_section = evaluation[evaluation.find("## Colliding sprint items"):]
+for needle in (
+    "### Prompt",
+    "Write the observed result artifact to",
+    "### Pass criteria",
+    "Colliding Sprint Result.md",
+    "Sources/AppState.swift",
+    "A -> C",
+    "unblocked frontier",
+    "scheduling collision",
+):
+    if needle.lower() not in eval_section.lower():
+        failures.append(f"colliding-item eval omits {needle}")
+
+if failures:
+    print("invalid execution readiness contract: " + "; ".join(failures))
+    raise SystemExit(1)
+PY
+  if [ "$status" -ne 0 ]; then
+    echo "$output"
+  fi
+  [ "$status" -eq 0 ]
+}
