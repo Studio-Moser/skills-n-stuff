@@ -28,7 +28,7 @@ A bug can enter a spec only after its observed behavior is verified or the item 
 
 ## Testing seams
 
-A testing seam is the narrowest observable boundary where a delivery outcome can be proved: an executable test, reproducible scenario, API boundary, UI flow, migration fixture, or equivalent check. Name the seam before implementation, including the procedure and expected result.
+A testing seam is the highest stable boundary where a delivery outcome can be proved. A plan should prefer an existing seam over adding a lower-level check. An executable test, reproducible scenario, API boundary, UI flow, migration fixture, or equivalent check can serve as that seam. Name the seam before implementation, including the procedure and expected result.
 
 ### Completion conditions
 
@@ -59,7 +59,7 @@ Before dispatch, each proposed slice has explicit blockers and the selected work
 
 ## Wide refactors
 
-An XL item or wide refactor is work with multiple independently deliverable outcomes, broad touch points, or an upgrade path that cannot be proved as one slice. Create a goal epic and split it into agent-ready child delivery slices with blocking edges.
+An XL item or wide refactor is work with multiple independently deliverable outcomes, broad touch points, or an upgrade path that cannot be proved as one slice. Create a goal epic and split it into agent-ready child delivery slices with blocking edges. Use the expand → migrate callers in green batches → contract sequence: add the compatible path, move callers with passing proof in each batch, then remove the old path only after all callers have migrated.
 
 ### Completion conditions
 
