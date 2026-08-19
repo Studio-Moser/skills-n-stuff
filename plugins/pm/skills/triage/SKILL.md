@@ -200,20 +200,60 @@ If zero items were kept, print `"No items survived sorting. Triage complete."` a
 
 ---
 
-## Phase 2: Spec
+## Phase 2: Verify and Spec
+
+**Load `references/work-readiness.md` now.** Use it as the source of truth for claim
+verification, testing seams, delivery slices, blockers, and wide refactors. Do not
+redefine those terms in the item or spec.
+
+### Verify claims and persist resumption notes
+
+Before classification, brainstorming, or an implementation approach, separate what is
+known from what is proposed for every kept item. Persist one up-to-date readiness note
+on the tracker item (in its body, card description, or local item file) so another
+session can resume without repeating the investigation:
+
+```markdown
+## Readiness Notes
+
+### Established
+- {observed behavior, confirmed cause, or other evidence with its source}
+
+### Unresolved
+- {hypothesis, evidence gap, or open question}
+```
+
+For a bug-flavored item (label `bug`, or a body describing broken behavior), verify the
+observed behavior before design:
+
+- Reproduce the reported behavior, or inspect a failing test, trace, or code path that
+  establishes it. Record the procedure, result, and evidence under `Established`.
+- Keep correlations and causal hypotheses under `Unresolved` unless evidence confirms
+  them. An unresolved hypothesis may guide investigation but must not choose the
+  implementation approach.
+- If verification is impractical because it needs unavailable hardware, credentials,
+  data, or a long-running setup, record the reason and attempted checks under
+  `Unresolved`.
+- If the behavior is neither verified nor impractical to verify, stop this item before
+  speccing and carry it to Phase 3 as `needs-info`.
+
+Update this note after every verification attempt. Replace stale entries rather than
+appending duplicate sections.
 
 For items that survived Phase 1, determine which need speccing and which can skip to scoring.
 
 ### Classify by size
 
-- **S-sized items** with a clear, complete description (the body already states what to build and has implicit acceptance criteria): skip speccing, proceed directly to Phase 3.
+- **S-sized items** with a clear, complete description that already represents one
+  delivery slice and names its `Outcome`, `Blockers`, `Testing Seam`, and `Proof`: skip
+  speccing and proceed directly to Phase 3.
 - **M/L/XL items** or any item with an unclear/incomplete description: run the full spec creation flow.
 
 Present the classification to the user:
 
 ```
 Phase 2 — Spec Planning
-  Skip to scoring (S-sized, clear): {list of titles}
+  Skip to scoring (S-sized, readiness fields present): {list of titles}
   Need speccing (M/L/XL or unclear):  {list of titles}
 
 Proceed with speccing? (yes / reorder / stop)
@@ -226,20 +266,26 @@ Proceed with speccing? (yes / reorder / stop)
 ### Spec creation flow (for each item needing a spec)
 
 One item at a time: brainstorm → write the implementation plan → write the spec to the
-backend in the shared Goal/Context/Code References/Approach/Chunks/Acceptance Criteria/
-Negative Constraints body → checkpoint with the user before the next item.
+backend in the shared Goal/Context/Readiness Notes/Code References/Approach/Delivery
+Slice/Chunks/Acceptance Criteria/Negative Constraints body → checkpoint with the user
+before the next item.
 
 **Load `references/triage-spec-flow.md` and follow it for each item.**
 
 Step 2c is a **(backend step)** — it also needs your loaded `references/triage-<backend>.md`.
 
+Carry forward to Phase 3 S-sized items that skip spec creation, all M/L items, and every
+child item created from an XL split. The XL goal epic itself is not an agent-ready item
+and is not scored or promoted to `status/ready`.
+
 ---
 
 ## Phase 3: Score
 
-Every item that survived Phase 1 is scored against the 6-point agent-ready scorecard by
-the `scorecard-evaluator` agent, bug claims are verified before any `status/ready` verdict,
-and the user accepts or overrides each verdict (with an inline fix-and-rescore loop).
+Every item carried forward from Phase 2 is scored against the 6-point agent-ready
+scorecard by the `scorecard-evaluator` agent. The readiness gate is applied before any
+`status/ready` verdict, and the user accepts or fixes each verdict (with an inline
+fix-and-rescore loop).
 
 **Load `references/triage-scorecard.md` and follow it for this phase.**
 
