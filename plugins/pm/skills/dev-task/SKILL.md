@@ -20,7 +20,7 @@ Guide ONE person through ONE development task, foreground and interactive, the S
 
 **REQUIRED SUB-SKILL:** Use pm:house-rules for all branch/commit/PR/test/security conventions. Do not restate them — defer.
 
-**Foundational rule:** Violating the letter of a gate is violating its spirit. "It's small" / "I'm in a hurry" are not exemptions. What *is* allowed is the **change class** from the house rules (Polish / Small / Feature): name it first; a **Polish** batch — styling, spacing, copy, no logic — runs the suite, the review, and the commit once at the checkpoint (when the user says commit / PR / done, or the batch first touches logic), not after every edit; Small and Feature run the gates as written below.
+**Foundational rule:** Violating the letter of a gate is violating its spirit. "It's small" / "I'm in a hurry" are not exemptions. What *is* allowed is the **change class** from the house rules (Polish / Small / Feature): name it first. For a **Polish** batch — styling, spacing, copy, no logic — the one-line class declaration *is* the plan (the user overrides it in one word), and the suite, the review, and the single commit run once at the checkpoint (the user says commit / PR / done; the batch needs logic — commit it first, then proceed as Small; the user starts an unrelated task; the session ends), not after every edit. Security, auth, payment, or data-model flows are never Polish, copy and styling included. Small and Feature run the gates as written below.
 
 ## When to use this vs. alternatives
 
@@ -75,7 +75,7 @@ Guide ONE person through ONE development task, foreground and interactive, the S
 
 | Excuse | Reality |
 |---|---|
-| "It's tiny, skip the plan" | Tiny changes still surprise. A 5-bullet plan costs 30 seconds and catches scope errors. Present it. |
+| "It's tiny, skip the plan" | Tiny changes still surprise. A 5-bullet plan costs 30 seconds and catches scope errors. Present it. (Polish excepted — the class line is its plan.) |
 | "They're in a hurry" | The gate IS the speed — it prevents the rework that's actually slow. |
 | "I'll run tests after the PR" | A PR is a claim it works. Verify before, with evidence. |
 | "I'll just fix this other thing too" | That's scope creep. Note it; keep done fixed. |
@@ -84,7 +84,7 @@ Guide ONE person through ONE development task, foreground and interactive, the S
 
 ## Red flags — STOP
 
-- About to Edit/Write code before the user approved a plan.
+- About to Edit/Write code before the user approved a plan (Polish excepted — the class line is its plan).
 - About to say "done" / "tests pass" without pasted command output.
 - About to add something not in the agreed scope.
 - Working directly on the default branch.
