@@ -13,7 +13,7 @@ Process one item at a time. For each:
 Invoke the brainstorming skill with the item as the problem statement. Pass all relevant context as the `args` parameter so the skill has what it needs:
 
 ```
-Skill({ skill: "superpowers:brainstorming", args: "{item title}: {item description}\n\nEstablished: {verified evidence}\nUnresolved: {hypotheses and gaps}\nDomain context: {relevant CONTEXT.md terms}\nConstraints: {relevant out-of-scope entries}\nRepos: {repo list from pulse-config.yaml with paths}" })
+Skill({ skill: "superpowers:brainstorming", args: "{item title}: {item description}\n\nEstablished: {value}\nUnresolved: {value}\nDomain context: {relevant CONTEXT.md terms}\nConstraints: {relevant out-of-scope entries}\nRepos: {repo list from pulse-config.yaml with paths}" })
 ```
 
 The brainstorming skill will explore the design space and produce a recommended
@@ -24,7 +24,7 @@ approach. It must not promote an `Unresolved` causal hypothesis into the approac
 After brainstorming produces a design direction, invoke the writing-plans skill. Pass the brainstorming output as context:
 
 ```
-Skill({ skill: "superpowers:writing-plans", args: "Write a spec for: {item title}\n\nEstablished: {verified evidence}\nUnresolved: {hypotheses and gaps}\nBrainstorming output: {brainstorm result summary}\nTarget repo: {repo path}\nRequired readiness fields: Outcome, Blockers, Testing Seam, Proof" })
+Skill({ skill: "superpowers:writing-plans", args: "Write a spec for: {item title}\n\nEstablished: {value}\nUnresolved: {value}\nBrainstorming output: {brainstorm result summary}\nTarget repo: {repo path}\nRequired readiness fields: Outcome, Blockers, Testing Seam, Seam Selection, Proof\nField meanings: references/work-readiness.md" })
 ```
 
 The writing-plans skill produces a structured implementation plan with tasks, code,
@@ -39,19 +39,22 @@ specs:
 
 1. Present the proposed goal epic, child delivery slices, and blocking edges to the
    user. Do not create or relabel tracker items until the user confirms the split.
-2. Create or convert the parent as a goal epic with the existing Goal/Why epic body.
-   It carries the `epic` label only, never `status/ready`.
-3. Create one child item per agent-ready delivery slice. Each child has exactly one
-   outcome and the required `Outcome`, `Blockers`, `Testing Seam`, and `Proof` fields.
-4. Link every child under the goal epic using the selected backend's native parent
-   relationship. Express dependencies between children as blocking edges.
-5. Write and score each child independently. Do not send the XL parent to Phase 3.
+2. Order the confirmed children so each prerequisite is created before the child that
+   names it as a blocker.
+3. **(backend step)** — follow the loaded `references/triage-<backend>.md` section
+   `Phase 2, Step 2b.1: Create XL epic and children`. It converts the parent, creates
+   and links the children, and returns `xl_child_ids`.
+4. Load the returned child IDs as the items to write and score independently. Do not
+   send the XL parent to Phase 3.
 
 ## Step 2c: Write spec to backend
 
 **(backend step)** — follow your loaded `references/triage-<backend>.md` (§ Phase 2, Step 2c: Write spec to backend).
 
 All backends write the spec using this body structure:
+
+Field meanings: `references/work-readiness.md`. Populate every field with its current
+value; do not add local definitions.
 
 ```markdown
 ## Goal
@@ -66,11 +69,11 @@ All backends write the spec using this body structure:
 
 ### Established
 
-{Verified evidence and source}
+{value}
 
 ### Unresolved
 
-{Remaining hypotheses, gaps, or `none`}
+{value}
 
 ## Code References
 
@@ -85,19 +88,23 @@ All backends write the spec using this body structure:
 
 ### Outcome
 
-{Required}
+{value}
 
 ### Blockers
 
-{Required; use `none` when unblocked}
+{value}
 
 ### Testing Seam
 
-{Required}
+{value}
+
+### Seam Selection
+
+{value}
 
 ### Proof
 
-{Required; record current proof state before implementation}
+{value}
 
 ## Chunks
 
@@ -129,8 +136,9 @@ Spec complete for: {title}
   Size: {size}  Priority: {priority}
   Spec: {path or issue URL}
   Chunks: {N}
-  Slice: {outcome}
-  Testing seam: {procedure and expected result}
+  Slice: {Outcome}
+  Testing seam: {Testing Seam}
+  Seam selection: {Seam Selection}
 
 Continue to next item? (yes / stop)
 ```

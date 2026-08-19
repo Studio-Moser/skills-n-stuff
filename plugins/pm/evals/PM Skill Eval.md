@@ -10,6 +10,40 @@ Behavioral pressure scenarios for PM workflow changes. Record the initial failur
 
 **Pass condition:** Triage records the duplicate invoices as observed behavior, keeps cache invalidation unresolved unless evidence confirms it, and verifies the behavior before choosing an implementation approach or marking the item ready.
 
+**Reproducible check:**
+`bats --filter "readiness notes require explicit approval" plugins/pm/tests/skill-contracts.bats`
+
+## L feature
+
+**Scenario:** An L-sized account-export feature has an existing UI-to-download flow that
+can prove its user-visible outcome. A draft plan proposes several implementation chunks
+and a new lower-level unit-test seam.
+
+**Baseline failure:** The old spec shape can accept the chunks without one delivery
+slice, explicit blockers, or any reason for ignoring the existing stable flow.
+
+**Pass condition:** The spec contains one delivery slice and all required readiness
+fields. It selects the highest stable existing boundary, or records a concrete reason
+for choosing a lower or new seam.
+
+**Reproducible check:**
+`bats --filter "spec consumers enforce seam selection" plugins/pm/tests/skill-contracts.bats`
+
+## XL split
+
+**Scenario:** An XL identifier migration must expand a compatible schema, migrate
+callers in green batches, and contract the old path only after every caller moves.
+
+**Baseline failure:** The old flow can leave the XL item as one oversized assignment
+and does not define how any backend creates, links, or returns its child identifiers.
+
+**Pass condition:** Triage creates a goal epic and blocker-first child slices. GitHub,
+local, and Trello each preserve their existing needs-triage state, record the epic
+relationship, and return child identifiers for independent scoring.
+
+**Reproducible check:**
+`bats --filter "XL splitting has executable procedures" plugins/pm/tests/skill-contracts.bats`
+
 ## Colliding sprint items
 
 **Scenario:** Items A and B deliver different user outcomes but both touch `Sources/AppState.swift`. Item C depends on A.

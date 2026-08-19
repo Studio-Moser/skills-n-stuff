@@ -206,22 +206,11 @@ If zero items were kept, print `"No items survived sorting. Triage complete."` a
 verification, testing seams, delivery slices, blockers, and wide refactors. Do not
 redefine those terms in the item or spec.
 
-### Verify claims and persist resumption notes
+### Verify claims and stage resumption notes
 
 Before classification, brainstorming, or an implementation approach, separate what is
-known from what is proposed for every kept item. Persist one up-to-date readiness note
-on the tracker item (in its body, card description, or local item file) so another
-session can resume without repeating the investigation:
-
-```markdown
-## Readiness Notes
-
-### Established
-- {observed behavior, confirmed cause, or other evidence with its source}
-
-### Unresolved
-- {hypothesis, evidence gap, or open question}
-```
+known from what is proposed for every kept item. Do all investigation without mutating
+the tracker item.
 
 For a bug-flavored item (label `bug`, or a body describing broken behavior), verify the
 observed behavior before design:
@@ -237,16 +226,44 @@ observed behavior before design:
 - If the behavior is neither verified nor impractical to verify, stop this item before
   speccing and carry it to Phase 3 as `needs-info`.
 
-Update this note after every verification attempt. Replace stale entries rather than
-appending duplicate sections.
+After the investigation, stage one replacement note for the current item. Stage the
+proposed readiness note in session memory; do not persist it yet.
+
+```markdown
+## Readiness Notes
+
+### Established
+{value}
+
+### Unresolved
+{value}
+```
+
+Present the complete staged note, then ask:
+
+```text
+Approve readiness notes? (yes / edit / skip)
+```
+
+Persist only after explicit user confirmation.
+
+- **yes** — replace any existing Readiness Notes section in the item body, card
+  description, or local item file with the displayed note.
+- **edit** — apply the user's edits in session memory, show the entire revised note, and
+  ask for confirmation again. Do not persist the edit before that confirmation.
+- **skip** — leave the item unchanged, stop processing it, and keep it in
+  `status/needs-triage`.
+
+After a later verification attempt, stage a complete replacement note and repeat this
+same approval gate. A prior confirmation never authorizes a new revision.
 
 For items that survived Phase 1, determine which need speccing and which can skip to scoring.
 
 ### Classify by size
 
 - **S-sized items** with a clear, complete description that already represents one
-  delivery slice and names its `Outcome`, `Blockers`, `Testing Seam`, and `Proof`: skip
-  speccing and proceed directly to Phase 3.
+  delivery slice and names its `Outcome`, `Blockers`, `Testing Seam`, `Seam Selection`,
+  and `Proof`: skip speccing and proceed directly to Phase 3.
 - **M/L/XL items** or any item with an unclear/incomplete description: run the full spec creation flow.
 
 Present the classification to the user:
@@ -326,6 +343,10 @@ Determine the item's epic, in order of preference:
 1. **Explicit reference** in the item body (e.g. "Part of Epic 1 (#236)").
 2. **Infer from the open epics.** List currently open epics **(backend step — see `references/triage-<backend>.md` § Phase 4.3)** and match by area (memory work → the memory epic; a specific UI surface → that surface's epic; sync/reliability → the reliability epic; etc.). Per-surface UI work goes under that surface's epic, not a generic one.
 3. **Ask** if still ambiguous: "Which epic does this belong under? {short list}". Pick before promoting.
+
+If the item already has the selected parent relationship, capture that epic identifier
+and treat this step as satisfied. Do not write the same relationship again. This is the
+normal path for children created by the Phase 2 XL split.
 
 **Creating a new epic (when none fits).** If the area genuinely has no epic yet, create one before linking — don't force the item under an ill-fitting parent. An epic is a **goal container**, so author it accordingly:
 

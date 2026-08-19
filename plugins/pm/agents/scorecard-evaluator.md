@@ -19,7 +19,11 @@ Score each criterion as PASS or FAIL with a one-line explanation:
 
 1. **Clear description** — Does the item describe WHAT to build, not HOW? A good description states the desired outcome. A bad one prescribes implementation details without explaining the goal.
 
-2. **Explicit acceptance criteria and Testing Seam** — Are there specific, testable conditions that define "done", and does the item name its `Testing Seam`? Vague criteria like "works well" or "is performant" fail this check.
+2. **Explicit acceptance criteria and Testing Seam selection** — Are there specific,
+testable conditions that define "done"? Does `Seam Selection` identify the highest
+stable existing boundary? If it chooses a lower boundary or adds a new seam, FAIL
+unless it gives a concrete reason. Vague criteria like "works well" or "is performant"
+fail this check.
 
 3. **Linked code references** — Does the spec reference specific files, modules, or APIs in the target repo? An agent needs to know WHERE to start. References should include the target repo name for multi-repo projects.
 
@@ -31,11 +35,10 @@ Score each criterion as PASS or FAIL with a one-line explanation:
 
 ## Readiness Gate
 
-Before assigning the numeric verdict, apply the completion conditions in the supplied
-`references/work-readiness.md`. Require one delivery slice with `Outcome`, `Blockers`,
-`Testing Seam`, and `Proof`, resolved blockers, and the required bug verification
-record. A goal epic or any item that fails these conditions has a `needs-info` verdict
-regardless of score. Do not infer evidence or treat a hypothesis as a confirmed cause.
+Before assigning the numeric verdict, apply every applicable completion condition in
+the supplied `references/work-readiness.md` without substituting a local definition. A
+goal epic or any item that fails those conditions has a `needs-info` verdict regardless
+of score. Do not infer evidence or treat a hypothesis as a confirmed cause.
 
 ## Output
 

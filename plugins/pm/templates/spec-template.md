@@ -18,13 +18,15 @@
 
 ## Readiness Notes
 
+Field meanings: `references/work-readiness.md`.
+
 ### Established
 
-{Verified evidence and source}
+{value}
 
 ### Unresolved
 
-{Remaining hypotheses, gaps, or `none`}
+{value}
 
 ## Code References
 
@@ -38,19 +40,23 @@
 
 ### Outcome
 
-{Required}
+{value}
 
 ### Blockers
 
-{Required; use `none` when unblocked}
+{value}
 
 ### Testing Seam
 
-{Required}
+{value}
+
+### Seam Selection
+
+{value}
 
 ### Proof
 
-{Required; record current proof state before implementation}
+{value}
 
 ## Chunks
 

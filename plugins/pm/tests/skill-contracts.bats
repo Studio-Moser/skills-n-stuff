@@ -114,3 +114,189 @@ PY
   fi
   [ "$status" -eq 0 ]
 }
+
+@test "readiness notes require explicit approval before persistence" {
+  run python3 - "$REPO" <<'PY'
+from pathlib import Path
+import sys
+
+triage = (Path(sys.argv[1]) / "plugins/pm/skills/triage/SKILL.md").read_text()
+normalized = " ".join(triage.split())
+required = [
+    "Stage the proposed readiness note in session memory; do not persist it yet.",
+    "Approve readiness notes? (yes / edit / skip)",
+    "Persist only after explicit user confirmation.",
+]
+missing = [text for text in required if text not in normalized]
+if missing:
+    print("readiness-note approval contract missing: " + "; ".join(missing))
+    raise SystemExit(1)
+
+positions = [normalized.index(text) for text in required]
+if positions != sorted(positions):
+    print("readiness-note approval steps are out of order")
+    raise SystemExit(1)
+PY
+  if [ "$status" -ne 0 ]; then
+    echo "$output"
+  fi
+  [ "$status" -eq 0 ]
+}
+
+@test "XL splitting has executable procedures for every triage backend" {
+  run python3 - "$REPO" <<'PY'
+from pathlib import Path
+import sys
+
+repo = Path(sys.argv[1])
+triage = (repo / "plugins/pm/skills/triage/SKILL.md").read_text()
+contracts = {
+    "GitHub": (
+        repo / "plugins/pm/references/triage-github.md",
+        (
+            "## Phase 2, Step 2b.1: Create XL epic and children",
+            "gh issue create",
+            "status/needs-triage",
+            "child_number",
+            "epic_number",
+            '--add-label "epic"',
+            "Blockers",
+            "references/github-sub-issues.md",
+            "xl_child_ids",
+            "Phase 3 carry-forward",
+        ),
+    ),
+    "Local": (
+        repo / "plugins/pm/references/triage-local.md",
+        (
+            "## Phase 2, Step 2b.1: Create XL epic and children",
+            "next_num",
+            "child_file",
+            "status/needs-triage",
+            '.labels = ["epic"]',
+            "parent_epic",
+            "blockers",
+            "xl_child_ids",
+            'triage_items+=("$child_file")',
+        ),
+    ),
+    "Trello": (
+        repo / "plugins/pm/references/triage-trello.md",
+        (
+            "## Phase 2, Step 2b.1: Create XL epic and children",
+            "mcp__trello__add_card_to_list",
+            "status/needs-triage",
+            "child.id",
+            "child.shortUrl",
+            "Part of epic",
+            'labels: ["epic"]',
+            "Blockers",
+            "xl_child_ids",
+            "Phase 3 carry-forward",
+        ),
+    ),
+}
+
+failures = []
+if "Do not write the same relationship again." not in triage:
+    failures.append("shared flow does not make existing XL parent links idempotent")
+for backend, (path, required) in contracts.items():
+    text = path.read_text()
+    missing = [needle for needle in required if needle not in text]
+    if missing:
+        failures.append(f"{backend}: {', '.join(missing)}")
+if failures:
+    print("incomplete XL backend contract: " + "; ".join(failures))
+    raise SystemExit(1)
+PY
+  if [ "$status" -ne 0 ]; then
+    echo "$output"
+  fi
+  [ "$status" -eq 0 ]
+}
+
+@test "spec consumers enforce seam selection without redefining readiness fields" {
+  run python3 - "$REPO" <<'PY'
+from pathlib import Path
+import sys
+
+repo = Path(sys.argv[1])
+flow = (repo / "plugins/pm/references/triage-spec-flow.md").read_text()
+scorecard = (repo / "plugins/pm/references/triage-scorecard.md").read_text()
+evaluator = (repo / "plugins/pm/agents/scorecard-evaluator.md").read_text()
+template = (repo / "plugins/pm/templates/spec-template.md").read_text()
+
+failures = []
+for label, text in (("flow", flow), ("template", template)):
+    if "Field meanings: `references/work-readiness.md`" not in text:
+        failures.append(f"{label} does not defer field meanings to work-readiness")
+    if "### Seam Selection" not in text:
+        failures.append(f"{label} omits Seam Selection")
+    for field in ("Established", "Unresolved", "Outcome", "Blockers", "Testing Seam", "Seam Selection", "Proof"):
+        if f"### {field}\n\n{{value}}" not in text:
+            failures.append(f"{label} does not expose {field} as a canonical value")
+
+for label, text in (("scorecard", scorecard), ("evaluator", evaluator)):
+    normalized = " ".join(text.split())
+    if "highest stable existing boundary" not in normalized:
+        failures.append(f"{label} does not enforce the preferred seam")
+    if "concrete reason" not in normalized:
+        failures.append(f"{label} does not require a lower/new seam reason")
+
+redefinitions = (
+    "{Verified evidence and source}",
+    "{Remaining hypotheses, gaps, or `none`}",
+    "{Required; use `none` when unblocked}",
+    "{Required; record current proof state before implementation}",
+    "Established: {verified evidence}",
+    "Unresolved: {hypotheses and gaps}",
+)
+for label, text in (("flow", flow), ("template", template)):
+    found = [phrase for phrase in redefinitions if phrase in text]
+    if found:
+        failures.append(f"{label} redefines canonical values: {', '.join(found)}")
+
+if failures:
+    print("invalid seam/field consumer contract: " + "; ".join(failures))
+    raise SystemExit(1)
+PY
+  if [ "$status" -ne 0 ]; then
+    echo "$output"
+  fi
+  [ "$status" -eq 0 ]
+}
+
+@test "PM readiness eval records reproducible triage walkthroughs" {
+  run python3 - "$REPO" <<'PY'
+from pathlib import Path
+import sys
+
+text = (Path(sys.argv[1]) / "plugins/pm/evals/PM Skill Eval.md").read_text()
+required = {
+    "unverified bug": (
+        "## Unverified bug triage",
+        'bats --filter "readiness notes require explicit approval" plugins/pm/tests/skill-contracts.bats',
+    ),
+    "L feature": (
+        "## L feature",
+        'bats --filter "spec consumers enforce seam selection" plugins/pm/tests/skill-contracts.bats',
+    ),
+    "XL split": (
+        "## XL split",
+        'bats --filter "XL splitting has executable procedures" plugins/pm/tests/skill-contracts.bats',
+    ),
+}
+failures = []
+for label, needles in required.items():
+    missing = [needle for needle in needles if needle not in text]
+    if missing:
+        failures.append(f"{label}: {', '.join(missing)}")
+if failures:
+    print("missing reproducible PM eval: " + "; ".join(failures))
+    raise SystemExit(1)
+PY
+  if [ "$status" -ne 0 ]; then
+    echo "$output"
+  fi
+  [ "$status" -eq 0 ]
+}

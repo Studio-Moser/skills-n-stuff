@@ -29,7 +29,7 @@ The agent returns a per-criterion PASS/FAIL with explanations and a verdict.
 ```
 Agent-Ready Scorecard:
 1. [ ] Clear description (what, not how)
-2. [ ] Explicit acceptance criteria and Testing Seam
+2. [ ] Explicit acceptance criteria and Testing Seam selection
 3. [ ] Linked code references with target repo
 4. [ ] Negative constraints (cross-refs .pm/out-of-scope/)
 5. [ ] Bounded scope (one delivery slice, one repo, explicit Blockers)
@@ -38,15 +38,10 @@ Agent-Ready Scorecard:
 
 ## Readiness gate
 
-Before applying a numeric verdict, require the fields and completion conditions from
-`references/work-readiness.md`:
-
-- The item represents one delivery slice and includes `Outcome`, `Blockers`, `Testing
-  Seam`, and `Proof`.
-- Its blockers are resolved before a `status/ready` verdict.
-- A bug's observed behavior is verified, or the persisted notes explicitly explain why
-  verification is impractical.
-- The chosen approach does not depend on an `Unresolved` causal hypothesis.
+Before applying a numeric verdict, apply every applicable completion condition from
+`references/work-readiness.md` without substituting a local definition. Also require
+`Seam Selection` to identify the highest stable existing boundary. If the spec chooses
+a lower boundary or adds a new seam, require a concrete reason for that choice.
 
 If any check fails, the readiness gate is `FAIL` and the verdict is `needs-info`
 regardless of the numeric score. A user may supply evidence or fix the spec and rescore,
@@ -62,7 +57,7 @@ Score: {X}/6
 Readiness gate: {PASS|FAIL} — {explanation}
 
 1. {PASS|FAIL} Clear description        — {explanation}
-2. {PASS|FAIL} Acceptance criteria/seam  — {explanation}
+2. {PASS|FAIL} Acceptance criteria/seam  — {selection and explanation}
 3. {PASS|FAIL} Code references           — {explanation}
 4. {PASS|FAIL} Negative constraints      — {explanation}
 5. {PASS|FAIL} Bounded scope             — {explanation}

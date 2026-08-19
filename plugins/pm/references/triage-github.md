@@ -47,9 +47,53 @@ gh issue edit {number} \
   --repo "$gh_owner/$gh_repo"
 ```
 
+## Phase 2, Step 2b.1: Create XL epic and children — GitHub
+
+Run only after the user approves the displayed XL split. Convert the current issue into
+the goal epic, removing every existing workflow and size label so `epic` is its only
+label:
+
+```bash
+epic_number={number}
+gh issue view "$epic_number" --json labels --jq '.labels[].name' \
+  --repo "$gh_owner/$gh_repo" |
+while IFS= read -r label; do
+  gh issue edit "$epic_number" --remove-label "$label" --repo "$gh_owner/$gh_repo"
+done
+gh issue edit "$epic_number" \
+  --body "{confirmed Goal/Why body}" \
+  --add-label "epic" \
+  --repo "$gh_owner/$gh_repo"
+```
+
+Create confirmed children in blocker-first order. Each child starts in the existing
+`status/needs-triage` state with its confirmed size and no owner label. Use the issue
+numbers already captured for any `Blockers` values in `{child spec content}`.
+
+```bash
+xl_child_ids=()
+
+# Repeat for each confirmed child.
+child_url=$(gh issue create \
+  --title "{child title}" \
+  --body "{child spec content, including Part of Epic #${epic_number}}" \
+  --label "status/needs-triage,size/{child_size}" \
+  --repo "$gh_owner/$gh_repo")
+child_number="${child_url##*/}"
+
+# Follow references/github-sub-issues.md with epic_number as the parent and
+# child_number as the child, including its documented comment fallback.
+xl_child_ids+=("$child_number")
+```
+
+After all children are created, load the issues in `xl_child_ids` and return them to
+the shared flow as the Phase 3 carry-forward items. Do not return `epic_number` as an
+implementation item.
+
 ## Phase 2, Step 2c: Write spec to backend — GitHub
 
-Update the issue body with the spec content, using the spec body template from SKILL.md (§ Step 2c):
+Update the issue body with the canonical spec content from
+`references/triage-spec-flow.md` (§ Step 2c):
 
 ```bash
 gh issue edit {number} \

@@ -15,9 +15,13 @@ echo "$trello_boards_json" | jq -c '.[]' | while read -r board_json; do
   # lists = mcp__trello__get_lists({})
   # list_id = (find list where name == $LIST_NEEDS_TRIAGE).id
   # cards  = mcp__trello__get_cards_by_list_id({ listId: list_id })
-  # For each card, append { id, name, desc, labels, board_id, board_name } to triage_items.
+  # For each non-epic card, append
+  # { id, shortUrl, name, desc, labels, board_id, board_name } to triage_items.
 done
 ```
+
+Cards carrying the `epic` label are goal containers, not triage work. Exclude them from
+`triage_items` even though Trello requires every card to remain in a list.
 
 ## Phase 0.3: Load Existing Open Items (dedup pool) — Trello
 
@@ -48,6 +52,52 @@ mcp__trello__add_comment({
 mcp__trello__archive_card({ cardId: $card_id })
 ```
 
+## Phase 2, Step 2b.1: Create XL epic and children — Trello
+
+Run only after the user approves the displayed XL split. Trello has no parent-card
+operation in the configured MCP, so preserve an explicit bidirectional representation:
+each child description links the epic, and the epic receives one audit comment per
+child. Keep the epic card on its current list because Trello requires a list, replace
+its labels with `epic`, and exclude it from later Phase 0 scans as described above.
+
+```
+epic_card_id = $card_id
+epic_short_url = $card_short_url
+mcp__trello__set_active_board({ boardId: $card_board_id })
+mcp__trello__update_card_details({
+  cardId: epic_card_id,
+  desc: "{confirmed Goal/Why body}",
+  labels: ["epic"]
+})
+
+lists = mcp__trello__get_lists({})
+needs_triage_list_id = (find list where name == $LIST_NEEDS_TRIAGE).id
+xl_child_ids = []
+xl_child_urls = []
+```
+
+Create each confirmed child on the epic's home board in blocker-first order. Each child
+starts in the existing `status/needs-triage` state; use earlier values from
+`xl_child_urls` for its `Blockers` field.
+
+```
+child = mcp__trello__add_card_to_list({
+  listId: needs_triage_list_id,
+  name: "{child title}",
+  desc: "Part of epic: {epic_short_url}\n\n{child spec content}",
+  labels: ["status/needs-triage", "size/{child_size}"]
+})
+mcp__trello__add_comment({
+  cardId: epic_card_id,
+  text: "Child: {child.shortUrl}"
+})
+xl_child_ids.push(child.id)
+xl_child_urls.push(child.shortUrl)
+```
+
+Return the cards in `xl_child_ids` to the shared flow as the Phase 3 carry-forward
+items. Do not return `epic_card_id` as an implementation item.
+
 ## Phase 2, Step 2c: Write spec to backend — Trello
 
 Update the card description with the spec content:
@@ -59,7 +109,8 @@ mcp__trello__update_card_details({
 })
 ```
 
-Trello card descriptions support full Markdown. Use the spec body template from SKILL.md (§ Step 2c) — `## Goal / ## Context / ## Code References / ## Approach / ## Chunks / ## Acceptance Criteria / ## Negative Constraints` — same as every other backend so agents downstream (sprint-dev) read either source identically.
+Trello card descriptions support full Markdown. Use the canonical spec content from
+`references/triage-spec-flow.md` (§ Step 2c), the same source every backend uses.
 
 Multi-board: specs always go on the card's home board. Do not duplicate the spec across boards.
 
