@@ -136,7 +136,7 @@ tier0_youtube_captions() {
          --sub-lang "en.*,en-orig" \
          --sub-format vtt \
          -o "$TMPDIR_WORK/caps.%(ext)s" \
-         "$URL" >/dev/null 2>&1 || return 1
+         "$URL" >/dev/null 2>&1 || true
 
   # Prefer manual subs (caps.en.vtt) over auto (caps.en-*.vtt, caps.en-orig.vtt).
   local vtt
