@@ -86,3 +86,35 @@ PY
   [ "$status" -eq 0 ] || return 1
   [ -n "$output" ]
 }
+
+@test "provider-neutral dispatch skills resolve rubric-path through the Harness root" {
+  run python3 - "$REPO" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+repo = Path(sys.argv[1])
+failures = []
+for name in ("execute", "review", "computer-use"):
+    path = repo / "plugins" / "harness" / "skills" / name / "SKILL.md"
+    if not path.is_file():
+        failures.append(f"{name}: missing skill")
+        continue
+    blocks = re.findall(r"```bash\n(.*?)\n```", path.read_text(), re.S)
+    routing_blocks = [block for block in blocks if '"$harness/scripts/rubric-path.sh"' in block]
+    if len(routing_blocks) != 1:
+        failures.append(f"{name}: expected one rubric-path command block, found {len(routing_blocks)}")
+        continue
+    block = routing_blocks[0]
+    if 'harness="${CLAUDE_PLUGIN_ROOT' not in block:
+        failures.append(f"{name}: rubric-path block does not resolve the Harness root")
+    if block.index('harness="${CLAUDE_PLUGIN_ROOT') > block.index('"$harness/scripts/rubric-path.sh"'):
+        failures.append(f"{name}: Harness root is resolved after rubric-path use")
+
+assert not failures, "\n".join(failures)
+PY
+  if [ "$status" -ne 0 ]; then
+    printf '%s\n' "$output" >&2
+  fi
+  [ "$status" -eq 0 ]
+}

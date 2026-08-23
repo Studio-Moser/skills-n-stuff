@@ -8,10 +8,11 @@ description: >-
   that would be wrong on another machine, and optionally triggers a pull on your
   other machines. Trigger: "sync my config", "sync my machines", "update my skills from
   my repo", "is this machine up to date", or /harness:sync.
-  Do NOT use for setting up a machine that has no plugins yet (follow
-  studio-baseline/Machine_Setup.md), for creating the model rubric (that's
-  /harness:model-rubric), or for anything in a project repo — sync only touches this
-  developer's user-global agent config.
+  Do NOT use as the first-time user-facing setup workflow (that's
+  /harness:setup), for creating the model rubric (that's /harness:model-rubric),
+  or for anything in a project repo — sync only touches this developer's
+  user-global agent config. Harness setup invokes this skill internally for its
+  existing repository, link, and portability mechanics.
 effort: low
 allowed-tools: "Bash Read Edit"
 ---
@@ -19,6 +20,14 @@ allowed-tools: "Bash Read Edit"
 # Harness — Sync
 
 Makes this machine match your personal agent repo.
+
+## Composition boundary
+
+`harness:setup` invokes this skill for repository discovery or cloning, link
+reconciliation, and portability checks. Run the same phases and preserve every
+existing prompt, conflict stop, authentication boundary, and report field. Return
+the Phase 4 report to Setup; do not make rubric decisions or capability claims on
+Setup's behalf.
 
 **Default repo:** `$HOME/.agents`. If `$AGENTS_REPO` is set, use that instead.
 

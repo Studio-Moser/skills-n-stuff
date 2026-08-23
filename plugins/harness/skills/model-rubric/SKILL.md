@@ -10,7 +10,8 @@ description: >-
   "refresh my rubric", "which model should agents use", "my rubric is stale",
   or /harness:model-rubric.
   Do NOT use to route a specific task right now (just read the rubric), or to
-  configure a project's issue tracker (that's /pm:setup).
+  configure a project's issue tracker (that's /pm:setup). Harness setup invokes
+  this skill internally after discovering the current machine's capabilities.
 effort: medium
 allowed-tools: "Bash Read Write Edit WebFetch"
 ---
@@ -18,6 +19,15 @@ allowed-tools: "Bash Read Write Edit WebFetch"
 # Harness — Model Rubric
 
 Owns creating and refreshing the per-developer model-routing rubric.
+
+When invoked by `harness:setup`, treat its `command -v` capability inventory as
+current machine evidence. Reconcile CLI-backed `capabilities` with that inventory,
+show the changes, and rederive every affected route; do not retain a route to an
+executor now known to be absent. Preserve non-CLI subscription facts, taste, and
+cost semantics. Keep this skill's existing interview, path, seed, refresh,
+validation, and audit mechanics authoritative; Setup must not duplicate them.
+Return the resolved path, reviewed date, validation result, and any blocker to
+Setup.
 
 ## 1. Check current state
 
@@ -88,9 +98,11 @@ Follow it exactly. Two notes specific to running it from here:
   to today. A file still containing `seed: true`, `cost: null`, or `routing: {}`
   is NOT set up — `--check` may pass on it, so verify these keys are gone.
 
-**On a refresh, keep the developer's taste scores and `capabilities` unchanged** —
-re-pull AA and DeepSWE and update only the data-sourced axes (cost,
-intelligence, swe). Do not re-interview.
+**On an ordinary data refresh, keep the developer's taste scores and
+`capabilities` unchanged** — re-pull AA and DeepSWE and update only the
+data-sourced axes (cost, intelligence, swe). Do not re-interview. The exception is
+an invocation from `harness:setup` carrying fresh `command -v` evidence: reconcile
+the CLI-backed capabilities and rederive affected routes as described above.
 
 ## 3. Confirm
 

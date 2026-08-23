@@ -37,7 +37,7 @@ routing: {}
 #     44.3 high / 57 xhigh / 67.3 max); at max it's unattended-batch-only (~158s TTFT).
 #   - sonnet-5 tops out ~49.6 swe at max — below sol@medium. Two roles: the `explore` default
 #     (read-only research, native Agent only), and an implementer only when the codex CLI is
-#     absent. Bulk/mechanical/quick go to the via:codex rows (a pm:codex-* handoff, not an
-#     Agent call).
+#     absent. Bulk/mechanical/quick go to the via:codex rows (an internal Harness
+#     adapter dispatch, not an Agent call).
 #   - fable-5@high is the efficient frontier vs opus-5@max: 72.7 vs 73.5 swe at ~40% less burn.
 #   - Effort beats tier: raise a model's effort before reaching for a bigger model.
