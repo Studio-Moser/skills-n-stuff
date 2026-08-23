@@ -107,7 +107,7 @@ transcription fails and do not treat a snippet as the full source content.
 
 **Only when multiple resources are provided.** Skip this phase for single-resource research.
 
-Include all accepted resource extracts in an additional Phase 4 `bulk` request. Require
+Include all accepted resource extracts in an additional Phase 5 `bulk` request. Require
 that comparison to cover:
 
 - **Agreements** — Where do the sources align? Shared recommendations carry more weight.
@@ -121,7 +121,22 @@ the conflict is high-impact or would drive a recommendation.
 
 ---
 
-## Phase 4: Research the Ecosystem
+## Phase 4: Audit the Current Project
+
+Before any project-comparison request, inspect the codebase and project:
+
+- Read the project structure, key configuration files, and documentation
+- Understand the tech stack, architecture, and major dependencies
+- Look at how the project currently handles the areas the resources touch on
+- Identify the project's architectural philosophy and patterns in use
+
+Record the current project facts and repository-relative files that support each fact.
+These audited inputs must be present in every comparison-bearing Phase 5 packet. Do not
+request a project comparison until this audit is complete.
+
+---
+
+## Phase 5: Research the Ecosystem
 
 Go beyond the resources themselves. For every significant concept, tool, library, pattern, or product mentioned:
 
@@ -197,19 +212,6 @@ For each resource the user shared and each source you find during research, asse
 - Whether the source is authoritative (official docs vs. random blog post vs. well-known expert)
 
 If a resource is stale or its advice has been superseded, flag that prominently.
-
----
-
-## Phase 5: Audit the Current Project
-
-Turn your attention to the codebase and project you're working in:
-
-- Read the project structure, key configuration files, and documentation
-- Understand the tech stack, architecture, and major dependencies
-- Look at how the project currently handles the areas the resources touch on
-- Identify the project's architectural philosophy and patterns in use
-
-Be thorough. You need to understand the project well enough to make meaningful comparisons.
 
 ---
 

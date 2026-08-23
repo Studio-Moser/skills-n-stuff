@@ -191,57 +191,18 @@ corroborate any claim that could drive a top-three priority.
 
 ---
 
-## Phase 3: Strategist Synthesis
-
-Invoke `harness:execute` with `operation: execute` and `route: taste` for the strategy
-draft. Product Pulse remains the accepting workflow and writes the files only after
-validating the returned Harness Result.
-
-```yaml
-operation: execute
-route: taste
-outcome: Produce a concise weekly strategy brief and recommendations draft grounded in accepted research
-context:
-  project: {project_id}
-  mode: fresh
-  state: {accepted analyst briefs, last 7 daily reports, previous weekly direction, product context, configured repos, and corroboration notes}
-  files: [{repository-relative accepted daily reports and prior strategy brief}]
-authority:
-  working_directory: {absolute primary repository root}
-  allowed_paths: [{read-only paths named in context.files}]
-  tools: [read-only inspection]
-  approvals: []
-constraints:
-  - |
-    Product Pulse weekly strategist:
-    Identify one product-specific weekly theme. Set exactly 3 priorities; each must be
-    achievable in one week, tied to evidence, identify the affected repo, and include a
-    clear done definition. Corroborate every high-impact claim that drives a priority;
-    preserve source citations, credibility caveats, dates, and confidence.
-  - |
-    Produce an opinionated strategy brief readable in 5 minutes plus recommendations:
-    at most 5 Suggested for Speccing items with rationale, served priority, and size;
-    Monitor Alerts; Quick Wins; Roadmap Notes; and 1-3 cross-domain opportunities.
-    Recommend only—do not promote, dismiss, or modify backlog items.
-  - |
-    Include the intended report paths {week_dir}/{YYYY}-W{NN}-strategy-brief.md and
-    {week_dir}/{YYYY}-W{NN}-recommendations.md. Do not write or publish files.
-verification:
-  seam: Trace every theme, priority, alert, and recommendation to accepted cited evidence and verify exact priority count, report sections, brevity, and report paths
-  expected: The strategy brief and recommendations are evidence-grounded, decisive, complete, and ready for Product Pulse publication
-```
-
-Require `status: accepted` and `evidence.outcome: proven`, then reproduce the seam.
+## Phase 3: Adjudicate Evidence and Synthesize Strategy
 
 When accepted sources remain contradictory or a high-impact claim is not adequately
 corroborated, materialize the disputed claim, full citations, credibility assessments,
-and source excerpts as one immutable snapshot digest. Invoke `harness:review` with
-`operation: review` and `route: review`; do not silently pick a winner.
+and source excerpts as one immutable snapshot digest before requesting a strategy draft.
+Invoke `harness:review` with `operation: review` and `route: review`; do not silently
+pick a winner or let contested evidence reach synthesis first.
 
 ```yaml
 operation: review
 route: review
-outcome: Adjudicate one contradictory or insufficiently corroborated high-impact research claim without changing the strategy draft
+outcome: Adjudicate one contradictory or insufficiently corroborated high-impact research claim before strategy synthesis
 context:
   project: {project_id}
   mode: fresh
@@ -266,6 +227,48 @@ verification:
 Only use an adjudication with `status: accepted`, matching `evidence.fixed_target`,
 and `evidence.outcome: proven`. Otherwise keep the conflict visible and exclude it from
 priority-setting.
+
+After every required adjudication is accepted or explicitly excluded, invoke
+`harness:execute` with `operation: execute` and `route: taste` for the strategy draft.
+Product Pulse remains the accepting workflow and writes the files only after validating
+the returned Harness Result.
+
+```yaml
+operation: execute
+route: taste
+outcome: Produce a concise weekly strategy brief and recommendations draft grounded in accepted research and adjudications
+context:
+  project: {project_id}
+  mode: fresh
+  state: {accepted analyst briefs, accepted adjudications, excluded unresolved claims, last 7 daily reports, previous weekly direction, product context, configured repos, and corroboration notes}
+  files: [{repository-relative accepted daily reports and prior strategy brief}]
+authority:
+  working_directory: {absolute primary repository root}
+  allowed_paths: [{read-only paths named in context.files}]
+  tools: [read-only inspection]
+  approvals: []
+constraints:
+  - |
+    Product Pulse weekly strategist:
+    Identify one product-specific weekly theme. Set exactly 3 priorities; each must be
+    achievable in one week, tied to evidence, identify the affected repo, and include a
+    clear done definition. Only corroborated claims or accepted adjudications may drive
+    a priority; exclude unresolved contested claims and preserve source citations,
+    credibility caveats, dates, and confidence.
+  - |
+    Produce an opinionated strategy brief readable in 5 minutes plus recommendations:
+    at most 5 Suggested for Speccing items with rationale, served priority, and size;
+    Monitor Alerts; Quick Wins; Roadmap Notes; and 1-3 cross-domain opportunities.
+    Recommend only—do not promote, dismiss, or modify backlog items.
+  - |
+    Include the intended report paths {week_dir}/{YYYY}-W{NN}-strategy-brief.md and
+    {week_dir}/{YYYY}-W{NN}-recommendations.md. Do not write or publish files.
+verification:
+  seam: Trace every theme, priority, alert, and recommendation to accepted cited evidence or adjudication and verify excluded claims, exact priority count, report sections, brevity, and report paths
+  expected: The strategy brief and recommendations are evidence-grounded, decisive, complete, and ready for Product Pulse publication
+```
+
+Require `status: accepted` and `evidence.outcome: proven`, then reproduce the seam.
 
 ### 3.1 Identify the Week's Theme
 

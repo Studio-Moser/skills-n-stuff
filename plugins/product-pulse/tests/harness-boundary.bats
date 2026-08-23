@@ -177,6 +177,80 @@ PY
   [ "$status" -eq 0 ]
 }
 
+@test "weekly adjudicates contested evidence before strategy synthesis" {
+  run python3 - "$REPO" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+text = (Path(sys.argv[1]) / "plugins/product-pulse/skills/weekly-strategist/SKILL.md").read_text()
+packets = [
+    (match.start(), match.group(1))
+    for match in re.finditer(r"```yaml\n(operation: .*?)\n```", text, re.DOTALL)
+]
+review = [position for position, packet in packets if "operation: review" in packet and "route: review" in packet]
+taste = [(position, packet) for position, packet in packets if "operation: execute" in packet and "route: taste" in packet]
+failures = []
+if len(review) != 1:
+    failures.append(f"expected one review packet, found {len(review)}")
+if len(taste) != 1:
+    failures.append(f"expected one taste packet, found {len(taste)}")
+if len(review) == 1 and len(taste) == 1:
+    if review[0] > taste[0][0]:
+        failures.append("taste synthesis precedes evidence adjudication")
+    normalized = " ".join(taste[0][1].split()).lower()
+    if "accepted adjudications" not in normalized:
+        failures.append("taste synthesis does not consume accepted adjudications")
+
+assert not failures, "invalid weekly evidence flow:\n" + "\n".join(failures)
+PY
+  if [ "$status" -ne 0 ]; then
+    printf '%s\n' "$output" >&2
+  fi
+  [ "$status" -eq 0 ]
+}
+
+@test "deep-dive audits the project before comparison requests" {
+  run python3 - "$REPO" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+text = (Path(sys.argv[1]) / "plugins/product-pulse/skills/deep-dive/SKILL.md").read_text()
+audit_match = re.search(r"^## Phase \d+: Audit the Current Project$", text, re.MULTILINE)
+audit = audit_match.start() if audit_match else -1
+packets = [
+    (match.start(), match.group(1))
+    for match in re.finditer(r"```yaml\n(operation: .*?)\n```", text, re.DOTALL)
+]
+comparisons = [
+    (position, packet)
+    for position, packet in packets
+    if "operation: execute" in packet
+    and "route: bulk" in packet
+    and "project comparison" in packet.lower()
+]
+failures = []
+if audit < 0:
+    failures.append("missing project-audit phase")
+if not comparisons:
+    failures.append("no bulk project-comparison packet")
+for position, packet in comparisons:
+    if audit > position:
+        failures.append("project comparison request precedes project audit")
+    normalized = " ".join(packet.split()).lower()
+    for required in ("current project facts", "repository-relative project files"):
+        if required not in normalized:
+            failures.append(f"comparison packet omits audited input: {required}")
+
+assert not failures, "invalid deep-dive comparison flow:\n" + "\n".join(failures)
+PY
+  if [ "$status" -ne 0 ]; then
+    printf '%s\n' "$output" >&2
+  fi
+  [ "$status" -eq 0 ]
+}
+
 @test "Product Pulse keeps report and publication ownership" {
   run python3 - "$REPO" <<'PY'
 from pathlib import Path
