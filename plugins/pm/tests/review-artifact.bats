@@ -57,3 +57,49 @@ teardown() {
   [ "$(sed -n '1p' "$artifact_abs")" = "retained conflict" ] || return 1
   [ "$(find "$FIXTURE_REPO/.harness-review" -type f | wc -l | tr -d ' ')" -eq 1 ]
 }
+
+@test "symlinked artifact directory is refused without outside writes" {
+  outside_dir="$TEST_ROOT/outside-directory"
+  mkdir "$outside_dir"
+  ln -s "$outside_dir" "$FIXTURE_REPO/.harness-review"
+
+  run "$SCRIPT" "$FIXTURE_REPO" "$BASE_SHA" "$HEAD_SHA"
+
+  [ "$status" -eq 3 ] || { printf 'status=%s\n%s\n' "$status" "$output" >&2; return 1; }
+  [[ "$output" == *".harness-review is not an in-worktree directory"* ]] || return 1
+  [ -z "$(find "$outside_dir" -mindepth 1 -maxdepth 1 -print -quit)" ] || return 1
+}
+
+@test "raced destination symlink cannot create a hard link outside worktree" {
+  race_bin="$TEST_ROOT/race-bin"
+  outside_dir="$TEST_ROOT/outside-destination"
+  mkdir "$race_bin" "$outside_dir"
+  printf '%s\n' \
+    '#!/usr/bin/env bash' \
+    'set -euo pipefail' \
+    'destination=""' \
+    'for argument in "$@"; do destination="$argument"; done' \
+    '/bin/ln -s "$RACE_OUTSIDE_DIR" "$destination"' \
+    'exec /bin/ln "$@"' \
+    > "$race_bin/ln"
+  chmod +x "$race_bin/ln"
+
+  run env PATH="$race_bin:$PATH" RACE_OUTSIDE_DIR="$outside_dir" \
+    "$SCRIPT" "$FIXTURE_REPO" "$BASE_SHA" "$HEAD_SHA"
+
+  failed=0
+  if [ "$status" -ne 3 ]; then
+    printf 'expected status 3, got %s\n%s\n' "$status" "$output" >&2
+    failed=1
+  fi
+  if [[ "$output" == *"state=created"* ]]; then
+    printf 'helper falsely reported creation:\n%s\n' "$output" >&2
+    failed=1
+  fi
+  outside_entry="$(find "$outside_dir" -mindepth 1 -maxdepth 1 -print -quit)"
+  if [ -n "$outside_entry" ]; then
+    printf 'helper created an outside hard link: %s\n' "$outside_entry" >&2
+    failed=1
+  fi
+  [ "$failed" -eq 0 ]
+}
