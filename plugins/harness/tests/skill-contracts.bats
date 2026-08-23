@@ -108,7 +108,7 @@ for clause in (
 ):
     if clause not in execute:
         failures.append(f"execute: missing adapter clause: {clause}")
-for token in ('command -v codex', '-C "$HARNESS_CWD"', '-m "$HARNESS_MODEL"', 'model_reasoning_effort="$HARNESS_EFFORT"'):
+for token in ('command -v codex', 'codex-dispatch.sh', '`approval: never`'):
     if token not in skills["execute"]:
         failures.append(f"execute: Codex adapter omits {token}")
 
@@ -164,21 +164,37 @@ required = (
 )
 missing = [clause for clause in required if clause not in normalized]
 assert not missing, "setup contract missing: " + ", ".join(missing)
-assert "$harness/scripts/" not in text, "setup duplicates script mechanics instead of composing skills"
+assert "setup-result.py" in text, "setup does not use the runnable result seam"
+script_refs = [line for line in text.splitlines() if "$harness/scripts/" in line]
+assert all("setup-result.py" in line for line in script_refs), "setup duplicates Sync or rubric mechanics"
+PY
+  if [ "$status" -ne 0 ]; then
+    printf '%s\n' "$output" >&2
+  fi
+  [ "$status" -eq 0 ]
+}
 
-def apply_fixture(tool_names):
-    shelby_available = any("shelby" in name.lower() for name in tool_names)
-    if shelby_available:
-        assert "When Shelby tool names are present, continue setup and return only identifiers from successful Shelby calls" in normalized
-        return "finished", ("project-id", "run-id", ["checkpoint-id"])
-    assert "When Shelby tool names are absent, continue setup and leave all optional `shelby` identifiers empty" in normalized
-    return "finished", (None, None, [])
+@test "model-rubric is Harness-owned and setup cannot early-stop before reconciliation" {
+  run python3 - "$SKILLS_ROOT/model-rubric/SKILL.md" <<'PY'
+from pathlib import Path
+import sys
 
-present = apply_fixture(["mcp__shelby_memory__get_brief", "mcp__shelby_memory__log_run"])
-absent = apply_fixture(["read", "bash", "edit"])
-assert present[0] == absent[0] == "finished"
-assert all(present[1])
-assert absent[1] == (None, None, [])
+text = Path(sys.argv[1]).read_text()
+normalized = " ".join(text.split())
+for stale in ("studio-baseline/", "Rubric_Setup.md", "/" + "machine:", "pm:codex"):
+    assert stale not in text, f"model-rubric delegates to stale workflow: {stale}"
+for clause in (
+    "When invoked by `harness:setup`, a current rubric does not stop this skill",
+    "reconcile CLI-backed `capabilities`",
+    "cost semantics",
+    "trust for hard problems",
+    "taste",
+    "working style",
+    "derive `routing` fresh",
+    "`routing.review`",
+    "`routing.independent`",
+):
+    assert clause in normalized, f"model-rubric is missing its owned procedure: {clause}"
 PY
   if [ "$status" -ne 0 ]; then
     printf '%s\n' "$output" >&2

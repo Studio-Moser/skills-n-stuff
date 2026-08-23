@@ -63,6 +63,13 @@ If narrower allowed paths cannot be enforced, use an authorized native executor
 that can enforce them or return `blocked`; a prompt-only restriction is not an
 authority boundary.
 
+Derive approval policy before dispatch. If any `authority.approvals` item remains
+outstanding, the non-interactive external adapter cannot surface it: return an
+authorized fallback or `blocked`. After the parent obtains every required
+approval, dispatch with `approval: never`; in Codex this denies later escalation
+instead of silently approving it. If the sandbox and approval policy together
+cannot enforce the request ceiling, do not invoke Codex.
+
 Create a temporary artifact directory and a self-contained prompt. The prompt's
 positive recipe is: outcome, working directory, allowed paths, constraints,
 verification seam, and the required HarnessResult return shape. Include the
@@ -71,34 +78,37 @@ tools, and approvals only when populated. Never put secrets in the prompt,
 report, evidence, or command line. Do not copy environment variables or
 secret-bearing profiles, and never widen sandbox, path, tool, or approval authority.
 
-After assigning the validated values to the variables below, use this guarded
-command shape:
+After assigning the validated values to the variables below, use the guarded
+adapter script. It validates the operation/sandbox combination and passes cwd,
+sandbox, approval, model, and effort explicitly:
 
 ```bash
-command -v codex >/dev/null 2>&1 || exit 127
+harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
 ARTIFACT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/harness-execute.XXXXXX")"
 PROMPT="$ARTIFACT_DIR/prompt.md"
 REPORT="$ARTIFACT_DIR/report.md"
-codex exec \
-  -C "$HARNESS_CWD" \
-  -s "$HARNESS_SANDBOX" \
-  -m "$HARNESS_MODEL" \
-  -c model_reasoning_effort="$HARNESS_EFFORT" \
-  - < "$PROMPT" > "$REPORT"
+"$harness/scripts/codex-dispatch.sh" \
+  --operation execute \
+  --cwd "$HARNESS_CWD" \
+  --sandbox "$HARNESS_SANDBOX" \
+  --approval never \
+  --model "$HARNESS_MODEL" \
+  --effort "$HARNESS_EFFORT" \
+  --prompt "$PROMPT" \
+  --report "$REPORT"
 ```
 
-Do not add `--add-dir`, `--dangerously-bypass-approvals-and-sandbox`, or an
-approval override. Do not let the worker commit, push, deploy, edit global
-config, or take any other external action unless the request explicitly grants
-it. A non-interactive prompt must say to proceed within the approved packet
-without stopping at internal plan gates, while still stopping at every listed
-user approval.
+The adapter never adds `--add-dir`, automatic approval, or an approval/sandbox
+bypass. Do not let the worker commit, push, deploy, edit global config, or take
+any other external action unless the request explicitly grants it. A
+non-interactive prompt proceeds within the approved packet without stopping at
+internal plan gates; a still-required user approval blocked dispatch above.
 
 Pin Git status before dispatch and inspect status plus diff afterward. Exit zero
 and a report without artifact changes are success-shaped failures, not delivery.
-If the worker stopped at an approval gate, resume only after that exact approval
-has been obtained, re-passing the same sandbox, model, and effort; otherwise
-return `blocked`.
+If the worker reports an authority failure, obtain any required approval in the
+parent and start a new guarded attempt with the same or narrower sandbox; never
+resume through a broader ambient configuration.
 
 ## Verify and return
 

@@ -20,14 +20,13 @@ allowed-tools: "Bash Read Write Edit WebFetch"
 
 Owns creating and refreshing the per-developer model-routing rubric.
 
-When invoked by `harness:setup`, treat its `command -v` capability inventory as
-current machine evidence. Reconcile CLI-backed `capabilities` with that inventory,
-show the changes, and rederive every affected route; do not retain a route to an
-executor now known to be absent. Preserve non-CLI subscription facts, taste, and
-cost semantics. Keep this skill's existing interview, path, seed, refresh,
-validation, and audit mechanics authoritative; Setup must not duplicate them.
-Return the resolved path, reviewed date, validation result, and any blocker to
-Setup.
+When invoked by `harness:setup`, treat its `command -v` inventory as current
+machine evidence. A current rubric does not stop this skill: first reconcile
+CLI-backed `capabilities`, show the changes, and derive `routing` fresh whenever
+reachability changed. Do not retain a route to an executor known to be absent.
+Preserve non-CLI subscription facts, taste, and cost semantics. Return the path,
+reviewed date, whether reconciliation ran, whether the file changed, validation
+checks, and any blocker to Setup.
 
 ## 1. Check current state
 
@@ -36,8 +35,11 @@ harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*
 "$harness/scripts/rubric-path.sh" --check
 ```
 
-- `set` → read the file's `reviewed:` stamp. Current (≤14 days, no superseded
-  models listed) → say so and stop. Otherwise offer a refresh.
+- `set` → read the file's `reviewed:` stamp and listed models. For an ordinary
+  invocation, current (≤14 days, no superseded model) means report it and stop.
+  When invoked by `harness:setup`, a current rubric does not stop this skill:
+  continue through capability reconciliation, then stop only if reconciliation
+  and validation prove that no write is needed.
 - `unset` → first-time setup.
 
 ## 1.5 Decide where the rubric physically lives
@@ -65,46 +67,115 @@ if [ -d "$repo/.git" ]; then echo "repo"; else echo "plain"; fi
 **Never replace the symlink with a real file/folder when writing or refreshing** — edit
 the file through the link. An atomic-replace of the directory severs sync silently.
 
-## 2. Follow the canonical walkthrough
+## 2. Gather current model evidence
 
-The full procedure lives in `studio-baseline/Rubric_Setup.md` and is deliberately
-**not duplicated here** — it must work for developers with no plugin installed, so
-that file is the single source of truth. Read it:
+Use live sources because model availability, pricing, and benchmarks change.
+Start with the existing fetcher:
 
 ```bash
-cat "$harness/../../studio-baseline/Rubric_Setup.md" 2>/dev/null \
-  || echo "fetch https://raw.githubusercontent.com/Studio-Moser/skills-n-stuff/main/studio-baseline/Rubric_Setup.md"
+harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
+"$harness/scripts/fetch-model-data.sh"
 ```
 
-Follow it exactly. Two notes specific to running it from here:
+- Exit 0 → use its normalized pricing and intelligence rows.
+- Exit 3 → no `ARTIFICIAL_ANALYSIS_API_KEY`. Offer the developer the free
+  Artificial Analysis models API, but never ask them to paste a key into chat.
+  They may decline; use official provider documentation plus judgment and record
+  that source.
+- Exit 4 or 5 → the configured fetch failed or its response shape yielded no
+  usable row. Report it, retry once, then use official provider documentation
+  plus judgment only if it still fails; record the failure reason under
+  `sources`, without credential values.
 
-- Where it calls for live model data, use
-  `"$harness/scripts/fetch-model-data.sh"`. Exit code 3 means no
-  `ARTIFICIAL_ANALYSIS_API_KEY` — fall back to vendor docs and judgment, and record
-  `sources: [judgment]`. Exit code 4 (request failed, e.g. network) or 5 (response
-  parsed but no row yielded a figure — the API shape likely changed) are **not**
-  the same as "no key": a key was present and the call was attempted but didn't
-  come back clean. Don't silently fall back to judgment as if the developer
-  declined — report the failure, retry once, and only fall back to vendor
-  docs/judgment if it persists, noting the reason (not just `judgment`) under
-  `sources`.
-- Where it calls for the target path, use
-  `$("$harness/scripts/rubric-path.sh")`.
-- Where the walkthrough offers a **seed rubric**, use this plugin's copy:
-  `"$harness/skills/model-rubric/Default_Rubric.yml"`. Copy it to the target path
-  as the starting table, then follow the walkthrough's rules: drop rows whose
-  provider isn't in this developer's `capabilities`, fill `cost` from their cost
-  semantics, derive `routing` fresh, remove the `seed:` key, and set `reviewed:`
-  to today. A file still containing `seed: true`, `cost: null`, or `routing: {}`
-  is NOT set up — `--check` may pass on it, so verify these keys are gone.
+Read the current DeepSWE leaderboard for agentic software-engineering quality at
+each effort level. If it is unavailable, record that and use provider evidence
+plus judgment. Rows are keyed by `(model, effort)` because effort can move
+agentic quality more than model tier.
 
-**On an ordinary data refresh, keep the developer's taste scores and
-`capabilities` unchanged** — re-pull AA and DeepSWE and update only the
-data-sourced axes (cost, intelligence, swe). Do not re-interview. The exception is
-an invocation from `harness:setup` carrying fresh `command -v` evidence: reconcile
-the CLI-backed capabilities and rederive affected routes as described above.
+## 3. Establish developer-specific inputs
 
-## 3. Confirm
+On first-time setup, ask one focused question at a time. Cover trust for hard
+problems explicitly; do not infer it from benchmark scores:
+
+1. **Capabilities and providers:** which native runtimes, providers, and CLIs are
+   usable, and which subscriptions or metered APIs back them? Verify every
+   CLI-backed claim with `command -v`. A Setup-provided inventory is evidence for
+   this step, not permission to infer subscriptions.
+2. **Cost semantics:** per provider, decide whether `cost` represents metered
+   dollars or, for a flat subscription, quota burn plus latency.
+3. **Trust for hard problems:** identify models the developer trusts or refuses
+   for ambiguous unsupervised work.
+4. **Taste:** identify models whose UI, copy, and public API judgment needs the
+   least editing.
+5. **Working style:** decide whether latency matters for attended work and whether
+   slow, high-quality rows are useful for unattended batches.
+
+On an ordinary data refresh, keep capabilities, taste, trust, working style, and
+cost semantics; update data-sourced axes and `reviewed:` without re-interviewing.
+On a Setup invocation, reconcile each CLI-backed capability with the supplied
+inventory. Preserve non-CLI facts, show additions/removals, and continue even
+when the existing rubric is otherwise current.
+
+## 4. Build or refresh the rubric
+
+For first-time setup, copy
+`skills/model-rubric/Default_Rubric.yml` from this plugin to the path returned by
+`scripts/rubric-path.sh`, writing through the config-directory symlink when one
+exists. Treat it only as a seed:
+
+1. remove rows whose provider/executor is unavailable;
+2. add current candidate `(model, effort)` rows for newly available providers;
+3. fill `cost` using the developer's cost semantics;
+4. update data-backed `intelligence` and `swe`, preserving user-owned `taste`;
+5. mark cross-provider CLI rows with `via: <cli>`;
+6. derive `routing` fresh from the reachable rows;
+7. remove `seed: true`, replace `reviewed:` with today's date, and record the
+   actual sources used.
+
+For a Setup reconciliation, add/drop affected model rows and derive `routing`
+fresh whenever a CLI-backed capability changed. For an ordinary stale-data
+refresh, retain the reachable row set unless current evidence says a model was
+superseded.
+
+The routing table uses exact `<model>@<effort>` values:
+
+- `routing.default`: best ordinary quality/cost balance;
+- `routing.bulk`: clear-spec mechanical work;
+- `routing.quick`: low-latency short work;
+- `routing.explore`: cheapest capable native read-only agent;
+- optional `routing.batch`: unattended fan-out only;
+- `routing.taste_min`: minimum taste score for user-facing work;
+- `routing.review`: strongest non-wasteful fixed-target review row;
+- optional `routing.independent`: a different provider from the daily driver,
+  only when two providers are available and cost approval remains required.
+
+`via` is executor metadata interpreted by Harness. Consumers never branch on it.
+Every eventual dispatch still passes model and effort explicitly.
+
+The completed file has this shape:
+
+```yaml
+reviewed: YYYY-MM-DD
+sources: [source-name]
+capabilities:
+  claude: true
+  codex: true
+models:
+  - { name: model-name, effort: high, cost: 5, intelligence: 8, taste: 8, swe: 60, via: codex }
+routing:
+  default: model-name@high
+  bulk: model-name@high
+  quick: model-name@low
+  explore: native-model@low
+  taste_min: 9
+  review: review-model@high
+```
+
+Show the draft before writing on first-time setup. Developer edits override seed
+judgment. Never write a credential, secret-bearing profile, absolute machine
+path, or temporary evidence into the rubric.
+
+## 5. Confirm
 
 ```bash
 harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
@@ -112,3 +183,8 @@ harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*
 ```
 
 Expected: `set`. Report the path and the `reviewed:` date.
+
+Also verify that `seed: true`, `cost: null`, and `routing: {}` are absent; each
+route names an existing row with the same model and effort; `via` executors match
+current capabilities; and a Setup invocation reports `reconciled: true` even
+when the file did not change.

@@ -66,12 +66,41 @@ only if Shelby tool names are available.
 ## Completion
 
 Re-run the checks owned by Sync and Model Rubric that establish the setup state.
+Record bounded JSON summaries from the actual calls rather than inventing
+results:
+
+- Sync: initial/final status and decisive checks, plus changed files;
+- Model Rubric: status, whether the file was current, whether capabilities were
+  reconciled, whether it changed, decisive checks, and changed files;
+- callable runtime tool names as a JSON string array;
+- Shelby: status, checks, and only identifiers returned by successful calls.
+
+Then run the deterministic result seam. It validates that even a current rubric
+was reconciled, requires final Sync when the rubric changed, and handles Shelby
+present, absent, or failed without fabricating identifiers:
+
+```bash
+harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
+"$harness/scripts/setup-result.py" \
+  --sync-result "$SYNC_RESULT" \
+  --rubric-result "$RUBRIC_RESULT" \
+  --tool-names "$TOOL_NAMES" \
+  ${SHELBY_RESULT:+--shelby-result "$SHELBY_RESULT"} \
+  --model "$HARNESS_MODEL" \
+  --effort "$HARNESS_EFFORT" \
+  --provider "$HARNESS_PROVIDER" \
+  --executor "$HARNESS_EXECUTOR" \
+  --fixed-target "$HARNESS_FIXED_TARGET" \
+  --proof "$HARNESS_PROOF"
+```
+
 Return the exact `HarnessResult` from
 [references/harness-contract.md](../../references/harness-contract.md). Use the
 current runtime as the executor, record the agents-repository commit or config
 snapshot in `evidence.fixed_target`, and include decisive setup checks. Only the
-parent or accepting workflow may return `status: accepted`, after those checks
-prove the setup outcome. A subordinate skill's success report is a claim.
+parent or accepting workflow may return `status: accepted`, after reproducing
+those checks; it alone may pass `--proof proven`. A subordinate skill's success
+report is a claim.
 
 Populate every field: `status`, `route.requested`, `route.actual_model`,
 `route.effort`, `route.provider`, `route.executor`, `artifacts.files`,

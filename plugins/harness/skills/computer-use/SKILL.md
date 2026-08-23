@@ -58,9 +58,13 @@ requested context mode.
 
 For `via: codex`, first require `command -v codex`. Use `read-only` or
 `workspace-write` for repo-contained checks. Use `danger-full-access` only when
-the request explicitly authorizes machine-wide access and the runtime still
-retains every required confirmation; if that broad sandbox would exceed the
-authority ceiling, choose an authorized native executor or return `blocked`.
+the request explicitly authorizes machine-wide access and no per-action approval
+remains. A non-interactive Codex run cannot surface a required UI confirmation.
+Obtain it in the parent first, use an authorized native runtime that can retain
+it, or return `blocked`. Once all approvals are cleared, use `approval: never` so
+Codex cannot request a later sandbox escalation. If that sandbox/approval pair
+would exceed the authority ceiling, choose an authorized native executor or
+return `blocked`.
 
 The prompt contains the exact behavior, platform/app, allowed launch or deep-link
 commands, fixtures or seed state, source-edit permission, working directory,
@@ -69,22 +73,26 @@ HarnessResult return shape. Existing authenticated runtime state may be used onl
 within the request's approval boundary. Never embed credentials or other secrets.
 
 ```bash
-command -v codex >/dev/null 2>&1 || exit 127
+harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
 ARTIFACT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/harness-computer-use.XXXXXX")"
 PROMPT="$ARTIFACT_DIR/prompt.md"
 REPORT="$ARTIFACT_DIR/report.md"
-codex exec \
-  -C "$HARNESS_CWD" \
-  -s "$HARNESS_SANDBOX" \
-  -m "$HARNESS_MODEL" \
-  -c model_reasoning_effort="$HARNESS_EFFORT" \
-  - < "$PROMPT" > "$REPORT"
+"$harness/scripts/codex-dispatch.sh" \
+  --operation computer-use \
+  --cwd "$HARNESS_CWD" \
+  --sandbox "$HARNESS_SANDBOX" \
+  --approval never \
+  --model "$HARNESS_MODEL" \
+  --effort "$HARNESS_EFFORT" \
+  --prompt "$PROMPT" \
+  --report "$REPORT"
 ```
 
-Add `--skip-git-repo-check` only when the validated working directory is not a
-Git repository. Never add an approval bypass or broader directory. Require the
-worker to report pass, fail, or blocked; steps performed; observed behavior;
-screenshot/log paths; and actionable findings.
+Pass `--skip-git-repo-check` to the adapter only when the validated working
+directory is not a Git repository. The adapter never adds automatic approval,
+an approval bypass, or a broader directory. Require the worker to report pass,
+fail, or blocked; steps performed; observed behavior; screenshot/log paths; and
+actionable findings.
 
 ## Verify and return
 

@@ -59,25 +59,36 @@ self-contained prompt containing the fixed target, requirements, available
 proof, review axes supplied by the consumer, authority, and exact HarnessResult
 return shape. Do not include secrets or unbounded logs.
 
+Obtain any independent-review cost approval before dispatch. Any other
+outstanding approval returns an authorized fallback or `blocked`; the
+non-interactive adapter cannot surface it. A cleared request uses
+`approval: never` so Codex cannot escalate beyond the read-only review.
+
 For a commit target, use the native fixed-commit review command:
 
 ```bash
-command -v codex >/dev/null 2>&1 || exit 127
+harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
 ARTIFACT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/harness-review.XXXXXX")"
 PROMPT="$ARTIFACT_DIR/prompt.md"
 REPORT="$ARTIFACT_DIR/report.md"
-codex \
-  -C "$HARNESS_CWD" \
-  -m "$HARNESS_MODEL" \
-  -c model_reasoning_effort="$HARNESS_EFFORT" \
-  review --commit "$HARNESS_FIXED_TARGET" - < "$PROMPT" > "$REPORT"
+"$harness/scripts/codex-dispatch.sh" \
+  --operation review \
+  --cwd "$HARNESS_CWD" \
+  --sandbox read-only \
+  --approval never \
+  --model "$HARNESS_MODEL" \
+  --effort "$HARNESS_EFFORT" \
+  --prompt "$PROMPT" \
+  --report "$REPORT" \
+  --fixed-target "$HARNESS_FIXED_TARGET"
 ```
 
 For a branch range or uncommitted state, first materialize the exact patch and
-digest in the temporary artifact directory, then review that immutable artifact
-with a read-only native or `codex exec` session. Do not use `--uncommitted` after
-the target is fixed: it can observe later edits. Never add a write sandbox or an
-approval bypass to a review.
+digest in the temporary artifact directory. Use an authorized native reviewer
+that can consume that immutable artifact; if none is available, return `blocked`.
+The commit-only Codex review adapter must not be pointed at a moving
+`--uncommitted` target. Never add a write sandbox or an approval bypass to a
+review.
 
 Require findings first. Each finding includes severity, file and line, concrete
 failure mode, and fix direction. The report also names the target and classifies
