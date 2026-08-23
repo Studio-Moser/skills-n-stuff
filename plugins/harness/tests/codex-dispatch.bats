@@ -65,8 +65,9 @@ assert_argv() {
     -a never \
     -m gpt-ui \
     -c model_reasoning_effort=medium \
+    exec \
     --skip-git-repo-check \
-    exec -
+    -
 }
 
 @test "review always passes read-only sandbox and explicit never approval policy" {

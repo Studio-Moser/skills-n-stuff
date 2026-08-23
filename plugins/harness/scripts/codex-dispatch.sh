@@ -87,13 +87,13 @@ command=(
   -m "$model"
   -c "model_reasoning_effort=$effort"
 )
-if [ "$skip_git_repo_check" = true ]; then
-  command+=(--skip-git-repo-check)
-fi
-
 case "$operation" in
   execute|computer-use)
-    command+=(exec -)
+    command+=(exec)
+    if [ "$skip_git_repo_check" = true ]; then
+      command+=(--skip-git-repo-check)
+    fi
+    command+=(-)
     ;;
   review)
     command+=(review --commit "$fixed_target" -)
