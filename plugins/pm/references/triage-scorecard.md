@@ -11,9 +11,11 @@ XL child items independently; do not score their goal epic.
 
 ## Submit the scorecard request
 
-For each item, read `plugins/pm/agents/scorecard-evaluator.md` for PM's scoring
-constraints, then invoke `harness:execute` with `operation: execute` and
-`route: bulk`. The request is read-only and evaluates one delivery slice:
+For each item, read `plugins/pm/agents/scorecard-evaluator.md` in the PM orchestrator.
+Copy its complete evaluation checklist, readiness gate, and output rules into the
+request; do not pass the PM-private path to Harness. Then invoke `harness:execute` with
+`operation: execute` and `route: bulk`. The request is read-only and evaluates one
+delivery slice:
 
 ```yaml
 operation: execute
@@ -22,7 +24,7 @@ outcome: Return the six-criterion PM readiness scorecard and verdict for one ite
 context:
   project: {canonical project identifier when known}
   mode: fresh
-  state: {item title, description, labels, Bug claim value, spec, Established, and Unresolved}
+  state: {item title, description, labels, Bug claim value, spec, Established, Unresolved, and the full canonical readiness rules loaded by PM}
   files: [{CONTEXT.md, .pm/out-of-scope entries, configured repo list, and applicable spec paths}]
 authority:
   working_directory: {absolute primary repository root}
@@ -30,12 +32,33 @@ authority:
   tools: [Read]
   approvals: []
 constraints:
-  - Apply references/work-readiness.md without redefining it
-  - Require one delivery slice with explicit Blockers and Testing Seam
-  - Use plugins/pm/agents/scorecard-evaluator.md as the scorecard instructions
+  - |
+    PM scorecard evaluator system prompt:
+    Score each criterion PASS or FAIL with a one-line explanation.
+    1. Clear description: require WHAT to build and the desired outcome; prescribing
+       HOW without the goal fails.
+    2. Explicit acceptance criteria and Testing Seam: require specific testable done
+       conditions and apply the supplied canonical Testing Seam selection rule;
+       vague criteria fail.
+    3. Linked code references: require specific files, modules, or APIs and the target
+       repo name in a multi-repo project.
+    4. Negative constraints: check the supplied out-of-scope decisions. Missing
+       negatives fail only when a related rejection exists.
+    5. Bounded scope: require one delivery slice in one repo with explicit Blockers;
+       split independent or multi-repo outcomes, and never mark a goal epic ready.
+    6. No controlling unknowns: require Established and Unresolved to separate
+       evidence from gaps and hypotheses; a controlling unresolved question or causal
+       hypothesis fails.
+    Apply every applicable completion condition in the supplied canonical readiness
+    rules before the numeric verdict. Do not infer evidence or treat a hypothesis as
+    a confirmed cause. A failed readiness gate is always needs-info regardless of
+    score. When the gate passes, return status/ready + owner/ai for 6/6,
+    status/ready + owner/human for 4-5/6, or needs-info for 0-3/6.
+    Return Score, Readiness gate with every failed condition, Verdict, per-criterion
+    results, and Suggested fixes for every FAIL.
   - Do not write tracker status, owner, verdict, or spec content
 verification:
-  seam: Validate the returned six criteria, readiness gate, numeric score, and verdict against this reference
+  seam: Validate the returned six criteria, readiness gate, numeric score, and verdict against the embedded PM scorecard and supplied canonical readiness rules
   expected: Every criterion is PASS or FAIL with an explanation and the verdict obeys the readiness gate and thresholds
 ```
 

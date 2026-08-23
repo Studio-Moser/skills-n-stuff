@@ -319,7 +319,9 @@ constraints:
   - {full L/XL spec or S/M item and research constraints}
   - {domain terminology from CONTEXT.md}
   - {out-of-scope decisions from .pm/out-of-scope}
-  - Follow pm:house-rules; use TDD where applicable; make atomic commits
+  - Use test-driven development for behavior changes and leave a runnable check for non-trivial logic
+  - Preserve trust-boundary validation, data-loss-preventing error handling, security, and accessibility basics
+  - Keep the change to the approved slice, run the planned tests, and make atomic conventional commits
   - Commit the approved delivery slice; do not push, open a PR, or edit PM tracker files
   - Report discovered work without implementing it inline
 verification:
@@ -345,10 +347,27 @@ slice before moving to review.
 
 ### 2C. Fixed-target review and fix loop
 
-Load `references/review-proof.md`, pin the exact base/head commits, and invoke
-`harness:review` with `operation: review` and `route: review`. Keep the
+Load `references/review-proof.md` in the PM orchestrator and copy its complete review
+axes and completion constraints into the request; do not pass that PM-private path to
+Harness. Invoke `harness:review` with `operation: review` and `route: review`. Keep the
 one-reviewer policy. Use `route: independent` only when the user separately approves
 the cost of a fresh-context adversarial review.
+
+Resolve the approved PR base and head to commits, materialize their exact binary
+full-index diff, and identify that immutable snapshot by its SHA-256 digest. Base and
+head describe the snapshot in request context; they are not the fixed target. Stop if
+any command fails or the identifier does not have the required shape.
+
+```bash
+BASE_SHA="$(git rev-parse "${BASE_REF}^{commit}")" || exit 1
+HEAD_SHA="$(git rev-parse "${HEAD_REF}^{commit}")" || exit 1
+REVIEW_ARTIFACT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/pm-review.XXXXXX")" || exit 1
+REVIEW_PATCH="$REVIEW_ARTIFACT_DIR/review.patch"
+git diff --binary --full-index "$BASE_SHA" "$HEAD_SHA" > "$REVIEW_PATCH" || exit 1
+REVIEW_DIGEST="$(shasum -a 256 "$REVIEW_PATCH" | awk '{print $1}')" || exit 1
+REVIEW_FIXED_TARGET="snapshot:sha256:${REVIEW_DIGEST}"
+printf '%s\n' "$REVIEW_FIXED_TARGET" | grep -Eq '^snapshot:sha256:[0-9a-f]{64}$' || exit 1
+```
 
 ```yaml
 operation: review
@@ -357,25 +376,45 @@ outcome: Report whether this fixed PR target satisfies its approved delivery sli
 context:
   project: {canonical project identifier when known}
   mode: fresh
-  state: {approved item/spec, acceptance criteria, and current Testing Seam Proof}
-  files: [{changed and review-relevant repository paths}]
+  state: {approved item/spec, acceptance criteria, current Testing Seam Proof, base commit ${BASE_SHA} and head commit ${HEAD_SHA}; the review artifact is their exact diff}
+  files: [{changed and review-relevant repository paths, plus ${REVIEW_PATCH}}]
 authority:
   working_directory: {absolute PR worktree}
-  allowed_paths: [{read-only PR scope}]
+  allowed_paths: [{read-only PR scope, plus ${REVIEW_PATCH}}]
   tools: [{read-only inspection and project verification tools}]
   approvals: []
 constraints:
-  - Apply PM's Quality, Spec Fidelity, and Blast Radius axes from references/review-proof.md
+  - |
+    PM review axes:
+    Quality: inspect the fixed-point diff and affected paths for correctness,
+    regressions, security, edge cases, error handling, performance, maintainability,
+    and adequate tests. Reproduce relevant verification instead of accepting the
+    implementer's claim.
+    Spec Fidelity: compare the fixed-point diff with the approved issue, plan, and
+    acceptance criteria. Report missing or partial requirements, unrequested behavior,
+    and implementations that do not match the requirement; state when no spec exists.
+    Blast Radius: apply this axis when the diff changes Persisted data, schema, or
+    migration behavior; Public API, protocol, wire format, or serialization behavior;
+    Authentication, authorization, permissions, or another security boundary; or
+    Shared runtime, dependency, build, deployment, or configuration behavior. For each
+    trigger, name the central safety assumption and require a check aimed at it. If no
+    trigger matches, record Blast Radius as not applicable.
+    Report each applicable axis separately. Completion requires current proven Harness
+    evidence for this fixed target, Quality and Spec Fidelity reports, every triggered
+    Blast Radius assumption and check, reproduced verification, and no unresolved or
+    unevidenced blocker.
   - Score each finding from 0–100 confidence and report file, line, failure mode, and fix direction
   - Do not modify the fixed target
 verification:
   seam: {Testing Seam plus applicable blast-radius checks}
   expected: {approved acceptance result and no unresolved finding above 24 confidence}
-  fixed_target: {base/head commit SHAs}
+  fixed_target: ${REVIEW_FIXED_TARGET}
 ```
 
-Treat the Harness review report as a claim. Confirm the target is unchanged, reproduce
-the relevant checks, and keep only findings with confidence above 24.
+Treat the Harness review report as a claim. Recompute the patch digest, confirm the
+returned fixed target equals `${REVIEW_FIXED_TARGET}`, reproduce the relevant checks,
+and keep only findings with confidence above 24. A changed patch or digest invalidates
+the review and requires a new snapshot and request.
 
 If findings clear the bar, run the fix loop for at most two rounds:
 
@@ -401,7 +440,7 @@ Report inline:
 
 ```
 Fixed-target Check: {cluster}
-  Fixed point: {base/head SHAs or snapshot digest}
+  Fixed point: ${REVIEW_FIXED_TARGET} (base ${BASE_SHA}, head ${HEAD_SHA} in context)
   Axes: {contract report summary}
   Issues found: {N}   Above threshold (>24): {N}
   Round 1 fixed: {N}  disputed: {N}

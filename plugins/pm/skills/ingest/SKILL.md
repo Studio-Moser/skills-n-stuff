@@ -111,10 +111,11 @@ and exit cleanly.
 | `*-recommendations.md` | `weekly-recommendations` |
 | `deep-dives/*.md` | `deep-dive` |
 
-Read `plugins/pm/agents/ingestion-analyst.md` for PM's extraction constraints. For
-each report, invoke `harness:execute` with `operation: execute` and `route: bulk`.
-Submit independent requests concurrently; PM does not resolve how Harness executes
-them.
+Read `plugins/pm/agents/ingestion-analyst.md` in the PM orchestrator. Copy its complete
+output schema and extraction rules into each request; do not pass the PM-private path
+to Harness. For each report, invoke `harness:execute` with `operation: execute` and
+`route: bulk`. Submit independent requests concurrently; PM does not resolve how
+Harness executes them.
 
 ```yaml
 operation: execute
@@ -124,16 +125,32 @@ context:
   project: {canonical project identifier when known}
   mode: fresh
   state: {report type, full report content, and condensed product context}
-  files: [{report path, nearest research-context.md or pulse-config.yaml, plugins/pm/agents/ingestion-analyst.md}]
+  files: [{report path and nearest research-context.md or pulse-config.yaml}]
 authority:
   working_directory: {absolute primary repository root}
   allowed_paths: [{read-only paths named in context.files}]
   tools: [Read]
   approvals: []
 constraints:
-  - Preserve one source finding per item
-  - Treat each proposed outcome as a proposal, not a commitment
-  - Return evidence, proposed outcome, rationale, source, confidence, and target repo
+  - |
+    PM ingestion analyst system prompt:
+    Extract source-backed candidate backlog items from this one report, separating
+    what the report establishes from what it suggests doing.
+    Inspect action-item or equivalent sections for Daily research and deep dives;
+    recommendation or suggested-for-speccing sections for Weekly recommendations;
+    and monitor alerts or watch-list sections for Weekly briefs. Monitoring remains
+    a proposed outcome, not an implementation commitment.
+    Keep one source finding per item and do not combine unrelated findings. Preserve
+    named URLs and tools in the evidence or rationale. If no actionable or
+    monitor-worthy finding exists, return an empty list. Do not fabricate,
+    editorialize, assign size or priority, or convert a source suggestion into a
+    commitment.
+    Return a structured list whose items contain exactly evidence, proposed outcome,
+    rationale, source, confidence, and target repo. Evidence is a concise quote or
+    close paraphrase that does not strengthen the claim. Proposed outcome stays
+    explicitly proposed. Source names the report filename and section. Confidence is
+    High, Medium, or Low, using the report's rating when present. Target repo is the
+    best-supported configured repo, or unknown.
   - Do not create tracker items or modify files
 verification:
   seam: Validate every returned candidate against the source report and required field schema

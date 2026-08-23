@@ -15,6 +15,31 @@ Read [references/harness-contract.md](../../references/harness-contract.md) for
 the result shape and [references/shelby-integration.md](../../references/shelby-integration.md)
 only if Shelby tool names are available.
 
+## Configured-status mode
+
+When a consumer invokes this skill with `mode: status`, run a read-only configuration
+check and return immediately; do not enter Ordered setup and do not mutate files,
+links, repositories, or remote state.
+
+1. Invoke `harness:sync` with `--dry-run`. Require its report to establish the personal
+   agents repository, portable links, declared skills, MCP commands, and portability
+   checks without a pending repair.
+2. Discover the current runtime capabilities with the same read-only `command -v`
+   inventory used by Ordered setup.
+3. Resolve the rubric through `scripts/rubric-path.sh --check`. When it is set, validate
+   without rewriting it: required execute and review routes resolve to existing model
+   rows, every CLI-backed row needed by those routes has a currently present
+   capability, and no required route names an absent executor.
+4. Return the complete HarnessResult defined by the Harness contract. Use
+   `status: accepted` with `evidence.outcome: proven` only when the Sync dry run and
+   current rubric/capability validation all pass. Otherwise use `status: blocked` with
+   `evidence.outcome: unproven` and name each missing or stale configuration element in
+   `blockers`. Record the validated agents-repository commit or configuration snapshot
+   as `evidence.fixed_target` and the decisive read-only checks in `evidence.checks`.
+
+Installed skills alone never prove configured status. Optional Shelby absence remains
+non-blocking, as in Ordered setup.
+
 ## Ordered setup
 
 1. Invoke `harness:sync` in full mode. It owns discovering or cloning the

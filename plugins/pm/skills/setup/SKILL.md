@@ -5,7 +5,7 @@ description: >-
   requests reconfiguration of its issue-tracker backend.
 disable-model-invocation: true
 effort: medium
-allowed-tools: "Bash Read Write Edit ToolSearch"
+allowed-tools: "Bash Read Write Edit ToolSearch Skill"
 ---
 
 # PM — Setup
@@ -61,13 +61,23 @@ If `.pm/config.yml` already exists, warn the user:
 
 "Found existing PM configuration at `{path}/.pm/config.yml`. Do you want to reconfigure from scratch, or keep the existing setup?"
 
-If they want to keep it, exit early with a summary of what's already configured.
+If they want to keep it, run Step 1d before any keep-existing early exit. Exit with a
+summary only after Harness returns accepted status with proven evidence; otherwise use
+Step 1d's unconfigured stop message.
 
 ### Step 1d: Check Harness
 
-Confirm the installed skill surface exposes `harness:execute` and `harness:review`.
-If either is unavailable, or Harness reports that its configuration is incomplete,
-stop before PM scaffolding and say:
+Confirm the installed skill surface exposes `harness:execute`, `harness:review`, and
+`harness:setup`. This is only an availability check;
+available skill names do not establish configuration.
+
+Invoke `harness:setup` with `mode: status`. This is Harness's read-only configured-
+status seam. Consume its exact Harness Result and continue only when it returns both
+`status: accepted` and `evidence.outcome: proven`. Do not reinterpret an empty blocker
+list, installed skill, or successful command exit as configuration proof.
+
+If any required skill is unavailable, the status invocation fails, or the returned
+result is not accepted with proven evidence, stop before PM scaffolding and say:
 
 ```text
 Harness is not configured. Run /harness:setup, then rerun /pm:setup.
@@ -75,7 +85,8 @@ Harness is not configured. Run /harness:setup, then rerun /pm:setup.
 
 This is a dependency check, not Harness setup. PM must not inspect or create Harness
 routing configuration, discover execution runtimes, or restate Harness setup
-mechanics. Point only to `/harness:setup`.
+mechanics. Point only to `/harness:setup`. Retain the accepted result as the proof used
+by the Phase 8 summary; never infer or default the displayed status.
 
 ---
 
@@ -438,7 +449,7 @@ Files created:
   docs/adr/0000-template.md   — ADR template
   {planning files if created}
 
-Harness: configured for provider-neutral execution and review
+Harness: configured for provider-neutral execution and review (verified by Harness)
 Plugin updates: {studio-moser auto-updating | auto-update OFF — enable via /plugin → Marketplaces | marketplace missing}
 
 Backend provisioning:

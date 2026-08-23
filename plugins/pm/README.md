@@ -13,13 +13,13 @@ PM is a **six-skill pipeline** that manages the full lifecycle of work items, fr
 | `/pm:setup` | Scaffolder | Once per workspace | Detects the workspace, loads only the selected backend reference, creates PM config and domain files, and stamps the shared agent baseline |
 | `/pm:ingest` | Discoverer | After new research lands | Separates source evidence from proposed outcomes, deduplicates candidates, and files `status/needs-triage` items through the selected backend |
 | `/pm:triage` | Classifier | When items need decisions | Verifies claims before design, prepares independently verifiable delivery slices, splits XL work under goal epics, scores, and promotes |
-| `/pm:sprint-dev` | Builder | When you're ready to ship | Selects the unblocked frontier, treats shared-file overlap as scheduling collisions, and dispatches approved slices with named proof |
+| `/pm:sprint-dev` | Builder | When you're ready to ship | Selects the unblocked frontier, treats shared-file overlap as scheduling collisions, and submits approved slices as Harness operations with named proof |
 | `/pm:dev-task` | Pair-programmer | Implementing one focused change | Guides one approved delivery slice through implementation, evidence-backed review, and PR creation; works with or without `/pm:setup` |
 | `/pm:reconcile` | Janitor | After sprints or merges | Completion tracking, stale detection, blocker classification, CONTEXT.md and ADR proposals |
 
 ### Two build modes
 
-- **`/pm:sprint-dev`** — *work the backlog.* Selects unblocked ready slices, schedules collisions, then dispatches the approved PR set. Needs `/pm:setup` + a tracker.
+- **`/pm:sprint-dev`** — *work the backlog.* Selects unblocked ready slices, schedules collisions, then submits the approved PR set as Harness operations. Needs `/pm:setup` + a tracker.
 - **`/pm:dev-task`** — *walk me through this one task.* Interactive and foreground, with approval gates around one bounded change. Works in any repo, no setup required.
 
 Both defer to the shared `house-rules` skill for conventions.
@@ -30,7 +30,7 @@ New to the team workflow? See [How we do dev tasks](docs/how-we-do-dev-tasks.md)
 Two canonical references govern PM's shared decisions:
 
 - [`references/work-readiness.md`](references/work-readiness.md) owns verified claims, testing seams, delivery slices, blockers, the unblocked frontier, and scheduling collisions.
-- [`references/review-proof.md`](references/review-proof.md) owns the fixed review target, applicable review axes, evidence levels, and approval conditions.
+- [`references/review-proof.md`](references/review-proof.md) owns PM's development review axes, Blast Radius triggers, and acceptance constraints.
 
 Skills load those references only at the branch where their rules apply. This README describes the resulting behavior; the references own the definitions.
 
@@ -43,10 +43,12 @@ mechanical work and scorecards, `quick` only for latency-sensitive steps, `taste
 for user-facing design/copy/API work, `review` for ordinary fixed-target review, and
 explicitly approved `independent` for an adversarial fresh-context review.
 
-PM supplies readiness, delivery-slice Outcomes, Blockers, Testing Seams, tracker and PR
-constraints, plus the Quality, Spec Fidelity, and Blast Radius review axes. Harness
-owns concrete routing, execution authority, fixed-target evidence, and the returned
-Harness Result. PM reproduces the named proof before marking a delivery slice complete.
+PM defines the development axes and constraints and submits Harness operations. Those
+constraints include readiness, delivery-slice Outcomes, Blockers, Testing Seams,
+tracker and PR boundaries, plus the Quality, Spec Fidelity, and Blast Radius review
+axes. Harness owns dispatch, fixed-target materialization, and evidence mechanics,
+including concrete routing, execution authority, and the returned Harness Result. PM
+reproduces the named proof before marking a delivery slice complete.
 
 ### The Flow
 
@@ -78,7 +80,7 @@ status/needs-triage → [reject → out-of-scope/]
 
 - **Ingest** creates `status/needs-triage` items only -- never promotes beyond that
 - **Triage** verifies reported behavior before design, prepares delivery slices, scores, and promotes (or rejects) with your approval
-- **Sprint-dev** moves approved frontier items to `status/in-progress`, dispatches agents, and creates PRs
+- **Sprint-dev** moves approved frontier items to `status/in-progress`, submits Harness operations, and creates PRs
 - **Reconcile** detects merged PRs and closes done items automatically
 
 ## Prerequisites
@@ -359,7 +361,8 @@ A structured glossary at the repo root. Contains:
 - **Relationships** -- how concepts relate to each other
 - **Ambiguities** -- terms that are easily confused, with resolutions
 
-Reconcile proposes additions when it encounters new terms in merged PRs. Sprint-dev reads this before dispatching sub-agents so they use consistent terminology.
+Reconcile proposes additions when it encounters new terms in merged PRs. Sprint-dev
+copies this context into Harness requests so executors use consistent terminology.
 
 ### Architecture Decision Records (ADRs)
 

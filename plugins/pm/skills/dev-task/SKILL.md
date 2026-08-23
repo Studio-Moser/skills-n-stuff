@@ -79,7 +79,9 @@ authority:
 constraints:
   - "Blockers: {resolved Blockers or none}"
   - {approved acceptance criteria and negative constraints}
-  - {pm:house-rules implementation and security constraints}
+  - Use test-driven development for behavior changes and leave a runnable check for non-trivial logic
+  - Preserve trust-boundary validation, data-loss-preventing error handling, security, and accessibility basics
+  - Keep the change to the approved slice, run the planned tests, and make atomic conventional commits
   - {commit actions authorized by the approved plan; PM opens the PR after acceptance}
 verification:
   seam: {Testing Seam procedure}
@@ -96,10 +98,12 @@ artifacts and evidence before continuing.
 
 ## 5. Review
 
-Load `references/review-proof.md`. Self-review the fixed work against pm:house-rules,
-then submit a read-only `harness:review` request with `operation: review`. Ordinary
-review uses `route: review`. A fresh-context adversarial review uses
-`route: independent` only after the user explicitly approves its cost.
+Load `references/review-proof.md` in the PM orchestrator. Copy its complete PM review
+axes and completion constraints into the request; do not pass that PM-private path to
+Harness. Self-review the fixed work against the already-loaded house rules, then submit
+a read-only `harness:review` request with `operation: review`. Ordinary review uses
+`route: review`. A fresh-context adversarial review uses `route: independent` only
+after the user explicitly approves its cost.
 
 ```yaml
 operation: review
@@ -116,7 +120,25 @@ authority:
   tools: [{read-only inspection and verification tools}]
   approvals: []
 constraints:
-  - Apply PM's Quality, Spec Fidelity, and Blast Radius axes from references/review-proof.md
+  - |
+    PM review axes:
+    Quality: inspect the fixed-point diff and affected paths for correctness,
+    regressions, security, edge cases, error handling, performance, maintainability,
+    and adequate tests. Reproduce relevant verification instead of accepting the
+    implementer's claim.
+    Spec Fidelity: compare the fixed-point diff with the approved issue, plan, and
+    acceptance criteria. Report missing or partial requirements, unrequested behavior,
+    and implementations that do not match the requirement; state when no spec exists.
+    Blast Radius: apply this axis when the diff changes Persisted data, schema, or
+    migration behavior; Public API, protocol, wire format, or serialization behavior;
+    Authentication, authorization, permissions, or another security boundary; or
+    Shared runtime, dependency, build, deployment, or configuration behavior. For each
+    trigger, name the central safety assumption and require a check aimed at it. If no
+    trigger matches, record Blast Radius as not applicable.
+    Report each applicable axis separately. Completion requires current proven Harness
+    evidence for this fixed target, Quality and Spec Fidelity reports, every triggered
+    Blast Radius assumption and check, reproduced verification, and no unresolved or
+    unevidenced blocker.
   - Report each finding with severity, file, line, failure mode, and fix direction
   - Do not modify the target
 verification:
