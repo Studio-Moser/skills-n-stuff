@@ -124,6 +124,14 @@ require_clause(
     "`independent`: a context-independent adversarial review. "
     "It requires explicit cost approval from the user before dispatch.",
 )
+require_clause(
+    routing,
+    "`taste` resolves through the exact `routing.taste` value.",
+)
+require_clause(
+    routing,
+    "`routing.taste_min` is an input to rubric setup, not a runtime route value.",
+)
 require_clause(shelby, "The missing Shelby is not blocking.")
 require_clause(
     routing,

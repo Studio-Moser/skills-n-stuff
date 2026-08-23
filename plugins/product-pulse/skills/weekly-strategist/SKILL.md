@@ -22,6 +22,7 @@ You are NOT a research scanner (that's the daily skill). You are a strategic **a
 - **Brevity over comprehensiveness** — The brief should be readable in 5 minutes. Each analyst produces max 500 words.
 - **Opinionated** — Make recommendations. Say "do X" not "you could do X or Y."
 - **Error tolerant** — If a Harness request fails, continue with the other research packets. If no daily reports exist, use web research. If memory is unavailable, use file-based data.
+- **Harness boundary** — Invoke the named Harness skill through `Skill`; do not read Harness skill, reference, script, or rubric files, and do not perform Harness phases inside Product Pulse. Do not read or inspect the model rubric, and do not resolve a model, effort, provider, or executor. Do not repair an unresolved or blocked route inside Product Pulse; consume and report the typed Harness Result.
 
 ---
 

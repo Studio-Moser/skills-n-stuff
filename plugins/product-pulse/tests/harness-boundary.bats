@@ -51,6 +51,33 @@ PY
   [ "$status" -eq 0 ]
 }
 
+@test "Product Pulse delegates rubric resolution and routing failures to Harness" {
+  run python3 - "$REPO" <<'PY'
+from pathlib import Path
+import sys
+
+root = Path(sys.argv[1]) / "plugins" / "product-pulse" / "skills"
+failures = []
+for name in ("daily-research", "weekly-strategist", "deep-dive"):
+    text = " ".join((root / name / "SKILL.md").read_text().split())
+    for clause in (
+        "Do not read or inspect the model rubric",
+        "do not resolve a model, effort, provider, or executor",
+        "Do not repair an unresolved or blocked route inside Product Pulse",
+        "Invoke the named Harness skill through `Skill`",
+        "do not perform Harness phases inside Product Pulse",
+    ):
+        if clause not in text:
+            failures.append(f"{name}: missing Harness boundary clause: {clause}")
+
+assert not failures, "\n".join(failures)
+PY
+  if [ "$status" -ne 0 ]; then
+    printf '%s\n' "$output" >&2
+  fi
+  [ "$status" -eq 0 ]
+}
+
 @test "Product Pulse workflows submit semantic Harness routes" {
   run python3 - "$REPO" <<'PY'
 from pathlib import Path

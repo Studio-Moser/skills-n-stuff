@@ -30,7 +30,8 @@ models:
 routing: {}
 # routing is DERIVED from this developer's capabilities + cost at interview time —
 # never copied from a seed or another developer. Values are <model>@<effort>.
-# House defaults once populated: taste_min: 9; explore: the cheapest reachable Claude row
+# House defaults once populated: taste_min: 9; taste: a reachable row at or above
+# that floor under the developer's cost/trust preferences; explore: the cheapest reachable Claude row
 #   (read-only research must return findings into the orchestrator's context — native Agent only).
 # House anti-patterns (effort-curve facts, safe to distribute):
 #   - luna below max is worthless for agentic work (swe ~1.5 low / 11.3 medium /

@@ -1,0 +1,22 @@
+[
+  {"query": "I installed the Harness plugin on this Mac, but it has never been configured. Connect my ~/.agents repo, establish the portable links, discover the CLIs available here, and create the personal model rubric without copying secrets into git.", "should_trigger": true},
+  {"query": "new laptop, same agents repo: please finish the personal Harness bootstrap and tell me which settings sync across machines versus stay local", "should_trigger": true},
+  {"query": "We replaced the old Machine plugin with Harness. Check whether my personal agents-repository relationship and all managed links are actually ready before I run PM again.", "should_trigger": true},
+  {"query": "Set up Harness for this developer from scratch. There is an existing private ~/.agents git repo, but ~/.config/studio-moser and the Codex AGENTS link are not wired yet.", "should_trigger": true},
+  {"query": "I added Codex on this machine after configuring Harness elsewhere. Reconcile the runtime capability inventory and routing setup while preserving my subscription and taste preferences.", "should_trigger": true},
+  {"query": "My Harness config directory became a real folder instead of the expected link after migrating computers. Repair the personal setup safely and report the resulting status.", "should_trigger": true},
+  {"query": "The Harness plugin is installed and ~/.agents exists, but there is no personal model rubric. Complete whatever first-run setup is required and show what was version-controlled.", "should_trigger": true},
+  {"query": "Configure Harness on this headless build Mac. Shelby isn't available here, and that should be treated as optional rather than blocking the rest of setup.", "should_trigger": true},
+  {"query": "Before Product Pulse starts, run the Harness configured-status path and finish any missing personal capability, rubric, or link setup it reports.", "should_trigger": true},
+  {"query": "Please initialize my personal control plane so Claude and Codex share the portable agent instructions but keep machine-only settings and credentials local.", "should_trigger": true},
+  {"query": "Set up PM for this repository with the GitHub issue backend, owner/ai labels, ready states, and the correct repo slug in .pm/config.yml.", "should_trigger": false},
+  {"query": "Onboard Product Pulse for Acme Analytics: define five research domains, competitors, audiences, pulse-config.yaml, and the research context files.", "should_trigger": false},
+  {"query": "My model rubric is 20 days old. Refresh model availability and benchmark data, but don't change any agents-repo links or other Harness configuration.", "should_trigger": false},
+  {"query": "Sync the edits I just made in ~/.claude back to my already-configured agents repo, reconcile third-party skills, pull, and push the changes.", "should_trigger": false},
+  {"query": "Execute this bounded formatting task; if the personal rubric is missing, return a typed blocker instead of starting an interactive setup interview.", "should_trigger": false},
+  {"query": "Install the Harness plugin from my local marketplace and make it available in Claude Code. Don't configure the developer's personal agents repository yet.", "should_trigger": false},
+  {"query": "Bootstrap this Node repository: install dependencies, create .env.example, and configure Vitest so npm test works.", "should_trigger": false},
+  {"query": "Where should I put ANTHROPIC_API_KEY for a non-interactive shell? Just explain the secure environment setup; don't inspect or change my Harness config.", "should_trigger": false},
+  {"query": "Explain the architecture boundary between Harness, PM, Product Pulse, and Shelby. I only want an answer, not any setup changes.", "should_trigger": false},
+  {"query": "Verify a button in the iOS simulator and return screenshot proof; the personal Harness installation is already configured.", "should_trigger": false}
+]

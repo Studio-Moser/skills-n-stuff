@@ -37,6 +37,17 @@ enforce returns `status: blocked` before dispatch.
 Use Shelby only when callable tool names prove it is available. Resolve one
 canonical project scope first; otherwise follow the repository/temp fallback.
 
+Every terminal path returns the complete HarnessResult, including a block before
+dispatch or a failed attempt; prose is not a substitute for the result. Preserve
+all fields and leave unavailable values empty.
+
+For a bounded non-code file transformation, preserve the requested task type and
+scope. When the parent runtime can perform the work inside the authority ceiling,
+that is native execution: perform the transformation and verify it with direct
+structural or traceability checks. Do not add a branch, commit, PR, tracker write,
+or automated test unless the request explicitly asks for it. If the required
+write is outside the authority ceiling, return the complete blocked result.
+
 ## Resolve and dispatch
 
 Follow Routing. Resolve the active rubric only through its script, then read the

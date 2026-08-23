@@ -1,0 +1,22 @@
+[
+  {"query": "Verify the Save button in the local macOS app actually persists the edited title. Use the real app, preserve its confirmation policy, and return screenshot-backed Harness proof.", "should_trigger": true},
+  {"query": "Launch the iPhone simulator build, complete the three-step onboarding flow, and visually prove the final permission screen; unit tests and code reading are not enough.", "should_trigger": true},
+  {"query": "Use a real browser to check our logged-in staging billing page at 1280 and 390 pixels. Keep existing session state, don't submit a payment, and capture the rendered results.", "should_trigger": true},
+  {"query": "Verify this workbook behavior in the locally running desktop app: changing B4 should update the chart. The check requires operating the UI and viewing a screenshot.", "should_trigger": true},
+  {"query": "Outside any PM workflow, confirm the menu-bar utility opens its preferences window and return a screenshot you actually inspected.", "should_trigger": true},
+  {"query": "The requested UI check needs macOS Accessibility and Screen Recording, but neither capability is callable in this runtime. Return the complete typed Harness blocker without downgrading to source inspection.", "should_trigger": true},
+  {"query": "Verify the new watchOS complication on a connected simulator and capture visual evidence from the device surface, using only the authorized project directory.", "should_trigger": true},
+  {"query": "Route this bounded real-browser verification through the configured external computer-use executor, preserving cwd, sandbox, approvals, and screenshot evidence.", "should_trigger": true},
+  {"query": "The bug is purely visual and appears only after dragging a card between columns in the running app. Reproduce that interaction and inspect the resulting screen rather than inferring from code.", "should_trigger": true},
+  {"query": "Start the local web app from this worktree, capture it with a headless browser into the temporary artifact directory, open the PNG, and report whether the empty state is visible.", "should_trigger": true},
+  {"query": "I already attached a screenshot of the error dialog. Read the image and summarize its text; don't open or control any local app.", "should_trigger": false},
+  {"query": "Implement the responsive CSS fix in Dashboard.tsx and verify it with the existing component tests; no live browser or screenshot is requested.", "should_trigger": false},
+  {"query": "Run swift test and explain the compiler error in SettingsView.swift. Do not launch Xcode, a simulator, or any GUI.", "should_trigger": false},
+  {"query": "Take one screenshot of my entire desktop exactly as it looks now and save it to Downloads. No workflow verification is involved.", "should_trigger": false},
+  {"query": "Research the current Safari WebDriver documentation and give me links to its supported capabilities; don't automate my browser.", "should_trigger": false},
+  {"query": "Create a high-fidelity settings screen directly in Figma using the existing design system components.", "should_trigger": false},
+  {"query": "Write a Playwright test for the login form's validation states, but don't run a browser in this task.", "should_trigger": false},
+  {"query": "Build the ready PM item for the onboarding bug, open its PR, and update the tracker. Another workflow will perform visual verification later.", "should_trigger": false},
+  {"query": "Explain which macOS privacy setting controls screen capture and how a user can enable it. I only need instructions.", "should_trigger": false},
+  {"query": "Review the PNG artifacts already saved under test-results/ and tell me whether any look blank; don't operate the app or capture new evidence.", "should_trigger": false}
+]

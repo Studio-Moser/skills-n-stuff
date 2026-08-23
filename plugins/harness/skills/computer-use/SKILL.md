@@ -1,9 +1,16 @@
 ---
 name: computer-use
 description: >-
-  Use when a Harness request requires a real local app, browser, simulator,
-  screenshot, device, or other computer-use capability that code reading,
-  typechecking, linting, and ordinary tests cannot provide.
+  Use when a Harness request needs proof from driving a machine, not reading
+  code: launch or attach to a live app, page, browser, simulator, or device;
+  exercise the flow; and capture fresh visual or runtime evidence you inspect.
+  Trigger for opening, clicking through, verifying on screen/device, or proving
+  behavior from a worktree under stated path, permission, or artifact
+  constraints. Also use when Accessibility, Screen Recording, or simulator
+  capability may be missing, so the result must be blocked rather than replaced
+  with code inspection. Skip reading existing screenshots, one-off screenshot
+  capture without workflow verification, writing tests without running a
+  browser, explaining OS settings, or code-only verification.
 ---
 
 # Harness Computer Use

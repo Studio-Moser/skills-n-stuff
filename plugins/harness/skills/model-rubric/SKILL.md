@@ -148,6 +148,8 @@ The routing table uses exact `<model>@<effort>` values:
 - `routing.explore`: cheapest capable native read-only agent;
 - optional `routing.batch`: unattended fan-out only;
 - `routing.taste_min`: minimum taste score for user-facing work;
+- `routing.taste`: selected user-facing row at or above `routing.taste_min`,
+  chosen under the developer's cost and trust preferences;
 - `routing.review`: strongest non-wasteful fixed-target review row;
 - optional `routing.independent`: a different provider from the daily driver,
   only when two providers are available and cost approval remains required.
@@ -171,6 +173,7 @@ routing:
   quick: model-name@low
   explore: native-model@low
   taste_min: 9
+  taste: taste-model@high
   review: review-model@high
 ```
 
@@ -187,7 +190,8 @@ harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*
 
 Expected: `set`. Report the path and the `reviewed:` date.
 
-Also verify that `seed: true`, `cost: null`, and `routing: {}` are absent; each
+Also verify that `seed: true`, `cost: null`, and `routing: {}` are absent; that
+`routing.taste` names a reachable row at or above `routing.taste_min`; each
 route names an existing row with the same model and effort; `via` executors match
 current capabilities; and a Setup invocation reports `reconciled: true` even
 when the file did not change.

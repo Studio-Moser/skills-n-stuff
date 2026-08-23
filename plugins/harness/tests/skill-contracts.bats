@@ -105,6 +105,10 @@ for clause in (
     "outcome, working directory, allowed paths, constraints, verification seam, and the required HarnessResult return shape",
     "Never put secrets in the prompt",
     "never widen sandbox, path, tool, or approval authority",
+    "Every terminal path returns the complete HarnessResult",
+    "prose is not a substitute for the result",
+    "For a bounded non-code file transformation",
+    "Do not add a branch, commit, PR, tracker write, or automated test",
 ):
     if clause not in execute:
         failures.append(f"execute: missing adapter clause: {clause}")
@@ -191,6 +195,8 @@ for clause in (
     "taste",
     "working style",
     "derive `routing` fresh",
+    "`routing.taste`",
+    "at or above `routing.taste_min`",
     "`routing.review`",
     "`routing.independent`",
 ):

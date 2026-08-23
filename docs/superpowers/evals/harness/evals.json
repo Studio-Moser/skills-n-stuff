@@ -1,13 +1,99 @@
 {
   "skill_name": "harness",
   "evals": [
-    {"id": 1, "eval_id": "pm-cross-vendor-implementation", "prompt": "Implement one bounded ready PM delivery slice using the configured bulk route and return proof.", "expected_output": "PM supplies development constraints; the executor receives explicit model, effort, cwd, authority, and verification seam; the parent reproduces proof."},
-    {"id": 2, "eval_id": "fixed-target-independent-review", "prompt": "Independently review a fixed commit and prove the relevant checks.", "expected_output": "The fixed target and fresh context are preserved; prior proof is invalidated if the target changes; independent route approval is explicit."},
-    {"id": 3, "eval_id": "product-pulse-fanout-synthesis", "prompt": "Research multiple sources using cheap fan-out and judgment-heavy synthesis, then publish the normal Product Pulse artifact.", "expected_output": "Product Pulse owns source quality and publication while requesting bulk and taste semantic routes without reading the rubric."},
-    {"id": 4, "eval_id": "standalone-computer-use", "prompt": "Verify a local app behavior outside a PM workflow and return screenshot-backed proof.", "expected_output": "Harness computer-use handles capability, permissions, working directory, and proof without invoking PM."},
-    {"id": 5, "eval_id": "missing-rubric", "prompt": "Execute a bounded task when the personal model rubric is absent.", "expected_output": "Harness reports setup or an explicit documented fallback; the consumer does not inspect the rubric or silently invent a route."},
-    {"id": 6, "eval_id": "missing-required-executor", "prompt": "Execute a task whose requested provider CLI is unavailable and no provider change is authorized.", "expected_output": "Harness returns a typed blocked result or an explicitly permitted fallback without widening authority."},
-    {"id": 7, "eval_id": "missing-shelby", "prompt": "Execute and verify a bounded task with Shelby tools unavailable.", "expected_output": "Correct execution continues from repository and temporary state; only memory and run enrichment are omitted."},
-    {"id": 8, "eval_id": "non-development-execution", "prompt": "Perform a bounded non-code file transformation with verification.", "expected_output": "Harness executes and verifies the task without PM lifecycle behavior."}
+    {
+      "id": 1,
+      "eval_id": "pm-cross-vendor-implementation",
+      "prompt": "Implement one bounded ready PM delivery slice using the configured bulk route and return proof.",
+      "expected_output": "PM supplies development constraints; the executor receives explicit model, effort, cwd, authority, and verification seam; the parent reproduces proof.",
+      "grading_assertions": [
+        "PM selects an actually ready delivery slice; if none exists, it reports the missing precondition without minting readiness, promoting an item, or executing unrelated work.",
+        "PM constructs a bounded Harness request with route bulk, outcome, context, exact working directory, authority ceiling, and verification seam, without reading the model rubric or selecting a concrete provider.",
+        "Harness resolves and records the actual model, effort, provider, and executor without widening the requested working directory, paths, tools, or approvals.",
+        "The accepting parent reproduces the highest stable verification seam and returns accepted only when the outcome is delivered with fresh proven evidence."
+      ]
+    },
+    {
+      "id": 2,
+      "eval_id": "fixed-target-independent-review",
+      "prompt": "Independently review a fixed commit and prove the relevant checks.",
+      "expected_output": "The fixed target and fresh context are preserved; prior proof is invalidated if the target changes; independent route approval is explicit.",
+      "grading_assertions": [
+        "The review pins one immutable target and gives the reviewer fresh context without the implementer's conclusions.",
+        "The independent route's explicit cost approval is obtained before dispatch, or the run returns a named authorized fallback or typed blocker.",
+        "The target and proof inputs are checked again after review; any target, requirement, seam, fixture, or oracle change invalidates prior proof and reopens review.",
+        "The parent reproduces relevant checks, validates findings against the pinned target, and labels unsupported claims unproven."
+      ]
+    },
+    {
+      "id": 3,
+      "eval_id": "product-pulse-fanout-synthesis",
+      "prompt": "Research multiple sources using cheap fan-out and judgment-heavy synthesis, then publish the normal Product Pulse artifact.",
+      "expected_output": "Product Pulse owns source quality and publication while requesting bulk and taste semantic routes without reading the rubric.",
+      "grading_assertions": [
+        "Product Pulse owns the research questions, source selection, credibility rules, citations, synthesis acceptance rules, report path, and publication lifecycle.",
+        "Product Pulse submits semantic bulk fan-out and taste synthesis Harness requests without reading the model rubric or choosing a model, effort, provider, or executor.",
+        "Product Pulse accepts only typed Harness results with status accepted and evidence.outcome proven, then reproduces the source and synthesis verification seams.",
+        "The final domain artifact preserves verified citations, caveats, caps, deduplication, and the normal Product Pulse publication behavior."
+      ]
+    },
+    {
+      "id": 4,
+      "eval_id": "standalone-computer-use",
+      "prompt": "Verify a local app behavior outside a PM workflow and return screenshot-backed proof.",
+      "expected_output": "Harness computer-use handles capability, permissions, working directory, and proof without invoking PM.",
+      "grading_assertions": [
+        "The request uses Harness computer-use outside PM and performs no PM tracker, branch, commit, PR, or lifecycle work.",
+        "Harness verifies that every required computer-use capability is callable in the active runtime rather than inferring availability from installation alone.",
+        "The exact working directory, path/tool ceiling, runtime confirmation policy, and host permissions are preserved; an unavailable capability yields only an authorized equivalent or a typed blocker.",
+        "Screenshot proof is actually captured and visually inspected, and the complete Harness result records the artifact, check result, and proven or unproven outcome."
+      ]
+    },
+    {
+      "id": 5,
+      "eval_id": "missing-rubric",
+      "prompt": "Execute a bounded task when the personal model rubric is absent.",
+      "expected_output": "Harness reports setup or an explicit documented fallback; the consumer does not inspect the rubric or silently invent a route.",
+      "grading_assertions": [
+        "Harness resolves the active rubric only through its documented path script and treats a genuine missing result as a routing failure without searching alternate personal paths.",
+        "Without an explicitly authorized documented fallback, Harness returns a complete typed blocked result with unresolved route fields empty, evidence unproven, and setup named as the blocker.",
+        "The consumer does not inspect rubric contents, copy the seed, create configuration, or invent a model, provider, executor, or route."
+      ]
+    },
+    {
+      "id": 6,
+      "eval_id": "missing-required-executor",
+      "prompt": "Execute a task whose requested provider CLI is unavailable and no provider change is authorized.",
+      "expected_output": "Harness returns a typed blocked result or an explicitly permitted fallback without widening authority.",
+      "grading_assertions": [
+        "Harness checks the required executor capability and returns blocked when it is unavailable and the current request authorizes no named fallback.",
+        "The run does not install software, widen PATH or environment resolution, weaken sandbox or approvals, or switch provider on its own.",
+        "Every HarnessResult field is present on the blocked path, with the failed capability evidence and concrete unblock choices recorded."
+      ]
+    },
+    {
+      "id": 7,
+      "eval_id": "missing-shelby",
+      "prompt": "Execute and verify a bounded task with Shelby tools unavailable.",
+      "expected_output": "Correct execution continues from repository and temporary state; only memory and run enrichment are omitted.",
+      "grading_assertions": [
+        "The run proves Shelby is unavailable from the callable tool inventory and does not substitute stale or unrelated memory.",
+        "The bounded task continues under the same routing and authority using relevant repository state and temporary run artifacts; only memory and run enrichment are omitted.",
+        "The result includes every Shelby field with unavailable identifiers empty and returns a complete HarnessResult on every terminal path.",
+        "Verification uses fresh direct checks where authority permits and clearly labels recorded or static evidence rather than presenting stale logs as a fresh run."
+      ]
+    },
+    {
+      "id": 8,
+      "eval_id": "non-development-execution",
+      "prompt": "Perform a bounded non-code file transformation with verification.",
+      "expected_output": "Harness executes and verifies the task without PM lifecycle behavior.",
+      "grading_assertions": [
+        "Harness selects or confirms one bounded non-code file transformation and preserves its exact file and authority scope.",
+        "The run does not add code, an automated test, a branch, commit, PR, tracker write, or other PM lifecycle behavior unless the request explicitly asks for it.",
+        "The transformation is performed and verified with direct structural or traceability checks appropriate to the non-code artifact.",
+        "The complete HarnessResult reports the artifact, actual checks and results, evidence outcome, and any blocker without presenting a plan as delivered work."
+      ]
+    }
   ]
 }

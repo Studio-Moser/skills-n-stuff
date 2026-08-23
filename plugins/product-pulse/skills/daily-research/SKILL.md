@@ -23,6 +23,7 @@ You are NOT a strategist — that's the weekly skill. You gather intel and surfa
 - **Quiet days** — If 3+ domains return zero findings, use condensed format.
 - **No fabricated URLs** — Every finding must have a real, verifiable source.
 - **Error tolerant** — If a Harness request fails, note it and continue. If memory is unavailable, skip memory ops.
+- **Harness boundary** — Invoke the named Harness skill through `Skill`; do not read Harness skill, reference, script, or rubric files, and do not perform Harness phases inside Product Pulse. Do not read or inspect the model rubric, and do not resolve a model, effort, provider, or executor. Do not repair an unresolved or blocked route inside Product Pulse; consume and report the typed Harness Result.
 
 ---
 

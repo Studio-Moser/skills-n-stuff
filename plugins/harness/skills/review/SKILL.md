@@ -1,9 +1,19 @@
 ---
 name: review
 description: >-
-  Use when a workflow has a Harness review request for an immutable commit or
-  snapshot and needs either the configured normal review route or an explicitly
-  approved fresh-context independent review.
+  Use when delegating or performing a review of a frozen, pinned target — a
+  commit SHA, tag, or immutable plan/patch snapshot — through Harness routing.
+  Covers: dispatching the configured review route; running or requesting an
+  independent, fresh-context, cross-provider, or adversarial review (which needs
+  explicit cost approval first); reviewing work authored by another model or
+  worker so the reviewer stays independent of the author; and natively
+  re-verifying, reproducing, confirming, or withdrawing findings that an
+  external or sub-agent reviewer claimed against that fixed target. Also use to
+  return a typed blocked or accepted HarnessResult for such a request.
+
+  Do not use for ordinary review of a moving working tree or uncommitted diff,
+  replying to or fixing GitHub PR comments, visual or browser-based UI review,
+  or evaluating prompts, rubrics, vendors, or documents.
 ---
 
 # Harness Review

@@ -15,6 +15,11 @@ metadata.
 - `independent`: a context-independent adversarial review. It requires explicit
   cost approval from the user before dispatch.
 
+`taste` resolves through the exact `routing.taste` value. Rubric setup selects
+that value from the reachable rows at or above `routing.taste_min`, under the
+developer's cost and trust preferences. `routing.taste_min` is an input to
+rubric setup, not a runtime route value.
+
 ## Rubric lookup and explicit dispatch
 
 1. Resolve the active rubric through `scripts/rubric-path.sh`; do not guess a
