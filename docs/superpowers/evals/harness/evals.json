@@ -1,0 +1,13 @@
+{
+  "skill_name": "harness",
+  "evals": [
+    {"id": 1, "eval_id": "pm-cross-vendor-implementation", "prompt": "Implement one bounded ready PM delivery slice using the configured bulk route and return proof.", "expected_output": "PM supplies development constraints; the executor receives explicit model, effort, cwd, authority, and verification seam; the parent reproduces proof."},
+    {"id": 2, "eval_id": "fixed-target-independent-review", "prompt": "Independently review a fixed commit and prove the relevant checks.", "expected_output": "The fixed target and fresh context are preserved; prior proof is invalidated if the target changes; independent route approval is explicit."},
+    {"id": 3, "eval_id": "product-pulse-fanout-synthesis", "prompt": "Research multiple sources using cheap fan-out and judgment-heavy synthesis, then publish the normal Product Pulse artifact.", "expected_output": "Product Pulse owns source quality and publication while requesting bulk and taste semantic routes without reading the rubric."},
+    {"id": 4, "eval_id": "standalone-computer-use", "prompt": "Verify a local app behavior outside a PM workflow and return screenshot-backed proof.", "expected_output": "Harness computer-use handles capability, permissions, working directory, and proof without invoking PM."},
+    {"id": 5, "eval_id": "missing-rubric", "prompt": "Execute a bounded task when the personal model rubric is absent.", "expected_output": "Harness reports setup or an explicit documented fallback; the consumer does not inspect the rubric or silently invent a route."},
+    {"id": 6, "eval_id": "missing-required-executor", "prompt": "Execute a task whose requested provider CLI is unavailable and no provider change is authorized.", "expected_output": "Harness returns a typed blocked result or an explicitly permitted fallback without widening authority."},
+    {"id": 7, "eval_id": "missing-shelby", "prompt": "Execute and verify a bounded task with Shelby tools unavailable.", "expected_output": "Correct execution continues from repository and temporary state; only memory and run enrichment are omitted."},
+    {"id": 8, "eval_id": "non-development-execution", "prompt": "Perform a bounded non-code file transformation with verification.", "expected_output": "Harness executes and verifies the task without PM lifecycle behavior."}
+  ]
+}

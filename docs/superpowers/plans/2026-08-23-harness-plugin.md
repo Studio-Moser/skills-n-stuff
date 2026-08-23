@@ -77,7 +77,7 @@ cp -R /Users/timmoser/.agents/claude /Users/timmoser/.agents/codex \
   "$EVAL_ROOT/baseline-snapshot/agents/"
 ```
 
-Expected: both revision files contain 40-character commit IDs; no rubric, credentials, `.skill-lock.json`, or Shelby data exists in the snapshot.
+Expected: both revision files contain 40-character commit IDs. The snapshot excludes the developer-resolved rubric at `/Users/timmoser/.agents/config/studio-moser/model-rubric.yml`, credentials, `.skill-lock.json`, and Shelby data. It retains versioned public rubric templates and rubric-handling source files because they are part of the copied Machine and Studio Baseline sources under evaluation.
 
 - [ ] **Step 2: Make Bats available without changing product dependencies**
 
