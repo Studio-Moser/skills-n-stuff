@@ -104,7 +104,7 @@ assert_argv() {
     --report "$REPORT"
 
   [ "$status" -eq 4 ]
-  [[ "$output" == *"BLOCKED"* ]]
+  [[ "$output" == *"BLOCKED"* ]] || return 1
   [ ! -e "$CAPTURE" ]
 }
 
@@ -121,7 +121,7 @@ assert_argv() {
     --fixed-target 2222222222222222222222222222222222222222
 
   [ "$status" -eq 4 ]
-  [[ "$output" == *"read-only"* ]]
+  [[ "$output" == *"read-only"* ]] || return 1
   [ ! -e "$CAPTURE" ]
 }
 
@@ -137,6 +137,6 @@ assert_argv() {
     --report "$REPORT"
 
   [ "$status" -eq 4 ]
-  [[ "$output" == *"sandbox"* ]]
+  [[ "$output" == *"sandbox"* ]] || return 1
   [ ! -e "$CAPTURE" ]
 }
