@@ -1,13 +1,9 @@
 ---
 name: daily-research
 description: >-
-  Daily research automation. Scans configured domains for actionable
-  intelligence, filters through the weekly strategy brief for relevance,
-  and produces a dated research report with action items for PM ingestion.
-  Opens an auto-mergeable PR. Reads pulse-config.yaml from the nearest
-  research directory. Trigger: "run daily research", "research scan",
-  "what's new", "check for updates", or /product-pulse:daily-research.
-  Also triggered by scheduled tasks.
+  Use when configured research domains need a daily source scan, strategic
+  filtering, and a dated report for PM ingestion and publication.
+allowed-tools: "Bash Read Write Edit Skill"
 ---
 
 # Product Pulse — Daily Research
@@ -26,7 +22,7 @@ You are NOT a strategist — that's the weekly skill. You gather intel and surfa
 - **Always Check items run every scan (no rotation)** — see Phase 0.6 below. These are user-configured architectural watch items that must be searched on every run regardless of rotation. Any hit is flagged `**ALWAYS-CHECK HIT**` and surfaced in a dedicated Escalations section at the top of the report.
 - **Quiet days** — If 3+ domains return zero findings, use condensed format.
 - **No fabricated URLs** — Every finding must have a real, verifiable source.
-- **Error tolerant** — If a sub-agent fails, note it and continue. If memory is unavailable, skip memory ops.
+- **Error tolerant** — If a Harness request fails, note it and continue. If memory is unavailable, skip memory ops.
 
 ---
 
@@ -121,7 +117,7 @@ Parse the `## Always Check` section of `{research_dir}/research-context.md`. Thi
 
 If the section is missing or empty, skip this phase — the user hasn't configured Always Check items yet. Do NOT fabricate items.
 
-When dispatching sub-agents in Phase 2, pass each domain's Always Check items (if any) alongside its regular search terms. The sub-agent must run **every** Always Check search term on **every** run, in addition to its 3-5 rotating terms.
+Include each domain's Always Check items (if any) in its Phase 2 request. The research worker must run **every** Always Check search term on **every** run, in addition to its 3-5 rotating terms.
 
 ---
 
@@ -131,26 +127,106 @@ Read `{research_dir}/research-sources.yaml`. For each domain, rank sources by `q
 
 ---
 
-## Phase 2: Dispatch Domain Sub-Agents
+## Phase 2: Request Domain Scans
 
-**CRITICAL**: All domain agents MUST be dispatched in a single message as parallel Agent tool calls.
+For each configured domain, invoke `harness:execute` with `operation: execute` and
+`route: bulk`. Submit independent requests concurrently. Product Pulse chooses the
+research question, sources, and acceptance rules; Harness owns concrete routing and
+execution.
 
-For each domain defined in the product context and research-sources.yaml, dispatch a sub-agent with:
-- The product context (condensed)
-- The domain's sources and search terms
-- The domain's **Always Check items** (from Phase 0.6, if any) — with clear instructions that every Always Check search term must run on every scan, no rotation
-- The dedup list
-- The weekly strategic direction (if available)
-- Instructions to find max 5 findings, each with: title, URL, summary, impact (H/M/L), effort (H/M/L), confidence (H/M/L), and relevance to the product
-- Instructions that any Always Check hit must be tagged `**ALWAYS-CHECK HIT**` in the Title field and returned with Impact at least "medium" regardless of normal scoring
+Replace every placeholder with that domain's actual content. The constraint block is
+the complete instruction set for a fresh worker; never pass it a Product Pulse plugin
+path and expect it to recover private instructions.
 
-Each sub-agent uses WebSearch and WebFetch to scan its sources and search terms. YouTube MCP tools should be used for YouTube sources if available.
+```yaml
+operation: execute
+route: bulk
+outcome: Return at most 5 current, source-backed findings for one configured research domain
+context:
+  project: {project_id}
+  mode: fresh
+  state: {condensed product context, domain name, ranked sources and 3-5 rotated search terms, every Always Check item and search term, dedup list, and weekly strategic direction}
+  files: [{repository-relative research-context.md, research-sources.yaml, and recent report paths}]
+authority:
+  working_directory: {absolute primary repository root}
+  allowed_paths: [{read-only paths named in context.files}]
+  tools: [internet research, read-only source retrieval]
+  approvals: []
+constraints:
+  - |
+    Product Pulse daily domain researcher:
+    Search the supplied ranked sources and rotated terms for changes relevant to the
+    supplied product and weekly strategic direction. Run every Always Check search term
+    on every scan with no rotation. Return max 5 findings. Every finding must contain
+    title, URL, summary, impact, effort, confidence, and relevance. The URL must be a
+    real source URL that you opened; do not fabricate or infer URLs.
+  - |
+    Assess source credibility from authority, directness, corroboration, publication or
+    update date, and whether the claim is still current. Prefer primary sources. Mark
+    uncertainty and never strengthen a source claim. Use the supplied dedup list to
+    exclude the same URL or a same-domain finding with 3 or more shared significant
+    keywords. Report checked sources and search terms even when no finding qualifies.
+  - |
+    Tag a qualifying watch-item finding as **ALWAYS-CHECK HIT** in its title and set
+    impact to at least Medium. A hit must satisfy the supplied hit definition; do not
+    fabricate an Always Check item or infer a hit from keyword overlap alone.
+  - Do not modify files, publish reports, or choose follow-up work
+verification:
+  seam: Open every returned URL and compare the finding, date, credibility assessment, and required fields with the source and supplied domain packet
+  expected: Every finding is current, relevant, non-duplicate, source-supported, complete, and within the 5-finding cap
+```
 
-**Model routing.** Domain scanners are bulk, clear-spec fan-out — dispatch them on a cheap, capable model (pass `model` on each Agent call), following the project's model-selection rubric if its `AGENTS.md`/`CLAUDE.md` defines one. Reserve a stronger model for the synthesis and strategic filter in Phase 3.
+Consume the exact Harness Result. Accept findings only from `status: accepted` with
+`evidence.outcome: proven`, then reproduce the verification seam. A worker summary,
+exit code, or inaccessible citation is not research proof. Log a failed, blocked, or
+abandoned domain and continue with the remaining domains.
 
 ---
 
 ## Phase 3: Synthesize
+
+Invoke `harness:execute` with `operation: execute` and `route: taste` for one bounded
+draft. Product Pulse remains the accepting workflow and writes the report only after
+checking the returned Harness Result.
+
+```yaml
+operation: execute
+route: taste
+outcome: Produce a source-preserving daily research report draft from the accepted domain findings
+context:
+  project: {project_id}
+  mode: fresh
+  state: {accepted domain findings, weekly strategy, product context, Always Check definitions, and source-check records}
+  files: [{repository-relative recent report paths used for deduplication and strategy}]
+authority:
+  working_directory: {absolute primary repository root}
+  allowed_paths: [{read-only paths named in context.files}]
+  tools: [read-only inspection]
+  approvals: []
+constraints:
+  - |
+    Product Pulse daily synthesis:
+    Extract every **ALWAYS-CHECK HIT** first; it bypasses ranking and the strategic
+    filter, appears in Escalations and Action Items, and does not count against the
+    5-item cap. Note any required Guide doc update. Deduplicate across domains by exact
+    URL or 3 or more shared significant keywords without merging distinct claims.
+  - |
+    Rank remaining findings by impact and effort. Apply the weekly strategic filter:
+    +2 for direct support of a top-3 priority, +1 for the weekly theme, +0 otherwise;
+    always retain security, hard-deadline, and blocker findings. Select at most 5 normal
+    action items by alignment and then impact/effort. Preserve every citation, caveat,
+    confidence rating, and source credibility assessment; do not create a new claim.
+  - |
+    Return a complete draft with domain findings, Action Items, Source Performance,
+    Noted, and Search Terms Used sections. Include the intended report path
+    {week_dir}/{today}-daily-research.md. Do not write or publish files.
+verification:
+  seam: Trace every report claim and action item to one accepted domain finding and verify caps, deduplication, strategic scoring, citations, and report path
+  expected: The draft is source-faithful, strategically ranked, complete, and ready for Product Pulse publication
+```
+
+Require `status: accepted` and `evidence.outcome: proven`, reproduce the seam, and
+reject any draft that changes a citation, drops a required section, or invents a claim.
 
 ### 3.0 Extract Always Check Hits
 
@@ -313,4 +389,4 @@ PR: {pr_url} ({merged | open})
 
 - **Research context missing**: Stop and tell the user to run `/product-pulse:setup`.
 - **Memory unavailable**: Continue without memory context — rely on file-based data.
-- **Sub-agent failure**: Note the failed domain and continue with others.
+- **Harness request failure**: Note the failed domain and continue with others.

@@ -1,13 +1,9 @@
 ---
 name: weekly-strategist
 description: >-
-  Weekly strategic intelligence. Dispatches 5 analyst agents (Market Scout,
-  Competitor Tracker, Audience Analyst, Growth Analyst, Product Scout), reads
-  the last 7 daily reports, and produces a strategy brief + recommendations
-  for PM ingestion. Reads pulse-config.yaml from the nearest research
-  directory. Run Monday mornings or whenever you need strategic direction.
-  Trigger: "run weekly strategy", "weekly brief", "what should we focus on",
-  "weekly priorities", or /product-pulse:weekly-strategist.
+  Use when the last 7 daily reports and current market evidence need a weekly
+  strategy brief, exactly three priorities, and recommendations for PM ingestion.
+allowed-tools: "Bash Read Write Edit Skill"
 ---
 
 # Product Pulse — Weekly Strategist
@@ -25,7 +21,7 @@ You are NOT a research scanner (that's the daily skill). You are a strategic **a
 - **Advisor only** — produce recommendations. PM:triage handles promotion.
 - **Brevity over comprehensiveness** — The brief should be readable in 5 minutes. Each analyst produces max 500 words.
 - **Opinionated** — Make recommendations. Say "do X" not "you could do X or Y."
-- **Error tolerant** — If an analyst agent fails, continue with the others. If no daily reports exist, use web research. If memory is unavailable, use file-based data.
+- **Error tolerant** — If a Harness request fails, continue with the other research packets. If no daily reports exist, use web research. If memory is unavailable, use file-based data.
 
 ---
 
@@ -128,27 +124,148 @@ Compile a ~1000-word context package summarizing product status, market context,
 
 ---
 
-## Phase 2: Dispatch 5 Analyst Agents
+## Phase 2: Request Five Analyst Briefs
 
-**CRITICAL**: All 5 agents MUST be dispatched in a single message as parallel Agent tool calls.
+Invoke `harness:execute` five times with `operation: execute` and `route: bulk`, once
+for each named analyst role. Submit independent requests concurrently. Product Pulse
+chooses the questions, source standards, and analyst constraints; Harness owns concrete
+routing and execution.
 
-Each agent receives the context package and produces a max 500-word brief. The agents are defined in the `agents/` directory:
+Use the packet below for each role. Include the entire role catalog in every request so
+a fresh worker can apply the selected role without opening a Product Pulse plugin path.
 
-1. **market-scout** — Industry shifts, new entrants, funding, regulation, technology changes
-2. **competitor-tracker** — What competitors shipped, announced, or changed this week
-3. **audience-analyst** — Signals about target audiences, unmet needs, emerging segments
-4. **growth-analyst** — Distribution opportunities, partnerships, channels, content strategies
-5. **product-scout** — Feature gaps, new capabilities, technical opportunities, UX improvements
+```yaml
+operation: execute
+route: bulk
+outcome: Return one source-backed weekly analyst brief of at most 500 words for the selected Product Pulse role
+context:
+  project: {project_id}
+  mode: fresh
+  state: {selected role, full context package, last 7 daily-report patterns, previous weekly direction, configured sources, and current date}
+  files: [{repository-relative research context and accepted daily report paths}]
+authority:
+  working_directory: {absolute primary repository root}
+  allowed_paths: [{read-only paths named in context.files}]
+  tools: [internet research, read-only source retrieval]
+  approvals: []
+constraints:
+  - |
+    Shared Product Pulse analyst rules:
+    Adapt every query to this product and the selected role. Prefer developments from
+    the last 7 days, append the current month and year to at least one search, and open
+    every cited source URL. Assess source credibility from authority, directness,
+    corroboration, publication or update date, and currentness. Prefer primary sources;
+    do not fabricate URLs or strengthen claims. Return max 500 words, explain the
+    product-specific "so what," give one recommended action, and say plainly when no
+    significant evidence exists.
+  - |
+    Role catalog — apply only the selected role:
+    Market Scout: investigate industry shifts, new entrants, funding, acquisitions,
+    shutdowns, regulation, technology changes, and emerging trends. Return Key
+    Findings, Implications for the product, and Recommended Action.
+    Competitor Tracker: inspect each named competitor's releases, changelogs, official
+    posts, pricing, positioning, hiring signals, and public repository activity. Focus
+    on landscape-changing actions. Return Competitor Activity, Competitive Landscape
+    Shift, and Recommended Action; name quiet competitors without padding.
+    Audience Analyst: investigate recent complaints, requests, discussions, unmet needs,
+    and emerging segments. Focus on pain points rather than demographics. Return
+    Audience Signals, Emerging Segments, and Recommended Action.
+    Growth Analyst: investigate specific distribution channels, partnerships,
+    integrations, search demand, content angles, communities, directories, and
+    marketplaces appropriate to the product stage. Rank concrete opportunities by
+    impact and effort. Return Growth Opportunities and Top Recommendation.
+    Product Scout: investigate evidence-backed feature gaps, documented APIs and data
+    sources, technical capabilities, UX patterns, integrations, and user requests.
+    Include value and small/medium/large effort. Return Product Opportunities and Top
+    Recommendation; hypothetical APIs do not qualify.
+  - Do not modify files, publish reports, or choose the weekly priorities
+verification:
+  seam: Open every source URL and compare each claim, date, credibility assessment, role requirement, and recommendation with the source and supplied product context
+  expected: The selected role brief is current, source-supported, product-specific, complete, and at most 500 words
+```
 
-Each agent reads the product context and adapts its research to the specific product and market.
-
-**Model routing.** The 5 analysts are bulk research fan-out — dispatch them on a cheap, capable model (pass `model` on each Agent call), following the project's model-selection rubric if its `AGENTS.md`/`CLAUDE.md` defines one. Reserve a strong model for the Strategist synthesis in Phase 3, which is judgment- and taste-heavy. And don't take any single analyst's claim at face value — corroborate the ones that drive a Top-3 priority before committing to it.
+Consume the exact Harness Result. Accept a brief only from `status: accepted` with
+`evidence.outcome: proven`, then reproduce the verification seam. Log failed, blocked,
+or abandoned roles and continue. Do not take a single analyst claim at face value:
+corroborate any claim that could drive a top-three priority.
 
 ---
 
 ## Phase 3: Strategist Synthesis
 
-Once all 5 analysts return, YOU become the Strategist.
+Invoke `harness:execute` with `operation: execute` and `route: taste` for the strategy
+draft. Product Pulse remains the accepting workflow and writes the files only after
+validating the returned Harness Result.
+
+```yaml
+operation: execute
+route: taste
+outcome: Produce a concise weekly strategy brief and recommendations draft grounded in accepted research
+context:
+  project: {project_id}
+  mode: fresh
+  state: {accepted analyst briefs, last 7 daily reports, previous weekly direction, product context, configured repos, and corroboration notes}
+  files: [{repository-relative accepted daily reports and prior strategy brief}]
+authority:
+  working_directory: {absolute primary repository root}
+  allowed_paths: [{read-only paths named in context.files}]
+  tools: [read-only inspection]
+  approvals: []
+constraints:
+  - |
+    Product Pulse weekly strategist:
+    Identify one product-specific weekly theme. Set exactly 3 priorities; each must be
+    achievable in one week, tied to evidence, identify the affected repo, and include a
+    clear done definition. Corroborate every high-impact claim that drives a priority;
+    preserve source citations, credibility caveats, dates, and confidence.
+  - |
+    Produce an opinionated strategy brief readable in 5 minutes plus recommendations:
+    at most 5 Suggested for Speccing items with rationale, served priority, and size;
+    Monitor Alerts; Quick Wins; Roadmap Notes; and 1-3 cross-domain opportunities.
+    Recommend only—do not promote, dismiss, or modify backlog items.
+  - |
+    Include the intended report paths {week_dir}/{YYYY}-W{NN}-strategy-brief.md and
+    {week_dir}/{YYYY}-W{NN}-recommendations.md. Do not write or publish files.
+verification:
+  seam: Trace every theme, priority, alert, and recommendation to accepted cited evidence and verify exact priority count, report sections, brevity, and report paths
+  expected: The strategy brief and recommendations are evidence-grounded, decisive, complete, and ready for Product Pulse publication
+```
+
+Require `status: accepted` and `evidence.outcome: proven`, then reproduce the seam.
+
+When accepted sources remain contradictory or a high-impact claim is not adequately
+corroborated, materialize the disputed claim, full citations, credibility assessments,
+and source excerpts as one immutable snapshot digest. Invoke `harness:review` with
+`operation: review` and `route: review`; do not silently pick a winner.
+
+```yaml
+operation: review
+route: review
+outcome: Adjudicate one contradictory or insufficiently corroborated high-impact research claim without changing the strategy draft
+context:
+  project: {project_id}
+  mode: fresh
+  state: {disputed claim, full source excerpts, publication dates, prior corroboration attempts, and product impact}
+  files: [{read-only repository-relative immutable claim packet when materialized as a file}]
+authority:
+  working_directory: {absolute primary repository root}
+  allowed_paths: [{read-only immutable claim packet and cited evidence}]
+  tools: [read-only source retrieval and inspection]
+  approvals: []
+constraints:
+  - Compare the contradictory evidence without strengthening either position
+  - Assess source credibility, freshness, authority, directness, and corroboration
+  - Verify all citations and identify what remains unknown
+  - Report whether the high-impact claim is supported, refuted, or unresolved; do not edit files
+verification:
+  seam: Reopen every citation and reproduce the credibility comparison against the immutable claim packet
+  expected: The adjudication names the best-supported position and all unresolved uncertainty with no fabricated claim
+  fixed_target: {immutable digest of the contradictory or high-impact claim packet and cited evidence}
+```
+
+Only use an adjudication with `status: accepted`, matching `evidence.fixed_target`,
+and `evidence.outcome: proven`. Otherwise keep the conflict visible and exclude it from
+priority-setting.
 
 ### 3.1 Identify the Week's Theme
 

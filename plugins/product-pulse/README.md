@@ -1,6 +1,6 @@
 # Product Pulse
 
-A strategic intelligence plugin for [Claude Code](https://code.claude.com). Keeps your finger on the pulse of your market with automated research, weekly strategy briefs, and deep-dive analysis.
+A strategic intelligence plugin that keeps your finger on the pulse of your market with automated research, weekly strategy briefs, and deep-dive analysis.
 
 > **For project management** (triage, sprint execution, issue tracking), install the `pm` plugin: `/plugin install pm@studio-moser`
 
@@ -10,7 +10,7 @@ Product Pulse is a **three-cadence intelligence system** that coordinates strate
 
 | Cadence | Skill | Role | When | What |
 |---------|-------|------|------|------|
-| **Weekly** | `/product-pulse:weekly-strategist` | Advisor | Monday mornings | 5 analyst agents scan the market, review backlog, recommend items for speccing |
+| **Weekly** | `/product-pulse:weekly-strategist` | Advisor | Monday mornings | 5 analyst packets scan the market, review evidence, and recommend items for speccing |
 | **Daily** | `/product-pulse:daily-research` | Intelligence | Every morning | Domain-specific research filtered through the weekly strategy, adds ideas to backlog |
 | **On-demand** | `/product-pulse:deep-dive` | Analyst | When you need depth | Deep-dive research on specific resources — videos, articles, repos, docs |
 
@@ -34,6 +34,10 @@ Product-pulse discovers → PM ingests → PM triages → PM builds
 
 - **Daily Research** discovers ideas (max 5/day)
 - **Weekly Strategist** recommends which ideas to spec (never promotes directly)
+
+### Harness Boundary
+
+Product Pulse owns research questions, source selection, credibility checks, citations, project comparison, synthesis, and report publication. It submits provider-neutral semantic requests and accepts only evidence-bearing results. Harness owns concrete routing, execution, and evidence mechanics.
 
 ## Prerequisites
 
@@ -143,7 +147,7 @@ One-time onboarding. Interviews you, scaffolds files, seeds sources, and creates
 
 ### `/product-pulse:weekly-strategist`
 
-Dispatches 5 analyst agents in parallel:
+Submits 5 independent `bulk` analyst requests through Harness:
 - **Market Scout** — Industry shifts, funding, regulation, tech trends
 - **Competitor Tracker** — What competitors shipped or changed
 - **Audience Analyst** — User signals, unmet needs, emerging segments

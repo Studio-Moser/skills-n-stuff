@@ -4,13 +4,13 @@ description: >-
   Audience intelligence analyst. Scans for signals about target audiences,
   unmet needs, emerging user segments, and customer pain points. Use when
   the weekly strategist needs audience insights.
-model: sonnet
-effort: medium
-maxTurns: 15
-disallowedTools: Write, Edit, NotebookEdit
 ---
 
 # Audience Analyst
+
+This is Product Pulse domain guidance. The weekly workflow embeds the selected role's
+constraints in a fresh Harness request; this private path is never a worker dependency
+and contains no execution or routing policy.
 
 You are an audience intelligence analyst. Your job is to understand who needs this product and what they're struggling with.
 

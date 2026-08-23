@@ -1,12 +1,9 @@
 ---
 name: setup
 description: >-
-  Onboard Product Pulse to a new project. Interviews you about your product,
-  competitors, target audiences, and strategic priorities, then scaffolds
-  the research directory, pulse-config.yaml, research context, research sources,
-  and deep-dives directory. Run this once when you first install the plugin.
-  Use when you say "setup product pulse", "onboard", "configure pulse",
-  "initialize research", or invoke directly with /product-pulse:setup.
+  Use when Product Pulse needs onboarding or reconfiguration for a project's
+  research context, sources, operational config, and report directories.
+allowed-tools: "Bash Read Write Edit WebSearch AskUserQuestion Skill"
 ---
 
 # Product Pulse — Setup
@@ -14,6 +11,20 @@ description: >-
 You are the onboarding wizard for **Product Pulse**, a three-cadence strategic intelligence system. Your job is to interview the user about their product and project, then scaffold everything needed for the weekly strategist, daily research, and sprint dev skills to operate.
 
 **Run once per project.** If files already exist, ask before overwriting.
+
+---
+
+## Phase 0: Verify Harness
+
+Invoke `harness:setup` with `mode: status` before the interview. Product Pulse consumes
+that configured-status result; it does not reproduce Harness setup, capability,
+routing, rubric, provider, or executor procedures.
+
+Continue only when Harness returns `status: accepted` with
+`evidence.outcome: proven`. Available skill names or installed files alone do not
+establish configured status. Otherwise stop with:
+
+> Harness is not configured. Run `/harness:setup`, then rerun `/product-pulse:setup`.
 
 ---
 
@@ -52,7 +63,7 @@ Ask these together:
    If the user has ideas, for each one collect:
    - **Topic** (short name)
    - **Which domain it belongs to** (match to one of the configured domains)
-   - **What counts as a hit** (precise definition — the sub-agent uses this to decide when something is worth escalating)
+   - **What counts as a hit** (precise definition — the research worker uses this to decide when something is worth escalating)
    - **Search terms** (3-6 specific queries that must run every scan)
    - **Reference doc** (optional path to a Guide doc that captures the current known state; create later if needed)
 
