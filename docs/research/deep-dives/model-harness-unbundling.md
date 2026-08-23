@@ -43,19 +43,19 @@ Z.ai currently advertises Lite at $18/month and documents GLM-5.3 for Claude Cod
 `skills-n-stuff` already implements most of the video's architecture better than the video specifies:
 
 - `plugins/harness/skills/model-rubric/SKILL.md` separates flat-subscription quota/latency from metered dollar cost, scores model-plus-effort pairs, and routes bounded, exploratory, batch, review, and independent work separately.
-- `plugins/pm/references/model-orchestration.md` treats cross-vendor execution as capability-gated and requires explicit model and effort selection.
-- `plugins/pm/skills/codex-implementation/SKILL.md` already uses a compact handoff containing Outcome, Blockers, Testing Seam, Proof, files, constraints, and verification. That is the video's proposed handoff in a stronger, testable form; adding another handoff template would duplicate it.
+- `plugins/harness/references/routing.md` treats cross-vendor execution as capability-gated and requires explicit model and effort selection.
+- `plugins/harness/skills/execute/SKILL.md` and `plugins/harness/references/handoff.md` use a provider-neutral request and compact handoff containing the outcome, blockers, verification seam, current proof, files, constraints, and authority. That is the video's proposed handoff in a stronger, testable form; adding another handoff template would duplicate it.
 - `plugins/harness/templates/AGENTS_Baseline.md` requires isolated worktrees for parallel work and independent verification of worker claims.
-- `plugins/machine/scripts/rubric-audit.sh` audits whether dispatches set a model and counts Codex handoffs.
+- `plugins/harness/scripts/rubric-audit.sh` audits whether native agent dispatches set a model, while the Harness Result schema records the resolved route, executor, attempts, elapsed time, verification failures, and available quota usage for each request.
 
 Two gaps matter:
 
-1. The routing doctrine is more precise than the executor. `plugins/pm/skills/codex-implementation/SKILL.md` invokes `codex exec` without passing the rubric-selected model, reasoning effort, or profile. Today the desired route works only when the user's Codex default happens to match the rubric. It cannot intentionally select a GLM profile or another provider.
-2. `rubric-audit.sh` counts dispatches and handoffs, but not accepted-task outcomes: retries, rejection, verification failures, review turns, latency, quota/tokens, or whether the result shipped. It can prove routing compliance, not economic value.
+1. Harness now passes the resolved model and effort explicitly to its guarded executor, but `rubric-audit.sh` observes native transcript dispatches rather than aggregating Harness Results. The dispatch is enforced; fleet-level comparison of requested routes, concrete resolutions, fallbacks, and blocks is not.
+2. The Harness Result schema carries attempts, elapsed time, verification failures, available quota usage, and acceptance status per request, but no current audit aggregates those records into accepted-task economics across models and providers.
 
 ## Risks & Gaps
 
-- **R1 — Decorative routing:** a model rubric that is not enforced at the CLI call can silently route work to the wrong model or effort. **Confidence: High.**
+- **R1 — Unobserved routing:** explicit dispatch prevents accidental runtime defaults, but without aggregated Harness Results a recurring fallback, blocked route, or model mismatch can remain a series of isolated events. **Confidence: High.**
 - **R2 — False savings:** provider price can look cheaper while retries and frontier-model review make the accepted task more expensive. Current audit data cannot detect this. **Confidence: High.**
 - **R3 — Unsupported compatibility:** presenting non-Claude Claude Code routing as officially supported by Anthropic would overstate the support contract. **Confidence: High.**
 - **R4 — Secret and source exposure:** Z.ai's installer can modify user settings, and individual-plan data handling differs from the Team Plan. No API key or full provider config belongs in this public repository. **Confidence: High.**
@@ -79,8 +79,8 @@ Two gaps matter:
 
 | # | Action | Why | Effort | Confidence |
 |---|--------|-----|--------|------------|
-| 1 | Make `pm:codex-implementation` and `pm:codex-review` resolve and pass the rubric-selected model, effort, and optional profile explicitly. | Turns the existing routing doctrine into enforced behavior and enables controlled alternate-provider trials. | Moderate | High |
-| 2 | Extend routing telemetry from dispatch counts to accepted-task outcomes: attempts, verification failures, review rounds, elapsed time, and available quota/token usage. | Measures the fully loaded cost the video correctly identifies. | Significant | High |
-| 3 | Add a repository-specific challenge-set gate to `/machine:model-rubric`: no provider/model earns a route until it passes representative bounded tasks against the incumbent. | External leaderboards and subscription prices do not predict accepted-task cost on this codebase. | Moderate | High |
+| 1 | Extend the Harness audit to consume Harness Results and compare requested routes with actual model, effort, provider, executor, fallback, and blocked outcomes. | Makes enforced per-dispatch routing observable across runs and providers. | Moderate | High |
+| 2 | Aggregate accepted-task outcomes from Harness Results: attempts, verification failures, review rounds where available, elapsed time, quota/token usage, and final acceptance. | Measures the fully loaded cost the video correctly identifies. | Significant | High |
+| 3 | Add a repository-specific challenge-set gate to `/harness:model-rubric`: no provider/model earns a route until it passes representative bounded tasks against the incumbent. | External leaderboards and subscription prices do not predict accepted-task cost on this codebase. | Moderate | High |
 | 4 | Do not add GLM-5.3 as a default route yet; run a secret-safe personal Codex-profile trial after Actions 1–3, using no sensitive repository data. | Current Claude/Codex flat subscriptions already cover the workflow, and there is no local evidence that GLM improves quota, latency, or accepted-task cost. | Quick win | High |
-| 5 | Keep the existing PM work-readiness handoff; document it as the cross-provider handoff contract instead of creating another template. | The current Outcome/Blockers/Testing Seam/Proof contract already exceeds the video's six-line handoff. | Quick win | High |
+| 5 | Keep the existing Harness HandoffPacket as the cross-provider handoff contract instead of creating another template. | Its outcome, blockers, verification seam, proof, context, and authority fields already exceed the video's six-line handoff. | Quick win | High |

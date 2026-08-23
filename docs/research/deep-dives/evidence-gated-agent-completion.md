@@ -67,7 +67,7 @@ Declared `OWNS:` paths and leases can prevent cooperating workers from obvious c
 - `plugins/pm/references/work-readiness.md` requires every delivery slice to name its Outcome, Blockers, Testing Seam, and Proof before it can be completed.
 - `plugins/pm/references/review-proof.md` fixes the reviewed commit or immutable snapshot, distinguishes Direct proof from supporting evidence, and reopens review whenever that fixed point changes.
 - `plugins/pm/skills/sprint-dev/SKILL.md` says “trust the check, not the worker,” executes only the unblocked frontier, independently reruns verification, and separates colliding work.
-- `plugins/pm/skills/codex-implementation/SKILL.md` explicitly guards against exit-zero no-ops and “verified” reports that exercised no relevant test.
+- `plugins/harness/skills/execute/SKILL.md` treats an executor exit code and worker report as claims, guards against success-shaped no-op results, and requires the accepting parent to reproduce the highest stable verification seam.
 - `plugins/harness/references/house-rules.md` requires the highest stable testing seam, recorded output, independent checks, and worktrees for parallel changes.
 
 That is roughly the same completion model without Unlazy's machine-readable ledger. The material gap is enforcement: our Outcome/Testing Seam/Proof contract lives in issue bodies, prompts, reviews, and reports. No shared parser can fail closed on missing gates, distinguish stale evidence from current re-execution, or produce one deterministic completion record for a multi-agent slice.

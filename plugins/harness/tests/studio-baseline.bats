@@ -48,9 +48,10 @@ PY
   [ "$status" -eq 0 ]
 }
 
-@test "distributed setup and rubric callers use Harness-owned paths" {
+@test "distributed live tree uses Harness-owned paths" {
   run python3 - "$REPO" <<'PY'
 from pathlib import Path
+import subprocess
 import sys
 
 root = Path(sys.argv[1])
@@ -58,21 +59,24 @@ legacy_tokens = (
     "studio" + "-baseline",
     "Machine" + "_Setup.md",
     "Rubric" + "_Setup.md",
-)
-scan_roots = (
-    root / "README.md", root / ".claude-plugin", root / "plugins", root / "docs",
+    "plugins/" + "machine",
+    "/" + "machine:",
+    "plugins/pm/skills/" + "codex-",
+    "plugins/pm/references/" + "model-orchestration",
 )
 hits = []
-for scan_root in scan_roots:
-    files = [scan_root] if scan_root.is_file() else [p for p in scan_root.rglob("*") if p.is_file()]
-    for path in files:
-        if path == Path(__file__) or path.is_relative_to(root / "docs/superpowers"):
-            continue
-        text = path.read_text(errors="ignore")
-        for token in legacy_tokens:
-            if token in text:
-                hits.append(f"{path.relative_to(root)}: {token}")
-assert not hits, "legacy baseline caller remains:\n" + "\n".join(hits)
+tracked = subprocess.check_output(
+    ["git", "-C", str(root), "ls-files", "--cached", "--others", "--exclude-standard", "-z"]
+).decode().split("\0")
+for name in filter(None, tracked):
+    relative = Path(name)
+    if relative.parts[:1] == (".superpowers",) or relative.parts[:2] == ("docs", "superpowers"):
+        continue
+    text = (root / relative).read_text(errors="ignore")
+    for token in legacy_tokens:
+        if token in text:
+            hits.append(f"{relative}: {token}")
+assert not hits, "retired distributed caller remains:\n" + "\n".join(hits)
 
 pm_setup = (root / "plugins/pm/skills/setup/SKILL.md").read_text()
 pm_rules = (root / "plugins/pm/skills/house-rules/SKILL.md").read_text()
@@ -82,6 +86,9 @@ assert "plugins/harness/references/house-rules.md" in pm_rules
 assert "/harness:setup" in harness_readme
 assert "/harness:model-rubric" in harness_readme
 PY
+  if [ "$status" -ne 0 ]; then
+    printf '%s\n' "$output" >&2
+  fi
   [ "$status" -eq 0 ]
 }
 

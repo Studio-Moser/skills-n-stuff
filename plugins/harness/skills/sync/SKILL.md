@@ -149,9 +149,16 @@ For loose configuration:
 1. If skills exist in more than one live location, compare each duplicated pair
    recursively and read the differences. A newer modification time is not proof
    that a copy is correct. Resolve the winning content before consolidation.
-2. If shared `settings.json` contains `skillOverrides`, remove only that key and
-   merge it into live `settings.local.json`; preserve every other local key. This
-   selection is machine-local and must not enter the shared repository.
+2. Localize machine-only skill routing before copying shared `settings.json`:
+
+   ```bash
+   claude="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+   harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
+   [ ! -e "$claude/settings.json" ] || "$harness/scripts/localize-skill-overrides.py" "$claude/settings.json" "$claude/settings.local.json"
+   ```
+
+   This removes only `skillOverrides` from the shared file and merges it into
+   live `settings.local.json`, preserving every other local key.
 3. Initialize `$repo` on `main` with `skills/`, `claude/`, `config/studio-moser/`,
    and `codex/` as needed. Copy every present managed entry into its Phase 1 repo
    path; copy, do not move, so the originals remain recoverable until verification.
@@ -324,6 +331,18 @@ Instead: show the diff, move the file aside (`mv "$link"
 tell the operator that anything worth keeping belongs in `House Style.md` or
 `CLAUDE.md` (the sources), then link.
 
+**For a real `settings.json` whose machine version is kept, localize before the
+keep-file `cp`.** Run this in the same command block as the copy so the sanitized
+file, never its machine-only routing, becomes the repo copy:
+
+```bash
+repo="${AGENTS_REPO:-$HOME/.agents}"
+claude="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
+"$harness/scripts/localize-skill-overrides.py" "$claude/settings.json" "$claude/settings.local.json"
+cp "$claude/settings.json" "$repo/claude/settings.json"
+```
+
 `-sfn` only repoints an **existing symlink** (that's what its `-n` guards —
 it treats the destination as the link itself, not as a directory to drop the
 link into). It does **not** replace a real file or a real directory: run
@@ -350,8 +369,16 @@ removes that failure mode entirely.
 ### 2.1 Commit local changes
 
 ```bash
+repo="${AGENTS_REPO:-$HOME/.agents}"
+claude="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
+[ ! -e "$repo/claude/settings.json" ] || "$harness/scripts/localize-skill-overrides.py" "$repo/claude/settings.json" "$claude/settings.local.json"
 git -C "$repo" status --short
 ```
+
+The localization command is the final machine-to-shared settings boundary. Run
+it before the clean-tree check on every non-dry sync: it also repairs an override
+that a direct or atomic-replace writer put into the repo-backed shared file.
 
 Clean → skip to 2.2.
 

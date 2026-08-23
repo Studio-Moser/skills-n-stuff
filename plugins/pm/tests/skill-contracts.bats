@@ -669,7 +669,7 @@ for backend_marker in (
     if backend_marker in skill:
         failures.append(f"setup keeps backend procedure inline: {backend_marker}")
 
-for harness_owned in ("harness:model-rubric", "harness:sync", "/machine:",
+for harness_owned in ("harness:model-rubric", "harness:sync", "/" + "machine:",
                       "Rubric" + "_Setup.md"):
     if harness_owned in skill:
         failures.append(f"setup restates Harness setup mechanics: {harness_owned}")

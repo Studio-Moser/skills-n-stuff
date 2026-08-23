@@ -203,9 +203,10 @@ PY
 }
 
 @test "Codex remains an internal Harness adapter with no public PM vendor skills" {
-  [ ! -e "$REPO/plugins/pm/skills/codex-implementation" ]
-  [ ! -e "$REPO/plugins/pm/skills/codex-review" ]
-  [ ! -e "$REPO/plugins/pm/skills/codex-computer-use" ]
+  retired_pm_codex="$REPO/plugins/pm/skills/""codex"
+  [ ! -e "${retired_pm_codex}-implementation" ]
+  [ ! -e "${retired_pm_codex}-review" ]
+  [ ! -e "${retired_pm_codex}-computer-use" ]
 
   run python3 - "$REPO" <<'PY'
 from pathlib import Path

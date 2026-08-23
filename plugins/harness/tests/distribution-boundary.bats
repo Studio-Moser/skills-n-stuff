@@ -4,12 +4,18 @@ setup() { REPO="$(cd "$BATS_TEST_DIRNAME/../../.." && pwd)"; }
 
 @test "harness is the sole control-plane plugin" {
   [ -d "$REPO/plugins/harness" ]
-  [ ! -e "$REPO/plugins/machine" ]
+  retired_plugin="$REPO/plugins/""machine"
+  [ ! -e "$retired_plugin" ]
   run python3 - "$REPO" <<'PY'
 from pathlib import Path
 import sys
 root = Path(sys.argv[1])
-needles = ("plugins/machine", "/machine:", "machine:model-rubric", "machine:sync")
+needles = (
+    "plugins/" + "machine",
+    "/" + "machine:",
+    "machine:" + "model-rubric",
+    "machine:" + "sync",
+)
 hits = []
 for path in [root / ".claude-plugin/marketplace.json", root / "plugins/harness", root / "README.md"]:
     files = [path] if path.is_file() else [p for p in path.rglob("*") if p.is_file()]

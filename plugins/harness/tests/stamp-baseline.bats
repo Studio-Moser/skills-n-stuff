@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 
 setup() {
-  SCRIPT="${BATS_TEST_DIRNAME}/../scripts/stamp-baseline.sh"
+  SCRIPT="${STAMP_SCRIPT:-${BATS_TEST_DIRNAME}/../scripts/stamp-baseline.sh}"
   TARGET="${BATS_TEST_TMPDIR}/AGENTS.md"
   BODY="${BATS_TEST_TMPDIR}/body.md"
   printf '## Harness baseline\n\nfirst version\n' > "$BODY"
@@ -38,6 +38,22 @@ setup() {
   grep -qF "second version" "$TARGET"
   ! grep -qF "first version" "$TARGET"
   [ "$(grep -cF "<!-- harness:baseline:start -->" "$TARGET")" -eq 1 ]
+}
+
+@test "migrates the retired managed block without duplicating it" {
+  retired="studio""-baseline"
+  printf '# Before\n<!-- %s:start -->\nstale managed body\n<!-- %s:end -->\n# After\n' "$retired" "$retired" > "$TARGET"
+
+  "$SCRIPT" "$TARGET" "$BODY"
+
+  [ "$(grep -cF '# Before' "$TARGET")" -eq 1 ]
+  [ "$(grep -cF '# After' "$TARGET")" -eq 1 ]
+  [ "$(grep -cF '<!-- harness:baseline:start -->' "$TARGET")" -eq 1 ]
+  [ "$(grep -cF '<!-- harness:baseline:end -->' "$TARGET")" -eq 1 ]
+  grep -qF "first version" "$TARGET"
+  ! grep -qF "stale managed body" "$TARGET"
+  ! grep -qF "<!-- ${retired}:start -->" "$TARGET"
+  ! grep -qF "<!-- ${retired}:end -->" "$TARGET"
 }
 
 @test "refuses to stamp an empty body file (no clobber)" {
