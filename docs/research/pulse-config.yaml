@@ -1,0 +1,16 @@
+project_id: skills-n-stuff
+
+repos:
+  - name: skills-n-stuff
+    path: .
+    role: primary
+
+default_branch: main
+auto_merge: true
+
+memory:
+  connector: shelby
+
+backlog:
+  active: planning/todos.md
+  ideas: planning/ideas.md
