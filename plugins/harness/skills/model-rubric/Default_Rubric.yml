@@ -1,4 +1,4 @@
-# Studio Moser seed rubric — the starting point /machine:model-rubric copies before
+# Studio Moser seed rubric — the starting point /harness:model-rubric copies before
 # the interview. What's here is distributable: taste scores and anti-pattern notes
 # are house judgment; swe: is public DeepSWE benchmark data. What's NOT here is
 # per-developer: cost, capabilities, and routing — the interview fills those in.

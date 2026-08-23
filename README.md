@@ -71,6 +71,16 @@ Backend-agnostic project management for AI-native teams. Ingests research report
 
 [Full documentation](plugins/pm/README.md)
 
+### Harness
+
+Keeps your personal agent configuration identical across machines, including shared skills and your model-routing rubric.
+
+**Skills:**
+- `/harness:sync` — reconcile your personal agent repository with this machine
+- `/harness:model-rubric` — create or refresh your user-global model-routing rubric
+
+[Full documentation](plugins/harness/README.md)
+
 ### Site Capture
 
 Capture full-page screenshots of websites with scroll-triggered animation support. Handles bot-protected sites, cookie banners, and lazy-loaded content.

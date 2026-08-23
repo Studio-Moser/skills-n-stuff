@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Report how this machine's ~/.claude compares to a personal agent repo.
-# READ-ONLY. Creates nothing, removes nothing — machine:sync acts on this output.
+# READ-ONLY. Creates nothing, removes nothing — harness:sync acts on this output.
 set -euo pipefail
 
 repo="${1:-$HOME/.agents}"

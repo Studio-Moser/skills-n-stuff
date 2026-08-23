@@ -6,14 +6,14 @@
 # substitution, but does not export it into the environment the agent's Bash
 # tool runs in. A ```bash block running "$CLAUDE_PLUGIN_ROOT/scripts/foo.sh"
 # therefore fails with "no such file or directory" — every script invocation
-# in machine:sync and machine:model-rubric was broken this way, and it only
+# in harness:sync and harness:model-rubric was broken this way, and it only
 # surfaced on a real run.
 #
 # Each block must resolve the root itself, the same way it re-resolves repo=
 # and claude= (nothing persists between blocks):
 #
-#   machine="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/machine/*/ \
-#     2>/dev/null | sort -V | tail -1)}"; machine="${machine%/}"
+#   harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ \
+#     2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
 #
 # which honours the variable when it is set and falls back to the newest
 # installed copy when it is not.
@@ -43,7 +43,7 @@ for path in sorted(glob.glob(os.path.join(repo, "plugins/*/skills/*/SKILL.md")))
                 continue
             # Using it as a path prefix is the bug: "$CLAUDE_PLUGIN_ROOT/scripts/…".
             # Reading it with a fallback is the *fix* and must not be flagged:
-            #   machine="${CLAUDE_PLUGIN_ROOT:-$(…)}"
+            #   harness="${CLAUDE_PLUGIN_ROOT:-$(…)}"
             # `!`…`` load-time substitution is expanded by Claude Code before the
             # agent ever sees it, so it is fine too — this only covers bash the
             # agent executes itself.
@@ -60,26 +60,26 @@ PY
   [ -n "$output" ]
 }
 
-@test "every machine skill block calling a plugin script resolves the root first" {
+@test "every harness skill block calling a plugin script resolves the root first" {
   run python3 - "$REPO" <<'PY'
 import glob, os, re, sys
 
 repo = sys.argv[1]
 bad = []
 checked = 0
-for path in sorted(glob.glob(os.path.join(repo, "plugins/machine/skills/*/SKILL.md"))):
+for path in sorted(glob.glob(os.path.join(repo, "plugins/harness/skills/*/SKILL.md"))):
     rel = os.path.relpath(path, repo)
     for block in re.findall(r"```bash\n(.*?)\n```", open(path).read(), re.S):
-        if '"$machine/scripts/' not in block:
+        if '"$harness/scripts/' not in block:
             continue
         checked += 1
-        if 'machine="${CLAUDE_PLUGIN_ROOT' not in block:
-            first = next((l for l in block.split("\n") if '"$machine/scripts/' in l), "")
+        if 'harness="${CLAUDE_PLUGIN_ROOT' not in block:
+            first = next((l for l in block.split("\n") if '"$harness/scripts/' in l), "")
             bad.append((rel, first.strip()))
 
 for rel, line in bad:
     print(f"{rel}: {line}")
-    print("    ^ block uses $machine without resolving it; nothing persists between blocks")
+    print("    ^ block uses $harness without resolving it; nothing persists between blocks")
 print(f"checked={checked} offenders={len(bad)}")
 sys.exit(1 if bad else 0)
 PY

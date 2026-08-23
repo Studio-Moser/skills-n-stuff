@@ -23,7 +23,7 @@ fail=0
 #    C-quoted, so readlink sees the real path instead of a literal '"..."'.
 while IFS= read -r link; do
   [ -n "$link" ] || continue
-  # A tracked symlink can be absent from the worktree (e.g. mid machine:sync);
+  # A tracked symlink can be absent from the worktree (e.g. mid harness:sync);
   # readlink then fails. Don't let that abort the whole lint under set -e —
   # just skip it and keep scanning everything else.
   target="$(readlink "$link" || true)"

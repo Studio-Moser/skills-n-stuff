@@ -1,4 +1,4 @@
-# machine
+# harness
 
 Keeps your personal agent configuration identical across machines.
 
@@ -7,15 +7,15 @@ The plugin is public and generic; the data is yours.
 
 ## Skills
 
-- **`/machine:sync`** — make this machine match your personal agent repo. Clones on
+- **`/harness:sync`** — make this machine match your personal agent repo. Clones on
   first run, pulls after. Re-links anything that drifted, lints for paths that
   would be wrong on another machine, and optionally pushes to other machines.
-- **`/machine:model-rubric`** — create or refresh your user-global model-routing
+- **`/harness:model-rubric`** — create or refresh your user-global model-routing
   rubric at `${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml`.
 
 ## Third-party skills are declared, not vendored
 
-`/machine:sync` (Phase 2.6) reconciles third-party skills — the ones installed
+`/harness:sync` (Phase 2.6) reconciles third-party skills — the ones installed
 with `npx skills` (vercel-labs) rather than authored in your repo — against
 a generated `skills.manifest`. It only works when your repo **is**
 `$HOME/.agents` — `npx skills` hardcodes that install path regardless of
@@ -26,7 +26,7 @@ upstream. To move an already-vendored skill to manifest management:
 
 1. `git -C "$repo" rm -r --cached skills/<name>` — untrack it; the file
    stays on disk.
-2. Run `/machine:sync`. Phase 2.6 sees it installed with a real `source`,
+2. Run `/harness:sync`. Phase 2.6 sees it installed with a real `source`,
    offers to add it to `skills.manifest`, and `skills-manifest.sh` adds a
    `skills/<name>/` line to the generated `.gitignore` block — the untracked
    files are now deliberately ignored, not lost.
@@ -43,19 +43,19 @@ forward.
 
 ## Schedule it, or it won't happen
 
-**Nothing runs `/machine:sync` for you.** This plugin detects drift; it does not
+**Nothing runs `/harness:sync` for you.** This plugin detects drift; it does not
 watch for it. Your config diverges the moment a tool upgrades a skill, a plugin
 toggle rewrites `settings.json`, or you edit a skill on one machine — and an
 unsynced repo silently hands the *old* state to the next machine that clones it.
 
-Set up a recurring `/machine:sync` with whatever scheduler you already use — your
+Set up a recurring `/harness:sync` with whatever scheduler you already use — your
 agent tool's scheduled tasks, `cron`, `launchd`, CI. Daily is plenty. There is
 deliberately no scheduler in this plugin: you already have one, and a background
 job that reorganizes your config is something you should own rather than inherit.
 
 Two rules whichever you pick:
 
-- **Report, don't act silently.** `/machine:sync` asks before removing, re-linking,
+- **Report, don't act silently.** `/harness:sync` asks before removing, re-linking,
   or discarding. An unattended run must not answer those prompts for you.
 - **It commits and pushes.** Sync commits this machine's changes, pulls, then
   pushes — otherwise the repo goes stale and the next machine to clone gets the old

@@ -2,7 +2,7 @@
 # Compare the committed skills.manifest against reality (`npx skills list
 # -g --json`, read on stdin) and this machine's local overrides
 # ($repo/.fleet-local.json). READ-ONLY — prints a plan, installs/removes
-# nothing. machine:sync's Phase 2.6 acts on this output.
+# nothing. harness:sync's Phase 2.6 acts on this output.
 #
 # One line per finding, tab-separated:
 #   INSTALL      <name>  <source>   manifest entry not on this machine — offer to install

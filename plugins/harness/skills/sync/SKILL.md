@@ -7,16 +7,16 @@ description: >-
   stays current. Re-links anything that drifted back into ~/.claude, lints for paths
   that would be wrong on another machine, and optionally triggers a pull on your
   other machines. Trigger: "sync my config", "sync my machines", "update my skills from
-  my repo", "is this machine up to date", or /machine:sync.
+  my repo", "is this machine up to date", or /harness:sync.
   Do NOT use for setting up a machine that has no plugins yet (follow
   studio-baseline/Machine_Setup.md), for creating the model rubric (that's
-  /machine:model-rubric), or for anything in a project repo — sync only touches this
+  /harness:model-rubric), or for anything in a project repo — sync only touches this
   developer's user-global agent config.
 effort: low
 allowed-tools: "Bash Read Edit"
 ---
 
-# Machine — Sync
+# Harness — Sync
 
 Makes this machine match your personal agent repo.
 
@@ -113,8 +113,8 @@ than write-in-place silently converts a symlink back into a real file, and sync
 stops working with no signal. This phase is how that gets noticed.
 
 ```bash
-machine="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/machine/*/ 2>/dev/null | sort -V | tail -1)}"; machine="${machine%/}"
-"$machine/scripts/link-plan.sh" "$repo"
+harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
+"$harness/scripts/link-plan.sh" "$repo"
 ```
 
 Each line ends in a state:
@@ -299,7 +299,7 @@ Then stage everything and commit, deletions included:
 
 ```bash
 git -C "$repo" add -A
-git -C "$repo" commit -m "machine: sync from {hostname} — {N} added, {M} modified, {K} deleted"
+git -C "$repo" commit -m "harness: sync from {hostname} — {N} added, {M} modified, {K} deleted"
 ```
 
 `add -A` is correct **here and only here**: this repo contains exactly one
@@ -335,8 +335,8 @@ read as data loss.
 
 ```bash
 repo="${AGENTS_REPO:-$HOME/.agents}"
-machine="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/machine/*/ 2>/dev/null | sort -V | tail -1)}"; machine="${machine%/}"
-"$machine/scripts/render-codex-agents.sh" "$repo"
+harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
+"$harness/scripts/render-codex-agents.sh" "$repo"
 ```
 
 `codex/AGENTS.md` is Codex's global instructions and is **generated** from the
@@ -346,7 +346,7 @@ the push — so a machine that just received the file from the remote sees
 `RENDER_STATE=unchanged`, and a machine whose sources moved gets a fresh render on
 top of the merged history instead of a diverging commit. If it prints
 `RENDER_STATE=regenerated`, commit it now (`git -C "$repo" add codex/AGENTS.md &&
-git -C "$repo" commit -m "machine: regenerate codex/AGENTS.md"`), so 2.3 pushes it.
+git -C "$repo" commit -m "harness: regenerate codex/AGENTS.md"`), so 2.3 pushes it.
 `RENDER_STATE=failed: <reason>` (exit 3) means a source or a required section is
 missing — nothing was written; carry the reason into the report and continue.
 Never hand-edit `codex/AGENTS.md`; the next sync overwrites it.
@@ -515,7 +515,7 @@ to run.
 
 Read the tracked `claude/mcp.json` (skip cleanly if absent — not every
 developer runs MCP servers). For each entry under `mcpServers`, confirm its
-`command` actually resolves on this machine: an absolute path must be
+`command` actually resolves on this harness: an absolute path must be
 executable, a bare name must resolve on `$PATH`. **Do not attempt to install
 anything here** — an MCP entry points at an arbitrary binary (an app bundle, a
 local CLI, a script); there is no generic install, and guessing a package
@@ -655,7 +655,7 @@ git -C "$repo" rm --cached .skill-lock.json --ignore-unmatch -q
 if git -C "$repo" diff --cached --quiet; then
   echo "nothing to commit"
 else
-  git -C "$repo" commit -q -m "machine: untrack .skill-lock.json and gitignore it (breaks third-party skill removal propagation)"
+  git -C "$repo" commit -q -m "harness: untrack .skill-lock.json and gitignore it (breaks third-party skill removal propagation)"
   git -C "$repo" push || echo "push failed — will retry on a future sync; do not force"
 fi
 ```
@@ -713,12 +713,12 @@ first; step 3 only ever records reality as it now stands.
 
 ```bash
 repo="${AGENTS_REPO:-$HOME/.agents}"
-machine="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/machine/*/ 2>/dev/null | sort -V | tail -1)}"; machine="${machine%/}"
+harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
 listing="$(npx skills list -g --json 2>/dev/null)"
 if [ -z "$listing" ] || ! printf '%s' "$listing" | python3 -c 'import json,sys; json.load(sys.stdin)' >/dev/null 2>&1; then
   echo "SKILLS_STATE=failed: npx skills list -g --json produced no parseable output"
 else
-  printf '%s' "$listing" | "$machine/scripts/skills-reconcile.sh" "$repo"
+  printf '%s' "$listing" | "$harness/scripts/skills-reconcile.sh" "$repo"
 fi
 ```
 
@@ -886,12 +886,12 @@ this step is allowed to un-declare something.
 
 ```bash
 repo="${AGENTS_REPO:-$HOME/.agents}"
-machine="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/machine/*/ 2>/dev/null | sort -V | tail -1)}"; machine="${machine%/}"
+harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
 listing="$(npx skills list -g --json 2>/dev/null)"
 if [ -z "$listing" ] || ! printf '%s' "$listing" | python3 -c 'import json,sys; json.load(sys.stdin)' >/dev/null 2>&1; then
   echo "SKILLS_STATE=failed: npx skills list -g --json produced no parseable output — manifest not regenerated"
 else
-  printf '%s' "$listing" | "$machine/scripts/skills-manifest.sh" "$repo" <failed-name> <failed-name> ...
+  printf '%s' "$listing" | "$harness/scripts/skills-manifest.sh" "$repo" <failed-name> <failed-name> ...
 fi
 ```
 
@@ -944,8 +944,8 @@ Phase 2.6 must always run after Phase 1 in the same sync, never on its own.
 ## Phase 3: Portability lint
 
 ```bash
-machine="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/machine/*/ 2>/dev/null | sort -V | tail -1)}"; machine="${machine%/}"
-"$machine/scripts/portability-lint.sh" "$repo"
+harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
+"$harness/scripts/portability-lint.sh" "$repo"
 ```
 
 Non-zero exit means something tracked in the repo carries a machine-specific
@@ -977,8 +977,8 @@ Unguarded, it errors on every event on machines without that tool.
 ## Phase 3.5: Rubric audit
 
 ```bash
-machine="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/machine/*/ 2>/dev/null | sort -V | tail -1)}"; machine="${machine%/}"
-"$machine/scripts/rubric-audit.sh" --days 7 || true
+harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
+"$harness/scripts/rubric-audit.sh" --days 7 || true
 ```
 
 Read-only. Reports how sub-agents were actually routed over the last week: dispatches
@@ -993,7 +993,7 @@ when bulk work is landing on native sub-agents instead of the codex handoff.
 ## Phase 4: Report
 
 ```
-Machine sync — {repo}
+Harness sync — {repo}
 
   Links:      {N} ok, {M} relinked, {K} need attention
   Derived:    {codex/AGENTS.md unchanged | codex/AGENTS.md regenerated | failed: <reason> |
@@ -1041,7 +1041,7 @@ the report, not buried in a field.
 
 **On a first run only** (Phase 0 reported `absent` and you cloned), add one line
 after the report: nothing runs this skill automatically, so drift goes unnoticed
-until someone runs it again. Offer to set up a recurring `/machine:sync` with
+until someone runs it again. Offer to set up a recurring `/harness:sync` with
 whichever scheduler they already use — their agent tool's scheduled tasks, `cron`,
 `launchd`. Daily is plenty. Ask which they prefer; do not pick one, and do not
 install anything unasked. Say it once and drop it — repeating this on every sync
@@ -1088,10 +1088,10 @@ its own repo.
 
 **Be honest about what this proves.** A remote `git pull` says the remote repo
 advanced. It does **not** confirm the remote machine re-linked correctly — that
-needs `machine:sync` run there. Report what was attempted, not what succeeded:
+needs `harness:sync` run there. Report what was attempted, not what succeeded:
 
 ```
 Pushed to {N}/{M} machines. {list}
 Unreachable: {list}
-A pull is not a relink — run /machine:sync on a machine if its links may have drifted.
+A pull is not a relink — run /harness:sync on a machine if its links may have drifted.
 ```

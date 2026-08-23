@@ -8,22 +8,22 @@ description: >-
   developer; on machines with an agents repo the folder is a symlink into it,
   so the rubric syncs across machines. Trigger: "set up my model rubric",
   "refresh my rubric", "which model should agents use", "my rubric is stale",
-  or /machine:model-rubric.
+  or /harness:model-rubric.
   Do NOT use to route a specific task right now (just read the rubric), or to
   configure a project's issue tracker (that's /pm:setup).
 effort: medium
 allowed-tools: "Bash Read Write Edit WebFetch"
 ---
 
-# Machine — Model Rubric
+# Harness — Model Rubric
 
 Owns creating and refreshing the per-developer model-routing rubric.
 
 ## 1. Check current state
 
 ```bash
-machine="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/machine/*/ 2>/dev/null | sort -V | tail -1)}"; machine="${machine%/}"
-"$machine/scripts/rubric-path.sh" --check
+harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
+"$harness/scripts/rubric-path.sh" --check
 ```
 
 - `set` → read the file's `reviewed:` stamp. Current (≤14 days, no superseded
@@ -48,7 +48,7 @@ if [ -d "$repo/.git" ]; then echo "repo"; else echo "plain"; fi
     `mkdir -p "$repo/config" && mv "$config/studio-moser" "$repo/config/studio-moser" && ln -s "$repo/config/studio-moser" "$config/studio-moser"`.
     Then ensure `$repo/.gitignore` contains `config/studio-moser/*.bak*`, and commit + push the repo.
   - Absent → `mkdir -p "$repo/config/studio-moser" && ln -s "$repo/config/studio-moser" "$config/studio-moser"`.
-  `/machine:sync` verifies this link on every run (it is one of the eight tracked entries).
+  `/harness:sync` verifies this link on every run (it is one of the eight tracked entries).
 - **`plain`** → no repo on this machine; write to `$config/studio-moser/` as a real
   directory (`mkdir -p`). Everything else proceeds identically.
 
@@ -62,14 +62,14 @@ The full procedure lives in `studio-baseline/Rubric_Setup.md` and is deliberatel
 that file is the single source of truth. Read it:
 
 ```bash
-cat "$machine/../../studio-baseline/Rubric_Setup.md" 2>/dev/null \
+cat "$harness/../../studio-baseline/Rubric_Setup.md" 2>/dev/null \
   || echo "fetch https://raw.githubusercontent.com/Studio-Moser/skills-n-stuff/main/studio-baseline/Rubric_Setup.md"
 ```
 
 Follow it exactly. Two notes specific to running it from here:
 
 - Where it calls for live model data, use
-  `"$machine/scripts/fetch-model-data.sh"`. Exit code 3 means no
+  `"$harness/scripts/fetch-model-data.sh"`. Exit code 3 means no
   `ARTIFICIAL_ANALYSIS_API_KEY` — fall back to vendor docs and judgment, and record
   `sources: [judgment]`. Exit code 4 (request failed, e.g. network) or 5 (response
   parsed but no row yielded a figure — the API shape likely changed) are **not**
@@ -79,9 +79,9 @@ Follow it exactly. Two notes specific to running it from here:
   docs/judgment if it persists, noting the reason (not just `judgment`) under
   `sources`.
 - Where it calls for the target path, use
-  `$("$machine/scripts/rubric-path.sh")`.
+  `$("$harness/scripts/rubric-path.sh")`.
 - Where the walkthrough offers a **seed rubric**, use this plugin's copy:
-  `"$machine/skills/model-rubric/Default_Rubric.yml"`. Copy it to the target path
+  `"$harness/skills/model-rubric/Default_Rubric.yml"`. Copy it to the target path
   as the starting table, then follow the walkthrough's rules: drop rows whose
   provider isn't in this developer's `capabilities`, fill `cost` from their cost
   semantics, derive `routing` fresh, remove the `seed:` key, and set `reviewed:`
@@ -95,8 +95,8 @@ intelligence, swe). Do not re-interview.
 ## 3. Confirm
 
 ```bash
-machine="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/machine/*/ 2>/dev/null | sort -V | tail -1)}"; machine="${machine%/}"
-"$machine/scripts/rubric-path.sh" --check
+harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
+"$harness/scripts/rubric-path.sh" --check
 ```
 
 Expected: `set`. Report the path and the `reviewed:` date.

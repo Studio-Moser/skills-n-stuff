@@ -5,7 +5,7 @@
 # WRITE: overwrites skills.manifest and the generated .gitignore block.
 # Everything in .gitignore outside the markers is preserved verbatim.
 #
-# Called by machine:sync's Phase 2.6 — and only after that phase's installs
+# Called by harness:sync's Phase 2.6 — and only after that phase's installs
 # have run. Regenerating from a fresh machine's `npx skills list` output
 # before anything is installed would produce an empty manifest and wipe the
 # developer's declaration; see sync/SKILL.md Phase 2.6 for the ordering.
