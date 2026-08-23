@@ -1,0 +1,96 @@
+domains:
+  agent-tool-ecosystems:
+    name: Agent-tool ecosystems
+    description: Monitor agent platform and workflow changes that affect this collection's users.
+    sources:
+      - name: OpenAI Developers
+        url: https://developers.openai.com/
+        type: website
+        qualityScore: 90
+        notes: Official documentation for Codex, agents, tools, and workflow capabilities.
+      - name: Claude Code CLI reference
+        url: https://docs.anthropic.com/en/docs/claude-code/cli-usage
+        type: website
+        qualityScore: 90
+        notes: Official Claude Code CLI documentation.
+    searchTerms:
+      - Codex agent workflows changes
+      - Claude Code plugins updates
+      - AI coding agent tool ecosystem
+  skill-plugin-standards:
+    name: Skill and plugin standards
+    description: Monitor portable skill formats and plugin conventions for compatibility and distribution.
+    sources:
+      - name: Agent Skills specification
+        url: https://agentskills.io/specification
+        type: website
+        qualityScore: 95
+        notes: Canonical portable Agent Skills specification.
+      - name: Claude Code CLI reference
+        url: https://docs.anthropic.com/en/docs/claude-code/cli-usage
+        type: website
+        qualityScore: 90
+        notes: Official source for Claude Code plugin and CLI behavior.
+    searchTerms:
+      - portable skills specification
+      - Claude Code plugin standards
+      - SKILL.md interoperability
+  research-pm-workflows:
+    name: Research and PM workflows
+    description: Monitor AI-native research, backlog, triage, and execution practices.
+    sources:
+      - name: OpenAI Developers
+        url: https://developers.openai.com/
+        type: website
+        qualityScore: 90
+        notes: Official source for agent orchestration and evaluation workflow changes.
+      - name: skills-n-stuff repository
+        url: https://github.com/Studio-Moser/skills-n-stuff
+        type: github
+        qualityScore: 95
+        notes: Primary repository for the Product Pulse and PM workflow implementations.
+    searchTerms:
+      - AI-native product research tooling
+      - agent backlog triage workflow
+      - agent sprint execution workflow
+  distribution-interoperability:
+    name: Distribution and interoperability
+    description: Monitor protocol and integration changes affecting marketplaces and cross-tool operation.
+    sources:
+      - name: Model Context Protocol specification
+        url: https://modelcontextprotocol.io/specification/2026-07-28
+        type: website
+        qualityScore: 95
+        notes: Canonical Model Context Protocol specification version 2026-07-28.
+      - name: Agent Skills specification
+        url: https://agentskills.io/specification
+        type: website
+        qualityScore: 95
+        notes: Canonical portable Agent Skills specification.
+    searchTerms:
+      - MCP specification changes
+      - Model Context Protocol interoperability
+      - agent skill distribution standards
+  technical-security-changes:
+    name: Technical and security changes
+    description: Monitor security guidance and technical changes relevant to public plugins and skills.
+    sources:
+      - name: GitHub Actions secure use reference
+        url: https://docs.github.com/en/actions/reference/security/secure-use
+        type: website
+        qualityScore: 95
+        notes: Official GitHub guidance for secure GitHub Actions usage and supply-chain protection.
+      - name: OpenAI Developers
+        url: https://developers.openai.com/
+        type: website
+        qualityScore: 90
+        notes: Official source for technical and security changes in OpenAI agent tooling.
+    searchTerms:
+      - GitHub supply-chain security
+      - GitHub Actions secure use changes
+      - AI agent plugin security
+
+meta:
+  generatedBy: product-pulse:setup
+  generatedAt: 2026-08-22
+  version: "1.0.0"
