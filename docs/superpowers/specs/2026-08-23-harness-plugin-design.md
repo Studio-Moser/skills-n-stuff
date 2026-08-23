@@ -27,6 +27,7 @@ Harness and Shelby are intended to converge on the same behavioral contracts wit
 4. Preserve correct execution when Shelby is unavailable while using its project-scoped memory and run state when connected.
 5. Replace structural confidence with a repeatable old-versus-new behavioral evaluation.
 6. Remove `machine` completely; no aliases or compatibility layer are required.
+7. Subsume the static `studio-baseline` package into Harness so universal behavior has one source of truth.
 
 ## Non-Goals
 
@@ -102,6 +103,11 @@ The new plugin lives at `plugins/harness/` and replaces `plugins/machine/`.
 | `references/verification.md` | Fixed targets, evidence levels, truthful completion, and parent reverification. |
 | `references/context.md` | Fresh, forked, and hybrid session choice; durable versus transient context. |
 | `references/shelby-integration.md` | Optional project scope, memory, plans, checkpoints, and run logging. |
+| `references/house-rules.md` | Universal engineering discipline and change-class behavior. |
+
+Harness also ships `templates/AGENTS_Baseline.md`, the project instruction block
+rendered or stamped by setup/sync. The former plugin-free Studio Baseline is not
+retained as a parallel distribution surface.
 
 References are loaded only by skills and workflows that need them. Universal rules should not be duplicated in consumer skills.
 
@@ -262,8 +268,12 @@ No Shelby data is copied into repository files unless it is independently approp
 - Map scanning and extraction to `bulk`, latency-sensitive work to `quick`, and synthesis/adjudication to `taste` or `review` as appropriate.
 - Preserve Product Pulse's own source-quality and publication verification.
 
-### Studio Baseline and `agents`
+### Studio Baseline into Harness, then `agents`
 
+- Move `studio-baseline/House_Rules.md` into `plugins/harness/references/house-rules.md`.
+- Move `studio-baseline/AGENTS_Baseline.md` into `plugins/harness/templates/AGENTS_Baseline.md`.
+- Fold Machine Setup and Rubric Setup guidance into `harness:setup`, `harness:sync`, `harness:model-rubric`, and their focused references.
+- Delete `studio-baseline/` after every caller uses the Harness-owned paths; do not retain plugin-free duplicates.
 - Replace Machine setup and model-orchestration reminders with the concise universal Harness Contract.
 - Keep route values personal and user-global; project files contain only semantic behavior and setup discovery.
 - Update `skills.manifest`, synced plugin declarations, instructions, and documentation to install `harness` and remove `machine`.
@@ -277,7 +287,7 @@ The migration uses Anthropic's current official `skill-creator` evaluation workf
 
 Before implementation:
 
-1. Snapshot the existing `machine`, PM, Product Pulse, Studio Baseline, and relevant `agents` configuration.
+1. Snapshot the existing `machine`, PM, Product Pulse, Studio Baseline, and relevant `agents` configuration before Studio Baseline is subsumed.
 2. Define realistic prompts that exercise the current overlap:
    - PM bounded implementation routed through a cross-vendor executor.
    - PM fixed-target review with independent evidence reproduction.
@@ -324,7 +334,7 @@ After behavior stabilizes, test each new skill description with realistic should
 In addition to behavioral evals:
 
 - Move and update Machine Bats tests under Harness.
-- Add structural tests that fail while PM or Product Pulse reads `model-rubric.yml`, interprets `via:`, or names Harness-owned provider executors.
+- Add structural tests that fail while PM or Product Pulse reads `model-rubric.yml`, interprets `via:`, or names Harness-owned provider executors, or while a parallel `studio-baseline/` remains.
 - Add contract tests for route resolution, explicit model/effort propagation, unavailable capabilities, verification state, and Shelby-present/Shelby-absent behavior.
 - Run skill frontmatter and plugin manifest validation.
 - Run portability lint and sync reconciliation against a temporary `agents` fixture.
@@ -349,7 +359,7 @@ The migration is complete when:
 
 1. `plugins/harness` is the only setup/routing/execution plugin and `plugins/machine` no longer exists.
 2. PM and Product Pulse consume the Harness Contract and contain no concrete model/provider/executor selection logic.
-3. Studio Baseline and `agents` install and describe Harness consistently.
+3. Studio Baseline has been subsumed and removed, and `agents` installs and describes Harness consistently.
 4. The optional Shelby path and no-Shelby fallback both pass their behavioral tests.
 5. All repository tests and validators pass.
 6. The official old/new benchmark, viewer, blind comparison, and analyzer artifacts are produced.
