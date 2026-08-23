@@ -49,7 +49,9 @@ done
 
 The card's `desc` IS the spec (written by triage Phase 2). Parse the same `## Acceptance Criteria` / `## Code References` headers as the GitHub branch — the body structure is identical.
 
-Per-board `worker_instructions` and `review_policy` (resolved via `for-each-board.sh`) flow through to sub-agent prompts in Phase 2B and to the close-vs-comment decision in Phase 2D.5.
+Per-board `worker_instructions` become Phase 2B Harness Request constraints.
+`review_policy` remains PM-owned and flows to the close-vs-comment decision in
+Phase 2D.5.
 
 ## Phase 2D.5: Update Issue Tracker — Trello
 
@@ -92,4 +94,6 @@ Then:
 mcp__trello__move_card({ cardId: $card_id, listId: $target_list_id })
 ```
 
-Initial dispatch (before the sub-agent runs) also moves the card from `LIST_READY_FOR_AGENT` -> `LIST_IN_PROGRESS`, gated by the same `check-transition.sh` call.
+Initial submission (before the Harness execution request runs) also moves the card
+from `LIST_READY_FOR_AGENT` -> `LIST_IN_PROGRESS`, gated by the same
+`check-transition.sh` call.

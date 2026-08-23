@@ -9,9 +9,37 @@ Use the already-loaded `references/work-readiness.md` as the readiness source of
 Evaluate each item carried forward from Phase 2 against the agent-ready scorecard. Score
 XL child items independently; do not score their goal epic.
 
-## Dispatch the scorecard evaluator
+## Submit the scorecard request
 
-For each item, read `plugins/pm/agents/scorecard-evaluator.md` and use its content as the system prompt for an Agent tool call. Scoring against a fixed checklist is clear-spec work: dispatch `routing.bulk` from the rubric (`${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml`) per the dispatch procedure in `references/model-orchestration.md` — split the `model@effort` value, route `via: codex` rows through the codex skills, and pass model + effort explicitly. Omitting them inherits the session defaults. Provide in the user prompt:
+For each item, read `plugins/pm/agents/scorecard-evaluator.md` for PM's scoring
+constraints, then invoke `harness:execute` with `operation: execute` and
+`route: bulk`. The request is read-only and evaluates one delivery slice:
+
+```yaml
+operation: execute
+route: bulk
+outcome: Return the six-criterion PM readiness scorecard and verdict for one item
+context:
+  project: {canonical project identifier when known}
+  mode: fresh
+  state: {item title, description, labels, Bug claim value, spec, Established, and Unresolved}
+  files: [{CONTEXT.md, .pm/out-of-scope entries, configured repo list, and applicable spec paths}]
+authority:
+  working_directory: {absolute primary repository root}
+  allowed_paths: [{read-only context and spec paths}]
+  tools: [Read]
+  approvals: []
+constraints:
+  - Apply references/work-readiness.md without redefining it
+  - Require one delivery slice with explicit Blockers and Testing Seam
+  - Use plugins/pm/agents/scorecard-evaluator.md as the scorecard instructions
+  - Do not write tracker status, owner, verdict, or spec content
+verification:
+  seam: Validate the returned six criteria, readiness gate, numeric score, and verdict against this reference
+  expected: Every criterion is PASS or FAIL with an explanation and the verdict obeys the readiness gate and thresholds
+```
+
+Populate that request with:
 
 - The item's title, description, and spec (if one was written in Phase 2)
 - The item's labels and an explicit `Bug claim: yes|no` value, determined from the same
@@ -22,7 +50,9 @@ For each item, read `plugins/pm/agents/scorecard-evaluator.md` and use its conte
 - The `.pm/out-of-scope/` directory listing
 - The list of configured repos from `pulse-config.yaml`
 
-The agent returns a per-criterion PASS/FAIL with explanations and a verdict.
+Accept candidates only from a Harness Result with current proven evidence. The report
+artifact returns a per-criterion PASS/FAIL with explanations and a verdict. Preserve a
+typed failure or blocker for the user instead of inventing a score.
 
 ## Agent-Ready Scorecard
 

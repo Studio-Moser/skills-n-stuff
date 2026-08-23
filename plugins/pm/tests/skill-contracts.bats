@@ -37,7 +37,10 @@ required = {
     "triage route": "skills/triage/SKILL.md",
     "sprint route": "skills/sprint-dev/SKILL.md",
     "worker route": "skills/dev-task/SKILL.md",
-    "implementation route": "skills/codex-implementation/SKILL.md",
+    "Harness execution route": "harness:execute",
+    "Harness contract": "../../harness/references/harness-contract.md",
+    "Harness handoff": "../../harness/references/handoff.md",
+    "Harness verification": "../../harness/references/verification.md",
 }
 missing = [label for label, needle in required.items() if needle not in text]
 if missing:
@@ -406,16 +409,21 @@ import sys
 repo = Path(sys.argv[1])
 sprint = (repo / "plugins/pm/skills/sprint-dev/SKILL.md").read_text()
 dev_task = (repo / "plugins/pm/skills/dev-task/SKILL.md").read_text()
-codex = (repo / "plugins/pm/skills/codex-implementation/SKILL.md").read_text()
 evaluation = (repo / "plugins/pm/evals/PM Skill Eval.md").read_text()
 
 failures = []
-for label, text in (("sprint-dev", sprint), ("dev-task", dev_task), ("codex-implementation", codex)):
+for label, text in (("sprint-dev", sprint), ("dev-task", dev_task)):
     if "references/work-readiness.md" not in text:
         failures.append(f"{label} does not load work-readiness")
     for field in ("Outcome", "Blockers", "Testing Seam", "Proof"):
         if field not in text:
             failures.append(f"{label} omits {field}")
+    normalized = " ".join(text.split())
+    for clause in ("harness:execute", "operation: execute", "authority:",
+                   "working_directory:", "allowed_paths:", "verification:",
+                   "seam:", "expected:"):
+        if clause not in normalized:
+            failures.append(f"{label} omits Harness execution request field: {clause}")
 
 normalized_sprint = " ".join(sprint.split()).lower()
 for phrase in (
@@ -483,7 +491,6 @@ if not reference_path.is_file():
 reference = reference_path.read_text()
 consumers = {
     "code-reviewer": (repo / "plugins/pm/agents/code-reviewer.md").read_text(),
-    "codex-review": (repo / "plugins/pm/skills/codex-review/SKILL.md").read_text(),
     "dev-task": (repo / "plugins/pm/skills/dev-task/SKILL.md").read_text(),
     "sprint-dev": (repo / "plugins/pm/skills/sprint-dev/SKILL.md").read_text(),
 }
@@ -492,20 +499,20 @@ evaluation = (repo / "plugins/pm/evals/PM Skill Eval.md").read_text()
 failures = []
 required_reference = {
     "consumer pointers": "## Consumer pointers",
-    "fixed point": "## Fixed point",
+    "Harness boundary": "## Harness boundary",
     "quality axis": "### Quality",
-    "spec axis": "### Spec fidelity",
-    "blast-radius axis": "### Blast radius",
+    "spec axis": "### Spec Fidelity",
+    "blast-radius axis": "### Blast Radius",
     "persisted-schema trigger": "Persisted data, schema, or migration",
     "public-contract trigger": "Public API, protocol, wire format, or serialization",
     "security trigger": "Authentication, authorization, permissions, or another security boundary",
     "shared-runtime trigger": "Shared runtime, dependency, build, deployment, or configuration behavior",
-    "direct evidence": "Direct proof",
-    "supporting evidence": "Supporting evidence",
-    "unproven evidence": "Unproven",
+    "Harness request/result": "../../harness/references/harness-contract.md",
+    "Harness execution": "../../harness/skills/review/SKILL.md",
+    "Harness evidence": "../../harness/references/verification.md",
     "central assumption": "central safety assumption",
     "completion": "## Completion conditions",
-    "reopen rule": "reopens review",
+    "new request rule": "new Harness review request",
 }
 missing = [label for label, needle in required_reference.items() if needle not in reference]
 if missing:
@@ -514,11 +521,11 @@ if missing:
 for label, text in consumers.items():
     if "references/review-proof.md" not in text:
         failures.append(f"{label} does not load review-proof")
-
-for label, text in consumers.items():
-    for heading in ("## Fixed point", "### Quality", "### Spec fidelity", "### Blast radius"):
-        if heading in text:
-            failures.append(f"{label} duplicates canonical definition: {heading}")
+    normalized = " ".join(text.split())
+    for clause in ("harness:review", "operation: review", "route: review",
+                   "verification:", "fixed_target:"):
+        if clause not in normalized:
+            failures.append(f"{label} omits Harness review request field: {clause}")
 
 eval_start = evaluation.find("## Schema-changing review")
 if eval_start == -1:
@@ -643,6 +650,10 @@ for phrase in (
     "references/setup-${backend}.md",
     "load exactly one",
     "do not load another setup backend reference",
+    "harness:execute",
+    "harness:review",
+    "run /harness:setup, then rerun /pm:setup",
+    "pm must not inspect or create harness routing configuration",
 ):
     if phrase.lower() not in normalized:
         failures.append(f"setup dispatch omits: {phrase}")
@@ -657,6 +668,11 @@ for backend_marker in (
 ):
     if backend_marker in skill:
         failures.append(f"setup keeps backend procedure inline: {backend_marker}")
+
+for harness_owned in ("harness:model-rubric", "harness:sync", "/machine:",
+                      "Rubric_Setup.md"):
+    if harness_owned in skill:
+        failures.append(f"setup restates Harness setup mechanics: {harness_owned}")
 
 required = {
     "github": ("## Generate .pm/config.yml", "gh label create", "setup-github-projects.md"),
@@ -716,7 +732,11 @@ for phrase in (
     "verified claims",
     "unblocked frontier",
     "scheduling collisions",
-    "fixed review target",
+    "harness contract",
+    "harness:execute",
+    "harness:review",
+    "spec fidelity",
+    "blast radius",
     "selected backend reference",
 ):
     if phrase not in readme:
@@ -724,7 +744,7 @@ for phrase in (
 
 if "## verified claims" in readme_text or "## delivery slices" in readme_text:
     failures.append("PM README redefines canonical work-readiness sections")
-if "## fixed point" in readme_text or "## evidence expectations" in readme_text:
+if "## harness boundary" in readme_text or "## harness evidence" in readme_text:
     failures.append("PM README redefines canonical review-proof sections")
 
 if failures:

@@ -63,6 +63,20 @@ If `.pm/config.yml` already exists, warn the user:
 
 If they want to keep it, exit early with a summary of what's already configured.
 
+### Step 1d: Check Harness
+
+Confirm the installed skill surface exposes `harness:execute` and `harness:review`.
+If either is unavailable, or Harness reports that its configuration is incomplete,
+stop before PM scaffolding and say:
+
+```text
+Harness is not configured. Run /harness:setup, then rerun /pm:setup.
+```
+
+This is a dependency check, not Harness setup. PM must not inspect or create Harness
+routing configuration, discover execution runtimes, or restate Harness setup
+mechanics. Point only to `/harness:setup`.
+
 ---
 
 ## Phase 2: Interview
@@ -118,19 +132,6 @@ Skip this batch if `pulse-config.yaml` already provided these values.
    - `shelby` (default — looks for tools matching `mcp__shelby-memory__*`)
    - `null` (skip memory operations entirely)
    - Any other prefix matching your memory MCP's tool names
-
-### Batch 5: Model-Routing Rubric
-
-`pm:sprint-dev` and `pm:dev-task` route each sub-agent to a model by task altitude. That routing reads a **model-selection rubric** from this developer's user-global store — one file per dev, shared across every repo:
-
-```bash
-ls "${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml" 2>/dev/null && echo set || echo unset
-```
-
-- `set` → `"Found your model rubric — sprint-dev and dev-task will route by it."`
-- `unset` → `"No model rubric yet. Run /machine:model-rubric to create one, or follow studio-baseline/Rubric_Setup.md if you don't have the machine plugin."`
-
-**pm does not create or refresh the rubric.** That is `machine:model-rubric`'s job.
 
 ---
 
@@ -252,9 +253,13 @@ After writing, print: "Created CONTEXT.md at `{path}`. Agents will read this bef
 
 ## Phase 4.4: Stamp the Studio Moser baseline block
 
-Every repo — regardless of who works on it — gets the same managed baseline block in its `AGENTS.md`: house-rules essentials + the model-routing reminder that points a plugin-less dev's agent at the public setup walkthrough. This is what reaches developers who never install PM.
+Every repo—regardless of who works on it—gets the same managed baseline block in its
+`AGENTS.md`. PM only stamps the shared block; Harness owns its execution guidance and
+setup surface.
 
-1. Resolve the target per the "Where the baseline block goes" rule (`references/model-orchestration.md`): `AGENTS.md` if it exists, or if neither `AGENTS.md` nor `CLAUDE.md` exists; `CLAUDE.md` directly only when it's the sole file present.
+1. Follow the repository's existing instruction-file convention: use `AGENTS.md` if
+   it exists, or if neither `AGENTS.md` nor `CLAUDE.md` exists; use `CLAUDE.md`
+   directly only when it is the sole file present.
 
 ```bash
 if [ -f "$primary_repo_root/AGENTS.md" ]; then
@@ -293,18 +298,7 @@ fi
 
 ---
 
-## Phase 4.5: Model-Selection Rubric (referral)
-
-The rubric is per developer and user-global at `${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml` — never written into the repo. pm consumes it; it does not own it.
-
-Using Batch 5's result:
-
-- `set` → nothing to do.
-- `unset` → tell the user: `"Run /machine:model-rubric to set up model routing, or follow studio-baseline/Rubric_Setup.md if you don't have the machine plugin installed."` Do not walk them through it here.
-
-**Migrate any legacy in-repo rubric.** If a prior setup wrote a "Picking the right models" section into this repo's `AGENTS.md`/`CLAUDE.md`, move its scores into the user-global rubric (if the dev confirms they're theirs) and delete that section from the repo file. Leave the Phase 4.4 baseline reminder in place.
-
-## Phase 4.6: Plugin freshness (referral)
+## Phase 4.5: Plugin freshness (referral)
 
 pm ships through the `studio-moser` marketplace. **Third-party marketplaces have
 auto-update off by default**, so a developer who added it once may be running a
@@ -327,8 +321,6 @@ fi
 - `marketplace: missing` → tell the user: `"The studio-moser marketplace isn't registered on this machine, so pm can't update. Add it with /plugin marketplace add Studio-Moser/skills-n-stuff, then enable auto-update (below)."` — and stop there; do not also give the `autoupdate: off` message or offer the update commands, since they cannot succeed without the marketplace.
 - `autoupdate: off` (or `unknown`) → tell the user: `"Auto-update is off for studio-moser (Claude Code's default for third-party marketplaces), so pm won't pick up new versions on its own. Turn it on: /plugin → Marketplaces → studio-moser → Enable auto-update. Want me to pull the latest now? I'd run: claude plugin marketplace update studio-moser && claude plugin update pm@studio-moser"` — and run those two commands only if they say yes. Both need a restart or `/reload-plugins` to apply; say so.
 - `marketplace: registered` and `autoupdate: on` → one line: `"studio-moser marketplace is registered and auto-updating."`
-
-If the developer also has the `machine` plugin, `/machine:sync` runs the same update pass on every sync — mention it once, then move on.
 
 ---
 
@@ -446,8 +438,7 @@ Files created:
   docs/adr/0000-template.md   — ADR template
   {planning files if created}
 
-Model rubric: {found at user-global path | not set — run /machine:model-rubric}
-  {if created/found:} sprint-dev and dev-task route sub-agents by it.
+Harness: configured for provider-neutral execution and review
 Plugin updates: {studio-moser auto-updating | auto-update OFF — enable via /plugin → Marketplaces | marketplace missing}
 
 Backend provisioning:
@@ -496,6 +487,6 @@ Adjust the summary based on what was actually created and omit skipped phases.
 
 - **No research reports**: That's fine. Set `research_dirs` to an empty list and skip the ingest recommendation in next steps. The user can add research directories later by editing `.pm/config.yml`.
 
-- **Model rubric location**: The rubric is always the single user-global store file (`${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml`) — there's no repo-local copy to offer or reconcile. The repo itself only carries the Phase 4.4 baseline reminder block, which points a dev's agent at that store; it never holds the rubric's contents.
-
-- **Unknown ecosystem**: If you genuinely can't tell which model family you belong to, don't guess model names — ask the user which assistant/CLI they run this project with and rank the models they name.
+- **Harness later reports incomplete configuration**: stop the PM operation, preserve
+  its tracker state, and point only to `/harness:setup`. Rerun the PM operation after
+  Harness is configured.

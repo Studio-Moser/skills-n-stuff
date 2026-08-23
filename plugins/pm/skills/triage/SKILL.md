@@ -5,7 +5,7 @@ description: >-
   or readiness preparation before execution. Do not use for raw-report ingestion,
   ready-item implementation, or tracker reconciliation.
 effort: high
-allowed-tools: "Bash Read Write Edit Agent Skill"
+allowed-tools: "Bash Read Write Edit Skill"
 paths: ["**/.pm/**", "**/planning/todos.md"]
 ---
 
@@ -294,9 +294,9 @@ and is not scored or promoted to `status/ready`.
 ## Phase 3: Score
 
 Every item carried forward from Phase 2 is scored against the 6-point agent-ready
-scorecard by the `scorecard-evaluator` agent. The readiness gate is applied before any
-`status/ready` verdict, and the user accepts or fixes each verdict (with an inline
-fix-and-rescore loop).
+scorecard through the Harness request defined in `references/triage-scorecard.md`.
+The readiness gate is applied before any `status/ready` verdict, and the user accepts
+or fixes each verdict with an inline fix-and-rescore loop.
 
 **Load `references/triage-scorecard.md` and follow it for this phase.**
 

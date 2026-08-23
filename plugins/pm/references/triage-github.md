@@ -121,7 +121,7 @@ Where `{owner_label}` is `owner/ai` (6/6 verdict) or `owner/human` (4-5/6 verdic
 
 After the `gh issue edit` calls above succeed, if `github.project_sync.enabled: true` AND `github.project_sync.status_field_sync: true` in `.pm/config.yml`, mirror the new `status/ready` value onto the project's Status field.
 
-Use the detection pattern: try to load `mcp__github__projects_write` via:
+Use the detection pattern: try to load `mcp__github__projects_write` with:
 
 ```
 ToolSearch query: "select:mcp__github__projects_write,mcp__github__projects_list"

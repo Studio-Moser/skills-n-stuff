@@ -5,7 +5,7 @@ description: >-
   the configured issue tracker. Do not use to triage existing candidates or reconcile
   completed work.
 effort: low
-allowed-tools: "Bash Read Write Edit Agent"
+allowed-tools: "Bash Read Write Edit Skill"
 ---
 
 # PM — Ingest
@@ -111,14 +111,36 @@ and exit cleanly.
 | `*-recommendations.md` | `weekly-recommendations` |
 | `deep-dives/*.md` | `deep-dive` |
 
-Read `plugins/pm/agents/ingestion-analyst.md` and dispatch all report analysts
-in one message as parallel Agent calls. This is clear-spec bulk work: use
-`routing.bulk` from `${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml`
-through `references/model-orchestration.md`, passing model and effort explicitly.
+Read `plugins/pm/agents/ingestion-analyst.md` for PM's extraction constraints. For
+each report, invoke `harness:execute` with `operation: execute` and `route: bulk`.
+Submit independent requests concurrently; PM does not resolve how Harness executes
+them.
 
-Each analyst receives the full report, its type, and condensed product context
-from the nearest `research-context.md` or `pulse-config.yaml`. Every returned item
-contains:
+```yaml
+operation: execute
+route: bulk
+outcome: Extract candidate backlog items from one report without strengthening its source claims
+context:
+  project: {canonical project identifier when known}
+  mode: fresh
+  state: {report type, full report content, and condensed product context}
+  files: [{report path, nearest research-context.md or pulse-config.yaml, plugins/pm/agents/ingestion-analyst.md}]
+authority:
+  working_directory: {absolute primary repository root}
+  allowed_paths: [{read-only paths named in context.files}]
+  tools: [Read]
+  approvals: []
+constraints:
+  - Preserve one source finding per item
+  - Treat each proposed outcome as a proposal, not a commitment
+  - Return evidence, proposed outcome, rationale, source, confidence, and target repo
+  - Do not create tracker items or modify files
+verification:
+  seam: Validate every returned candidate against the source report and required field schema
+  expected: Every candidate is source-supported, complete, and contains no fabricated or strengthened claim
+```
+
+Each accepted Harness Result supplies a report artifact whose returned items contain:
 
 - `evidence`: what the source actually reports
 - `proposed outcome`: the source's candidate result or follow-up
@@ -127,7 +149,9 @@ contains:
 - `confidence`: High, Medium, or Low
 - `target repo`: best-supported repo, or `unknown`
 
-Collect all items and per-report counts. Log a failed analyst and continue.
+Collect all items and per-report counts. Reproduce the request's verification seam
+before accepting the candidates. Log a `failed`, `blocked`, or `abandoned` Harness
+Result with its blockers and continue with the remaining reports.
 
 ## Phase 3: Dedup and Filter
 
