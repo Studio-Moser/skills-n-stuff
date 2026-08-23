@@ -22,7 +22,9 @@ PM is a **six-skill pipeline** that manages the full lifecycle of work items, fr
 - **`/pm:sprint-dev`** — *work the backlog.* Selects unblocked ready slices, schedules collisions, then submits the approved PR set as Harness operations. Needs `/pm:setup` + a tracker.
 - **`/pm:dev-task`** — *walk me through this one task.* Interactive and foreground, with approval gates around one bounded change. Works in any repo, no setup required.
 
-Both defer to the shared `house-rules` skill for conventions.
+Both defer through `pm:house-rules` to the
+[Harness-owned universal rules](../harness/references/house-rules.md); PM does not
+maintain a second conventions document.
 New to the team workflow? See [How we do dev tasks](docs/how-we-do-dev-tasks.md).
 
 ### Readiness and proof
@@ -125,7 +127,9 @@ Run the onboarding wizard once per workspace:
 /pm:setup
 ```
 
-This detects your workspace layout, interviews you about issue tracking preferences, and scaffolds:
+This detects your workspace layout, interviews you about issue tracking preferences,
+stamps the [Harness-owned project baseline](../harness/templates/AGENTS_Baseline.md),
+and scaffolds:
 
 ```
 .pm/

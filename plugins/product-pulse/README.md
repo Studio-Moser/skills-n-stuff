@@ -39,6 +39,9 @@ Product-pulse discovers → PM ingests → PM triages → PM builds
 
 Product Pulse owns research questions, source selection, credibility checks, citations, project comparison, synthesis, and report publication. It submits provider-neutral semantic requests and accepts only evidence-bearing results. Harness owns concrete routing, execution, and evidence mechanics.
 
+Harness also owns the [universal project rules](../harness/references/house-rules.md);
+Product Pulse does not duplicate those control-plane instructions.
+
 ## Prerequisites
 
 Product Pulse skills shell out to `yq` to parse `pulse-config.yaml` at runtime. Install it before running any skill:

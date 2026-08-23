@@ -1,6 +1,6 @@
 # Studio Moser House Rules
 
-Conventions for code changes across Studio Moser projects. Canonical source — the `pm:house-rules` skill and every repo's `AGENTS.md` baseline block defer here. Applies to any agent (Claude, Codex, Cursor) and any developer, plugin or not.
+Harness-owned conventions for code changes across Studio Moser projects. The `pm:house-rules` skill and every repo's managed `AGENTS.md` block defer here. These rules apply to any agent or developer; project instructions override them where stated below.
 
 <!-- the relocated sections follow verbatim -->
 

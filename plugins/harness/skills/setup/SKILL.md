@@ -42,10 +42,12 @@ non-blocking, as in Ordered setup.
 
 ## Ordered setup
 
-1. Invoke `harness:sync` in full mode. It owns discovering or cloning the
-   personal agents repository, reconciling portable links, and running its
-   portability checks. If the repository is absent, let Sync request the private
-   repository URL and preserve every confirmation or conflict boundary it owns.
+1. Invoke `harness:sync` in full mode. It owns discovering, cloning, or safely
+   creating the personal agents repository from loose configuration, reconciling
+   portable links, and running its portability checks. If the repository is
+   absent, let Sync distinguish an existing private remote from loose local
+   configuration and preserve every backup, confirmation, privacy, and conflict
+   boundary it owns.
 2. Finish the Sync link and portability reconciliation before capability
    discovery. An unresolved destructive choice, authentication failure, or
    divergence is a blocker; Setup does not decide it for the user.

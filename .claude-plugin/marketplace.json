@@ -159,7 +159,7 @@
     {
       "name": "harness",
       "source": "./plugins/harness",
-      "description": "Keep personal agent configuration identical across every machine you work on. Links a private repo of skills, global instructions, and shared Claude Code settings into ~/.claude, detects drift and non-portable paths, and optionally pushes to other machines. Also owns the per-developer model-routing rubric and syncs it through the same repo.",
+      "description": "Provider-neutral control plane for universal agent rules, personal setup and sync, semantic routing, bounded execution, review, computer use, and evidence-bearing results. Keeps private skills, global instructions, shared settings, and the per-developer model rubric portable across machines.",
       "author": {
         "name": "Studio Moser"
       },

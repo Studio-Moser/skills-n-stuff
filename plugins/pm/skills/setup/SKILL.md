@@ -262,7 +262,7 @@ After writing, print: "Created CONTEXT.md at `{path}`. Agents will read this bef
 
 ---
 
-## Phase 4.4: Stamp the Studio Moser baseline block
+## Phase 4.4: Stamp the Harness baseline block
 
 Every repo—regardless of who works on it—gets the same managed baseline block in its
 `AGENTS.md`. PM only stamps the shared block; Harness owns its execution guidance and
@@ -284,24 +284,27 @@ fi
 
    If `$TARGET` is `AGENTS.md`, make sure `CLAUDE.md` imports it: if `CLAUDE.md` exists but has no `@AGENTS.md` line, add one; if `CLAUDE.md` doesn't exist, create a minimal one containing just `@AGENTS.md`.
 
-2. Fetch the current block body from the canonical source (fall back to the copy bundled in the plugin if offline):
+2. Read the canonical Harness template. Harness is already a proven prerequisite
+   from Step 1d, so PM does not keep or reconstruct a second copy. The public source
+   path is `plugins/harness/templates/AGENTS_Baseline.md`; use the installed Harness
+   copy so setup also works offline:
 
 ```bash
-BODY="$(mktemp)"
+harness="${HARNESS_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
 pm="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/pm/*/ 2>/dev/null | sort -V | tail -1)}"; pm="${pm%/}"
-curl -fsS "https://raw.githubusercontent.com/Studio-Moser/skills-n-stuff/main/studio-baseline/AGENTS_Baseline.md" -o "$BODY" \
-  || cp "$pm/../../studio-baseline/AGENTS_Baseline.md" "$BODY" 2>/dev/null \
-  || { echo "could not obtain baseline body"; }
+[ -d "$harness" ] || harness="$pm/../harness"
+BODY="$harness/templates/AGENTS_Baseline.md"
 ```
 
-3. Stamp it (idempotent — safe to re-run; never clobbers the repo's own content) — but only if the fetch actually produced a body. An empty `$BODY` means both the fetch and the bundled fallback failed; stamping it would wipe out any existing block instead of preserving it, so skip the stamp and say so:
+3. Stamp it with Harness's idempotent writer. An empty or missing template must
+   leave any existing block unchanged, so skip the stamp and report the missing
+   Harness installation rather than falling back to a duplicate:
 
 ```bash
-pm="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/pm/*/ 2>/dev/null | sort -V | tail -1)}"; pm="${pm%/}"
 if [ ! -s "$BODY" ]; then
-  echo "Could not obtain the baseline block (offline, and no bundled copy found). Skipping the baseline stamp — re-run /pm:setup with network access or a full plugin checkout."
+  echo "Could not obtain the Harness baseline template. Run /harness:setup, then rerun /pm:setup."
 else
-  "$pm/scripts/stamp-baseline.sh" "$TARGET" "$BODY"
+  "$harness/scripts/stamp-baseline.sh" "$TARGET"
 fi
 ```
 

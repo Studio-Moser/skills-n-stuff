@@ -42,10 +42,10 @@ Z.ai currently advertises Lite at $18/month and documents GLM-5.3 for Claude Cod
 
 `skills-n-stuff` already implements most of the video's architecture better than the video specifies:
 
-- `studio-baseline/Rubric_Setup.md` separates flat-subscription quota/latency from metered dollar cost, scores model-plus-effort pairs, and routes bounded, exploratory, batch, review, and independent work separately.
+- `plugins/harness/skills/model-rubric/SKILL.md` separates flat-subscription quota/latency from metered dollar cost, scores model-plus-effort pairs, and routes bounded, exploratory, batch, review, and independent work separately.
 - `plugins/pm/references/model-orchestration.md` treats cross-vendor execution as capability-gated and requires explicit model and effort selection.
 - `plugins/pm/skills/codex-implementation/SKILL.md` already uses a compact handoff containing Outcome, Blockers, Testing Seam, Proof, files, constraints, and verification. That is the video's proposed handoff in a stronger, testable form; adding another handoff template would duplicate it.
-- `studio-baseline/AGENTS_Baseline.md` requires isolated worktrees for parallel work and independent verification of worker claims.
+- `plugins/harness/templates/AGENTS_Baseline.md` requires isolated worktrees for parallel work and independent verification of worker claims.
 - `plugins/machine/scripts/rubric-audit.sh` audits whether dispatches set a model and counts Codex handoffs.
 
 Two gaps matter:

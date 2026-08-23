@@ -73,9 +73,11 @@ Backend-agnostic project management for AI-native teams. Ingests research report
 
 ### Harness
 
-Keeps your personal agent configuration identical across machines, including shared skills and your model-routing rubric.
+Owns universal agent rules, personal configuration across machines, semantic
+routing, bounded execution, and evidence-bearing results.
 
 **Skills:**
+- `/harness:setup` — configure the personal agents repository, links, runtimes, and rubric
 - `/harness:sync` — reconcile your personal agent repository with this machine
 - `/harness:model-rubric` — create or refresh your user-global model-routing rubric
 

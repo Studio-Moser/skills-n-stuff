@@ -181,7 +181,7 @@ import sys
 
 text = Path(sys.argv[1]).read_text()
 normalized = " ".join(text.split())
-for stale in ("studio-baseline/", "Rubric_Setup.md", "/" + "machine:", "pm:codex"):
+for stale in ("studio" + "-baseline/", "Rubric" + "_Setup.md", "/" + "machine:", "pm:codex"):
     assert stale not in text, f"model-rubric delegates to stale workflow: {stale}"
 for clause in (
     "When invoked by `harness:setup`, a current rubric does not stop this skill",

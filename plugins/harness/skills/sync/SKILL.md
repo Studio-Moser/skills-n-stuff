@@ -2,8 +2,9 @@
 name: sync
 description: >-
   Make this machine match your personal agent repo — the private repo holding your
-  skills, global CLAUDE.md, and shared Claude Code settings. Clones on first run;
-  after that commits this machine's changes, pulls, and pushes so the repo actually
+  skills, global CLAUDE.md, and shared Claude Code settings. On first run it clones
+  an existing private repo or safely creates one from loose configuration; after
+  that it commits this machine's changes, pulls, and pushes so the repo actually
   stays current. Re-links anything that drifted back into ~/.claude, lints for paths
   that would be wrong on another machine, and optionally triggers a pull on your
   other machines. Trigger: "sync my config", "sync my machines", "update my skills from
@@ -97,8 +98,42 @@ removal, and the `rm -f "$diff_err"` cleanup as one command block, not as
 separately-issued commands — splitting them loses the temp file's path and
 the `diff_status` value in between.
 
-**absent** — first run on this machine. Ask the user for their private repo URL;
-do not guess one. Then:
+**absent** — first run on this machine. Do not assume a remote already exists.
+Continue through First-run safety and adoption below.
+
+**found** — continue to Phase 1.
+
+---
+
+## First-run safety and adoption
+
+Run this section only when Phase 0 reported `absent`. It is the one path allowed
+to create the personal repository; ordinary Sync runs never re-bootstrap it.
+
+### 0.1 Back up the live configuration before any destructive step
+
+Create a new timestamped archive under `$HOME` containing every present live entry
+managed by `link-plan.sh`: `skills`, `output-styles`, `CLAUDE.md`, `settings.json`,
+`statusline-command.sh`, `mcp.json`, the cross-tool `studio-moser` config directory,
+and Codex `AGENTS.md`. Resolve their configured roots exactly as Phase 1 does.
+
+Append each present entry to the archive separately. Missing optional entries are
+normal and must not make the archive fail. Never overwrite an earlier backup, and
+keep the new archive until Phase 1 reports every expected link resolved and
+`settings.json` parses. No live path may be removed or replaced before its content
+is either in this archive or explicitly declined after a shown diff.
+
+### 0.2 Choose the source of truth
+
+Ask one question:
+
+- **Existing private repository** — ask for its exact URL; never guess it. Clone it
+  into `$repo`, then use Phase 1's recursive diff and keep/discard prompts for every
+  live file or directory that conflicts with the clone.
+- **Loose configuration with no repository yet** — adopt the current machine using
+  the procedure below.
+
+For an existing repository:
 
 ```bash
 git clone <url> "$repo"
@@ -109,7 +144,31 @@ to another protocol without asking. A common cause is an SSH remote with no key
 loaded (`ssh-add -l` reports no identities); `gh auth status` will show whether
 HTTPS is the configured protocol instead.
 
-**found** — continue.
+For loose configuration:
+
+1. If skills exist in more than one live location, compare each duplicated pair
+   recursively and read the differences. A newer modification time is not proof
+   that a copy is correct. Resolve the winning content before consolidation.
+2. If shared `settings.json` contains `skillOverrides`, remove only that key and
+   merge it into live `settings.local.json`; preserve every other local key. This
+   selection is machine-local and must not enter the shared repository.
+3. Initialize `$repo` on `main` with `skills/`, `claude/`, `config/studio-moser/`,
+   and `codex/` as needed. Copy every present managed entry into its Phase 1 repo
+   path; copy, do not move, so the originals remain recoverable until verification.
+   Do not adopt Codex `AGENTS.md` as a source: preserve any unique instruction in
+   `House Style.md` or `CLAUDE.md`, then let Phase 2.25 render the derived file.
+4. Keep local-only state out of Git: `settings.local.json`, runtime project/session
+   stores, credentials, secret-bearing profiles, resolved machine paths, approvals,
+   temporary evidence, Shelby state, `.fleet-local.json`, and `.skill-lock.json`.
+5. Apply Phase 3's portability rules, inspect the staged paths, and commit the
+   adopted portable configuration. Only then continue to Phase 1 to replace the
+   verified originals with links.
+
+Before the first push in either branch, confirm the configured remote is private.
+For a newly adopted repository, ask for the exact remote URL only after the local
+repository is verified; never invent one. On authentication failure, stop rather
+than silently switching protocols. A local repository without a remote is still
+versioned, but Phase 4 must report that it is not synchronized elsewhere.
 
 ---
 
@@ -1048,13 +1107,17 @@ reached anywhere else, and the next machine to sync will get the old state. That
 the exact failure this skill exists to prevent, so it belongs in the first line of
 the report, not buried in a field.
 
-**On a first run only** (Phase 0 reported `absent` and you cloned), add one line
-after the report: nothing runs this skill automatically, so drift goes unnoticed
-until someone runs it again. Offer to set up a recurring `/harness:sync` with
-whichever scheduler they already use — their agent tool's scheduled tasks, `cron`,
-`launchd`. Daily is plenty. Ask which they prefer; do not pick one, and do not
-install anything unasked. Say it once and drop it — repeating this on every sync
-is noise.
+**On a first run only** (Phase 0 reported `absent` and you cloned or adopted), add
+two lines after the report:
+
+1. Restart running agent sessions after the links are verified. They can retain old
+   settings in memory, and a stale writer can replace a fresh link with a real file.
+2. Nothing runs this skill automatically, so drift goes unnoticed until someone
+   runs it again. Offer to set up a recurring `/harness:sync` with whichever
+   scheduler they already use — their agent tool's scheduled tasks, `cron`, or
+   `launchd`. Daily is plenty. Ask which they prefer; do not pick one, and do not
+   install anything unasked. Say it once and drop it — repeating this on every sync
+   is noise.
 
 ---
 

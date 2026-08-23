@@ -670,7 +670,7 @@ for backend_marker in (
         failures.append(f"setup keeps backend procedure inline: {backend_marker}")
 
 for harness_owned in ("harness:model-rubric", "harness:sync", "/machine:",
-                      "Rubric_Setup.md"):
+                      "Rubric" + "_Setup.md"):
     if harness_owned in skill:
         failures.append(f"setup restates Harness setup mechanics: {harness_owned}")
 
@@ -713,7 +713,7 @@ from pathlib import Path
 import sys
 
 repo = Path(sys.argv[1])
-house = " ".join((repo / "studio-baseline/House_Rules.md").read_text().split()).lower()
+house = " ".join((repo / "plugins/harness/references/house-rules.md").read_text().split()).lower()
 readme_text = (repo / "plugins/pm/README.md").read_text()
 readme = " ".join(readme_text.split()).lower()
 failures = []

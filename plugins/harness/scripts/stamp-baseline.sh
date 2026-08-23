@@ -1,14 +1,18 @@
 #!/usr/bin/env bash
-# Idempotently stamp/refresh the studio-baseline managed block in a target file.
-#   stamp-baseline.sh <target-file> <block-body-file>
+# Idempotently stamp/refresh the Harness-managed block in a target file.
+#   stamp-baseline.sh <target-file> [block-body-file]
+# The optional body argument is a testing/explicit-source seam; production callers
+# use the canonical template bundled with Harness.
 # Replaces the content between the markers if present, else appends a fresh block.
 # Never touches content outside the markers.
 set -euo pipefail
 
+[ $# -ge 1 ] && [ $# -le 2 ] || { echo "usage: stamp-baseline.sh <target-file> [block-body-file]" >&2; exit 2; }
 target="$1"
-body_file="$2"
-start="<!-- studio-baseline:start -->"
-end="<!-- studio-baseline:end -->"
+harness="$(cd "$(dirname "$0")/.." && pwd)"
+body_file="${2:-$harness/templates/AGENTS_Baseline.md}"
+start="<!-- harness:baseline:start -->"
+end="<!-- harness:baseline:end -->"
 
 if [ ! -s "$body_file" ]; then
   echo "stamp-baseline: body file '$body_file' is empty or missing; refusing to stamp" >&2

@@ -1,17 +1,34 @@
-# harness
+# Harness
 
-Keeps your personal agent configuration identical across machines.
+Owns universal agent rules, personal setup, provider-neutral execution, and
+evidence-bearing results.
 
 Your config lives in **your own private repo** — this plugin never contains it.
 The plugin is public and generic; the data is yours.
 
 ## Skills
 
+- **`/harness:setup`** — create or connect the personal agents repository,
+  reconcile portable links and runtime capabilities, and establish the personal
+  model rubric.
 - **`/harness:sync`** — make this machine match your personal agent repo. Clones on
-  first run, pulls after. Re-links anything that drifted, lints for paths that
-  would be wrong on another machine, and optionally pushes to other machines.
+  first run or safely adopts existing loose configuration, then commits, pulls,
+  and pushes. Re-links drifted paths, lints portability, and optionally updates
+  other machines.
 - **`/harness:model-rubric`** — create or refresh your user-global model-routing
   rubric at `${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml`.
+
+## Universal project instructions
+
+- [`references/house-rules.md`](references/house-rules.md) is the single source
+  for engineering discipline and change classes.
+- [`templates/AGENTS_Baseline.md`](templates/AGENTS_Baseline.md) is the managed
+  project instruction block. It states only the semantic Harness contract;
+  personal route values and provider mechanics stay in user-global configuration.
+
+PM setup stamps this Harness-owned template into a repository without keeping a
+second copy. Consumers select a semantic route and provide authority; Harness
+resolves execution and returns evidence for the parent to reproduce.
 
 ## Third-party skills are declared, not vendored
 
@@ -62,18 +79,19 @@ Two rules whichever you pick:
   state. Everything is recoverable from git history. It stops without pushing if
   another machine has diverged; it never rebases or forces.
 
-## Bootstrapping a bare machine
+## First-machine setup
 
-This plugin can't set up a machine that has no plugins installed. For that, follow
-[`studio-baseline/Machine_Setup.md`](https://raw.githubusercontent.com/Studio-Moser/skills-n-stuff/main/studio-baseline/Machine_Setup.md),
-which needs only a shell and web access. Install this plugin afterwards for the
-ongoing work.
+Run `/harness:setup`. It can clone an existing private agents repository or safely
+adopt loose configuration on the current machine. The adoption path backs up live
+entries first, keeps machine-local and secret state out of Git, verifies portability,
+and confirms a remote is private before the first push.
 
 ## Scripts
 
 | | |
 |---|---|
 | `scripts/link-plan.sh [repo]` | read-only drift report; exit 1 if any link needs work |
+| `scripts/stamp-baseline.sh <target> [body]` | idempotently stamp the Harness project block; defaults to the bundled template |
 | `scripts/portability-lint.sh [repo]` | fail on machine-specific absolute paths |
 | `scripts/rubric-path.sh [--check]` | resolve the rubric path / report `set`\|`unset` |
 | `scripts/fetch-model-data.sh` | current model cost + intelligence as TSV (exit 3 = no API key) |
