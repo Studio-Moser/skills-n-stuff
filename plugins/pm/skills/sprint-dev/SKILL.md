@@ -357,47 +357,49 @@ Resolve the approved PR base and head to commits, materialize their exact binary
 full-index diff under a repository-relative review-artifact path, and identify that
 immutable snapshot by its SHA-256 digest. Base and head describe the snapshot in
 request context; they are not the fixed target. Stop if any command fails or the
-identifier does not have the required shape. Do not overwrite an existing artifact.
+identifier does not have the required shape. Use PM's materializer so a retained exact
+artifact is reusable, while a retained path with different bytes blocks review without
+being overwritten.
 
 ```bash
 BASE_SHA="$(git rev-parse "${BASE_REF}^{commit}")" || exit 1
 HEAD_SHA="$(git rev-parse "${HEAD_REF}^{commit}")" || exit 1
 WORKTREE_ROOT="$(git rev-parse --show-toplevel)" || exit 1
-REVIEW_ARTIFACT_DIR_REL=".harness-review"
-REVIEW_ARTIFACT_DIR_ABS="$WORKTREE_ROOT/$REVIEW_ARTIFACT_DIR_REL"
-mkdir -p "$REVIEW_ARTIFACT_DIR_ABS" || exit 1
-REVIEW_ARTIFACT_TMP_ABS="$(mktemp "$REVIEW_ARTIFACT_DIR_ABS/review.patch.XXXXXX")" || exit 1
-git diff --binary --full-index "$BASE_SHA" "$HEAD_SHA" > "$REVIEW_ARTIFACT_TMP_ABS" || {
-  rm -f "$REVIEW_ARTIFACT_TMP_ABS"
-  rmdir "$REVIEW_ARTIFACT_DIR_ABS" 2>/dev/null || true
-  exit 1
-}
-REVIEW_DIGEST="$(shasum -a 256 "$REVIEW_ARTIFACT_TMP_ABS" | awk '{print $1}')"
-printf '%s\n' "$REVIEW_DIGEST" | grep -Eq '^[0-9a-f]{64}$' || {
-  rm -f "$REVIEW_ARTIFACT_TMP_ABS"
-  rmdir "$REVIEW_ARTIFACT_DIR_ABS" 2>/dev/null || true
-  exit 1
-}
-REVIEW_ARTIFACT_REL=".harness-review/review-${REVIEW_DIGEST}.patch"
-REVIEW_ARTIFACT_ABS="$WORKTREE_ROOT/$REVIEW_ARTIFACT_REL"
-[ ! -e "$REVIEW_ARTIFACT_ABS" ] || {
-  rm -f "$REVIEW_ARTIFACT_TMP_ABS"
-  echo "review artifact already exists: $REVIEW_ARTIFACT_REL" >&2
-  exit 1
-}
-mv "$REVIEW_ARTIFACT_TMP_ABS" "$REVIEW_ARTIFACT_ABS" || {
-  rm -f "$REVIEW_ARTIFACT_TMP_ABS"
-  rmdir "$REVIEW_ARTIFACT_DIR_ABS" 2>/dev/null || true
-  exit 1
-}
-REVIEW_FIXED_TARGET="snapshot:sha256:${REVIEW_DIGEST}"
+pm="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/pm/*/ 2>/dev/null | sort -V | tail -1)}"; pm="${pm%/}"
+REVIEW_ARTIFACT_STATUS=0
+REVIEW_ARTIFACT_RESULT="$("$pm/scripts/materialize-review-artifact.sh" "$WORKTREE_ROOT" "$BASE_SHA" "$HEAD_SHA")" || REVIEW_ARTIFACT_STATUS=$?
+if [ "$REVIEW_ARTIFACT_STATUS" -eq 3 ]; then
+  echo "Review blocked: the retained digest path conflicts with the expected snapshot; inspect the reported path before retrying." >&2
+  exit 3
+elif [ "$REVIEW_ARTIFACT_STATUS" -ne 0 ]; then
+  exit "$REVIEW_ARTIFACT_STATUS"
+fi
+
+REVIEW_ARTIFACT_STATE=""
+REVIEW_FIXED_TARGET=""
+REVIEW_ARTIFACT_REL=""
+while IFS='=' read -r key value; do
+  case "$key" in
+    "state") REVIEW_ARTIFACT_STATE="$value" ;;
+    "fixed_target") REVIEW_FIXED_TARGET="$value" ;;
+    "artifact") REVIEW_ARTIFACT_REL="$value" ;;
+  esac
+done <<EOF
+$REVIEW_ARTIFACT_RESULT
+EOF
+
+case "$REVIEW_ARTIFACT_STATE" in created|reused) ;; *) exit 1 ;; esac
+REVIEW_DIGEST="${REVIEW_FIXED_TARGET#snapshot:sha256:}"
 printf '%s\n' "$REVIEW_FIXED_TARGET" | grep -Eq '^snapshot:sha256:[0-9a-f]{64}$' || exit 1
-printf 'fixed_target=%s\nartifact=%s\n' "$REVIEW_FIXED_TARGET" "$REVIEW_ARTIFACT_REL"
+[ "$REVIEW_ARTIFACT_REL" = ".harness-review/review-${REVIEW_DIGEST}.patch" ] || exit 1
 ```
 
-Retain those two printed values in PM's orchestrator state through the Harness call and
-replace the request placeholders with them. Do not rely on shell variables surviving
-between the materialization, Harness invocation, and cleanup commands.
+Retain the parsed fixed target and artifact values in PM's orchestrator state through
+the Harness call and replace the request placeholders with them. A `created` or
+`reused` state may proceed. Exit 3 is a visible review blocker carrying the helper's
+path, actual digest, and expected digest; do not delete or replace the conflicting
+artifact. Do not rely on shell variables surviving between the materialization,
+Harness invocation, and cleanup commands.
 
 ```yaml
 operation: review
@@ -459,6 +461,7 @@ REVIEW_FIXED_TARGET="snapshot:sha256:${REVIEW_DIGEST}"
 REVIEW_ARTIFACT_REL="{exact repository-relative artifact path from the request}"
 printf '%s\n' "$REVIEW_DIGEST" | grep -Eq '^[0-9a-f]{64}$' || exit 1
 [ "$REVIEW_ARTIFACT_REL" = ".harness-review/review-${REVIEW_DIGEST}.patch" ] || exit 1
+REVIEW_ARTIFACT_DIR_ABS="$WORKTREE_ROOT/.harness-review"
 REVIEW_ARTIFACT_ABS="$WORKTREE_ROOT/$REVIEW_ARTIFACT_REL"
 HARNESS_RESULT_FIXED_TARGET="{exact evidence.fixed_target from the returned Harness Result}"
 RECOMPUTED_REVIEW_DIGEST="$(shasum -a 256 "$REVIEW_ARTIFACT_ABS" | awk '{print $1}')"

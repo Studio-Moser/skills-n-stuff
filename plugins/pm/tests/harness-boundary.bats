@@ -199,9 +199,9 @@ else:
         failures.append("base/head commits are not preserved as context")
 
 for required in (
-    'git diff --binary --full-index "$BASE_SHA" "$HEAD_SHA"',
-    'shasum -a 256',
-    'REVIEW_FIXED_TARGET="snapshot:sha256:${REVIEW_DIGEST}"',
+    'materialize-review-artifact.sh',
+    'REVIEW_ARTIFACT_RESULT=',
+    'REVIEW_DIGEST="${REVIEW_FIXED_TARGET#snapshot:sha256:}"',
     "^snapshot:sha256:[0-9a-f]{64}$",
 ):
     if required not in text:
@@ -239,16 +239,21 @@ else:
             failures.append(f"review packet leaks absolute artifact path: {leak}")
 
 for required in (
-    'REVIEW_ARTIFACT_REL=".harness-review/review-${REVIEW_DIGEST}.patch"',
     'REVIEW_ARTIFACT_ABS="$WORKTREE_ROOT/$REVIEW_ARTIFACT_REL"',
-    'printf \'fixed_target=%s\\nartifact=%s\\n\' "$REVIEW_FIXED_TARGET" "$REVIEW_ARTIFACT_REL"',
+    '"state") REVIEW_ARTIFACT_STATE="$value"',
+    '"fixed_target") REVIEW_FIXED_TARGET="$value"',
+    '"artifact") REVIEW_ARTIFACT_REL="$value"',
     'REVIEW_DIGEST="{recorded 64-character digest from the request}"',
     'REVIEW_ARTIFACT_REL="{exact repository-relative artifact path from the request}"',
     '[ "$REVIEW_ARTIFACT_REL" = ".harness-review/review-${REVIEW_DIGEST}.patch" ] || exit 1',
+    'REVIEW_ARTIFACT_DIR_ABS="$WORKTREE_ROOT/.harness-review"',
     'rm -f "$REVIEW_ARTIFACT_ABS"',
 ):
     if required not in text:
         failures.append(f"artifact lifecycle omits: {required}")
+
+if "review artifact already exists" in text:
+    failures.append("sprint-dev keeps the pre-idempotency unconditional collision exit")
 
 verify_marker = "confirm the returned fixed target equals `${REVIEW_FIXED_TARGET}`"
 cleanup_marker = 'rm -f "$REVIEW_ARTIFACT_ABS"'
