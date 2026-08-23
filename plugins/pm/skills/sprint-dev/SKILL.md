@@ -354,20 +354,50 @@ one-reviewer policy. Use `route: independent` only when the user separately appr
 the cost of a fresh-context adversarial review.
 
 Resolve the approved PR base and head to commits, materialize their exact binary
-full-index diff, and identify that immutable snapshot by its SHA-256 digest. Base and
-head describe the snapshot in request context; they are not the fixed target. Stop if
-any command fails or the identifier does not have the required shape.
+full-index diff under a repository-relative review-artifact path, and identify that
+immutable snapshot by its SHA-256 digest. Base and head describe the snapshot in
+request context; they are not the fixed target. Stop if any command fails or the
+identifier does not have the required shape. Do not overwrite an existing artifact.
 
 ```bash
 BASE_SHA="$(git rev-parse "${BASE_REF}^{commit}")" || exit 1
 HEAD_SHA="$(git rev-parse "${HEAD_REF}^{commit}")" || exit 1
-REVIEW_ARTIFACT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/pm-review.XXXXXX")" || exit 1
-REVIEW_PATCH="$REVIEW_ARTIFACT_DIR/review.patch"
-git diff --binary --full-index "$BASE_SHA" "$HEAD_SHA" > "$REVIEW_PATCH" || exit 1
-REVIEW_DIGEST="$(shasum -a 256 "$REVIEW_PATCH" | awk '{print $1}')" || exit 1
+WORKTREE_ROOT="$(git rev-parse --show-toplevel)" || exit 1
+REVIEW_ARTIFACT_DIR_REL=".harness-review"
+REVIEW_ARTIFACT_DIR_ABS="$WORKTREE_ROOT/$REVIEW_ARTIFACT_DIR_REL"
+mkdir -p "$REVIEW_ARTIFACT_DIR_ABS" || exit 1
+REVIEW_ARTIFACT_TMP_ABS="$(mktemp "$REVIEW_ARTIFACT_DIR_ABS/review.patch.XXXXXX")" || exit 1
+git diff --binary --full-index "$BASE_SHA" "$HEAD_SHA" > "$REVIEW_ARTIFACT_TMP_ABS" || {
+  rm -f "$REVIEW_ARTIFACT_TMP_ABS"
+  rmdir "$REVIEW_ARTIFACT_DIR_ABS" 2>/dev/null || true
+  exit 1
+}
+REVIEW_DIGEST="$(shasum -a 256 "$REVIEW_ARTIFACT_TMP_ABS" | awk '{print $1}')"
+printf '%s\n' "$REVIEW_DIGEST" | grep -Eq '^[0-9a-f]{64}$' || {
+  rm -f "$REVIEW_ARTIFACT_TMP_ABS"
+  rmdir "$REVIEW_ARTIFACT_DIR_ABS" 2>/dev/null || true
+  exit 1
+}
+REVIEW_ARTIFACT_REL=".harness-review/review-${REVIEW_DIGEST}.patch"
+REVIEW_ARTIFACT_ABS="$WORKTREE_ROOT/$REVIEW_ARTIFACT_REL"
+[ ! -e "$REVIEW_ARTIFACT_ABS" ] || {
+  rm -f "$REVIEW_ARTIFACT_TMP_ABS"
+  echo "review artifact already exists: $REVIEW_ARTIFACT_REL" >&2
+  exit 1
+}
+mv "$REVIEW_ARTIFACT_TMP_ABS" "$REVIEW_ARTIFACT_ABS" || {
+  rm -f "$REVIEW_ARTIFACT_TMP_ABS"
+  rmdir "$REVIEW_ARTIFACT_DIR_ABS" 2>/dev/null || true
+  exit 1
+}
 REVIEW_FIXED_TARGET="snapshot:sha256:${REVIEW_DIGEST}"
 printf '%s\n' "$REVIEW_FIXED_TARGET" | grep -Eq '^snapshot:sha256:[0-9a-f]{64}$' || exit 1
+printf 'fixed_target=%s\nartifact=%s\n' "$REVIEW_FIXED_TARGET" "$REVIEW_ARTIFACT_REL"
 ```
+
+Retain those two printed values in PM's orchestrator state through the Harness call and
+replace the request placeholders with them. Do not rely on shell variables surviving
+between the materialization, Harness invocation, and cleanup commands.
 
 ```yaml
 operation: review
@@ -376,11 +406,11 @@ outcome: Report whether this fixed PR target satisfies its approved delivery sli
 context:
   project: {canonical project identifier when known}
   mode: fresh
-  state: {approved item/spec, acceptance criteria, current Testing Seam Proof, base commit ${BASE_SHA} and head commit ${HEAD_SHA}; the review artifact is their exact diff}
-  files: [{changed and review-relevant repository paths, plus ${REVIEW_PATCH}}]
+  state: {approved item/spec, acceptance criteria, current Testing Seam Proof, base commit ${BASE_SHA} and head commit ${HEAD_SHA}; ${REVIEW_ARTIFACT_REL} is their exact materialized diff}
+  files: [{changed and review-relevant repository paths, plus ${REVIEW_ARTIFACT_REL}}]
 authority:
   working_directory: {absolute PR worktree}
-  allowed_paths: [{read-only PR scope, plus ${REVIEW_PATCH}}]
+  allowed_paths: [{read-only PR scope, plus ${REVIEW_ARTIFACT_REL}}]
   tools: [{read-only inspection and project verification tools}]
   approvals: []
 constraints:
@@ -411,10 +441,33 @@ verification:
   fixed_target: ${REVIEW_FIXED_TARGET}
 ```
 
-Treat the Harness review report as a claim. Recompute the patch digest, confirm the
-returned fixed target equals `${REVIEW_FIXED_TARGET}`, reproduce the relevant checks,
-and keep only findings with confidence above 24. A changed patch or digest invalidates
-the review and requires a new snapshot and request.
+Treat the Harness review report as a claim. Recompute the repository-relative
+artifact's digest and confirm the returned fixed target equals `${REVIEW_FIXED_TARGET}`.
+A changed artifact, digest, or returned target invalidates the review and requires a
+new snapshot and request; retain the artifact so the failure remains inspectable.
+Reproduce the relevant checks and keep only findings with confidence above 24 while
+the artifact remains available.
+
+Only after result-target verification and the relevant reproduced checks succeed,
+remove the exact artifact created above. Remove its directory only when empty; never
+delete another run's evidence.
+
+```bash
+WORKTREE_ROOT="$(git rev-parse --show-toplevel)" || exit 1
+REVIEW_DIGEST="{recorded 64-character digest from the request}"
+REVIEW_FIXED_TARGET="snapshot:sha256:${REVIEW_DIGEST}"
+REVIEW_ARTIFACT_REL="{exact repository-relative artifact path from the request}"
+printf '%s\n' "$REVIEW_DIGEST" | grep -Eq '^[0-9a-f]{64}$' || exit 1
+[ "$REVIEW_ARTIFACT_REL" = ".harness-review/review-${REVIEW_DIGEST}.patch" ] || exit 1
+REVIEW_ARTIFACT_ABS="$WORKTREE_ROOT/$REVIEW_ARTIFACT_REL"
+HARNESS_RESULT_FIXED_TARGET="{exact evidence.fixed_target from the returned Harness Result}"
+RECOMPUTED_REVIEW_DIGEST="$(shasum -a 256 "$REVIEW_ARTIFACT_ABS" | awk '{print $1}')"
+[ "$RECOMPUTED_REVIEW_DIGEST" = "$REVIEW_DIGEST" ] || exit 1
+[ "$HARNESS_RESULT_FIXED_TARGET" = "$REVIEW_FIXED_TARGET" ] || exit 1
+# Run and confirm the request's verification seam before cleanup.
+rm -f "$REVIEW_ARTIFACT_ABS" || exit 1
+rmdir "$REVIEW_ARTIFACT_DIR_ABS" 2>/dev/null || true
+```
 
 If findings clear the bar, run the fix loop for at most two rounds:
 

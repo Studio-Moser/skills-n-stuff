@@ -47,8 +47,9 @@ PM defines the development axes and constraints and submits Harness operations. 
 constraints include readiness, delivery-slice Outcomes, Blockers, Testing Seams,
 tracker and PR boundaries, plus the Quality, Spec Fidelity, and Blast Radius review
 axes. Harness owns dispatch, fixed-target materialization, and evidence mechanics,
-including concrete routing, execution authority, and the returned Harness Result. PM
-reproduces the named proof before marking a delivery slice complete.
+including concrete routing, execution authority, and the returned Harness Result.
+Harness may delegate workers within the request's authority; PM consumes the Result
+and reproduces the named proof before marking a delivery slice complete.
 
 ### The Flow
 
@@ -223,7 +224,7 @@ PM uses a namespaced label taxonomy split across **status**, **owner**, **priori
 | `priority/p2` | Normal |
 | `priority/p3` | Low / someday |
 | `blocker` | Blocks other work -- escalate (urgency flag, orthogonal to status) |
-| `spawned-during-sprint` | Filed by a sub-agent during sprint execution |
+| `spawned-during-sprint` | Filed by PM when a Harness Result reports work discovered during sprint execution |
 | `epic` | Goal container grouping related issues -- carries no `status/*` label; body is a Goal/Why statement, not a checklist |
 | `size/S` | Small: < 1 hour |
 | `size/M` | Medium: 1--4 hours |
@@ -401,7 +402,10 @@ PM supports multi-repo workspaces where a primary repo holds planning artifacts 
 - **Reconcile scans git history** across all configured repos when detecting completions
 - **Labels sync** across repos if you opt in during setup
 
-Each spec's "Code References" section specifies the target repo, so sub-agents know where to work. The agent-ready scorecard enforces that each item targets a single repo (criterion 5: bounded scope).
+Each spec's "Code References" section specifies the target repo. PM copies those
+references into the Harness Request, and Harness may delegate workers within that
+repository boundary. The agent-ready scorecard enforces that each item targets a
+single repo (criterion 5: bounded scope).
 
 ## Pairing with Product Pulse
 
@@ -412,7 +416,7 @@ PM and Product Pulse are designed as a pair. Product Pulse handles intelligence 
 | Research | Daily research, weekly strategy, deep-dives | -- |
 | Discovery | Identifies ideas, adds to backlog | Ingests reports, files issues |
 | Planning | Recommends items for speccing | Sorts, specs, scores, promotes |
-| Execution | -- | Dispatches sub-agents, creates PRs |
+| Execution | -- | Submits Harness operations, creates PRs |
 | Maintenance | -- | Closes done items, flags stale work, proposes ADRs |
 | Config | Owns `pulse-config.yaml` | Reads shared config, owns `.pm/config.yml` |
 

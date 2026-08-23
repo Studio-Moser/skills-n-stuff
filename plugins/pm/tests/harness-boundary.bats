@@ -199,17 +199,65 @@ else:
         failures.append("base/head commits are not preserved as context")
 
 for required in (
-    'git diff --binary --full-index "$BASE_SHA" "$HEAD_SHA" > "$REVIEW_PATCH"',
-    'shasum -a 256 "$REVIEW_PATCH"',
+    'git diff --binary --full-index "$BASE_SHA" "$HEAD_SHA"',
+    'shasum -a 256',
     'REVIEW_FIXED_TARGET="snapshot:sha256:${REVIEW_DIGEST}"',
     "^snapshot:sha256:[0-9a-f]{64}$",
-    'allowed_paths: [{read-only PR scope, plus ${REVIEW_PATCH}}]',
-    'git diff --binary --full-index "$BASE_SHA" "$HEAD_SHA" > "$REVIEW_PATCH" || exit 1',
 ):
     if required not in text:
         failures.append(f"snapshot materialization omits: {required}")
 
 assert not failures, "invalid sprint review target:\n" + "\n".join(failures)
+PY
+  if [ "$status" -ne 0 ]; then
+    printf '%s\n' "$output" >&2
+  fi
+  [ "$status" -eq 0 ]
+}
+
+@test "sprint review packet exposes a repository-relative artifact until verification" {
+  run python3 - "$REPO" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+text = (Path(sys.argv[1]) / "plugins/pm/skills/sprint-dev/SKILL.md").read_text()
+packets = re.findall(r"```yaml\n(operation: review.*?)\n```", text, re.DOTALL)
+failures = []
+if len(packets) != 1:
+    failures.append(f"expected one sprint review packet, found {len(packets)}")
+else:
+    packet = packets[0]
+    files = re.findall(r"^\s*files:\s*(.+)$", packet, re.MULTILINE)
+    allowed = re.findall(r"^\s*allowed_paths:\s*(.+)$", packet, re.MULTILINE)
+    if files != ["[{changed and review-relevant repository paths, plus ${REVIEW_ARTIFACT_REL}}]"]:
+        failures.append(f"context.files is not repository-relative: {files}")
+    if allowed != ["[{read-only PR scope, plus ${REVIEW_ARTIFACT_REL}}]"]:
+        failures.append(f"allowed_paths is not repository-relative: {allowed}")
+    for leak in ("${REVIEW_PATCH}", "${REVIEW_ARTIFACT_ABS}", "${WORKTREE_ROOT}", "${TMPDIR", "/tmp/"):
+        if leak in "\n".join(files + allowed):
+            failures.append(f"review packet leaks absolute artifact path: {leak}")
+
+for required in (
+    'REVIEW_ARTIFACT_REL=".harness-review/review-${REVIEW_DIGEST}.patch"',
+    'REVIEW_ARTIFACT_ABS="$WORKTREE_ROOT/$REVIEW_ARTIFACT_REL"',
+    'printf \'fixed_target=%s\\nartifact=%s\\n\' "$REVIEW_FIXED_TARGET" "$REVIEW_ARTIFACT_REL"',
+    'REVIEW_DIGEST="{recorded 64-character digest from the request}"',
+    'REVIEW_ARTIFACT_REL="{exact repository-relative artifact path from the request}"',
+    '[ "$REVIEW_ARTIFACT_REL" = ".harness-review/review-${REVIEW_DIGEST}.patch" ] || exit 1',
+    'rm -f "$REVIEW_ARTIFACT_ABS"',
+):
+    if required not in text:
+        failures.append(f"artifact lifecycle omits: {required}")
+
+verify_marker = "confirm the returned fixed target equals `${REVIEW_FIXED_TARGET}`"
+cleanup_marker = 'rm -f "$REVIEW_ARTIFACT_ABS"'
+if verify_marker not in text:
+    failures.append("artifact lifecycle omits returned-target verification")
+elif cleanup_marker in text and text.index(cleanup_marker) < text.index(verify_marker):
+    failures.append("review artifact is cleaned before result verification")
+
+assert not failures, "invalid review artifact boundary:\n" + "\n".join(failures)
 PY
   if [ "$status" -ne 0 ]; then
     printf '%s\n' "$output" >&2
@@ -262,29 +310,73 @@ PY
 @test "PM README describes PM as a Harness operation consumer" {
   run python3 - "$REPO" <<'PY'
 from pathlib import Path
+import re
 import sys
 
 text = (Path(sys.argv[1]) / "plugins/pm/README.md").read_text()
 normalized = " ".join(text.split()).lower()
 failures = []
 
-for forbidden in (
-    "dispatches approved slices",
-    "dispatches agents",
-    "dispatches the approved pr set",
-    "dispatching sub-agents",
-    "owns the fixed review target",
-    "pm supplies the exact review target",
+historical = re.compile(r"\b(formerly|historically|previously|legacy|before harness)\b", re.I)
+pm_subject = re.compile(r"\b(pm|sprint-dev|dev-task|execution)\b|/pm:", re.I)
+dispatch = re.compile(
+    r"\bdispatch(?:es|ing)?\b(?=\s+(?:(?:approved|delegated)\s+)?(?:sub[- ]?agents?|agents?|workers?|slices?|work|tasks?|operations?|prs?))",
+    re.I,
+)
+direct_worker = (
+    re.compile(r"\b(?:filed|created|opened|updated|implemented|written)\s+by\s+(?:an?\s+)?sub[- ]?agent\b", re.I),
+    re.compile(r"\bsub[- ]?agents?\s+(?:know|read|use|follow|work|implement|file|create)s?\b", re.I),
+)
+
+def pm_owns_dispatch(clause):
+    if historical.search(clause):
+        return False
+    match = dispatch.search(clause)
+    if not match:
+        return False
+    actor = clause[:match.start()]
+    if re.search(r"\bharness\b", actor, re.I):
+        return False
+    return bool(pm_subject.search(actor) or re.search(r"\bsub[- ]?agents?\b", clause[match.end():], re.I))
+
+for blocked_example in (
+    "PM dispatch workers.",
+    "Sprint-dev dispatches agents.",
+    "Execution is dispatching sub-agents.",
 ):
-    if forbidden in normalized:
-        failures.append(f"README assigns Harness mechanics to PM: {forbidden}")
+    if not pm_owns_dispatch(blocked_example):
+        failures.append(f"semantic dispatch guard misses: {blocked_example}")
+
+for allowed_example in (
+    "Harness dispatches workers.",
+    "Historically, PM dispatches agents before Harness.",
+    "The dispatch queue is domain-neutral.",
+):
+    if pm_owns_dispatch(allowed_example):
+        failures.append(f"semantic dispatch guard rejects allowed context: {allowed_example}")
+
+for line_number, line in enumerate(text.splitlines(), 1):
+    for clause in re.split(r"(?<=[.!?;])\s+", line):
+        if historical.search(clause):
+            continue
+        if pm_owns_dispatch(clause):
+            failures.append(f"line {line_number}: PM directly owns dispatch: {clause.strip()}")
+        for pattern in direct_worker:
+            match = pattern.search(clause)
+            if match and not re.search(r"\bharness\b", clause[:match.start()], re.I):
+                failures.append(f"line {line_number}: PM directly owns a sub-agent: {clause.strip()}")
 
 for required in (
     "pm defines the development axes and constraints and submits harness operations",
     "harness owns dispatch, fixed-target materialization, and evidence mechanics",
+    "harness may delegate workers",
 ):
     if required not in normalized:
         failures.append(f"README omits ownership statement: {required}")
+
+for forbidden in ("owns the fixed review target", "pm supplies the exact review target"):
+    if forbidden in normalized:
+        failures.append(f"README assigns fixed-target mechanics to PM: {forbidden}")
 
 assert not failures, "contradictory README ownership:\n" + "\n".join(failures)
 PY
