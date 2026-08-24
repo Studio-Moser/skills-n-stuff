@@ -79,7 +79,10 @@ If any pull fails, note it and continue. Single-element `repos:` is the monorepo
 
 ### 0.3 Context Recovery (if memory configured)
 
-If `memory.connector` is set in `pulse-config.yaml` (not `null`), look for MCP tools matching that prefix. If found, search memory for prior sprint-dev runs — known blockers, failed items, in-flight branches. If `memory.connector: null` or no matching tools are found, skip this phase.
+If `memory.connector` is set in `pulse-config.yaml` (not `null`), define a recall
+intent for prior sprint blockers, failed items, and in-flight branches. Attach it to
+Phase 2 Harness requests. PM does not discover or call a memory provider; if Harness
+returns no enrichment, continue from tracker, Git, and repository state.
 
 ### 0.4 Check Existing Branches
 
@@ -308,6 +311,13 @@ context:
   mode: fresh
   state: {item identifiers, approved spec or item body, freshness notes, and current Proof}
   files: [{repository-relative owned implementation and test paths}]
+  memory:
+    enabled: {memory.connector is not null}
+    recall:
+      - purpose: Recover prior blockers, failed sprint attempts, and in-flight branches for this delivery slice
+        query: Prior sprint-dev outcomes for this project and the approved item identifiers
+        limit: 10
+    capture: []
 authority:
   working_directory: {absolute approved worktree}
   allowed_paths: [{paths owned by this delivery slice}]
@@ -410,6 +420,15 @@ context:
   mode: fresh
   state: {approved item/spec, acceptance criteria, current Testing Seam Proof, base commit ${BASE_SHA} and head commit ${HEAD_SHA}; ${REVIEW_ARTIFACT_REL} is their exact materialized diff}
   files: [{changed and review-relevant repository paths, plus ${REVIEW_ARTIFACT_REL}}]
+  memory:
+    enabled: {memory.connector is not null}
+    recall: []
+    capture:
+      - when: accepted
+        type: decision
+        summary: Sprint delivery accepted for {item identifiers}
+        content: {proven outcome, durable decisions or gotchas, fixed target, and verification result}
+        topics: [pm-sprint-dev, {canonical project identifier}, {item identifiers}]
 authority:
   working_directory: {absolute PR worktree}
   allowed_paths: [{read-only PR scope, plus ${REVIEW_ARTIFACT_REL}}]
@@ -553,7 +572,8 @@ git commit -m "backlog: update — {cluster} batch complete ({N} items)"
 git push origin "$default_branch"
 ```
 
-Save to memory and clean up worktree if used.
+Retain any optional memory identifiers from the accepted Harness review result, then
+clean up the worktree if used. PM does not call a memory provider directly.
 
 ---
 

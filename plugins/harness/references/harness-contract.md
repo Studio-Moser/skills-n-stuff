@@ -17,6 +17,10 @@ context:
   mode: fresh | fork | hybrid
   state: concise current state
   files: relevant repository-relative paths
+  memory:
+    enabled: true | false
+    recall: optional domain-owned lookup intents
+    capture: optional durable facts to record only after acceptance
 authority:
   working_directory: repository root or worktree
   allowed_paths: explicit write/read scope when narrower than the repository
@@ -38,6 +42,13 @@ Workflow-specific data remains owned by the consumer. PM blockers and blast
 radius, for example, and Product Pulse source requirements travel in `context`
 or `constraints`; they do not extend this schema. Consumers do not select a
 provider, resolve a model, interpret executor metadata, or redefine proof.
+
+`context.memory` is optional. A consumer supplies only domain intent: whether
+enrichment is enabled, what prior context would help, and what durable result is
+worth recording after acceptance. It never names a provider tool or supplies a
+provider project ID. Harness resolves canonical scope, performs any available
+recall or capture, and leaves the request otherwise executable when enrichment
+is unavailable.
 
 ## HarnessResult
 

@@ -164,6 +164,13 @@ context:
   mode: fresh
   state: {research question, full source content, canonical URL, title, author or publisher, publication date or last update, related resource extracts, prior-report conclusions, and current project facts}
   files: [{repository-relative project files needed for the bounded comparison}]
+  memory:
+    enabled: {memory.connector is not null}
+    recall:
+      - purpose: Recover durable prior conclusions relevant to this deep-dive topic
+        query: Prior deep-dive conclusions for {project_id} and {topic}
+        limit: 10
+    capture: []
 authority:
   working_directory: {absolute primary repository root}
   allowed_paths: [{read-only paths named in context.files}]
@@ -270,6 +277,20 @@ context:
   mode: fresh
   state: {research question, accepted extraction and project-comparison results, accepted adjudications, prior-report index, product context, and intended slug}
   files: [{repository-relative project and prior-report paths cited by accepted research}]
+  memory:
+    enabled: {memory.connector is not null}
+    recall: []
+    capture:
+      - when: accepted
+        type: insight
+        summary: Deep dive on {topic}: {key conclusion in fewer than 80 characters}
+        content: {proven findings, project comparison, confidence, and recommendations}
+        topics: [deep-dive, {project_id}-research, {topic tags}]
+      - when: accepted and a proven conclusion reverses a referenced prior report
+        type: decision
+        summary: Deep-dive conclusion changed for {topic}
+        content: {prior conclusion, new evidence, and bounded reason for the change}
+        topics: [deep-dive, {project_id}-research, changed-conclusion]
 authority:
   working_directory: {absolute primary repository root}
   allowed_paths: [{read-only paths named in context.files}]
@@ -367,23 +388,11 @@ Wrap the report in YAML frontmatter matching the template at `references/report-
 
 ## Phase 9: Save to Memory (if configured)
 
-If `memory.connector` is set in pulse-config.yaml (not `null`), look for MCP tools whose names contain that connector prefix. If found, capture key insights:
-
-```
-capture_thought({
-  content: "{detailed research findings and recommendations}",
-  summary: "Deep dive: {topic} — {key conclusion in <80 chars}",
-  type: "insight",
-  topics: ["deep-dive", "{project_id}-research", "{topic tags}"],
-  source: "deep-dive-{slug}",
-  project: "{project_id}",
-  metadata: { topic: "{topic}", resources: {N}, confidence: "{overall confidence}" }
-})
-```
-
-If a prior report was referenced and the new research contradicts it, capture a separate thought noting the shift in understanding with `type: "decision"`.
-
-If `memory.connector: null` or no matching tools are found, skip this phase.
+The Phase 6 synthesis request carries the insight capture intent and the conditional
+changed-conclusion intent. After Product Pulse reproduces the report proof, retain any
+returned Harness memory identifiers. If memory is disabled or unavailable, continue
+with the saved report and leave those optional identifiers empty; do not call a
+provider directly.
 
 ---
 

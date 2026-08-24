@@ -140,9 +140,9 @@ Skip this batch if `pulse-config.yaml` already provided these values.
    - "This slug is used to tag memory entries and as a prefix for scheduled tasks."
 2. **Which git branch is your default?** (default: `main`)
 3. **Memory connector?** Options:
-   - `shelby` (default — looks for tools matching `mcp__shelby-memory__*`)
+   - `shelby` (default — Harness resolves the optional provider and canonical project scope)
    - `null` (skip memory operations entirely)
-   - Any other prefix matching your memory MCP's tool names
+   - Another provider identifier already supported by the configured Harness
 
 ---
 

@@ -68,8 +68,8 @@ call = '"$harness/scripts/localize-skill-overrides.py"'
 loose = text.index("For loose configuration:")
 phase_one = text.index("## Phase 1: Link check")
 real_file = text.index("**On `REAL-FILE`", phase_one)
-phase_two = text.index("## Phase 2: Commit, pull, push")
-phase_two_one = text.index("### 2.1 Commit local changes", phase_two)
+phase_two = text.index("## Phase 2: Reconcile shared and derived state")
+phase_two_one = text.index("### 2.1 Reconcile shared settings", phase_two)
 status = text.index('git -C "$repo" status --short', phase_two_one)
 assert call in text[loose:phase_one]
 assert call in text[real_file:phase_two]

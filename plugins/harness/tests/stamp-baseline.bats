@@ -71,3 +71,29 @@ setup() {
   grep -qF "Harness Request" "$TARGET"
   grep -qF "plugins/harness/templates/AGENTS_Baseline.md" "$TARGET"
 }
+
+@test "refuses a symlink target without writing through it" {
+  outside="${BATS_TEST_TMPDIR}/outside.md"
+  printf 'outside stays unchanged\n' > "$outside"
+  ln -s "$outside" "$TARGET"
+
+  run "$SCRIPT" "$TARGET" "$BODY"
+
+  [ "$status" -eq 2 ]
+  [ "$(cat "$outside")" = "outside stays unchanged" ]
+  [ -L "$TARGET" ]
+}
+
+@test "does not follow a pre-existing predictable temp symlink" {
+  outside="${BATS_TEST_TMPDIR}/outside.md"
+  printf 'outside stays unchanged\n' > "$outside"
+  printf '# Keep me\n<!-- harness:baseline:start -->\nold body\n<!-- harness:baseline:end -->\n' > "$TARGET"
+  ln -s "$outside" "$TARGET.tmp"
+
+  "$SCRIPT" "$TARGET" "$BODY"
+
+  [ "$(cat "$outside")" = "outside stays unchanged" ]
+  grep -qF '# Keep me' "$TARGET"
+  grep -qF 'first version' "$TARGET"
+  [ -L "$TARGET.tmp" ]
+}

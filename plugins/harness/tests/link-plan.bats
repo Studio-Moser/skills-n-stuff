@@ -10,7 +10,6 @@ setup() {
   : > "$REPO/claude/CLAUDE.md"
   : > "$REPO/claude/settings.json"
   : > "$REPO/claude/statusline-command.sh"
-  : > "$REPO/claude/mcp.json"
   : > "$REPO/codex/AGENTS.md"
   export XDG_CONFIG_HOME="${BATS_TEST_TMPDIR}/xdg"
   mkdir -p "$REPO/config/studio-moser" "$XDG_CONFIG_HOME"
@@ -23,16 +22,15 @@ link_all() {
   ln -s "$REPO/claude/CLAUDE.md" "$CLAUDE_CONFIG_DIR/CLAUDE.md"
   ln -s "$REPO/claude/settings.json" "$CLAUDE_CONFIG_DIR/settings.json"
   ln -s "$REPO/claude/statusline-command.sh" "$CLAUDE_CONFIG_DIR/statusline-command.sh"
-  ln -s "$REPO/claude/mcp.json" "$CLAUDE_CONFIG_DIR/mcp.json"
   ln -s "$REPO/config/studio-moser" "$XDG_CONFIG_HOME/studio-moser"
   ln -s "$REPO/codex/AGENTS.md" "$CODEX_HOME/AGENTS.md"
 }
 
-@test "all eight links correct -> exit 0, every line ok" {
+@test "all seven portable links correct -> exit 0, every line ok" {
   link_all
   run "$SCRIPT" "$REPO"
   [ "$status" -eq 0 ]
-  [ "$(echo "$output" | grep -c ' ok$')" -eq 8 ]
+  [ "$(echo "$output" | grep -c ' ok$')" -eq 7 ]
 }
 
 @test "missing link is reported ABSENT and exits 1" {
@@ -67,19 +65,21 @@ link_all() {
   echo "$output" | grep -qE '^statusline-command\.sh +-> +claude/statusline-command\.sh +MISSING-IN-REPO$'
 }
 
-@test "mcp.json missing from repo is reported MISSING-IN-REPO" {
+@test "runtime mcp.json remains machine-local and outside the link plan" {
   link_all
-  rm "$REPO/claude/mcp.json"
+  printf '%s\n' '{"mcpServers":{}}' > "$CLAUDE_CONFIG_DIR/mcp.json"
   run "$SCRIPT" "$REPO"
-  [ "$status" -eq 1 ]
-  echo "$output" | grep -qE '^mcp\.json +-> +claude/mcp\.json +MISSING-IN-REPO$'
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"mcp.json"* ]] || return 1
+  [ -f "$CLAUDE_CONFIG_DIR/mcp.json" ]
+  [ ! -L "$CLAUDE_CONFIG_DIR/mcp.json" ]
 }
 
 @test "trailing slash on repo arg does not cause false RELINK" {
   link_all
   run "$SCRIPT" "${REPO}/"
   [ "$status" -eq 0 ]
-  [ "$(echo "$output" | grep -c ' ok$')" -eq 8 ]
+  [ "$(echo "$output" | grep -c ' ok$')" -eq 7 ]
 }
 
 @test "a correct symlink with a relative target is reported ok" {

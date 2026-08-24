@@ -37,15 +37,19 @@ Setup's behalf.
 ## Dry run
 
 If the user asks what would change, or passes `--dry-run`, run **only the
-read-only pieces** — `link-plan.sh` (Phase 1's command), Phase 2.5's MCP
-verification block, Phase 2.6's step 0 *detection* block (the `git
+read-only pieces** — `link-plan.sh` (Phase 1's command),
+`reconcile_shared_settings.py --check` for the shared settings file,
+`mcp-manifest.sh --check` for the portable MCP inventory, Phase 2.5's MCP
+verification block against the machine-local runtime file, Phase 2.6's step 0
+*detection* block (the `git
 ls-files --error-unmatch` tracked-check and the `.gitignore` presence
 check — not the fix block right after it) and step 1 (the
 `skills-reconcile.sh` call, nothing that follows it),
 `portability-lint.sh` (Phase 3's command), and `rubric-audit.sh` (Phase 3.5's
 command — it only reads transcripts) — then print the report from
-Phase 4 and stop. Phase 2.5's MCP block only reads `mcp.json` and checks
-whether each server's command resolves; it belongs in a dry run because
+Phase 4 and stop. Phase 2.5's MCP block only reads the portable inventory and
+machine-local `mcp.json`, then checks whether each declared server is configured
+and resolves; it belongs in a dry run because
 that's exactly the kind of thing someone previewing a sync wants to see.
 Phase 2.6's step 0 detection and step 1 are the same shape: `git ls-files
 --error-unmatch` and `grep` only read, and `skills-reconcile.sh` only
@@ -54,13 +58,14 @@ output — all of them print findings without touching disk.
 
 Skip everything else, explicitly:
 
-- **Phase 2.25** (render `codex/AGENTS.md`) — a write; report
+- **Phase 2.2** (render `codex/AGENTS.md`) — a write; report
   `Derived: [skipped in dry run]`.
-- **Phase 2** (commit, pull, push) — writes to the repo and the remote.
+- **Phase 2's reconciliation and Phase 3.75's final transaction** — they write
+  shared settings, manifests, the repo, or the remote.
 - **Phase 2.5's plugin half** (marketplace add / plugin install) — installs
   software. Run only its MCP verification block, not this one.
-- **Phase 2.6's step 0 fix block** (the `.gitignore` write, `git rm
-  --cached`, commit, push) — a write, and a one-time repo migration, not
+- **Phase 2.6's step 0 fix block** (the `.gitignore` write and `git rm
+  --cached`) — a write, and a one-time repo migration, not
   something a preview should perform. Only step 0's detection block above
   it belongs in a dry run.
 - **Phase 2.6's step 2 (installs, removals, override writes) and step 3
@@ -70,7 +75,7 @@ Skip everything else, explicitly:
 - Phase 1's action column (create/re-link/remove) and Phase 3's fix
   suggestions — both are writes, not part of the dry run.
 
-Nothing is created, installed, moved, or removed. The three pieces that do
+Nothing is created, installed, moved, or removed. The read-only pieces that do
 run are read-only, so this is safe to offer unprompted when the user seems
 unsure.
 
@@ -114,8 +119,9 @@ to create the personal repository; ordinary Sync runs never re-bootstrap it.
 
 Create a new timestamped archive under `$HOME` containing every present live entry
 managed by `link-plan.sh`: `skills`, `output-styles`, `CLAUDE.md`, `settings.json`,
-`statusline-command.sh`, `mcp.json`, the cross-tool `studio-moser` config directory,
-and Codex `AGENTS.md`. Resolve their configured roots exactly as Phase 1 does.
+`statusline-command.sh`, the cross-tool `studio-moser` config directory, and Codex
+`AGENTS.md`. Back up machine-local `mcp.json` separately in the same archive, but
+never adopt it into Git. Resolve their configured roots exactly as Phase 1 does.
 
 Append each present entry to the archive separately. Missing optional entries are
 normal and must not make the archive fail. Never overwrite an earlier backup, and
@@ -136,7 +142,7 @@ Ask one question:
 For an existing repository:
 
 ```bash
-git clone <url> "$repo"
+git clone <url> "${AGENTS_REPO:-$HOME/.agents}"
 ```
 
 If the clone fails on authentication, say so plainly and stop — do not fall back
@@ -151,25 +157,27 @@ For loose configuration:
    that a copy is correct. Resolve the winning content before consolidation.
 2. Localize machine-only skill routing before copying shared `settings.json`:
 
-   ```bash
-   claude="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
-   harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
-   [ ! -e "$claude/settings.json" ] || "$harness/scripts/localize-skill-overrides.py" "$claude/settings.json" "$claude/settings.local.json"
-   ```
+```bash
+claude="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
+[ ! -e "$claude/settings.json" ] || "$harness/scripts/localize-skill-overrides.py" "$claude/settings.json" "$claude/settings.local.json"
+```
 
    This removes only `skillOverrides` from the shared file and merges it into
    live `settings.local.json`, preserving every other local key.
 3. Initialize `$repo` on `main` with `skills/`, `claude/`, `config/studio-moser/`,
    and `codex/` as needed. Copy every present managed entry into its Phase 1 repo
-   path; copy, do not move, so the originals remain recoverable until verification.
+   path except runtime `mcp.json`; copy, do not move, so the originals remain
+   recoverable until verification. Generate the secret-free, names-only
+   `$repo/mcp.manifest` from the runtime file instead.
    Do not adopt Codex `AGENTS.md` as a source: preserve any unique instruction in
-   `House Style.md` or `CLAUDE.md`, then let Phase 2.25 render the derived file.
-4. Keep local-only state out of Git: `settings.local.json`, runtime project/session
+   `House Style.md` or `CLAUDE.md`, then let Phase 2.2 render the derived file.
+4. Keep local-only state out of Git: `claude/mcp.json`, `settings.local.json`, runtime project/session
    stores, credentials, secret-bearing profiles, resolved machine paths, approvals,
    temporary evidence, Shelby state, `.fleet-local.json`, and `.skill-lock.json`.
-5. Apply Phase 3's portability rules, inspect the staged paths, and commit the
-   adopted portable configuration. Only then continue to Phase 1 to replace the
-   verified originals with links.
+5. Continue to Phase 1 and replace only verified originals with links; the backup
+   remains the recovery copy. Complete every later reconciliation and Phase 3's
+   portability rules before Phase 3.75 stages and synchronizes the full result.
 
 Before the first push in either branch, confirm the configured remote is private.
 For a newly adopted repository, ask for the exact remote URL only after the local
@@ -188,6 +196,7 @@ than write-in-place silently converts a symlink back into a real file, and sync
 stops working with no signal. This phase is how that gets noticed.
 
 ```bash
+repo="${AGENTS_REPO:-$HOME/.agents}"
 harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
 "$harness/scripts/link-plan.sh" "$repo"
 ```
@@ -198,17 +207,14 @@ Each line ends in a state:
 |---|---|---|
 | `ok` | correct symlink | nothing |
 | `ABSENT` | no such path in `$claude` | create the link |
-| `REAL-FILE` | a real file (or directory — `skills`, `output-styles`, and `studio-moser` are directories among the eight tracked entries) sits where the link should be | **diff first** (below) |
+| `REAL-FILE` | a real file (or directory — `skills`, `output-styles`, and `studio-moser` are directories among the seven portable entries) sits where the link should be | **diff first** (below) |
 | `RELINK(->X)` | symlink points somewhere else | show `X`, confirm, re-link |
 | `MISSING-IN-REPO` | the repo has no such file | report; do not create anything |
 
-**`mcp.json` is tracked like the rest, but the portability lint in Phase 3 doesn't
-fully cover it.** That lint only flags literal `/Users/<name>` or `/home/<name>` paths;
-`mcp.json` typically holds paths like `/Applications/Some.app/Contents/Helpers/Server`,
-which pass the lint but are still machine-specific. Tracking it is right — the
-inventory should migrate — but each server's command needs to be verified as
-actually present on this machine, not assumed to be. That happens in Phase 2.5,
-not here.
+Runtime `mcp.json` is deliberately absent from this table. Commands, arguments,
+environment variables, and credentials are machine-local. Phase 2.5 compares its
+server names to the portable, names-only `mcp.manifest`; Sync never links or tracks
+the runtime file.
 
 **`MISSING-IN-REPO` is checked first and masks the other states.** If the
 repo lacks the file, `link-plan.sh` reports `MISSING-IN-REPO` for that entry
@@ -217,18 +223,17 @@ symlink, or nothing) — the five states are not independent signals about
 both sides at once. Don't infer "no real file exists on this machine" from a
 `MISSING-IN-REPO` line.
 
-**`RELINK(->X)` can be a false positive on a working link.** The script
-compares the symlink target to the expected path as a raw string, not a
-resolved path, so a symlink using a *relative* target that still resolves to
-the right file also reports `RELINK`. Before re-linking, resolve `X` (e.g.
-`readlink -f "$claude/<name>"`) and compare it to `$repo/<rel>`; if they
-match, leave the link alone — re-linking would just churn a working link.
+`link-plan.sh` resolves both paths before comparing them, so equivalent relative
+and absolute targets both report `ok`. A `RELINK(->X)` result therefore means the
+resolved target is genuinely different.
 
 **On `REAL-FILE`, never overwrite silently.** That file may hold edits made on
 this machine since the link broke. `skills` is a *directory*, so the diff must
 be recursive:
 
 ```bash
+repo="${AGENTS_REPO:-$HOME/.agents}"
+claude="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 diff_err="$(mktemp)"
 diff -ru "$repo/<rel>" "$claude/<name>" 2>"$diff_err"
 diff_status=$?
@@ -303,13 +308,14 @@ edits. `-r` is required, not optional.
 To create or re-link, use:
 
 ```bash
+repo="${AGENTS_REPO:-$HOME/.agents}"
+claude="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 ln -sfn "$repo/<rel>" "$claude/<name>"
 ```
 
-The target must be the **absolute** path `"$repo/<rel>"` — `link-plan.sh`
-compares symlink targets as raw strings (see the `RELINK` false-positive note
-above), so a relative target would report `RELINK` on every future run even
-though it resolves correctly.
+An absolute or relative target is accepted; `link-plan.sh` compares canonical
+resolved paths. Prefer a relative target when the link itself will be tracked,
+because Phase 3 rejects absolute targets in Git.
 
 **The `studio-moser` entry lives under `${XDG_CONFIG_HOME:-$HOME/.config}`, not `$claude`.**
 For it, the link is `"${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser"` and the target is
@@ -356,77 +362,28 @@ symlink-to-directory case.
 
 ---
 
-## Phase 2: Commit, pull, push
+## Phase 2: Reconcile shared and derived state
 
-A sync that only pulls leaves this machine's changes stranded, and the repo goes
-stale the moment anything here changes — which is the whole failure this skill
-exists to prevent. The full cycle is **commit → pull → push**, in that order.
+The Git transaction occurs only in Phase 3.75. Phase 2 prepares every shared write
+so validation can see the complete staged result before anything reaches the remote.
 
-**Order matters.** `git pull --ff-only` refuses when incoming changes touch a
-locally-modified file — precisely when you most need it to work. Committing first
-removes that failure mode entirely.
-
-### 2.1 Commit local changes
+### 2.1 Reconcile shared settings
 
 ```bash
 repo="${AGENTS_REPO:-$HOME/.agents}"
 claude="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
 [ ! -e "$repo/claude/settings.json" ] || "$harness/scripts/localize-skill-overrides.py" "$repo/claude/settings.json" "$claude/settings.local.json"
+[ ! -e "$repo/claude/settings.json" ] || "$harness/scripts/reconcile_shared_settings.py" "$repo/claude/settings.json"
 git -C "$repo" status --short
 ```
 
-The localization command is the final machine-to-shared settings boundary. Run
-it before the clean-tree check on every non-dry sync: it also repairs an override
-that a direct or atomic-replace writer put into the repo-backed shared file.
+The localization command removes machine-only skill routing from the shared file.
+The settings reconciliation then removes `machine@studio-moser` and requires
+`harness@studio-moser: true`. Both run before staging. In dry-run mode, use
+`--check` for the shared settings helper and do not run either writer.
 
-Clean → skip to 2.2.
-
-Otherwise **show the developer what changed before committing** — the counts and
-the paths, deletions especially:
-
-```bash
-git -C "$repo" diff --stat
-git -C "$repo" status --short | grep '^.D\|^D' || true
-```
-
-Then stage everything and commit, deletions included:
-
-```bash
-git -C "$repo" add -A
-git -C "$repo" commit -m "harness: sync from {hostname} — {N} added, {M} modified, {K} deleted"
-```
-
-`add -A` is correct **here and only here**: this repo contains exactly one
-developer's config and no other session is working in it. That is the opposite of
-a shared project checkout, where `add -A` stages someone else's in-flight work.
-
-Write a message that says what actually changed — `{N} skills updated`,
-`settings.json`, `impeccable 3.9.1 → 4.0.4` — not a bare timestamp. This is the
-only record of why the config moved.
-
-**Deletions are committed too.** A skill manager consolidating or removing skills
-produces deletions, and holding them back is what leaves the repo stale. Everything
-here is recoverable from git history, so a wrong auto-commit costs a revert, not
-data. If a human is present and the deletions look wrong, they can say so — but do
-not block an unattended run waiting for an answer nobody will give.
-
-### 2.2 Pull
-
-```bash
-git -C "$repo" pull --ff-only
-```
-
-**If this fails, another machine has pushed work that diverges from this one's.
-Stop. Do not rebase, merge, or force anything.** Report the divergence and skip
-Phase 2.3 — resolving conflicting config across machines needs a human, and an
-unattended rebase can leave the repo mid-rebase with no one to finish it.
-
-Local work is already committed at this point, so nothing is at risk; it is simply
-unpushed until someone resolves it. Say that plainly in the report so it does not
-read as data loss.
-
-### 2.25 Render derived files
+### 2.2 Render derived files
 
 ```bash
 repo="${AGENTS_REPO:-$HOME/.agents}"
@@ -436,12 +393,10 @@ harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*
 
 `codex/AGENTS.md` is Codex's global instructions and is **generated** from the
 Claude-side sources (`claude/output-styles/House Style.md` and `claude/CLAUDE.md`)
-so House Style stays the one file you edit. It runs here — after the pull, before
-the push — so a machine that just received the file from the remote sees
-`RENDER_STATE=unchanged`, and a machine whose sources moved gets a fresh render on
-top of the merged history instead of a diverging commit. If it prints
-`RENDER_STATE=regenerated`, commit it now (`git -C "$repo" add codex/AGENTS.md &&
-git -C "$repo" commit -m "harness: regenerate codex/AGENTS.md"`), so 2.3 pushes it.
+so House Style stays the one file you edit. It runs here — after settings
+reconciliation and before staging — so a machine whose sources moved
+gets one fresh render in the same transaction. If it prints
+`RENDER_STATE=regenerated`, leave it uncommitted for Phase 3.75.
 `RENDER_STATE=failed: <reason>` (exit 3) means a source or a required section is
 missing — nothing was written; carry the reason into the report and continue.
 Never hand-edit `codex/AGENTS.md`; the next sync overwrites it.
@@ -452,32 +407,53 @@ exists now (pulled or rendered): create the link here — `mkdir -p
 "${CODEX_HOME:-$HOME/.codex}/AGENTS.md"` — unless a real file sits there, in which
 case follow the Phase 1 `AGENTS.md` REAL-FILE rule (move it aside, then link).
 
-### 2.3 Push
+### 2.3 Localize the MCP runtime and generate its portable inventory
+
+`$claude/mcp.json` is machine-local runtime state. If an older repo tracks it or
+the live path is a symlink into the repo, preserve its resolved bytes as a regular
+live file before untracking it. Never print or copy its command, args, URL,
+headers, or environment into a report. The shared artifact is only the sorted
+server-name inventory `mcp.manifest`:
 
 ```bash
-git -C "$repo" push
+repo="${AGENTS_REPO:-$HOME/.agents}"
+claude="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
+runtime="$claude/mcp.json"
+if [ -L "$runtime" ]; then
+  temporary="$(mktemp "$claude/.mcp.json.migrate.XXXXXX")"
+  trap 'rm -f "$temporary"' EXIT HUP INT TERM
+  cp -pL "$runtime" "$temporary"
+  unlink "$runtime"
+  mv "$temporary" "$runtime"
+  temporary=""
+  trap - EXIT HUP INT TERM
+fi
+if [ -f "$runtime" ]; then
+  "$harness/scripts/mcp-manifest.sh" "$runtime" "$repo/mcp.manifest"
+fi
+grep -qxF 'claude/mcp.json' "$repo/.gitignore" 2>/dev/null || printf '%s\n' 'claude/mcp.json' >> "$repo/.gitignore"
+git -C "$repo" rm --cached claude/mcp.json --ignore-unmatch -q
 ```
 
-Skip if 2.2 failed. If the push is rejected, report it and stop — do not retry
-with force.
-
-**Skip this whole phase if the repo has no remote.** Say so once in the report:
-without a remote, this machine is versioned but nothing syncs anywhere.
+If the runtime file is missing, report `MCP_STATE=not configured` and do not
+invent a manifest. In dry-run mode, do not run this block; validate an existing
+inventory with `mcp-manifest.sh --check "$repo/mcp.manifest"` and inspect the live
+file read-only in Phase 2.5.
 
 ---
 
 ## Phase 2.5: Reconcile installed plugins and MCP servers
 
-The repo is current now (Phase 2 committed, pulled, and pushed it), so this
-phase reads the tracked config as the source of truth for what *should* be on
-this machine and reconciles reality against it — installing what's missing for
-plugins, only reporting for MCP servers.
+This phase reconciles machine state before the final Git transaction. Plugin
+operations may rewrite shared settings, so they must complete before Phase 3.75
+stages and validates the final result. MCP verification remains read-only.
 
 ### Plugins — install what's missing, automatically
 
-The inventory is already in the tracked `settings.json` — read the **repo's**
-copy (`$repo/claude/settings.json`), the same file the MCP check below reads
-`mcp.json` from, not the possibly-drifted live file at `$claude/settings.json`
+The plugin inventory is already in the tracked `settings.json` — read the
+**repo's** copy (`$repo/claude/settings.json`), not the possibly-drifted live file
+at `$claude/settings.json`
 (Phase 1 runs first and would have already flagged or fixed any such drift,
 but reading the repo copy here keeps both halves of this phase consistent on
 principle rather than by coincidence). `extraKnownMarketplaces` names the
@@ -608,19 +584,19 @@ to run.
 
 ### MCP servers — verify, report, never auto-install
 
-Read the tracked `claude/mcp.json` (skip cleanly if absent — not every
-developer runs MCP servers). For each entry under `mcpServers`, confirm its
-`command` actually resolves on this harness: an absolute path must be
-executable, a bare name must resolve on `$PATH`. **Do not attempt to install
-anything here** — an MCP entry points at an arbitrary binary (an app bundle, a
-local CLI, a script); there is no generic install, and guessing a package
-manager would be worse than a clear message naming what to install by hand.
-Also honour `disabledMcpjsonServers` in `settings.local.json` — a server
-disabled on this machine is not a finding.
+Read the tracked names-only `mcp.manifest` and the machine-local runtime
+`$claude/mcp.json`. Validate the manifest first. For each declared name, confirm
+that this machine has a matching runtime entry and that a local command resolves;
+a URL-style entry is counted separately. **Do not attempt to install anything.**
+Honour `disabledMcpjsonServers` in `settings.local.json`; a server disabled on
+this machine is not a finding. Never print runtime command, args, URL, headers,
+environment, or credentials — findings name the server only.
 
 ```bash
 repo="${AGENTS_REPO:-$HOME/.agents}"
 claude="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
+[ ! -e "$repo/mcp.manifest" ] || "$harness/scripts/mcp-manifest.sh" --check "$repo/mcp.manifest"
 
 mcp_reconcile_script='import json, os, shutil, sys
 
@@ -631,46 +607,49 @@ def load(path):
     except FileNotFoundError:
         return {}
 
-mcp_path, local_path = sys.argv[1], sys.argv[2]
-if not os.path.exists(mcp_path):
-    print("MCP_STATE=not tracked")
+manifest_path, mcp_path, local_path = sys.argv[1:]
+if not os.path.exists(manifest_path):
+    print("MCP_STATE=not declared")
     raise SystemExit(0)
 
+declared = {line for line in open(manifest_path) if (line := line.strip())}
 servers = load(mcp_path).get("mcpServers", {})
 disabled = set(load(local_path).get("disabledMcpjsonServers", []))
 
-active = {n: c for n, c in servers.items() if n not in disabled}
+active = declared - disabled
+missing = sorted(active - set(servers))
 unresolved = []
 remote = 0
-for name, cfg in active.items():
+for name in sorted(active & set(servers)):
+    cfg = servers[name]
     cmd = cfg.get("command", "")
     if not cmd:
-        # URL/SSE-style server: no local command to verify, so it is neither
-        # checked nor "ok" — count it separately rather than folding it into
-        # a verified count it never earned.
         remote += 1
         continue
     ok = os.access(cmd, os.X_OK) if cmd.startswith("/") else shutil.which(cmd) is not None
     if not ok:
-        unresolved.append((name, cmd))
+        unresolved.append(name)
 
-ok_count = len(active) - remote - len(unresolved)
+ok_count = len(active) - len(missing) - remote - len(unresolved)
 parts = [f"{ok_count} ok"]
 if remote:
     parts.append(f"{remote} remote (no local command)")
-if unresolved:
-    parts.append(f"{len(unresolved)} unresolved")
+if missing or unresolved:
+    parts.append(f"{len(missing) + len(unresolved)} unresolved")
 print("MCP_STATE=" + ", ".join(parts))
-for name, cmd in unresolved:
-    print(f"MCP_FINDING={name} → {cmd} (not present on this machine)")
+for name in missing:
+    print(f"MCP_FINDING={name} not configured on this machine")
+for name in unresolved:
+    print(f"MCP_FINDING={name} command unavailable on this machine")
+for name in sorted(set(servers) - declared):
+    print(f"MCP_LOCAL_ONLY={name}")
 '
 
-printf '%s\n' "$mcp_reconcile_script" | python3 - "$repo/claude/mcp.json" "$claude/settings.local.json"
+printf '%s\n' "$mcp_reconcile_script" | python3 - "$repo/mcp.manifest" "$claude/mcp.json" "$claude/settings.local.json"
 ```
 
-Report any unresolved server, naming the server and the missing command, e.g.
-`shelby-memory → /Applications/Shelby.app/Contents/Helpers/ShelbyMCP (not
-present on this machine)`.
+Report unresolved servers by name. `MCP_LOCAL_ONLY` is informational: runtime
+details stay local and a name is shared only after the inventory is regenerated.
 
 ---
 
@@ -747,21 +726,17 @@ done
 
 git -C "$repo" add .gitignore
 git -C "$repo" rm --cached .skill-lock.json --ignore-unmatch -q
-if git -C "$repo" diff --cached --quiet; then
-  echo "nothing to commit"
-else
-  git -C "$repo" commit -q -m "harness: untrack .skill-lock.json and gitignore it (breaks third-party skill removal propagation)"
-  git -C "$repo" push || echo "push failed — will retry on a future sync; do not force"
-fi
 ```
+
+Leave both changes staged with every other reconciliation result. Phase 3.75
+performs the only transaction after the final scans pass.
 
 **The gitignore lines are written here, unconditionally — not only by step
 3.** Step 3 (and the gitignore lines it maintains) is skipped whenever
 `npx`/`node` is missing or `$repo` isn't `$HOME/.agents`. On such a
 machine, untracking `.skill-lock.json` without also gitignoring it here
-would leave it an untracked file sitting in the worktree — the next sync's
-Phase 2 commit (`git add -A`, correct in that phase, see its own note)
-stages and commits it right back, every single run. Step 0 runs
+would leave it an untracked file sitting in the worktree — the final transaction's
+`git add -A` would stage and commit it right back, every single run. Step 0 runs
 unconditionally, so its fix has to be self-contained rather than depend on
 a step that might not run this time. `--ignore-unmatch` keeps the fix block
 safe to run even when only the `.gitignore` lines were missing and
@@ -1039,6 +1014,7 @@ Phase 2.6 must always run after Phase 1 in the same sync, never on its own.
 ## Phase 3: Portability lint
 
 ```bash
+repo="${AGENTS_REPO:-$HOME/.agents}"
 harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
 "$harness/scripts/portability-lint.sh" "$repo"
 ```
@@ -1085,6 +1061,40 @@ when bulk work is landing on native sub-agents instead of the codex handoff.
 
 ---
 
+## Phase 3.75: Validate and synchronize once
+
+All repo and machine reconciliation must be complete before this phase. Re-run
+the idempotent generators and checks here so a writer from an earlier phase cannot
+leave a stale derived file. The finalizer is the last command; nothing may write
+the repo after it returns:
+
+```bash
+repo="${AGENTS_REPO:-$HOME/.agents}"
+claude="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
+
+[ ! -e "$repo/claude/settings.json" ] || "$harness/scripts/localize-skill-overrides.py" "$repo/claude/settings.json" "$claude/settings.local.json"
+[ ! -e "$repo/claude/settings.json" ] || "$harness/scripts/reconcile_shared_settings.py" "$repo/claude/settings.json"
+[ ! -f "$claude/mcp.json" ] || "$harness/scripts/mcp-manifest.sh" "$claude/mcp.json" "$repo/mcp.manifest"
+"$harness/scripts/skills-manifest.sh" "$repo"
+"$harness/scripts/render-codex-agents.sh" "$repo"
+"$harness/scripts/link-plan.sh" "$repo"
+"$harness/scripts/portability-lint.sh" "$repo"
+"$harness/scripts/sync-finalize.sh" "$repo" "harness: sync from $(hostname -s) — reconciled portable agent config"
+```
+
+`sync-finalize.sh` stages the complete result, checks the staged diff, reruns the
+portability gate, validates the MCP inventory, and performs explicit staged secret
+and machine-local state scans. Only then does it perform exactly one commit, pull, and push.
+It fails closed on divergence, a missing remote, any write after staging,
+or a rejected push; never retry with merge, rebase, or force.
+
+Success requires both a final clean worktree and a local HEAD equal to the reported
+remote SHA. If either proof is absent, Sync is incomplete. Do not run another
+generator, installer, formatter, or repo writer after the finalizer.
+
+---
+
 ## Phase 4: Report
 
 ```
@@ -1096,6 +1106,7 @@ Harness sync — {repo}
   Committed:  {nothing local | <short message>: N added, M modified, K deleted}
   Pull:       {up to date | N commits: <oneline list> | DIVERGED — not pushed}
   Push:       {pushed <sha> | skipped: <reason> | no remote configured}
+  Final:      {clean worktree, remote SHA <sha> | FAILED: <reason>}
   Plugins:    {up to date | added N marketplace(s), installed M, updated K — restart or
                /reload-plugins to apply | skipped: claude CLI not on PATH | failed: <reason>}
   Orphans:    {none | <name> — remove with: claude plugin marketplace remove <name>}
@@ -1121,7 +1132,8 @@ open findings buried above. That includes a failed marketplace add or plugin
 install from Phase 2.5, `claude` missing from `$PATH`, or `claude plugin list` /
 `claude plugin marketplace list` itself failing (report any of these the same as
 an unfixed lint finding), any MCP server whose command didn't resolve (list
-each as `<name> → <command> (not present on this machine)` alongside the other
+each as `<name> command unavailable on this machine`, without its local path,
+alongside the other
 unresolved findings), and any Phase 2.6 `install failed` or `remove failed`
 line — both are distinct from a recorded decline (`skipInstall`/`keepLocal`,
 reported in the deviations line above, not here) and must stay visible until
@@ -1166,6 +1178,7 @@ machines:
 ```
 
 ```bash
+repo="${AGENTS_REPO:-$HOME/.agents}"
 command -v yq >/dev/null 2>&1 || { echo "yq not found — install it to use Phase 5 (push)."; exit 1; }
 yq -r '.machines[].host' "$repo/machine.yml"
 ```

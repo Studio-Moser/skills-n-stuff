@@ -110,14 +110,10 @@ Extract:
 
 ### 0.5 Search Memory (if configured)
 
-If `memory.connector` is set in `pulse-config.yaml` (not `null`), look for MCP tools whose names contain that prefix (e.g., `shelby` matches `mcp__shelby-memory__*`). If matching tools are available, search for prior weekly strategist decisions and overnight worker results from previous sessions:
-
-```
-search_thoughts(query="weekly-strategist {project_id}", limit=10)
-search_thoughts(query="{project_id}-daily-research", limit=20)
-```
-
-If `memory.connector: null` or no matching tools are found, skip this phase.
+If `memory.connector` is set in `pulse-config.yaml` (not `null`), define recall
+intents for prior weekly decisions and recent daily-research outcomes. Attach them
+to each Phase 2 Harness request. Product Pulse does not discover or call a memory
+provider; when Harness returns no enrichment, continue from repository reports.
 
 ### 0.6 Build Context Package
 
@@ -144,6 +140,16 @@ context:
   mode: fresh
   state: {selected role, full context package, last 7 daily-report patterns, previous weekly direction, configured sources, and current date}
   files: [{repository-relative research context and accepted daily report paths}]
+  memory:
+    enabled: {memory.connector is not null}
+    recall:
+      - purpose: Recover prior weekly strategy decisions
+        query: Weekly strategist decisions for {project_id}
+        limit: 10
+      - purpose: Recover recent daily-research outcomes
+        query: Daily research outcomes for {project_id}
+        limit: 20
+    capture: []
 authority:
   working_directory: {absolute primary repository root}
   allowed_paths: [{read-only paths named in context.files}]
@@ -243,6 +249,15 @@ context:
   mode: fresh
   state: {accepted analyst briefs, accepted adjudications, excluded unresolved claims, last 7 daily reports, previous weekly direction, product context, configured repos, and corroboration notes}
   files: [{repository-relative accepted daily reports and prior strategy brief}]
+  memory:
+    enabled: {memory.connector is not null}
+    recall: []
+    capture:
+      - when: accepted
+        type: decision
+        summary: Weekly strategy W{NN}: {theme in fewer than 80 characters}
+        content: {proven theme, exactly three priorities, and key decisions}
+        topics: [weekly-strategist, {project_id}-research, {project_id}, strategy]
 authority:
   working_directory: {absolute primary repository root}
   allowed_paths: [{read-only paths named in context.files}]
@@ -367,21 +382,12 @@ S-sized Ideas that could be fast wins if capacity allows.
 
 ## Phase 5: Persist
 
-### 5.1 Save to memory (if configured)
+### 5.1 Confirm optional memory enrichment
 
-If `memory.connector` is set, capture the brief summary. Tool names match the connector prefix:
-
-```
-capture_thought({
-  content: "{full weekly brief summary with priorities, theme, and key decisions}",
-  summary: "Weekly strategy W{NN}: {theme in <80 chars}",
-  type: "decision",
-  topics: ["weekly-strategist", "{project_id}-research", "{project_id}", "strategy"],
-  source: "weekly-strategist-{YYYY}-W{NN}",
-  project: "{project_id}",
-  metadata: { week: "W{NN}", year: "{YYYY}", theme: "{theme}", priorities: ["{p1}","{p2}","{p3}"] }
-})
-```
+The Phase 3 Harness request carries the weekly capture intent. After Product Pulse
+reproduces its proof, retain any returned Harness memory identifiers in the run
+summary. If memory is disabled or unavailable, continue with the brief and leave
+those optional identifiers empty; do not call a provider directly.
 
 ### 5.2 Branch + commit + PR (always)
 

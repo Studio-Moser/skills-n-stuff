@@ -17,7 +17,6 @@ claude|output-styles|claude/output-styles
 claude|CLAUDE.md|claude/CLAUDE.md
 claude|settings.json|claude/settings.json
 claude|statusline-command.sh|claude/statusline-command.sh
-claude|mcp.json|claude/mcp.json
 config|studio-moser|config/studio-moser
 codex|AGENTS.md|codex/AGENTS.md"
 

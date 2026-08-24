@@ -17,6 +17,28 @@ The plugin is public and generic; the data is yours.
   other machines.
 - **`/harness:model-rubric`** — create or refresh your user-global model-routing
   rubric at `${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml`.
+- **`/harness:execute`** — resolve a semantic route and run one bounded request
+  with explicit authority, context, and verification.
+- **`/harness:review`** — independently review a fixed target, reproduce its
+  checks, and return evidence without changing the target.
+- **`/harness:computer-use`** — operate a local app, browser, simulator, or other
+  screenshot-capable UI with explicit capability and proof.
+
+## Migrating from Machine
+
+Migrate in this order on every machine so there is never a gap in control-plane
+ownership:
+
+1. Install Harness: `/plugin install harness@studio-moser`.
+2. Run `/harness:setup`, then `/harness:sync`. Confirm shared settings contain
+   `"harness@studio-moser": true` and that the sync reports a clean remote SHA.
+3. Only after Harness is enabled and verified, remove the retired entry and plugin:
+   `/plugin uninstall machine@studio-moser`. Sync again so no shared
+   `machine@studio-moser` setting remains.
+4. Restart active agent sessions or reload plugins, then repeat on the next machine.
+
+Product Pulse and PM depend on Harness for provider-neutral execution and review;
+install or migrate Harness before running either consumer.
 
 ## Universal project instructions
 
@@ -91,12 +113,15 @@ and confirms a remote is private before the first push.
 | | |
 |---|---|
 | `scripts/link-plan.sh [repo]` | read-only drift report; exit 1 if any link needs work |
+| `scripts/reconcile_shared_settings.py [--check] <settings.json> [...]` | enable Harness and remove the retired Machine setting atomically |
+| `scripts/mcp-manifest.sh <runtime-mcp.json> <mcp.manifest>` | generate or validate the names-only portable MCP inventory |
 | `scripts/stamp-baseline.sh <target> [body]` | idempotently stamp the Harness project block; defaults to the bundled template |
 | `scripts/portability-lint.sh [repo]` | fail on machine-specific absolute paths |
 | `scripts/rubric-path.sh [--check]` | resolve the rubric path / report `set`\|`unset` |
 | `scripts/fetch-model-data.sh` | current model cost + intelligence as TSV (exit 3 = no API key) |
 | `scripts/skills-reconcile.sh <repo>` | read-only diff of `skills.manifest` vs. reality (reads `npx skills list -g --json` on stdin) |
 | `scripts/skills-manifest.sh <repo>` | regenerate `skills.manifest` and the `.gitignore` block from reality (same stdin) |
+| `scripts/sync-finalize.sh <repo> <message>` | stage, scan, commit, pull, push, and prove a clean remote SHA once |
 
 ## Tests
 

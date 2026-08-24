@@ -60,24 +60,25 @@
 - Local only: `${TMPDIR:-/tmp}/studio-harness-eval/baseline-runs/`
 
 **Interfaces:**
-- Consumes: current `plugins/machine`, `plugins/pm`, `plugins/product-pulse`, `studio-baseline`, and `/Users/timmoser/.agents` state.
+- Consumes: current `plugins/machine`, `plugins/pm`, `plugins/product-pulse`, `studio-baseline`, and `$HOME/.agents` state.
 - Produces: immutable baseline snapshot, official-schema eval cases `eval_id`, `prompt`, `expected_output`, and baseline metrics used unchanged in Task 9.
 
 - [ ] **Step 1: Record the fixed baseline revisions and snapshot only the files under evaluation**
 
 ```bash
 EVAL_ROOT="${TMPDIR:-/tmp}/studio-harness-eval"
+agents_repo="${AGENTS_REPO:-$HOME/.agents}"
 mkdir -p "$EVAL_ROOT/baseline-snapshot" "$EVAL_ROOT/baseline-runs"
 git rev-parse HEAD > "$EVAL_ROOT/baseline-snapshot/skills-n-stuff.commit"
-git -C /Users/timmoser/.agents rev-parse HEAD > "$EVAL_ROOT/baseline-snapshot/agents.commit"
+git -C "$agents_repo" rev-parse HEAD > "$EVAL_ROOT/baseline-snapshot/agents.commit"
 cp -R plugins/machine plugins/pm plugins/product-pulse studio-baseline \
   "$EVAL_ROOT/baseline-snapshot/"
-cp -R /Users/timmoser/.agents/claude /Users/timmoser/.agents/codex \
-  /Users/timmoser/.agents/README.md /Users/timmoser/.agents/skills.manifest \
+cp -R "$agents_repo/claude" "$agents_repo/codex" \
+  "$agents_repo/README.md" "$agents_repo/skills.manifest" \
   "$EVAL_ROOT/baseline-snapshot/agents/"
 ```
 
-Expected: both revision files contain 40-character commit IDs. The snapshot excludes the developer-resolved rubric at `/Users/timmoser/.agents/config/studio-moser/model-rubric.yml`, credentials, `.skill-lock.json`, and Shelby data. It retains versioned public rubric templates and rubric-handling source files because they are part of the copied Machine and Studio Baseline sources under evaluation.
+Expected: both revision files contain 40-character commit IDs. The snapshot excludes the developer-resolved rubric at `$HOME/.agents/config/studio-moser/model-rubric.yml`, credentials, `.skill-lock.json`, and Shelby data. It retains versioned public rubric templates and rubric-handling source files because they are part of the copied Machine and Studio Baseline sources under evaluation.
 
 - [ ] **Step 2: Make Bats available without changing product dependencies**
 
@@ -116,7 +117,7 @@ Create `docs/superpowers/evals/harness/evals.json` with these stable IDs and obs
 
 - [ ] **Step 5: Run old-plugin and no-skill baselines with the official skill-creator workflow**
 
-Use the installed official `skill-creator` at `/Users/timmoser/.claude/plugins/marketplaces/claude-plugins-official/plugins/skill-creator/skills/skill-creator/`. For every eval, launch the frozen old-plugin run and a no-skill run in the same turn, save `outputs/`, `transcript.md`, `timing.json`, and `grading.json` below `$EVAL_ROOT/baseline-runs/<eval-id>/{old,no-skill}/`, and grade with `agents/grader.md`. Do not invoke `/skill-test`.
+Use the installed official `skill-creator` at `$HOME/.claude/plugins/marketplaces/claude-plugins-official/plugins/skill-creator/skills/skill-creator/`. For every eval, launch the frozen old-plugin run and a no-skill run in the same turn, save `outputs/`, `transcript.md`, `timing.json`, and `grading.json` below `$EVAL_ROOT/baseline-runs/<eval-id>/{old,no-skill}/`, and grade with `agents/grader.md`. Do not invoke `/skill-test`.
 
 Expected: eight old runs and eight no-skill runs have artifacts, timing, token counts when available, and graded assertions.
 
@@ -515,12 +516,12 @@ git commit -m "refactor: subsume studio baseline into harness"
 ### Task 8: Migrate the Private Agents Repository as a Separate Change
 
 **Files:**
-- Modify: `/Users/timmoser/.agents/README.md`
-- Modify: `/Users/timmoser/.agents/claude/CLAUDE.md`
-- Regenerate: `/Users/timmoser/.agents/codex/AGENTS.md`
-- Inspect only unless sync changes it: `/Users/timmoser/.agents/skills.manifest`
-- Preserve: `/Users/timmoser/.agents/config/studio-moser/model-rubric.yml`
-- Preserve ignored/untracked: `/Users/timmoser/.agents/.skill-lock.json`
+- Modify: `$HOME/.agents/README.md`
+- Modify: `$HOME/.agents/claude/CLAUDE.md`
+- Regenerate: `$HOME/.agents/codex/AGENTS.md`
+- Inspect only unless sync changes it: `$HOME/.agents/skills.manifest`
+- Preserve: `$HOME/.agents/config/studio-moser/model-rubric.yml`
+- Preserve ignored/untracked: `$HOME/.agents/.skill-lock.json`
 
 **Interfaces:**
 - Consumes: public Harness plugin from Tasks 2–7 and `render-codex-agents.sh`.
@@ -529,8 +530,9 @@ git commit -m "refactor: subsume studio baseline into harness"
 - [ ] **Step 1: Create an isolated branch without discarding existing private changes**
 
 ```bash
-git -C /Users/timmoser/.agents status --short
-git -C /Users/timmoser/.agents switch -c feature/harness-contract
+agents_repo="${AGENTS_REPO:-$HOME/.agents}"
+git -C "$agents_repo" status --short
+git -C "$agents_repo" switch -c feature/harness-contract
 ```
 
 Expected: pre-existing changes are identified and preserved; if that branch exists, use its existing worktree rather than overwriting it.
@@ -540,7 +542,7 @@ Expected: pre-existing changes are identified and preserved; if that branch exis
 ```bash
 python3 - <<'PY'
 from pathlib import Path
-root = Path('/Users/timmoser/.agents')
+root = Path.home() / '.agents'
 files = [root/'README.md', root/'claude/CLAUDE.md', root/'codex/AGENTS.md', root/'skills.manifest']
 hits = [(str(p), n) for p in files for n in ('/machine:', 'machine:sync', 'machine:model-rubric') if n in p.read_text()]
 assert not hits, hits
@@ -556,16 +558,17 @@ Invoke `/harness:sync` from the public plugin checkout. Accept changes to shared
 
 - [ ] **Step 4: Regenerate Codex instructions from the canonical Claude sources**
 
-Run the relocated `plugins/harness/scripts/render-codex-agents.sh` with the same arguments documented by `harness:sync`, targeting `/Users/timmoser/.agents/codex/AGENTS.md`.
+Run the relocated `plugins/harness/scripts/render-codex-agents.sh` with the same arguments documented by `harness:sync`, targeting `$HOME/.agents/codex/AGENTS.md`.
 
 Expected: generated header names `harness:sync`; House Style and personal Claude instructions remain represented once.
 
 - [ ] **Step 5: Verify the private repository boundary and diff**
 
 ```bash
-git -C /Users/timmoser/.agents diff --check
-git -C /Users/timmoser/.agents status --short
-git -C /Users/timmoser/.agents ls-files .skill-lock.json
+agents_repo="${AGENTS_REPO:-$HOME/.agents}"
+git -C "$agents_repo" diff --check
+git -C "$agents_repo" status --short
+git -C "$agents_repo" ls-files .skill-lock.json
 ```
 
 Expected: `diff --check` passes; `.skill-lock.json` prints nothing; the rubric remains tracked only in this private repository; no unrelated files changed.
@@ -573,9 +576,10 @@ Expected: `diff --check` passes; `.skill-lock.json` prints nothing; the rubric r
 - [ ] **Step 6: Commit and push the separate private change**
 
 ```bash
-git -C /Users/timmoser/.agents add README.md claude/CLAUDE.md codex/AGENTS.md skills.manifest
-git -C /Users/timmoser/.agents commit -m "feat: adopt the harness plugin"
-git -C /Users/timmoser/.agents push -u origin feature/harness-contract
+agents_repo="${AGENTS_REPO:-$HOME/.agents}"
+git -C "$agents_repo" add README.md claude/CLAUDE.md codex/AGENTS.md skills.manifest
+git -C "$agents_repo" commit -m "feat: adopt the harness plugin"
+git -C "$agents_repo" push -u origin feature/harness-contract
 ```
 
 Expected: one agents-repo commit and branch; do not include `.skill-lock.json` or transient evidence.
@@ -688,7 +692,8 @@ gh pr create --base main --head feature/harness-contract \
   --title "Create the Harness control-plane plugin" \
   --body-file docs/superpowers/specs/2026-08-23-harness-plugin-design.md
 
-git -C /Users/timmoser/.agents push -u origin feature/harness-contract
+agents_repo="${AGENTS_REPO:-$HOME/.agents}"
+git -C "$agents_repo" push -u origin feature/harness-contract
 gh pr create --repo Studio-Moser/agents --base main --head feature/harness-contract \
   --title "Adopt the Harness plugin" \
   --body "Migrates the private resolved agent configuration from Machine to Harness after the public control-plane change."

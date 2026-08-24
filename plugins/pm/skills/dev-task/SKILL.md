@@ -23,7 +23,10 @@ gates below.
 
 ## 1. Frame
 
-- If a memory MCP is connected, recall relevant project context. Otherwise continue.
+- If project memory is enabled, define optional recall intent for relevant constraints,
+  prior decisions, and known failure modes. Carry that intent in the Phase 4 Harness
+  Request; PM never discovers or calls a provider. Continue from repository state
+  when Harness returns no enrichment.
 - Read the repository's `CLAUDE.md` or `AGENTS.md`.
 - Load `references/work-readiness.md`. It is the source of truth for whether the
   delivery slice is assignable and for the `Outcome`, `Blockers`, `Testing Seam`, and
@@ -71,6 +74,10 @@ context:
   mode: fresh
   state: {approved plan, change class, current Proof, and repository state}
   files: [{repository-relative implementation and test paths}]
+  memory:
+    enabled: {true when project memory is configured; otherwise false}
+    recall: Relevant project constraints, decisions, and known failure modes for this bounded task
+    capture: []
 authority:
   working_directory: {absolute repository root or approved worktree}
   allowed_paths: [{paths approved by the plan}]
@@ -114,6 +121,11 @@ context:
   mode: fresh
   state: {approved requirements and current Testing Seam Proof}
   files: [{changed and review-relevant repository paths}]
+  memory:
+    enabled: {true when project memory is configured; otherwise false}
+    recall: Prior review-sensitive decisions and known regressions for this fixed target
+    capture:
+      - Reusable project learning only after the fixed target has proven evidence
 authority:
   working_directory: {absolute repository root or worktree}
   allowed_paths: [{read-only review scope}]
@@ -167,7 +179,8 @@ Open the PR per pm:house-rules with What, Why, and Testing, then share the URL.
 Summarize what shipped and what stayed out of scope. Use
 superpowers:finishing-a-development-branch for the merge/PR/cleanup choice. If a PM
 tracker is configured, offer to update the item. Save reusable project learning when a
-memory MCP is available.
+Harness returns accepted post-proof memory identifiers; otherwise continue without
+memory enrichment.
 
 ## Stop conditions
 

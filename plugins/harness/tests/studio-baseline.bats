@@ -72,7 +72,10 @@ for name in filter(None, tracked):
     relative = Path(name)
     if relative.parts[:1] == (".superpowers",) or relative.parts[:2] == ("docs", "superpowers"):
         continue
-    text = (root / relative).read_text(errors="ignore")
+    path = root / relative
+    if not path.is_file():
+        continue
+    text = path.read_text(errors="ignore")
     for token in legacy_tokens:
         if token in text:
             hits.append(f"{relative}: {token}")

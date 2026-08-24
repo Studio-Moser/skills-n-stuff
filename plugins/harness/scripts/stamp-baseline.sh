@@ -22,7 +22,25 @@ if [ ! -s "$body_file" ]; then
   exit 2
 fi
 
-touch "$target"
+target_parent_input="$(dirname "$target")"
+target_name="$(basename "$target")"
+if [ ! -d "$target_parent_input" ]; then
+  echo "stamp-baseline: target parent '$target_parent_input' is missing" >&2
+  exit 2
+fi
+target_parent="$(cd "$target_parent_input" && pwd -P)"
+target="$target_parent/$target_name"
+if [ -L "$target" ]; then
+  echo "stamp-baseline: target '$target' is a symlink; refusing to stamp" >&2
+  exit 2
+fi
+if [ -e "$target" ] && [ ! -f "$target" ]; then
+  echo "stamp-baseline: target '$target' is not a regular file" >&2
+  exit 2
+fi
+
+tmp="$(mktemp "$target_parent/.${target_name}.tmp.XXXXXX")"
+trap 'rm -f "$tmp"' EXIT HUP INT TERM
 
 source_start=""
 source_end=""
@@ -41,13 +59,18 @@ if [ -n "$source_start" ]; then
     $0 == source_s { print output_s; printf "%s", body; print output_e; skip = 1; next }
     $0 == source_e { skip = 0; next }
     !skip   { print }
-  ' "$target" > "$target.tmp"
-  mv "$target.tmp" "$target"
+  ' "$target" > "$tmp"
 else
   {
-    [ -s "$target" ] && printf '\n'
+    if [ -s "$target" ]; then
+      cat "$target"
+      printf '\n'
+    fi
     printf '%s\n' "$start"
     cat "$body_file"
     printf '%s\n' "$end"
-  } >> "$target"
+  } > "$tmp"
 fi
+
+mv "$tmp" "$target"
+trap - EXIT HUP INT TERM

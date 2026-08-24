@@ -16,6 +16,13 @@ changing facts, and search prior decisions before routing or architectural
 choices. Capture only durable decisions and non-obvious findings in the resolved
 project scope.
 
+Consumers express optional domain memory behavior only through
+`context.memory`. Harness translates each recall intent after resolving the
+canonical project; consumers never discover or call Shelby tools. A capture
+intent runs only after the accepting workflow has reproduced proof and the
+Harness Result has `evidence.outcome: proven`. Never persist a worker claim,
+failed attempt, unproven draft, secret, or unbounded log.
+
 For substantial, multi-phase work where recovery or observability is useful:
 
 1. create a plan,
@@ -35,7 +42,7 @@ do not create a competing memory database. Preserve the same routing, authority,
 verification, and result contracts, and do not widen permissions or silently
 change route.
 
-The missing Shelby is not blocking. State the missing enrichment only when it
+The missing Shelby does not block execution. State the missing enrichment only when it
 materially affects continuity, and leave optional Shelby identifiers empty.
 Never copy Shelby state, secrets, or run logs into repository files. A durable
 fact belongs in repository documentation only when it is independently

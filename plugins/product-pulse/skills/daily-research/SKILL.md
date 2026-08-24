@@ -97,11 +97,15 @@ If no weekly brief exists, all findings are treated as potentially relevant (no 
 
 ### 0.4 Context Recovery (if memory configured)
 
-If `memory.connector` is set, search for prior daily research findings (last 7 days) to avoid duplicates.
+If `memory.connector` is set, define a recall intent for prior daily findings from
+the last 7 days. Attach it to the Phase 2 Harness requests; Product Pulse does not
+discover or call a memory provider. If Harness returns no enrichment, continue from
+recent report files.
 
 ### 0.5 Build Dedup List
 
-From memory and recent reports, collect finding URLs and summaries. A finding is a duplicate if:
+From recent reports and any bounded context Harness returns for the recall intent,
+collect finding URLs and summaries. A finding is a duplicate if:
 - Same URL as a previous finding, OR
 - 3+ shared significant keywords with a previous finding in the same domain
 
@@ -148,6 +152,13 @@ context:
   mode: fresh
   state: {condensed product context, domain name, ranked sources and 3-5 rotated search terms, every Always Check item and search term, dedup list, and weekly strategic direction}
   files: [{repository-relative research-context.md, research-sources.yaml, and recent report paths}]
+  memory:
+    enabled: {memory.connector is not null}
+    recall:
+      - purpose: Avoid duplicating prior daily research from the last 7 days
+        query: Daily research findings for {project_id} in the last 7 days
+        limit: 20
+    capture: []
 authority:
   working_directory: {absolute primary repository root}
   allowed_paths: [{read-only paths named in context.files}]
@@ -164,9 +175,10 @@ constraints:
   - |
     Assess source credibility from authority, directness, corroboration, publication or
     update date, and whether the claim is still current. Prefer primary sources. Mark
-    uncertainty and never strengthen a source claim. Use the supplied dedup list to
-    exclude the same URL or a same-domain finding with 3 or more shared significant
-    keywords. Report checked sources and search terms even when no finding qualifies.
+    uncertainty and never strengthen a source claim. Use the supplied dedup list and
+    any Harness-provided recalled context to exclude the same URL or a same-domain
+    finding with 3 or more shared significant keywords. Report checked sources and
+    search terms even when no finding qualifies.
   - |
     Tag a qualifying watch-item finding as **ALWAYS-CHECK HIT** in its title and set
     impact to at least Medium. A hit must satisfy the supplied hit definition; do not
@@ -199,6 +211,15 @@ context:
   mode: fresh
   state: {accepted domain findings, weekly strategy, product context, Always Check definitions, and source-check records}
   files: [{repository-relative recent report paths used for deduplication and strategy}]
+  memory:
+    enabled: {memory.connector is not null}
+    recall: []
+    capture:
+      - when: accepted
+        type: note
+        summary: Daily research {YYYY-MM-DD}: {N} findings across {M} domains
+        content: {proven finding summary, action items, and source-performance update}
+        topics: [product-pulse-daily-research, {project_id}-research]
 authority:
   working_directory: {absolute primary repository root}
   allowed_paths: [{read-only paths named in context.files}]
@@ -315,29 +336,19 @@ Write to `{week_dir}/{today}-daily-research.md`. Structure:
 
 ### Update Source Quality
 
-For each source checked, update quality tracking in memory (hit/miss ratio).
+Include each checked source's hit/miss result in the Phase 3 capture intent so
+Harness can update optional project memory after the draft is proven.
 
 ---
 
 ## Phase 5: Persist & Commit
 
-### 5.1 Save to memory (if configured)
+### 5.1 Confirm optional memory enrichment
 
-If `memory.connector` is set, capture a summary of today's findings. Tool names match the connector prefix:
-
-```
-capture_thought({
-  content: "{summary of findings and domains scanned}",
-  summary: "Daily research {YYYY-MM-DD}: {N} findings across {M} domains",
-  type: "note",
-  topics: ["product-pulse-daily-research", "{project_id}-research"],
-  source: "daily-research-{YYYY-MM-DD}",
-  project: "{project_id}",
-  metadata: { date: "{YYYY-MM-DD}", domains: {M}, findings: {N}, action_items: {K} }
-})
-```
-
-If `memory.connector: null` or no matching tools are found, skip this phase.
+The Phase 3 Harness request carries the domain capture intent. After Product Pulse
+reproduces its proof, retain any returned Harness memory identifiers in the run
+summary. If memory is disabled or unavailable, continue with the report and leave
+those optional identifiers empty; do not call a provider directly.
 
 ### 5.2 Branch + commit + PR (always)
 

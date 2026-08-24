@@ -37,6 +37,13 @@ enforce returns `status: blocked` before dispatch.
 Use Shelby only when callable tool names prove it is available. Resolve one
 canonical project scope first; otherwise follow the repository/temp fallback.
 
+When `context.memory.enabled` is true, translate each consumer-owned recall intent
+inside that canonical scope before dispatch and add only the bounded result to the
+worker packet. Consumers never supply or invoke provider tools. Hold every capture
+intent until the accepting workflow has reproduced the verification seam and the
+result has `evidence.outcome: proven`; optional capture failure leaves the execution
+result intact and the unavailable Shelby identifiers empty.
+
 Every terminal path returns the complete HarnessResult, including a block before
 dispatch or a failed attempt; prose is not a substitute for the result. Preserve
 all fields and leave unavailable values empty.

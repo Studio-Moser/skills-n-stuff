@@ -47,6 +47,11 @@ invalidate the proof and reopen review.
 Use Shelby only when callable tool names prove it is available, after resolving
 canonical project scope. Its absence does not block review.
 
+When `context.memory.enabled` is true, resolve each recall intent within that scope
+before dispatch. Hold every capture intent until the parent reproduces the fixed-
+target proof and the result has `evidence.outcome: proven`; optional capture failure
+does not change the review status. Consumers do not discover or invoke provider tools.
+
 ## Resolve and dispatch
 
 Resolve the route and matching model row through Harness:

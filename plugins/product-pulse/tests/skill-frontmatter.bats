@@ -4,7 +4,7 @@ setup() {
   REPO="$(cd "${BATS_TEST_DIRNAME}/../../.." && pwd)"
 }
 
-@test "Product Pulse skill and analyst frontmatter is strictly valid" {
+@test "Product Pulse skill frontmatter is strictly valid" {
   run python3 - "$REPO" <<'PY'
 from pathlib import Path
 import re
@@ -17,7 +17,7 @@ except ImportError:
     raise SystemExit(2)
 
 root = Path(sys.argv[1]) / "plugins" / "product-pulse"
-paths = sorted((root / "skills").glob("*/SKILL.md")) + sorted((root / "agents").glob("*.md"))
+paths = sorted((root / "skills").glob("*/SKILL.md"))
 failures = []
 for path in paths:
     match = re.match(r"^---\n(.*?)\n---\n", path.read_text(), re.S)

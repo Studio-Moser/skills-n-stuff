@@ -2,7 +2,14 @@
 
 A strategic intelligence plugin that keeps your finger on the pulse of your market with automated research, weekly strategy briefs, and deep-dive analysis.
 
-> **For project management** (triage, sprint execution, issue tracking), install the `pm` plugin: `/plugin install pm@studio-moser`
+> **Required control plane:** install and configure Harness first:
+> `/plugin install harness@studio-moser`, then `/harness:setup`. Product Pulse
+> sends routing, execution, review, and optional memory intent through Harness.
+>
+> **For project management** (triage, sprint execution, issue tracking), install
+> Product Pulse and then the `pm` plugin:
+> `/plugin install product-pulse@studio-moser` followed by
+> `/plugin install pm@studio-moser`.
 
 ## What It Does
 
@@ -105,8 +112,8 @@ default_branch: main             # branch PRs target; default: main
 auto_merge: true                 # auto-squash-merge research PRs if mergeable; default: true
 
 memory:
-  connector: shelby              # MCP tool-name prefix (e.g. shelby matches mcp__shelby-memory__*)
-                                 # set to null to disable memory ops; default: shelby
+  connector: shelby              # optional provider handled through Harness canonical scope
+                                 # set to null to disable memory enrichment; default: shelby
 
 backlog:
   active: planning/todos.md      # live work queue (relative to primary repo root); default shown
@@ -244,7 +251,11 @@ planning/
 
 ## Memory
 
-If `memory.connector` is configured in `pulse-config.yaml` (default: `shelby`), Product Pulse saves findings and strategic decisions to a memory MCP server so context carries across sessions. The plugin looks for MCP tools whose names match the configured prefix (e.g., `shelby` matches `mcp__shelby-memory__*`). Set `memory.connector: null` to disable memory ops entirely.
+If `memory.connector` is configured in `pulse-config.yaml` (default: `shelby`),
+Product Pulse includes optional recall and capture intent in its Harness requests.
+Harness resolves canonical project scope and any available provider; Product Pulse
+never calls the provider directly. Set `memory.connector: null` to disable memory
+enrichment entirely. Provider absence does not block file-based research.
 
 ## Migrating from 0.1.0
 

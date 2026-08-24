@@ -128,7 +128,8 @@
         "product",
         "growth",
         "deep-dive"
-      ]
+      ],
+      "version": "0.5.0"
     },
     {
       "name": "pm",
@@ -154,7 +155,7 @@
         "triage",
         "sprint"
       ],
-      "version": "0.18.0"
+      "version": "0.19.0"
     },
     {
       "name": "harness",
@@ -180,7 +181,7 @@
         "sync",
         "agent-config"
       ],
-      "version": "0.5.0"
+      "version": "0.6.0"
     },
     {
       "name": "site-capture",

@@ -72,6 +72,10 @@ assert parse_schema(request_schema) == [
     ("context.mode", "fresh | fork | hybrid"),
     ("context.state", "concise current state"),
     ("context.files", "relevant repository-relative paths"),
+    ("context.memory", None),
+    ("context.memory.enabled", "true | false"),
+    ("context.memory.recall", "optional domain-owned lookup intents"),
+    ("context.memory.capture", "optional durable facts to record only after acceptance"),
     ("authority", None),
     ("authority.working_directory", "repository root or worktree"),
     ("authority.allowed_paths", "explicit write/read scope when narrower than the repository"),
@@ -132,7 +136,7 @@ require_clause(
     routing,
     "`routing.taste_min` is an input to rubric setup, not a runtime route value.",
 )
-require_clause(shelby, "The missing Shelby is not blocking.")
+require_clause(shelby, "The missing Shelby does not block execution.")
 require_clause(
     routing,
     "`resolved`: the requested route and all required capabilities are available.",
