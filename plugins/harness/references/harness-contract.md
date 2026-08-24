@@ -4,6 +4,10 @@ Harness accepts one provider-neutral request and returns one evidence-bearing
 result. Consumers describe the work and its semantic altitude; Harness owns
 concrete routing and execution.
 
+The top-level orchestrator owns the user conversation, scope, approvals,
+delegation graph, and final acceptance decision. Each HarnessRequest describes
+one delegated operation.
+
 ## HarnessRequest
 
 Every request has these top-level fields:

@@ -4,6 +4,25 @@ Routing translates a consumer's semantic route into one explicit model, effort,
 provider, and executor. Only Harness reads the rubric or interprets executor
 metadata.
 
+## Top-level orchestration
+
+`orchestrator` selects the preferred model for the top-level session; it is not
+a delegated HarnessRequest route. A running agent never replaces itself to
+satisfy `routing.orchestrator`.
+
+- `routing.orchestrator` is used when a host starts a top-level session and
+  supports explicit model selection.
+- If the host cannot switch the running model, report the preference as
+  advisory and continue resolving delegated routes.
+- The orchestrator retains context and delegates bounded work so expensive
+  judgment tokens do not absorb execution volume.
+- `routing.fallback` is optional and still requires caller authorization under
+  the existing typed fallback rules.
+
+`fallback` names an eligible general fallback but never authorizes an automatic
+fallback or escalation. Provider diversity is optional; a single reachable
+model-effort row may satisfy every required route.
+
 ## Semantic routes
 
 - `bulk`: clear-spec, mechanical, independently verifiable work.
