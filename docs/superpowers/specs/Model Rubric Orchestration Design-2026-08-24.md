@@ -1,7 +1,7 @@
 # Model Rubric Orchestration Design
 
-**Date:** 2026-08-24  
-**Status:** Proposed  
+**Date:** 2026-08-24
+**Status:** Proposed
 **Change class:** Feature
 
 ## Problem
