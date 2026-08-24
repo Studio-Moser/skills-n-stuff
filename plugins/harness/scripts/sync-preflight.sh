@@ -23,10 +23,18 @@ fi
 if [ -z "$merge_ref" ]; then
   merge_ref="refs/heads/$branch"
 fi
-git -C "$repo" remote get-url "$remote" >/dev/null 2>&1 || {
+fetch_urls="$(git -C "$repo" remote get-url --all "$remote" 2>/dev/null)" || {
   echo "SYNC_PREFLIGHT=failed: no upstream or $remote remote" >&2
   exit 1
 }
+push_urls="$(git -C "$repo" remote get-url --all --push "$remote" 2>/dev/null)" || {
+  echo "SYNC_PREFLIGHT=failed: could not resolve $remote push URL" >&2
+  exit 1
+}
+if [ "$fetch_urls" != "$push_urls" ] || [[ "$fetch_urls" == *$'\n'* ]]; then
+  echo "SYNC_PREFLIGHT=failed: distinct push URL is unsupported; make fetch and push endpoints identical, then rerun sync" >&2
+  exit 1
+fi
 
 query_remote_sha() {
   local line

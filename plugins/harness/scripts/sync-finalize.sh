@@ -14,6 +14,26 @@ repo="$(git -C "$repo" rev-parse --show-toplevel 2>/dev/null)" || {
 }
 [ -n "$message" ] || { echo "SYNC_STATE=failed: empty commit message" >&2; exit 2; }
 
+branch="$(git -C "$repo" branch --show-current)"
+[ -n "$branch" ] || { echo "SYNC_STATE=failed: detached HEAD cannot sync" >&2; exit 1; }
+
+remote="$(git -C "$repo" config --get "branch.$branch.remote" || true)"
+merge_ref="$(git -C "$repo" config --get "branch.$branch.merge" || true)"
+[ -n "$remote" ] || remote=origin
+[ -n "$merge_ref" ] || merge_ref="refs/heads/$branch"
+fetch_urls="$(git -C "$repo" remote get-url --all "$remote" 2>/dev/null)" || {
+  echo "SYNC_STATE=failed: no upstream or $remote remote" >&2
+  exit 1
+}
+push_urls="$(git -C "$repo" remote get-url --all --push "$remote" 2>/dev/null)" || {
+  echo "SYNC_STATE=failed: could not resolve $remote push URL" >&2
+  exit 1
+}
+if [ "$fetch_urls" != "$push_urls" ] || [[ "$fetch_urls" == *$'\n'* ]]; then
+  echo "SYNC_STATE=failed: distinct push URL is unsupported; make fetch and push endpoints identical, then rerun sync" >&2
+  exit 1
+fi
+
 git -C "$repo" add -A
 git -C "$repo" diff --cached --check
 "$scripts/portability-lint.sh" "$repo"
@@ -86,17 +106,6 @@ PY
 git -C "$repo" diff --cached --stat
 git -C "$repo" diff --cached --name-status
 
-branch="$(git -C "$repo" branch --show-current)"
-[ -n "$branch" ] || { echo "SYNC_STATE=failed: detached HEAD cannot sync" >&2; exit 1; }
-
-remote="$(git -C "$repo" config --get "branch.$branch.remote" || true)"
-merge_ref="$(git -C "$repo" config --get "branch.$branch.merge" || true)"
-[ -n "$remote" ] || remote=origin
-[ -n "$merge_ref" ] || merge_ref="refs/heads/$branch"
-git -C "$repo" remote get-url "$remote" >/dev/null 2>&1 || {
-  echo "SYNC_STATE=failed: no upstream or $remote remote" >&2
-  exit 1
-}
 git_dir="$(git -C "$repo" rev-parse --absolute-git-dir)"
 state_path="$git_dir/harness-sync-expected-remote"
 [ -f "$state_path" ] || {

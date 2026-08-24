@@ -212,6 +212,24 @@ EOF
   [ "$(git --git-dir="$REMOTE" rev-parse refs/heads/new-sync-branch)" = "$BASE_SHA" ]
 }
 
+@test "a distinct push URL is rejected before staging, committing, or pushing" {
+  push_remote="$BATS_TEST_TMPDIR/push-remote.git"
+  git init -q --bare "$push_remote"
+  git -C "$REPO" remote set-url --push origin "$push_remote"
+  before_local="$(git -C "$REPO" rev-parse HEAD)"
+  before_fetch="$(remote_head)"
+  printf 'portable change\n' > "$REPO/config.md"
+
+  run "$SCRIPT" "$REPO" "harness: sync distinct push endpoint"
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"distinct push URL"* ]] || return 1
+  [ "$(git -C "$REPO" rev-parse HEAD)" = "$before_local" ]
+  git -C "$REPO" diff --cached --quiet
+  [ "$(remote_head)" = "$before_fetch" ]
+  ! git --git-dir="$push_remote" show-ref --verify --quiet refs/heads/main
+}
+
 @test "remote movement after preflight stops before commit without pulling" {
   updater="$BATS_TEST_TMPDIR/updater"
   git clone -q "$REMOTE" "$updater"

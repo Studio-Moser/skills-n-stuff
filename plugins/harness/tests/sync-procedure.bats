@@ -227,3 +227,92 @@ PY
   [ "$status" -eq 0 ]
   [[ "$output" == *"MCP_STATE=1 ok"* ]] || return 1
 }
+
+@test "skills reconciliation rejects parseable stdout from a failed npx command" {
+  phase="$BATS_TEST_TMPDIR/skills-reconcile-phase.sh"
+  agents="$BATS_TEST_TMPDIR/agents"
+  harness="$BATS_TEST_TMPDIR/harness"
+  bin="$BATS_TEST_TMPDIR/bin"
+  reconcile_marker="$BATS_TEST_TMPDIR/reconcile-ran"
+  mkdir -p "$agents" "$harness/scripts" "$bin"
+
+  python3 - "$SKILL" "$phase" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+text = Path(sys.argv[1]).read_text().split(
+    "### 1. Read the manifest, compare to reality", 1
+)[1]
+match = re.search(r"```bash\n(.*?)\n```", text, re.DOTALL)
+assert match, "Phase 2.6 reconciliation bash block is missing"
+Path(sys.argv[2]).write_text(match.group(1) + "\n")
+PY
+
+  cat > "$bin/npx" <<'EOF'
+#!/usr/bin/env bash
+printf '[]\n'
+exit 23
+EOF
+  chmod +x "$bin/npx"
+  cat > "$harness/scripts/skills-reconcile.sh" <<'EOF'
+#!/usr/bin/env bash
+touch "$RECONCILE_MARKER"
+EOF
+  chmod +x "$harness/scripts/skills-reconcile.sh"
+
+  run env \
+    HOME="$BATS_TEST_TMPDIR/home" \
+    AGENTS_REPO="$agents" \
+    CLAUDE_PLUGIN_ROOT="$harness" \
+    RECONCILE_MARKER="$reconcile_marker" \
+    PATH="$bin:/usr/bin:/bin" \
+    /bin/bash "$phase"
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"SKILLS_STATE=failed"* ]] || return 1
+  [[ "$output" == *"exited non-zero"* ]] || return 1
+  [ ! -e "$reconcile_marker" ]
+}
+
+@test "manifest regeneration preserves the manifest when npx fails with parseable stdout" {
+  phase="$BATS_TEST_TMPDIR/skills-manifest-phase.sh"
+  agents="$BATS_TEST_TMPDIR/home/.agents"
+  bin="$BATS_TEST_TMPDIR/bin"
+  mkdir -p "$agents/skills/replacement" "$bin"
+  printf 'existing\tacme/existing\n' > "$agents/skills.manifest"
+  before="$(cat "$agents/skills.manifest")"
+
+  python3 - "$SKILL" "$phase" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+text = Path(sys.argv[1]).read_text().split(
+    "### 3. Regenerate — only after step 2 has run", 1
+)[1]
+match = re.search(r"```bash\n(.*?)\n```", text, re.DOTALL)
+assert match, "Phase 2.6 manifest bash block is missing"
+block = match.group(1).replace(" <failed-name> <failed-name> ...", "")
+Path(sys.argv[2]).write_text(block + "\n")
+PY
+
+  cat > "$bin/npx" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' '[{"name":"replacement","source":"acme/replacement","path":"$agents/skills/replacement"}]'
+exit 23
+EOF
+  chmod +x "$bin/npx"
+
+  run env \
+    HOME="$BATS_TEST_TMPDIR/home" \
+    AGENTS_REPO="$agents" \
+    CLAUDE_PLUGIN_ROOT="$REPO/plugins/harness" \
+    PATH="$bin:/usr/bin:/bin" \
+    /bin/bash "$phase"
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"SKILLS_STATE=failed"* ]] || return 1
+  [[ "$output" == *"manifest not regenerated"* ]] || return 1
+  [ "$(cat "$agents/skills.manifest")" = "$before" ]
+}

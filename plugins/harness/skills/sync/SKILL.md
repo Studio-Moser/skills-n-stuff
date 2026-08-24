@@ -166,34 +166,27 @@ harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*
 
    This removes only `skillOverrides` from the shared file and merges it into
    live `settings.local.json`, preserving every other local key.
-3. Initialize `$repo` on `main` with `skills/`, `claude/`, `config/studio-moser/`,
-   and `codex/` as needed. Copy every present managed entry into its Phase 1 repo
-   path except runtime `mcp.json`; copy, do not move, so the originals remain
-   recoverable until verification. Generate the secret-free, names-only
-   `$repo/mcp.manifest` from the runtime file instead.
-   Do not adopt Codex `AGENTS.md` as a source: preserve any unique instruction in
-   `House Style.md` or `CLAUDE.md`, then let Phase 2.2 render the derived file.
-4. Keep local-only state out of Git: `claude/mcp.json`, `settings.local.json`, runtime project/session
-   stores, credentials, secret-bearing profiles, resolved machine paths, approvals,
-   temporary evidence, Shelby state, `.fleet-local.json`, and `.skill-lock.json`.
-5. Continue to Phase 1 and replace only verified originals with links; the backup
-   remains the recovery copy. Complete every later reconciliation and Phase 3's
-   portability rules before Phase 3.75 stages and synchronizes the full result.
-
-Before the first push in either branch, confirm the configured remote is private.
-For a newly adopted repository, ask for the exact remote URL only after the local
-repository is verified; never invent one. On authentication failure, stop rather
-than silently switching protocols. A local repository without a remote is still
-versioned, but Phase 4 must report that it is not synchronized elsewhere.
+3. Initialize an otherwise empty `$repo` on `main`. Do not copy any managed entry
+   into it yet.
+4. After the archive and duplicate inspection establish the intended loose source,
+   ask for the exact private remote URL and configure it as `origin`; never invent
+   one. Confirm the remote is private and its target branch is absent. If the branch
+   already exists, stop and use the existing-repository clone path instead. On
+   authentication failure, stop rather than silently switching protocols. A full
+   Sync cannot continue without a remote because preflight must bind the final push
+   before any repository content is adopted.
+5. **Continue to Phase 0.5**, not Phase 1. Do not copy, link, render, reconcile, or
+   otherwise write repository content until preflight reports ready.
 
 ---
 
 ## Phase 0.5: Ingest the remote before any reconciliation
 
-Run this on every normal sync after locating or cloning an existing repository,
-before Phase 1 can replace links or any later phase can write shared state. Do
-not run it in dry-run mode because a clean repository may be fetched and
-fast-forwarded.
+Run this exactly once on every full Sync after locating a normal repository,
+cloning an existing repository, or initializing an empty loose-adoption
+repository. It is the single join point before Phase 1 or any newly adopted
+content can write shared state. Do not run it in dry-run mode because a clean
+repository may be fetched and fast-forwarded.
 
 ```bash
 set -euo pipefail
@@ -213,6 +206,28 @@ does not exist yet is a valid first-push state.
 If the remote moves after this preflight, Phase 3.75 queries the actual remote
 again and stops before commit or push. It never pulls after the derived files
 and scans have run.
+
+---
+
+## Complete loose-config adoption after preflight
+
+Run this section only for the loose-configuration path after Phase 0.5 reports
+ready. Normal and cloned repositories skip directly to Phase 1.
+
+1. Create `skills/`, `claude/`, `config/studio-moser/`, and `codex/` under `$repo`
+   as needed. Copy every present managed entry into its Phase 1 repo path except
+   runtime `mcp.json`; copy, do not move, so the originals remain recoverable
+   until verification. Generate the secret-free, names-only `$repo/mcp.manifest`
+   from the runtime file instead. Do not adopt Codex `AGENTS.md` as a source:
+   preserve any unique instruction in `House Style.md` or `CLAUDE.md`, then let
+   Phase 2.2 render the derived file.
+2. Keep local-only state out of Git: `claude/mcp.json`, `settings.local.json`,
+   runtime project/session stores, credentials, secret-bearing profiles, resolved
+   machine paths, approvals, temporary evidence, Shelby state,
+   `.fleet-local.json`, and `.skill-lock.json`.
+3. Continue to Phase 1 and replace only verified originals with links; the backup
+   remains the recovery copy. Complete every later reconciliation and Phase 3's
+   portability rules before Phase 3.75 stages and synchronizes the full result.
 
 ---
 
@@ -814,20 +829,22 @@ first; step 3 only ever records reality as it now stands.
 ```bash
 repo="${AGENTS_REPO:-$HOME/.agents}"
 harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
-listing="$(npx skills list -g --json 2>/dev/null)"
-if [ -z "$listing" ] || ! printf '%s' "$listing" | python3 -c 'import json,sys; json.load(sys.stdin)' >/dev/null 2>&1; then
+if ! listing="$(npx skills list -g --json 2>/dev/null)"; then
+  echo "SKILLS_STATE=failed: npx skills list -g --json exited non-zero"
+elif [ -z "$listing" ] || ! printf '%s' "$listing" | python3 -c 'import json,sys; json.load(sys.stdin)' >/dev/null 2>&1; then
   echo "SKILLS_STATE=failed: npx skills list -g --json produced no parseable output"
 else
   printf '%s' "$listing" | "$harness/scripts/skills-reconcile.sh" "$repo"
 fi
 ```
 
-Checking `$listing` is valid JSON *before* piping it anywhere matters: `npx`
-being on `$PATH` doesn't mean the command succeeds — offline, a registry
-error, or a truncated pipe all leave `$listing` empty or garbage, and
-piping that straight into a script that calls `json.load` would traceback
-instead of failing cleanly. If `SKILLS_STATE=failed` printed, stop — do not
-proceed to step 2 or step 3 this run.
+Check the `npx` exit status before trusting its output, then check `$listing`
+is valid JSON before piping it anywhere. Parseable stdout from a nonzero
+command is still a failure; offline, a registry error, or a truncated pipe can
+also leave `$listing` empty or garbage. Piping any of those straight into a
+script that calls `json.load` could rewrite state or traceback instead of
+failing cleanly. If `SKILLS_STATE=failed` printed, stop — do not proceed to
+step 2 or step 3 this run.
 
 Otherwise, `skills-reconcile.sh` reads the committed `skills.manifest`
 (absent file → treated as empty — a first run, not an error) and
@@ -987,8 +1004,9 @@ this step is allowed to un-declare something.
 ```bash
 repo="${AGENTS_REPO:-$HOME/.agents}"
 harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
-listing="$(npx skills list -g --json 2>/dev/null)"
-if [ -z "$listing" ] || ! printf '%s' "$listing" | python3 -c 'import json,sys; json.load(sys.stdin)' >/dev/null 2>&1; then
+if ! listing="$(npx skills list -g --json 2>/dev/null)"; then
+  echo "SKILLS_STATE=failed: npx skills list -g --json exited non-zero — manifest not regenerated"
+elif [ -z "$listing" ] || ! printf '%s' "$listing" | python3 -c 'import json,sys; json.load(sys.stdin)' >/dev/null 2>&1; then
   echo "SKILLS_STATE=failed: npx skills list -g --json produced no parseable output — manifest not regenerated"
 else
   printf '%s' "$listing" | "$harness/scripts/skills-manifest.sh" "$repo" <failed-name> <failed-name> ...
@@ -1004,9 +1022,10 @@ this run → no trailing arguments.
 Deliberately a **fresh** `npx skills list -g --json` call, not anything
 captured in step 1 — installs and removals in step 2 changed reality since
 then, and regenerating from stale output would write back exactly the
-drift this phase exists to fix. Same JSON-validity guard as step 1, for the
-same reason: a bad `npx` call here must not traceback, and must not
-overwrite a good manifest with an empty one — `skills-manifest.sh` never
+drift this phase exists to fix. Same exit-status and JSON-validity guards as
+step 1, for the same reason: a bad `npx` call here — even one that emits
+parseable stdout — must not traceback or overwrite a good manifest.
+`skills-manifest.sh` never
 opens the manifest file for writing until its own JSON parse has already
 succeeded, so a failed fetch leaves the existing manifest untouched either
 way, but the shell-level check keeps the failure visible instead of a
