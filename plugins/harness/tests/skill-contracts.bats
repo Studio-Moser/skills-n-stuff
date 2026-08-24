@@ -210,6 +210,10 @@ for clause in (
     "no reachable model-effort row",
     "Opus remains eligible",
     "A running agent cannot replace itself",
+    "Benchmark efficiency applies only to delegated software implementation routes",
+    "User-owned trust and preferences govern orchestration, taste, exploration, and review; benchmark data is supporting evidence only",
+    "Validate both `provider` and `via` reachability for every routed row",
+    "block or rederive when either is unavailable",
 ):
     assert clause in normalized, f"model-rubric missing procedure: {clause}"
 

@@ -98,7 +98,8 @@ effort level. Define cost per successful task exactly as
 be checked. Preserve the benchmark source version and observation date. If
 DeepSWE is unavailable, record that and use provider evidence plus judgment.
 Rows are keyed by `(model, effort)` because effort can move agentic quality more
-than model tier.
+than model tier. Benchmark efficiency applies only to delegated software
+implementation routes.
 
 ## 3. Establish developer-specific inputs
 
@@ -122,13 +123,15 @@ problems explicitly; do not infer it from benchmark scores:
 6. **Working style:** decide whether latency matters for attended work and whether
    slow, high-quality rows are useful for unattended batches.
 
-Benchmark rank cannot override an explicit trust or taste preference for
-orchestration, review, or user-facing work. On an ordinary data refresh, keep
-capabilities, taste, trust, orchestration preference, working style, and billing
-semantics; update data-sourced axes and `reviewed:` without re-interviewing. On a
-Setup invocation, reconcile each CLI-backed capability with the supplied
-inventory. Preserve non-CLI facts, show additions/removals, and continue even
-when the existing rubric is otherwise current.
+User-owned trust and preferences govern orchestration, taste, exploration, and
+review; benchmark data is supporting evidence only. Do not treat an absent
+preference as permission for benchmark efficiency to choose those routes. On an
+ordinary data refresh, keep capabilities, taste, trust, orchestration preference,
+working style, and billing semantics; update data-sourced axes and `reviewed:`
+without re-interviewing. On a Setup invocation, reconcile each CLI-backed
+capability with the supplied inventory. Preserve non-CLI facts, show
+additions/removals, and continue even when the existing rubric is otherwise
+current.
 
 ## 4. Build or refresh the rubric
 
@@ -149,9 +152,9 @@ exists. Treat it only as a seed:
    actual sources used.
 
 For a Setup reconciliation, add/drop affected model rows and derive `routing`
-fresh whenever a CLI-backed capability changed. For an ordinary stale-data
-refresh, retain the reachable row set unless current evidence says a model was
-superseded.
+fresh whenever any provider or executor capability changed. For an ordinary
+stale-data refresh, retain the reachable row set unless current evidence says a
+model was superseded.
 
 The routing table uses exact `<model>@<effort>` values:
 
@@ -231,8 +234,9 @@ Expected: `set`. Report the path and the `reviewed:` date.
 
 Also verify that `seed: true`, `cost: null`, and `routing: {}` are absent. Reject
 a completed rubric when a required route is absent, a route lacks an exact row,
-a `via` executor is unavailable, a benchmark division is inconsistent beyond
-rounding, or no row is reachable. Optional unavailable routes are omitted. When
-present, `routing.taste` must name a reachable row at or above
-`routing.taste_min`. A Setup invocation reports `reconciled: true` even when the
-file did not change.
+a benchmark division is inconsistent beyond rounding, or no row is reachable.
+Validate both `provider` and `via` reachability for every routed row against the
+current capability inventory; block or rederive when either is unavailable.
+Optional unavailable routes are omitted. When present, `routing.taste` must name
+a reachable row at or above `routing.taste_min`. A Setup invocation reports
+`reconciled: true` even when the file did not change.
