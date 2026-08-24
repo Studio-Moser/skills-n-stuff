@@ -12,12 +12,12 @@ import sys
 
 root = Path(sys.argv[1]) / "plugins" / "product-pulse"
 literal_forbidden = (
-    "model-rubric.yml",
-    "model@effort",
-    "via:",
-    "codex-implementation",
-    "codex-review",
-    "codex-computer-use",
+    "model-" + "rubric.yml",
+    "model@" + "effort",
+    "via" + ":",
+    "codex-" + "implementation",
+    "codex-" + "review",
+    "codex-" + "computer-use",
     "command -v codex",
     "model-selection rubric",
     "cheap, capable model",

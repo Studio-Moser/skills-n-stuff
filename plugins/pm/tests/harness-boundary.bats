@@ -11,16 +11,16 @@ import sys
 
 root = Path(sys.argv[1]) / "plugins" / "pm"
 forbidden = [
-    "model-rubric.yml",
+    "model-" + "rubric.yml",
     "references/model-orchestration.md",
-    "via:",
-    "codex-implementation",
-    "codex-review",
-    "codex-computer-use",
+    "via" + ":",
+    "codex-" + "implementation",
+    "codex-" + "review",
+    "codex-" + "computer-use",
     "command -v codex",
     "routing.bulk",
     "routing.review",
-    "model@effort",
+    "model@" + "effort",
 ]
 hits = []
 for path in sorted(root.rglob("*")):
