@@ -3,7 +3,8 @@
 ## Fixed revisions and artifact boundary
 
 - Frozen old `skills-n-stuff`: `63f1c5bdf98561913961a74e38c422bf5b8513bd`
-- Candidate starting revision: `3deb5d7f4915de916fcc36d41999bac7f72129f0`
+- Evaluated candidate: commit `a68109e1c3501d72daff58a548836795cceffcc1`, tree
+  `8602f0b89f3d91ab99b6762332b48da4e55607ed`
 - Frozen `agents`: `a2c632cae74bad56121f18fd54b6f31bb1bae8cc`
 
 The immutable Task 1 snapshot remains at
@@ -16,10 +17,16 @@ This summary contains no raw transcript or personal route values.
 ## Method
 
 All eight Task 1 IDs, prompts, and expected outputs were preserved. Each final
-case ran current and frozen old with the same eval definition, plan-mode
-isolation, Claude Code `2.1.241`, and Claude Opus executor and grader. All 16
-executors exited successfully. The official grader, aggregator, static viewer,
-blind comparator, and post-hoc analyzer were used.
+case ran current and frozen old from isolated detached worktrees with the same
+eval definition, plan-mode isolation, Claude Code `2.1.241`, and Claude Opus
+executor and grader. The recorded provenance verifies the candidate commit and
+tree above, frozen-old commit `63f1c5bdf98561913961a74e38c422bf5b8513bd`
+and tree `b22308fcab29520223e3c35258883a56998540fc`, and clean tracked and
+untracked state before and after the run. Both tracked-diff digests equal the
+SHA-256 of empty input,
+`e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`.
+All 16 executors exited successfully. The official grader, aggregator, static
+viewer, blind comparator, and post-hoc analyzer were used.
 
 The initial compound assertions scored current `3/8` and old `4/8`. The analyzer
 found seven of eight nondiscriminating and showed that compound pass/fail erased
@@ -31,33 +38,45 @@ routing, authority, and proof assertions were added, then both sides were rerun.
 | Eval | Current | Frozen old |
 | --- | ---: | ---: |
 | `pm-cross-vendor-implementation` | 1/4 | 1/4 |
-| `fixed-target-independent-review` | 3/4 | 0/4 |
-| `product-pulse-fanout-synthesis` | 3/4 | 0/4 |
-| `standalone-computer-use` | 2/4 | 2/4 |
+| `fixed-target-independent-review` | 2/4 | 2/4 |
+| `product-pulse-fanout-synthesis` | 1/4 | 0/4 |
+| `standalone-computer-use` | 3/4 | 1/4 |
 | `missing-rubric` | 3/3 | 1/3 |
 | `missing-required-executor` | 3/3 | 2/3 |
-| `missing-shelby` | 2/4 | 2/4 |
-| `non-development-execution` | 2/4 | 2/4 |
-| **Total** | **19/30** | **10/30** |
+| `missing-shelby` | 2/4 | 1/4 |
+| `non-development-execution` | 1/4 | 3/4 |
+| **Raw assertion total** | **16/30** | **11/30** |
 
 | Official mean per eval | Current | Frozen old | Delta |
 | --- | ---: | ---: | ---: |
-| Assertion pass rate | 65.62% | 34.38% | +31.24 pp |
-| Total time, executor plus grader | 435.72 s | 345.18 s | +90.54 s |
-| Executor time only | 177.02 s | 151.29 s | +25.73 s |
-| Processed tokens | 500,589 | 398,530 | +102,059 |
-| Tool calls | 19.38 | 16.13 | +3.25 |
+| Assertion pass rate | 56.25% | 37.50% | +18.75 pp |
+| Total time, executor plus grader | 406.68 s | 335.97 s | +70.71 s |
+| Executor time only | 172.66 s | 142.89 s | +29.77 s |
+| Corrected processed tokens | 683,955 | 467,264 | +216,691 |
+| Corrected tool calls | 24.00 | 16.75 | +7.25 |
 | Executor errors | 0 | 0 | 0 |
 
-Human review was stricter than partial-credit grading: current had sound
-terminal behavior in 2/8 cases (`missing-rubric` and
+Pass rate and total time are official aggregate means. The token and tool-call
+means are a corrected local augmentation from the executor `timing.json` and
+`metrics.json`, not official means. The official fallback reads tokens from
+`timing.json` only when aggregate time is absent; because grader timing was
+already present here, it instead used output characters as a token proxy. It
+also reads tool calls only from grader `execution_metrics`, which these graders
+did not emit. The local augmentation corrects those two fields and changes no
+official grades or timing.
+
+Agent artifact inspection was stricter than partial-credit grading: current had
+sound terminal behavior in 2/8 cases (`missing-rubric` and
 `missing-required-executor`); old had 0/8. Other current runs were plans or
 lacked the delivered artifact/proof. Product Pulse also inspected Harness
 control-plane material instead of invoking the named skill. A grader pass never
-overrode visible failure.
+overrode visible failure. The user declined optional viewer feedback and
+delegated this inspection; there is no `feedback.json` and no independent human
+preference signal.
 
-The initial blind comparator preferred current in 5/8 cases and old in 3/8. The
-corrected analyzer attributed real current advantages to review isolation and
+The final post-fix blind comparator received every granular assertion and
+preferred current in 7/8 cases; old won only the PM no-ready-slice case. The
+post-hoc analyzer attributed real current advantages to review isolation and
 typed capability blockers, and real gaps to an incoherent taste route,
 incomplete terminal results, Product Pulse leakage, and non-code lifecycle
 drift. Shared confounds were plan-only runs, underspecified targets, and one run
