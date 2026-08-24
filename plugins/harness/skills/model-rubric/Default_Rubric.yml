@@ -86,7 +86,4 @@ routing: {}
 # House anti-patterns (effort-curve facts, safe to distribute):
 #   - luna below max is worthless for agentic work; at max it's unattended-batch-only
 #     (~158s TTFT).
-#   - sonnet-5 is the `explore` default (read-only research, native Agent only), and
-#     an implementer only when the codex CLI is absent. Bulk/mechanical/quick go to
-#     the via:codex rows (an internal Harness adapter, not an Agent call).
 #   - Effort beats tier: raise a model's effort before reaching for a bigger model.
