@@ -12,9 +12,10 @@ The plugin is public and generic; the data is yours.
   reconcile portable links and runtime capabilities, and establish the personal
   model rubric.
 - **`/harness:sync`** — make this machine match your personal agent repo. Clones on
-  first run or safely adopts existing loose configuration, then commits, pulls,
-  and pushes. Re-links drifted paths, lints portability, and optionally updates
-  other machines.
+  first run or safely adopts existing loose configuration. Preflight ingests the
+  remote before reconciliation; the finalizer commits once and pushes once with
+  an exact compare-and-swap lease. Sync also re-links drifted paths, lints
+  portability, and optionally updates other machines.
 - **`/harness:model-rubric`** — create or refresh your user-global model-routing
   rubric at `${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml`.
 - **`/harness:execute`** — resolve a semantic route and run one bounded request
@@ -28,8 +29,11 @@ The plugin is public and generic; the data is yours.
 
 Migrate in this order so there is never a gap in control-plane ownership:
 
-1. Install Harness on every machine: `/plugin install harness@studio-moser`.
-   Keep Machine installed while the fleet is in transition.
+1. From a canary project on every machine, install Harness at official local
+   project scope: `claude plugin install harness@studio-moser --scope local`.
+   Claude records that project-specific, gitignored install in
+   `.claude/settings.local.json`. Keep Machine installed while the fleet is in
+   transition.
 2. Verify Harness works on every machine by starting a fresh session and running
    `/harness:sync --dry-run`; do not change the shared settings yet.
 3. After every machine can load Harness, merge and pull the private agents migration.
@@ -99,10 +103,13 @@ Two rules whichever you pick:
 
 - **Report, don't act silently.** `/harness:sync` asks before removing, re-linking,
   or discarding. An unattended run must not answer those prompts for you.
-- **It commits and pushes.** Sync commits this machine's changes, pulls, then
-  pushes — otherwise the repo goes stale and the next machine to clone gets the old
-  state. Everything is recoverable from git history. It stops without pushing if
-  another machine has diverged; it never rebases or forces.
+- **It preflights, commits, and compare-and-swap pushes.** Sync fetches and
+  fast-forwards the current remote before any reconciliation writer runs. The
+  finalizer then commits once and pushes once with the exact remote state captured
+  by preflight — otherwise the repo goes stale and the next machine to clone gets
+  the old state. Everything is recoverable from git history. It stops without
+  overwriting if another machine changes the branch; it never rebases or uses
+  unconditional force.
 
 ## First-machine setup
 
@@ -125,7 +132,7 @@ and confirms a remote is private before the first push.
 | `scripts/fetch-model-data.sh` | current model cost + intelligence as TSV (exit 3 = no API key) |
 | `scripts/skills-reconcile.sh <repo>` | read-only diff of `skills.manifest` vs. reality (reads `npx skills list -g --json` on stdin) |
 | `scripts/skills-manifest.sh <repo>` | regenerate `skills.manifest` and the `.gitignore` block from reality (same stdin) |
-| `scripts/sync-finalize.sh <repo> <message>` | stage, scan, commit, pull, push, and prove a clean remote SHA once |
+| `scripts/sync-finalize.sh <repo> <message>` | stage, scan, commit, exact-lease push, and prove a clean actual remote SHA once |
 
 ## Tests
 

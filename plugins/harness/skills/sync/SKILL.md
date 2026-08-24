@@ -1093,10 +1093,11 @@ when bulk work is landing on native sub-agents instead of the codex handoff.
 
 ## Phase 3.75: Validate and synchronize once
 
-All repo and machine reconciliation must be complete before this phase. Re-run
-the idempotent generators and checks here so a writer from an earlier phase cannot
-leave a stale derived file. The finalizer is the last command; nothing may write
-the repo after it returns:
+All repo and machine reconciliation must be complete before this phase. Complete
+the final idempotent shared-setting, MCP, render, and portability checks here.
+Phase 2.6 is the sole skill-manifest writer because only it retains declined and
+failed-install context; do not regenerate that manifest here. The finalizer is the
+last command; nothing may write the repo after it returns:
 
 ```bash
 set -euo pipefail
@@ -1107,15 +1108,6 @@ harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*
 [ ! -e "$repo/claude/settings.json" ] || "$harness/scripts/localize-skill-overrides.py" "$repo/claude/settings.json" "$claude/settings.local.json"
 [ ! -e "$repo/claude/settings.json" ] || "$harness/scripts/reconcile_shared_settings.py" "$repo/claude/settings.json"
 [ ! -f "$claude/mcp.json" ] || "$harness/scripts/mcp-manifest.sh" "$claude/mcp.json" "$repo/mcp.manifest"
-if ! listing="$(npx skills list -g --json 2>/dev/null)"; then
-  echo "SKILLS_STATE=failed: npx skills list -g --json failed — manifest not regenerated" >&2
-  exit 1
-fi
-if [ -z "$listing" ] || ! printf '%s' "$listing" | python3 -c 'import json,sys; json.load(sys.stdin)' >/dev/null 2>&1; then
-  echo "SKILLS_STATE=failed: npx skills list -g --json produced no parseable output — manifest not regenerated" >&2
-  exit 1
-fi
-printf '%s' "$listing" | "$harness/scripts/skills-manifest.sh" "$repo"
 "$harness/scripts/render-codex-agents.sh" "$repo"
 "$harness/scripts/link-plan.sh" "$repo"
 "$harness/scripts/portability-lint.sh" "$repo"
@@ -1128,7 +1120,9 @@ and machine-local state scans. Only then does it perform at most one commit and
 exactly one push; remote ingestion has already completed before reconciliation, so the
 finalizer never pulls.
 It fails closed on divergence, a missing remote, any write after staging,
-or a rejected push; never retry with merge, rebase, or force.
+or a rejected compare-and-swap push. Never retry with merge, rebase, or
+unconditional force; the finalizer itself uses an exact `--force-with-lease`
+expectation captured by preflight for both existing and absent branches.
 
 Success requires both a final clean worktree and a local HEAD equal to the reported
 remote SHA. If either proof is absent, Sync is incomplete. Do not run another

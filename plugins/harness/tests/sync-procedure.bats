@@ -81,74 +81,12 @@ PY
   [ "$status" -eq 0 ]
 }
 
-@test "final validation sends fresh skill JSON to the manifest generator" {
+@test "final validation preserves Phase 2.6 skill state when Node is unavailable" {
   phase="$BATS_TEST_TMPDIR/phase.sh"
   agents="$BATS_TEST_TMPDIR/agents"
   harness="$BATS_TEST_TMPDIR/harness"
   bin="$BATS_TEST_TMPDIR/bin"
-  capture="$BATS_TEST_TMPDIR/manifest-input.json"
-  mkdir -p "$agents" "$harness/scripts" "$bin"
-
-  python3 - "$SKILL" "$phase" <<'PY'
-from pathlib import Path
-import re
-import sys
-
-text = Path(sys.argv[1]).read_text().split("## Phase 3.75:", 1)[1]
-match = re.search(r"```bash\n(.*?)\n```", text, re.DOTALL)
-assert match, "Phase 3.75 bash block is missing"
-Path(sys.argv[2]).write_text(match.group(1) + "\n")
-PY
-
-  for name in localize-skill-overrides.py reconcile_shared_settings.py mcp-manifest.sh render-codex-agents.sh link-plan.sh portability-lint.sh sync-finalize.sh; do
-    cat > "$harness/scripts/$name" <<'EOF'
-#!/usr/bin/env bash
-exit 0
-EOF
-    chmod +x "$harness/scripts/$name"
-  done
-  cat > "$harness/scripts/skills-manifest.sh" <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-payload="$(cat)"
-printf '%s' "$payload" > "$MANIFEST_CAPTURE"
-[ -n "$payload" ]
-printf '%s' "$payload" | python3 -c 'import json, sys; json.load(sys.stdin)'
-EOF
-  chmod +x "$harness/scripts/skills-manifest.sh"
-  cat > "$bin/npx" <<'EOF'
-#!/usr/bin/env bash
-printf '%s\n' '[{"name":"third-party","source":"owner/repo","path":"/portable/third-party"}]'
-EOF
-  chmod +x "$bin/npx"
-
-  run env \
-    AGENTS_REPO="$agents" \
-    CLAUDE_CONFIG_DIR="$BATS_TEST_TMPDIR/claude" \
-    CLAUDE_PLUGIN_ROOT="$harness" \
-    MANIFEST_CAPTURE="$capture" \
-    PATH="$bin:$PATH" \
-    bash "$phase"
-
-  [ "$status" -eq 0 ]
-  run python3 - "$capture" <<'PY'
-import json
-from pathlib import Path
-import sys
-
-payload = json.loads(Path(sys.argv[1]).read_text())
-assert payload == [
-    {"name": "third-party", "source": "owner/repo", "path": "/portable/third-party"}
-]
-PY
-  [ "$status" -eq 0 ]
-}
-
-@test "a final validation generator failure stops before the transaction" {
-  phase="$BATS_TEST_TMPDIR/phase.sh"
-  agents="$BATS_TEST_TMPDIR/agents"
-  harness="$BATS_TEST_TMPDIR/harness"
-  bin="$BATS_TEST_TMPDIR/bin"
+  manifest_marker="$BATS_TEST_TMPDIR/manifest-ran"
   finalizer_marker="$BATS_TEST_TMPDIR/finalizer-ran"
   mkdir -p "$agents" "$harness/scripts" "$bin"
 
@@ -172,8 +110,8 @@ EOF
   done
   cat > "$harness/scripts/skills-manifest.sh" <<'EOF'
 #!/usr/bin/env bash
-cat >/dev/null
-exit 23
+touch "$MANIFEST_MARKER"
+exit 86
 EOF
   chmod +x "$harness/scripts/skills-manifest.sh"
   cat > "$harness/scripts/sync-finalize.sh" <<'EOF'
@@ -182,18 +120,62 @@ touch "$FINALIZER_MARKER"
 exit 0
 EOF
   chmod +x "$harness/scripts/sync-finalize.sh"
-  cat > "$bin/npx" <<'EOF'
-#!/usr/bin/env bash
-printf '%s\n' '[]'
-EOF
-  chmod +x "$bin/npx"
 
   run env \
     AGENTS_REPO="$agents" \
     CLAUDE_CONFIG_DIR="$BATS_TEST_TMPDIR/claude" \
     CLAUDE_PLUGIN_ROOT="$harness" \
+    MANIFEST_MARKER="$manifest_marker" \
     FINALIZER_MARKER="$finalizer_marker" \
-    PATH="$bin:$PATH" \
+    PATH="$bin:/usr/bin:/bin" \
+    /bin/bash "$phase"
+
+  [ "$status" -eq 0 ]
+  [ ! -e "$manifest_marker" ]
+  [ -e "$finalizer_marker" ]
+}
+
+@test "a final validation generator failure stops before the transaction" {
+  phase="$BATS_TEST_TMPDIR/phase.sh"
+  agents="$BATS_TEST_TMPDIR/agents"
+  harness="$BATS_TEST_TMPDIR/harness"
+  finalizer_marker="$BATS_TEST_TMPDIR/finalizer-ran"
+  mkdir -p "$agents" "$harness/scripts"
+
+  python3 - "$SKILL" "$phase" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+text = Path(sys.argv[1]).read_text().split("## Phase 3.75:", 1)[1]
+match = re.search(r"```bash\n(.*?)\n```", text, re.DOTALL)
+assert match, "Phase 3.75 bash block is missing"
+Path(sys.argv[2]).write_text(match.group(1) + "\n")
+PY
+
+  for name in localize-skill-overrides.py reconcile_shared_settings.py mcp-manifest.sh link-plan.sh portability-lint.sh; do
+    cat > "$harness/scripts/$name" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+    chmod +x "$harness/scripts/$name"
+  done
+  cat > "$harness/scripts/render-codex-agents.sh" <<'EOF'
+#!/usr/bin/env bash
+exit 23
+EOF
+  chmod +x "$harness/scripts/render-codex-agents.sh"
+  cat > "$harness/scripts/sync-finalize.sh" <<'EOF'
+#!/usr/bin/env bash
+touch "$FINALIZER_MARKER"
+exit 0
+EOF
+  chmod +x "$harness/scripts/sync-finalize.sh"
+  run env \
+    AGENTS_REPO="$agents" \
+    CLAUDE_CONFIG_DIR="$BATS_TEST_TMPDIR/claude" \
+    CLAUDE_PLUGIN_ROOT="$harness" \
+    FINALIZER_MARKER="$finalizer_marker" \
     bash "$phase"
 
   [ "$status" -eq 23 ]

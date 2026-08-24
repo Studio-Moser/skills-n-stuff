@@ -55,11 +55,13 @@ patterns = (
     re.compile(
         rb"\b(?:ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|"
         rb"AKIA[A-Z0-9]{16}|xox[baprs]-[A-Za-z0-9-]{10,}|"
-        rb"sk-proj-[A-Za-z0-9_-]{10,}|sk-ant-[A-Za-z0-9_-]{10,})\b"
+        rb"sk-proj-[A-Za-z0-9_-]{10,}|sk-ant-[A-Za-z0-9_-]{10,}|"
+        rb"AIza[A-Za-z0-9_-]{20,}|gsk_[A-Za-z0-9_-]{20,})\b"
     ),
     re.compile(
-        rb"(?im)\b(?:(?:(?:openai|anthropic|google|gemini|groq|openrouter|"
-        rb"mistral|xai|cohere|perplexity)[_-]?)?api[_-]?(?:key|token)|"
+        rb"(?im)\b(?:(?:(?:openai|anthropic|azure[_-]?openai|deepseek|google|"
+        rb"gemini|groq|openrouter|mistral|xai|cohere|perplexity)[_-]?)?"
+        rb"api[_-]?(?:key|token)|"
         rb"access[_-]?token|auth[_-]?token|client[_-]?secret|password)\b"
         rb"[\"']?\s*[:=]\s*[\"']?(?!\$)[^\s\"',}]{16,}"
     ),
@@ -95,6 +97,36 @@ git -C "$repo" remote get-url "$remote" >/dev/null 2>&1 || {
   echo "SYNC_STATE=failed: no upstream or $remote remote" >&2
   exit 1
 }
+git_dir="$(git -C "$repo" rev-parse --absolute-git-dir)"
+state_path="$git_dir/harness-sync-expected-remote"
+[ -f "$state_path" ] || {
+  echo "SYNC_STATE=failed: remote was not preflighted; rerun sync" >&2
+  exit 1
+}
+if ! {
+  IFS= read -r expected_remote
+  IFS= read -r expected_merge_ref
+  IFS= read -r expected_sha
+  ! IFS= read -r extra
+} < "$state_path"; then
+  echo "SYNC_STATE=failed: invalid preflight state; rerun sync" >&2
+  exit 1
+fi
+if [ "$expected_remote" != "$remote" ] || [ "$expected_merge_ref" != "$merge_ref" ]; then
+  echo "SYNC_STATE=failed: branch or remote changed after preflight; rerun sync" >&2
+  exit 1
+fi
+case "$expected_sha" in
+  ABSENT) ;;
+  *[!0-9a-f]*|'')
+    echo "SYNC_STATE=failed: invalid preflight state; rerun sync" >&2
+    exit 1
+    ;;
+esac
+if [ "$expected_sha" != ABSENT ] && [ "${#expected_sha}" -ne 40 ] && [ "${#expected_sha}" -ne 64 ]; then
+  echo "SYNC_STATE=failed: invalid preflight state; rerun sync" >&2
+  exit 1
+fi
 
 query_remote_sha() {
   local line
@@ -105,26 +137,23 @@ query_remote_sha() {
   printf '%s' "${line%%[[:space:]]*}"
 }
 
-remote_branch="${merge_ref#refs/heads/}"
-tracking_ref="refs/remotes/$remote/$remote_branch"
 remote_before="$(query_remote_sha)" || exit 1
 set_upstream=0
-if [ -n "$remote_before" ]; then
-  expected_remote="$(git -C "$repo" rev-parse "$tracking_ref" 2>/dev/null || true)"
-  if [ -z "$expected_remote" ]; then
-    echo "SYNC_STATE=failed: existing remote branch was not preflighted; rerun sync" >&2
-    exit 1
-  fi
-  if [ "$remote_before" != "$expected_remote" ]; then
+if [ "$expected_sha" = ABSENT ]; then
+  if [ -n "$remote_before" ]; then
     echo "SYNC_STATE=failed: remote moved after preflight; rerun sync" >&2
     exit 1
   fi
-  if ! git -C "$repo" merge-base --is-ancestor "$remote_before" HEAD; then
+  set_upstream=1
+else
+  if [ "$remote_before" != "$expected_sha" ]; then
+    echo "SYNC_STATE=failed: remote moved after preflight; rerun sync" >&2
+    exit 1
+  fi
+  if ! git -C "$repo" merge-base --is-ancestor "$expected_sha" HEAD; then
     echo "SYNC_STATE=failed: local HEAD does not contain the preflighted remote; rerun sync" >&2
     exit 1
   fi
-else
-  set_upstream=1
 fi
 
 if ! git -C "$repo" diff --cached --quiet; then
@@ -136,10 +165,19 @@ if [ -n "$(git -C "$repo" status --porcelain --untracked-files=all)" ]; then
   exit 1
 fi
 
-if [ "$set_upstream" -eq 1 ]; then
-  git -C "$repo" push -u "$remote" "$branch:$merge_ref"
+if [ "$expected_sha" = ABSENT ]; then
+  lease="--force-with-lease=$merge_ref:"
 else
-  git -C "$repo" push "$remote" "$branch:$merge_ref"
+  lease="--force-with-lease=$merge_ref:$expected_sha"
+fi
+if [ "$set_upstream" -eq 1 ]; then
+  push=(git -C "$repo" push -u "$lease" "$remote" "$branch:$merge_ref")
+else
+  push=(git -C "$repo" push "$lease" "$remote" "$branch:$merge_ref")
+fi
+if ! "${push[@]}"; then
+  echo "SYNC_STATE=failed: remote compare-and-swap rejected; rerun sync" >&2
+  exit 1
 fi
 
 if [ -n "$(git -C "$repo" status --porcelain --untracked-files=all)" ]; then
@@ -154,4 +192,5 @@ if [ "$local_sha" != "$remote_sha" ]; then
   exit 1
 fi
 
+rm -f -- "$state_path"
 printf 'SYNC_STATE=clean remote=%s\n' "$remote_sha"

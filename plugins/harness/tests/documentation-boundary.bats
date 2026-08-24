@@ -44,7 +44,7 @@ from pathlib import Path
 import sys
 
 text = Path(sys.argv[1]).read_text()
-install = text.index("/plugin install harness@studio-moser")
+install = text.index("claude plugin install harness@studio-moser --scope local")
 verify = text.index("Verify Harness works on every machine")
 private_migration = text.index("merge and pull the private agents migration")
 sync = text.index("/harness:sync", private_migration)
@@ -52,6 +52,8 @@ uninstall = text.index("/plugin uninstall machine@studio-moser")
 assert install < verify < private_migration < sync < uninstall
 assert "tracked setting removal" in text
 assert "cached plugin uninstall" in text
+assert ".claude/settings.local.json" in text
+assert "project" in text[install:verify].lower()
 PY
   [ "$status" -eq 0 ]
 }

@@ -9,6 +9,9 @@ repo="$(git -C "$repo" rev-parse --show-toplevel 2>/dev/null)" || {
   echo "SYNC_PREFLIGHT=failed: not a Git repository" >&2
   exit 1
 }
+git_dir="$(git -C "$repo" rev-parse --absolute-git-dir)"
+state_path="$git_dir/harness-sync-expected-remote"
+rm -f -- "$state_path"
 branch="$(git -C "$repo" branch --show-current)"
 [ -n "$branch" ] || { echo "SYNC_PREFLIGHT=failed: detached HEAD cannot sync" >&2; exit 1; }
 
@@ -25,15 +28,35 @@ git -C "$repo" remote get-url "$remote" >/dev/null 2>&1 || {
   exit 1
 }
 
-remote_line="$(git -C "$repo" ls-remote --heads "$remote" "$merge_ref")" || {
-  echo "SYNC_PREFLIGHT=failed: could not query $remote" >&2
-  exit 1
+query_remote_sha() {
+  local line
+  line="$(git -C "$repo" ls-remote --heads "$remote" "$merge_ref")" || {
+    echo "SYNC_PREFLIGHT=failed: could not query $remote" >&2
+    return 1
+  }
+  printf '%s' "${line%%[[:space:]]*}"
 }
-if [ -z "$remote_line" ]; then
+
+persist_expected_remote() {
+  local expected="$1" parent temporary
+  parent="$(dirname "$state_path")"
+  temporary="$(mktemp "$parent/.harness-sync-expected-remote.XXXXXX")"
+  chmod 600 "$temporary"
+  printf '%s\n%s\n%s\n' "$remote" "$merge_ref" "$expected" > "$temporary"
+  mv -f "$temporary" "$state_path"
+}
+
+remote_sha="$(query_remote_sha)" || exit 1
+if [ -z "$remote_sha" ]; then
+  confirmed_sha="$(query_remote_sha)" || exit 1
+  [ -z "$confirmed_sha" ] || {
+    echo "SYNC_PREFLIGHT=failed: remote moved during preflight; rerun sync" >&2
+    exit 1
+  }
+  persist_expected_remote ABSENT
   echo "SYNC_PREFLIGHT=ready state=new-branch"
   exit 0
 fi
-remote_sha="${remote_line%%[[:space:]]*}"
 remote_branch="${merge_ref#refs/heads/}"
 tracking_ref="refs/remotes/$remote/$remote_branch"
 local_sha="$(git -C "$repo" rev-parse HEAD)"
@@ -59,6 +82,12 @@ if [ -n "$(git -C "$repo" status --porcelain --untracked-files=all)" ]; then
   if ! git -C "$repo" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' >/dev/null 2>&1; then
     git -C "$repo" branch --set-upstream-to="$remote/$remote_branch" "$branch" >/dev/null
   fi
+  confirmed_sha="$(query_remote_sha)" || exit 1
+  [ "$confirmed_sha" = "$remote_sha" ] || {
+    echo "SYNC_PREFLIGHT=failed: remote moved during preflight; rerun sync" >&2
+    exit 1
+  }
+  persist_expected_remote "$remote_sha"
   printf 'SYNC_PREFLIGHT=ready state=remote-unchanged remote=%s\n' "$remote_sha"
   exit 0
 fi
@@ -86,4 +115,10 @@ fi
 if ! git -C "$repo" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' >/dev/null 2>&1; then
   git -C "$repo" branch --set-upstream-to="$remote/$remote_branch" "$branch" >/dev/null
 fi
+confirmed_sha="$(query_remote_sha)" || exit 1
+[ "$confirmed_sha" = "$remote_sha" ] || {
+  echo "SYNC_PREFLIGHT=failed: remote moved during preflight; rerun sync" >&2
+  exit 1
+}
+persist_expected_remote "$remote_sha"
 printf 'SYNC_PREFLIGHT=ready state=%s remote=%s\n' "$state" "$remote_sha"

@@ -18,6 +18,9 @@ Add the marketplace:
 
 Then turn on auto-update — Claude Code leaves it **off** by default for third-party marketplaces, so without this you stay on whatever version you first installed: `/plugin` → **Marketplaces** → `studio-moser` → **Enable auto-update**. (Or refresh by hand any time: `/plugin marketplace update studio-moser` then `/plugin update <plugin>@studio-moser`.)
 
+Marketplace metadata has its own release version and is bumped independently
+from plugin releases. Each plugin's marketplace entry still matches its manifest.
+
 Install Harness first; PM and Product Pulse use it for routing, bounded execution,
 review, evidence, and optional memory enrichment:
 

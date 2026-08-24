@@ -4,7 +4,7 @@ setup() {
   REPO="$(cd "${BATS_TEST_DIRNAME}/../../.." && pwd)"
 }
 
-@test "Harness consumer plugin versions match their marketplace entries" {
+@test "plugin versions match entries and marketplace metadata releases independently" {
   run python3 - "$REPO" <<'PY'
 import json
 from pathlib import Path
@@ -29,11 +29,12 @@ for name in ("harness", "pm", "product-pulse"):
         )
 
 metadata_version = marketplace.get("metadata", {}).get("version")
-pm_version = entries["pm"]["version"]
-if metadata_version != pm_version:
-    failures.append(
-        f"marketplace metadata {metadata_version!r} != PM release line {pm_version!r}"
-    )
+if not isinstance(metadata_version, str) or not re.fullmatch(r"\d+\.\d+\.\d+", metadata_version):
+    failures.append(f"invalid marketplace metadata version {metadata_version!r}")
+
+readme = (root / "README.md").read_text()
+if "Marketplace metadata has its own release version" not in readme:
+    failures.append("README does not document the independent marketplace release")
 
 assert not failures, "\n".join(failures)
 PY

@@ -2,6 +2,7 @@
 
 setup() {
   SCRIPT="${BATS_TEST_DIRNAME}/../scripts/sync-finalize.sh"
+  PREFLIGHT="${BATS_TEST_DIRNAME}/../scripts/sync-preflight.sh"
   REMOTE="${BATS_TEST_TMPDIR}/remote.git"
   REPO="${BATS_TEST_TMPDIR}/agents"
   git init -q --bare "$REMOTE"
@@ -13,6 +14,8 @@ setup() {
   git -C "$REPO" commit -q -m base
   git -C "$REPO" remote add origin "$REMOTE"
   git -C "$REPO" push -q -u origin main
+  BASE_SHA="$(git -C "$REPO" rev-parse HEAD)"
+  "$PREFLIGHT" "$REPO" >/dev/null
 }
 
 remote_head() {
@@ -38,11 +41,15 @@ remote_head() {
   anthropic_value="sk-""ant-not-a-real-value-1234567890"
   google_value="AI""za-not-a-real-value-1234567890"
   groq_value="gsk_""not-a-real-value-1234567890"
+  azure_value="not-a-real-azure-secret-1234567890"
+  deepseek_value="not-a-real-deepseek-secret-1234567890"
   assignments=(
     "OPENAI_API_KEY=$openai_value"
     "export ANTHROPIC_API_KEY = \"$anthropic_value\""
     "\"GOOGLE_API_KEY\": \"$google_value\""
     "groq_api_key='$groq_value'"
+    "AZURE_OPENAI_API_KEY=$azure_value"
+    "export DEEPSEEK_API_KEY = '$deepseek_value'"
   )
 
   for assignment in "${assignments[@]}"; do
@@ -56,6 +63,24 @@ remote_head() {
     [ "$(git -C "$REPO" rev-list --count HEAD)" -eq 1 ]
     git -C "$REPO" reset -q
     rm "$REPO/provider-config.txt"
+  done
+}
+
+@test "bare Google and Groq provider credentials are blocked" {
+  before="$(remote_head)"
+  google_value="AI""za-not-a-real-bare-value-1234567890"
+  groq_value="gsk_""not-a-real-bare-value-1234567890"
+
+  for value in "$google_value" "$groq_value"; do
+    printf '%s\n' "$value" > "$REPO/provider-token.txt"
+
+    run "$SCRIPT" "$REPO" "harness: sync test bare provider secret"
+
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"staged secret scan failed"* ]] || return 1
+    [ "$(remote_head)" = "$before" ]
+    git -C "$REPO" reset -q
+    rm "$REPO/provider-token.txt"
   done
 }
 
@@ -81,6 +106,8 @@ remote_head() {
   cat > "$REPO/provider-env.txt" <<'EOF'
 OPENAI_API_KEY=$OPENAI_API_KEY
 "ANTHROPIC_API_KEY": "${ANTHROPIC_API_KEY}"
+AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}
+"DEEPSEEK_API_KEY": "$DEEPSEEK_API_KEY"
 EOF
 
   run "$SCRIPT" "$REPO" "harness: sync environment references"
@@ -88,6 +115,101 @@ EOF
   [ "$status" -eq 0 ]
   [[ "$output" == *"SYNC_STATE=clean"* ]] || return 1
   [ "$(remote_head)" = "$(git -C "$REPO" rev-parse HEAD)" ]
+}
+
+make_racing_git() {
+  RACE_BIN="$BATS_TEST_TMPDIR/race-bin"
+  RACE_MARKER="$BATS_TEST_TMPDIR/race-ran"
+  mkdir -p "$RACE_BIN"
+  cat > "$RACE_BIN/git" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+for arg in "$@"; do
+  if [ "$arg" = push ] && [ ! -e "$RACE_MARKER" ]; then
+    : > "$RACE_MARKER"
+    case "$RACE_ACTION" in
+      delete) "$REAL_GIT" --git-dir="$RACE_REMOTE" update-ref -d "$RACE_REF" ;;
+      update) "$REAL_GIT" --git-dir="$RACE_REMOTE" update-ref "$RACE_REF" "$RACE_TARGET" ;;
+      *) exit 97 ;;
+    esac
+    break
+  fi
+done
+exec "$REAL_GIT" "$@"
+EOF
+  chmod +x "$RACE_BIN/git"
+}
+
+@test "preflight persists the exact actual remote expectation in Git metadata" {
+  state_path="$(git -C "$REPO" rev-parse --absolute-git-dir)/harness-sync-expected-remote"
+
+  [ -f "$state_path" ]
+  grep -qFx 'origin' "$state_path"
+  grep -qFx 'refs/heads/main' "$state_path"
+  grep -qFx "$(remote_head)" "$state_path"
+}
+
+@test "exact lease rejects a remote branch deletion after final comparison" {
+  printf 'portable change\n' > "$REPO/config.md"
+  make_racing_git
+
+  run env \
+    PATH="$RACE_BIN:$PATH" \
+    REAL_GIT="$(command -v git)" \
+    RACE_MARKER="$RACE_MARKER" \
+    RACE_ACTION=delete \
+    RACE_REMOTE="$REMOTE" \
+    RACE_REF=refs/heads/main \
+    "$SCRIPT" "$REPO" "harness: sync deletion race"
+
+  [ "$status" -ne 0 ]
+  [ -e "$RACE_MARKER" ]
+  ! git --git-dir="$REMOTE" show-ref --verify --quiet refs/heads/main
+}
+
+@test "exact lease rejects a remote rewind after final comparison" {
+  printf 'preflight remote\n' > "$REPO/preflight.md"
+  git -C "$REPO" add preflight.md
+  git -C "$REPO" commit -q -m "remote state for preflight"
+  git -C "$REPO" push -q
+  "$PREFLIGHT" "$REPO" >/dev/null
+  printf 'portable change\n' > "$REPO/config.md"
+  make_racing_git
+
+  run env \
+    PATH="$RACE_BIN:$PATH" \
+    REAL_GIT="$(command -v git)" \
+    RACE_MARKER="$RACE_MARKER" \
+    RACE_ACTION=update \
+    RACE_REMOTE="$REMOTE" \
+    RACE_REF=refs/heads/main \
+    RACE_TARGET="$BASE_SHA" \
+    "$SCRIPT" "$REPO" "harness: sync rewind race"
+
+  [ "$status" -ne 0 ]
+  [ -e "$RACE_MARKER" ]
+  [ "$(remote_head)" = "$BASE_SHA" ]
+}
+
+@test "exact empty lease rejects creation of an absent remote branch" {
+  git -C "$REPO" switch -q -c new-sync-branch
+  "$PREFLIGHT" "$REPO" >/dev/null
+  printf 'portable change\n' > "$REPO/config.md"
+  make_racing_git
+
+  run env \
+    PATH="$RACE_BIN:$PATH" \
+    REAL_GIT="$(command -v git)" \
+    RACE_MARKER="$RACE_MARKER" \
+    RACE_ACTION=update \
+    RACE_REMOTE="$REMOTE" \
+    RACE_REF=refs/heads/new-sync-branch \
+    RACE_TARGET="$BASE_SHA" \
+    "$SCRIPT" "$REPO" "harness: sync absent branch race"
+
+  [ "$status" -ne 0 ]
+  [ -e "$RACE_MARKER" ]
+  [ "$(git --git-dir="$REMOTE" rev-parse refs/heads/new-sync-branch)" = "$BASE_SHA" ]
 }
 
 @test "remote movement after preflight stops before commit without pulling" {
