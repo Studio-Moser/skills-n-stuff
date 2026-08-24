@@ -86,7 +86,7 @@ routing, bounded execution, and evidence-bearing results.
 **Skills:**
 - `/harness:setup` — configure the personal agents repository, links, runtimes, and rubric
 - `/harness:sync` — reconcile your personal agent repository with this machine
-- `/harness:model-rubric` — create or refresh your user-global model-routing rubric
+- `/harness:model-rubric` — configure capability-driven orchestration and delegated routing
 - `/harness:execute` — run one bounded request through a resolved semantic route
 - `/harness:review` — independently verify a fixed target and return reproducible evidence
 - `/harness:computer-use` — operate a local app or browser with explicit capability and proof

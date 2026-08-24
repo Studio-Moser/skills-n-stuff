@@ -25,6 +25,12 @@ The plugin is public and generic; the data is yours.
 - **`/harness:computer-use`** — operate a local app, browser, simulator, or other
   screenshot-capable UI with explicit capability and proof.
 
+The rubric separates the preferred top-level orchestrator from delegated routes.
+Setup derives both from the models and executors actually available on that
+machine; Claude plus Codex enables cross-provider delegation, while either
+provider alone still produces a valid rubric. Software-work efficiency uses
+benchmark cost per successful task rather than token list price alone.
+
 ## Migrating from Machine
 
 Migrate in this order so there is never a gap in control-plane ownership:

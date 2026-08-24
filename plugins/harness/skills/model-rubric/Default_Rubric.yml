@@ -1,44 +1,89 @@
 # Studio Moser seed rubric — the starting point /harness:model-rubric copies before
-# the interview. What's here is distributable: taste scores and anti-pattern notes
-# are house judgment; swe: is public DeepSWE benchmark data. What's NOT here is
-# per-developer: cost, capabilities, and routing — the interview fills those in.
-# The null/empty placeholders are invalid on purpose so an unpersonalized copy
-# fails loudly instead of silently mis-routing.
+# the interview. What's here is distributable: intelligence and taste scores are
+# house judgment; benchmark blocks are public DeepSWE workload evidence. What's NOT
+# here is per-developer: trust, efficiency, capabilities, and routing — the
+# interview fills those in. The null/empty placeholders are invalid on purpose so
+# an unpersonalized copy fails loudly instead of silently mis-routing.
 seed: true                  # remove this key when personalized
 reviewed: null              # interview sets today's date; refresh after 14 days
-sources: [seed-2026-08-13]  # interview appends artificial-analysis / deepswe-vX / judgment
+sources: [seed-2026-08-24]  # interview appends current evidence sources / judgment
 capabilities: {}            # interview: one entry per provider/CLI, each verified with command -v
-# cost semantics: score what the developer ACTUALLY pays. On a flat subscription the
-# scarce resources are quota (token burn) and wall-clock latency — score those, not
-# $/task. On metered API, score dollars. NEVER copy another developer's cost scores:
-# they encode that developer's subscriptions.
 models:
   # Rows are keyed by (name, effort) — the same model at two efforts is two rows,
-  # because effort moves agentic quality more than model tier does.
-  # swe: DeepSWE agentic SWE score at that effort (https://deepswe.datacurve.ai — no
-  # API; re-read the leaderboard when refreshing). Trust swe over AA's coding index
-  # for agent work. taste: 1-10, house judgment. via: <cli> = cross-vendor dispatch.
-  # At creation, DROP rows whose provider is absent from this developer's capabilities.
-  - { name: gpt-5.6-luna,    effort: max,    cost: null, intelligence: 8,  taste: 5,  swe: 67.3, via: codex }
-  - { name: gpt-5.6-sol,     effort: low,    cost: null, intelligence: 6,  taste: 7,  swe: 45.5, via: codex }
-  - { name: gpt-5.6-sol,     effort: medium, cost: null, intelligence: 8,  taste: 8,  swe: 61,   via: codex }
-  - { name: gpt-5.6-sol,     effort: high,   cost: null, intelligence: 9,  taste: 9,  swe: 69.5, via: codex }
-  - { name: claude-sonnet-5, effort: high,   cost: null, intelligence: 6,  taste: 7,  swe: 48.2 }
-  - { name: claude-opus-5,   effort: high,   cost: null, intelligence: 9,  taste: 9,  swe: 68.7 }
-  - { name: claude-opus-5,   effort: max,    cost: null, intelligence: 10, taste: 10, swe: 73.5 }
-  - { name: claude-fable-5,  effort: high,   cost: null, intelligence: 10, taste: 10, swe: 72.7 }
+  # because effort moves agentic quality more than model tier does. At creation,
+  # DROP rows whose provider is absent from this developer's capabilities.
+  - name: gpt-5.6-luna
+    effort: max
+    provider: openai
+    via: codex
+    intelligence: 8
+    taste: 5
+    trust: null
+    efficiency: null
+    benchmark: { suite: deepswe, version: "1.1", observed: 2026-08-24, pass_at_1: 0.672, mean_task_cost_usd: 0.61, cost_per_success_usd: 0.91, mean_output_tokens: 73000, mean_duration_seconds: 1122 }
+  - name: gpt-5.6-sol
+    effort: low
+    provider: openai
+    via: codex
+    intelligence: 6
+    taste: 7
+    trust: null
+    efficiency: null
+  - name: gpt-5.6-sol
+    effort: medium
+    provider: openai
+    via: codex
+    intelligence: 8
+    taste: 8
+    trust: null
+    efficiency: null
+    benchmark: { suite: deepswe, version: "1.1", observed: 2026-08-24, pass_at_1: 0.611, mean_task_cost_usd: 1.86, cost_per_success_usd: 3.04, mean_output_tokens: 18000, mean_duration_seconds: 426 }
+  - name: gpt-5.6-sol
+    effort: high
+    provider: openai
+    via: codex
+    intelligence: 9
+    taste: 9
+    trust: null
+    efficiency: null
+  - name: gpt-5.6-terra
+    effort: high
+    provider: openai
+    via: codex
+    intelligence: 7
+    taste: 7
+    trust: null
+    efficiency: null
+    benchmark: { suite: deepswe, version: "1.1", observed: 2026-08-24, pass_at_1: 0.538, mean_task_cost_usd: 0.91, cost_per_success_usd: 1.69, mean_output_tokens: 22000, mean_duration_seconds: 366 }
+  - name: claude-sonnet-5
+    effort: high
+    provider: anthropic
+    intelligence: 6
+    taste: 7
+    trust: null
+    efficiency: null
+  - name: claude-opus-5
+    effort: high
+    provider: anthropic
+    intelligence: 9
+    taste: 9
+    trust: null
+    efficiency: null
+    benchmark: { suite: deepswe, version: "1.1", observed: 2026-08-24, pass_at_1: 0.728, mean_task_cost_usd: 6.08, cost_per_success_usd: 8.35, mean_output_tokens: 64000, mean_duration_seconds: 1164 }
+  - name: claude-fable-5
+    effort: high
+    provider: anthropic
+    intelligence: 10
+    taste: 10
+    trust: null
+    efficiency: null
+    benchmark: { suite: deepswe, version: "1.1", observed: 2026-08-24, pass_at_1: 0.686, mean_task_cost_usd: 9.18, cost_per_success_usd: 13.38, mean_output_tokens: 57000, mean_duration_seconds: 1062 }
 routing: {}
-# routing is DERIVED from this developer's capabilities + cost at interview time —
-# never copied from a seed or another developer. Values are <model>@<effort>.
-# House defaults once populated: taste_min: 9; taste: a reachable row at or above
-# that floor under the developer's cost/trust preferences; explore: the cheapest reachable Claude row
-#   (read-only research must return findings into the orchestrator's context — native Agent only).
+# routing is DERIVED from this developer's capabilities, trust, and efficiency at
+# interview time — never copied from a seed or another developer. Values are
+# <model>@<effort>.
+# Coding-benchmark efficiency never overrides user-owned orchestration trust or taste.
 # House anti-patterns (effort-curve facts, safe to distribute):
-#   - luna below max is worthless for agentic work (swe ~1.5 low / 11.3 medium /
-#     44.3 high / 57 xhigh / 67.3 max); at max it's unattended-batch-only (~158s TTFT).
-#   - sonnet-5 tops out ~49.6 swe at max — below sol@medium. Two roles: the `explore` default
-#     (read-only research, native Agent only), and an implementer only when the codex CLI is
-#     absent. Bulk/mechanical/quick go to the via:codex rows (an internal Harness
-#     adapter dispatch, not an Agent call).
-#   - fable-5@high is the efficient frontier vs opus-5@max: 72.7 vs 73.5 swe at ~40% less burn.
+#   - luna below max is worthless for agentic work; at max it's unattended-batch-only
+#     (~158s TTFT).
 #   - Effort beats tier: raise a model's effort before reaching for a bigger model.

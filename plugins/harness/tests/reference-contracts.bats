@@ -136,6 +136,26 @@ require_clause(
     routing,
     "`routing.taste_min` is an input to rubric setup, not a runtime route value.",
 )
+require_clause(
+    routing,
+    "`orchestrator` selects the preferred model for the top-level session; it is not a delegated HarnessRequest route.",
+)
+require_clause(
+    routing,
+    "A running agent never replaces itself to satisfy `routing.orchestrator`.",
+)
+require_clause(
+    routing,
+    "`fallback` names an eligible general fallback but never authorizes an automatic fallback or escalation.",
+)
+require_clause(
+    routing,
+    "Provider diversity is optional; a single reachable model-effort row may satisfy every required route.",
+)
+require_clause(
+    contract,
+    "The top-level orchestrator owns the user conversation, scope, approvals, delegation graph, and final acceptance decision.",
+)
 require_clause(shelby, "The missing Shelby does not block execution.")
 require_clause(
     routing,

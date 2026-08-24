@@ -24,7 +24,7 @@ When invoked by `harness:setup`, treat its `command -v` inventory as current
 machine evidence. A current rubric does not stop this skill: first reconcile
 CLI-backed `capabilities`, show the changes, and derive `routing` fresh whenever
 reachability changed. Do not retain a route to an executor known to be absent.
-Preserve non-CLI subscription facts, taste, and cost semantics. Return the path,
+Preserve non-CLI subscription facts, taste, and billing semantics. Return the path,
 reviewed date, whether reconciliation ran, whether the file changed, validation
 checks, and any blocker to Setup.
 
@@ -90,10 +90,16 @@ harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*
   plus judgment only if it still fails; record the failure reason under
   `sources`, without credential values.
 
-Read the current DeepSWE leaderboard for agentic software-engineering quality at
-each effort level. If it is unavailable, record that and use provider evidence
-plus judgment. Rows are keyed by `(model, effort)` because effort can move
-agentic quality more than model tier.
+Treat official provider list prices as source inputs, not as the software-work
+comparison. Read the current DeepSWE leaderboard and compare its observed
+`pass_at_1`, `mean_task_cost_usd`, output tokens, steps, and duration at each
+effort level. Define cost per successful task exactly as
+`mean_task_cost_usd / pass_at_1`; retain both observed inputs so the division can
+be checked. Preserve the benchmark source version and observation date. If
+DeepSWE is unavailable, record that and use provider evidence plus judgment.
+Rows are keyed by `(model, effort)` because effort can move agentic quality more
+than model tier. Benchmark efficiency applies only to delegated software
+implementation routes.
 
 ## 3. Establish developer-specific inputs
 
@@ -104,20 +110,29 @@ problems explicitly; do not infer it from benchmark scores:
    usable, and which subscriptions or metered APIs back them? Verify every
    CLI-backed claim with `command -v`. A Setup-provided inventory is evidence for
    this step, not permission to infer subscriptions.
-2. **Cost semantics:** per provider, decide whether `cost` represents metered
-   dollars or, for a flat subscription, quota burn plus latency.
+2. **Billing and efficiency semantics:** per provider, record whether billing is
+   metered dollars or a flat subscription whose constraints are quota burn and
+   latency. Use `efficiency` for the developer-specific synthesis of those
+   constraints and the observed software-work evidence. In a completed row,
+   `efficiency` is an integer from 1 through 10.
 3. **Trust for hard problems:** identify models the developer trusts or refuses
    for ambiguous unsupervised work.
-4. **Taste:** identify models whose UI, copy, and public API judgment needs the
+4. **Orchestration preference:** identify the trusted model the developer wants
+   for top-level context, judgment, and delegation.
+5. **Taste:** identify models whose UI, copy, and public API judgment needs the
    least editing.
-5. **Working style:** decide whether latency matters for attended work and whether
+6. **Working style:** decide whether latency matters for attended work and whether
    slow, high-quality rows are useful for unattended batches.
 
-On an ordinary data refresh, keep capabilities, taste, trust, working style, and
-cost semantics; update data-sourced axes and `reviewed:` without re-interviewing.
-On a Setup invocation, reconcile each CLI-backed capability with the supplied
-inventory. Preserve non-CLI facts, show additions/removals, and continue even
-when the existing rubric is otherwise current.
+User-owned trust and preferences govern orchestration, taste, exploration, and
+review; benchmark data is supporting evidence only. Do not treat an absent
+preference as permission for benchmark efficiency to choose those routes. On an
+ordinary data refresh, keep capabilities, taste, trust, orchestration preference,
+working style, and billing semantics; update data-sourced axes and `reviewed:`
+without re-interviewing. On a Setup invocation, reconcile each CLI-backed
+capability with the supplied inventory. Preserve non-CLI facts, show
+additions/removals, and continue even when the existing rubric is otherwise
+current.
 
 ## 4. Build or refresh the rubric
 
@@ -128,31 +143,47 @@ exists. Treat it only as a seed:
 
 1. remove rows whose provider/executor is unavailable;
 2. add current candidate `(model, effort)` rows for newly available providers;
-3. fill `cost` using the developer's cost semantics;
-4. update data-backed `intelligence` and `swe`, preserving user-owned `taste`;
+3. fill `provider`, `trust`, and `efficiency` from verified capabilities and the
+   developer interview;
+4. update data-backed `intelligence` and `benchmark`, preserving user-owned
+   `taste`;
 5. mark cross-provider CLI rows with `via: <cli>`;
 6. derive `routing` fresh from the reachable rows;
 7. remove `seed: true`, replace `reviewed:` with today's date, and record the
    actual sources used.
 
 For a Setup reconciliation, add/drop affected model rows and derive `routing`
-fresh whenever a CLI-backed capability changed. For an ordinary stale-data
-refresh, retain the reachable row set unless current evidence says a model was
-superseded.
+fresh whenever any provider or executor capability changed. For an ordinary
+stale-data refresh, retain the reachable row set unless current evidence says a
+model was superseded.
 
 The routing table uses exact `<model>@<effort>` values:
 
-- `routing.default`: best ordinary quality/cost balance;
-- `routing.bulk`: clear-spec mechanical work;
-- `routing.quick`: low-latency short work;
-- `routing.explore`: cheapest capable native read-only agent;
-- optional `routing.batch`: unattended fan-out only;
-- `routing.taste_min`: minimum taste score for user-facing work;
-- `routing.taste`: selected user-facing row at or above `routing.taste_min`,
-  chosen under the developer's cost and trust preferences;
-- `routing.review`: strongest non-wasteful fixed-target review row;
-- optional `routing.independent`: a different provider from the daily driver,
-  only when two providers are available and cost approval remains required.
+- required `routing.orchestrator`: preferred trusted top-level row;
+- required `routing.default`: ordinary delegated work;
+- required `routing.quick`: short latency-sensitive delegated work;
+- required `routing.review`: strongest trusted non-wasteful fixed-target reviewer;
+- optional `routing.bulk`, `routing.explore`, `routing.batch`, `routing.taste`,
+  `routing.independent`, and `routing.fallback` when their semantics are reachable.
+
+`orchestrator`, `default`, `quick`, and `review` are required. Keep
+`routing.taste_min` as the developer's input for choosing a reachable
+`routing.taste`; it is not itself a runtime route.
+
+Derive and degrade from the observed capability inventory exactly as follows:
+
+- Claude and Codex -> cross-provider routes are allowed but not required.
+- Claude only -> derive required routes from Claude and omit `routing.independent`.
+- Codex only -> derive required routes from Codex, omit `routing.independent`, and
+  require no native-Claude explore route.
+- one reachable model-effort row -> reuse it for required routes and omit optional routes.
+- no reachable model-effort row -> block and do not write a valid-looking rubric.
+
+Provider diversity is an optimization, not a setup prerequisite; every
+single-provider setup must omit `routing.independent`. When present,
+`routing.independent` must resolve to a provider distinct from
+the provider of `routing.orchestrator` and from the provider of any named
+authoring model.
 
 `via` is executor metadata interpreted by Harness. Consumers never branch on it.
 Every eventual dispatch still passes model and effort explicitly.
@@ -166,20 +197,37 @@ capabilities:
   claude: true
   codex: true
 models:
-  - { name: model-name, effort: high, cost: 5, intelligence: 8, taste: 8, swe: 60, via: codex }
+  - name: model-name
+    effort: high
+    provider: provider-name
+    via: codex
+    intelligence: 8
+    taste: 8
+    trust: trusted
+    efficiency: 8
+    benchmark: { suite: deepswe, version: "X.Y", observed: YYYY-MM-DD, pass_at_1: 0.5, mean_task_cost_usd: 1.0, cost_per_success_usd: 2.0, mean_output_tokens: 1000, mean_steps: 10, mean_duration_seconds: 60 }
 routing:
+  orchestrator: model-name@high
   default: model-name@high
-  bulk: model-name@high
-  quick: model-name@low
-  explore: native-model@low
-  taste_min: 9
-  taste: taste-model@high
-  review: review-model@high
+  quick: model-name@high
+  review: model-name@high
+  fallback: model-name@high
 ```
 
 Show the draft before writing on first-time setup. Developer edits override seed
 judgment. Never write a credential, secret-bearing profile, absolute machine
 path, or temporary evidence into the rubric.
+
+For migration, a rubric without `routing.orchestrator` requires an explicit
+orchestration preference question; do not infer the preference from benchmark
+rank. Preserve capabilities, trust, taste, and billing semantics; refresh
+benchmark evidence; replace `cost` with `efficiency`; and rederive routes from
+reachable rows. Opus remains eligible when reachable and trusted, but never
+outranks a user's Fable orchestration preference through coding cost alone.
+
+A running agent cannot replace itself. `routing.orchestrator` guides a future
+top-level session when its host supports explicit model selection; it never
+causes the current setup agent to relaunch or hand off itself.
 
 ## 5. Confirm
 
@@ -190,8 +238,14 @@ harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*
 
 Expected: `set`. Report the path and the `reviewed:` date.
 
-Also verify that `seed: true`, `cost: null`, and `routing: {}` are absent; that
-`routing.taste` names a reachable row at or above `routing.taste_min`; each
-route names an existing row with the same model and effort; `via` executors match
-current capabilities; and a Setup invocation reports `reconciled: true` even
-when the file did not change.
+Also verify that `seed: true`, `cost: null`, and `routing: {}` are absent. Reject
+a completed rubric when a required route is absent, a route lacks an exact row,
+a benchmark division is inconsistent beyond rounding, or no row is reachable.
+Validate both `provider` and `via` reachability for every routed row against the
+current capability inventory; block or rederive when either is unavailable.
+Reject `routing.independent` when its provider matches either the orchestrator's
+provider or a named authoring provider. Validation requires that every completed
+model row's `efficiency` is an integer from 1 through 10; reject any other value.
+Optional unavailable routes are omitted. When present,
+`routing.taste` must name a reachable row at or above `routing.taste_min`. A Setup
+invocation reports `reconciled: true` even when the file did not change.

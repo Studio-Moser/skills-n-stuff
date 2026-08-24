@@ -178,6 +178,29 @@ PY
   [ "$status" -eq 0 ]
 }
 
+@test "setup status requires the complete 0.7 rubric contract" {
+  run python3 - "$SKILLS_ROOT/setup/SKILL.md" <<'PY'
+from pathlib import Path
+import sys
+
+text = Path(sys.argv[1]).read_text()
+status = text.split("## Configured-status mode", 1)[1].split("## Ordered setup", 1)[0]
+normalized = " ".join(status.split())
+for clause in (
+    "`routing.orchestrator`, `routing.default`, `routing.quick`, and `routing.review`",
+    "exact `(name, effort)` model row",
+    "routed row's `provider` is reachable",
+    "`via`, when present, names a discovered executor",
+    "A rubric that satisfies only the pre-0.7 execute/review checks is not configured",
+):
+    assert clause in normalized, f"setup status missing 0.7 validation: {clause}"
+PY
+  if [ "$status" -ne 0 ]; then
+    printf '%s\n' "$output" >&2
+  fi
+  [ "$status" -eq 0 ]
+}
+
 @test "model-rubric is Harness-owned and setup cannot early-stop before reconciliation" {
   run python3 - "$SKILLS_ROOT/model-rubric/SKILL.md" <<'PY'
 from pathlib import Path
@@ -190,17 +213,80 @@ for stale in ("studio" + "-baseline/", "Rubric" + "_Setup.md", "/" + "machine:",
 for clause in (
     "When invoked by `harness:setup`, a current rubric does not stop this skill",
     "reconcile CLI-backed `capabilities`",
-    "cost semantics",
     "trust for hard problems",
     "taste",
     "working style",
     "derive `routing` fresh",
-    "`routing.taste`",
-    "at or above `routing.taste_min`",
-    "`routing.review`",
-    "`routing.independent`",
 ):
     assert clause in normalized, f"model-rubric is missing its owned procedure: {clause}"
+for clause in (
+    "cost per successful task",
+    "`mean_task_cost_usd / pass_at_1`",
+    "`routing.orchestrator`",
+    "orchestration preference",
+    "`orchestrator`, `default`, `quick`, and `review` are required",
+    "Provider diversity is an optimization, not a setup prerequisite",
+    "Claude and Codex",
+    "Claude only",
+    "Codex only",
+    "one reachable model-effort row",
+    "no reachable model-effort row",
+    "Opus remains eligible",
+    "A running agent cannot replace itself",
+    "Benchmark efficiency applies only to delegated software implementation routes",
+    "User-owned trust and preferences govern orchestration, taste, exploration, and review; benchmark data is supporting evidence only",
+    "Validate both `provider` and `via` reachability for every routed row",
+    "block or rederive when either is unavailable",
+):
+    assert clause in normalized, f"model-rubric missing procedure: {clause}"
+
+example = text.split("The completed file has this shape:", 1)[1].split("```yaml", 1)[1].split("```", 1)[0]
+for field in ("provider", "trust", "efficiency", "benchmark", "orchestrator", "fallback"):
+    assert field in example, f"completed-rubric example missing field: {field}"
+PY
+  if [ "$status" -ne 0 ]; then
+    printf '%s\n' "$output" >&2
+  fi
+  [ "$status" -eq 0 ]
+}
+
+@test "model-rubric omits independent without provider separation" {
+  run python3 - "$SKILLS_ROOT/model-rubric/SKILL.md" <<'PY'
+from pathlib import Path
+import sys
+
+normalized = " ".join(Path(sys.argv[1]).read_text().split())
+for clause in (
+    "Claude only -> derive required routes from Claude and omit `routing.independent`",
+    "Codex only -> derive required routes from Codex, omit `routing.independent`",
+    "every single-provider setup must omit `routing.independent`",
+    "provider distinct from the provider of `routing.orchestrator` and from the provider of any named authoring model",
+    "Reject `routing.independent` when its provider matches either the orchestrator's provider or a named authoring provider",
+):
+    assert clause in normalized, f"model-rubric missing independence constraint: {clause}"
+PY
+  if [ "$status" -ne 0 ]; then
+    printf '%s\n' "$output" >&2
+  fi
+  [ "$status" -eq 0 ]
+}
+
+@test "completed rubrics use bounded numeric efficiency scores" {
+  run python3 - "$SKILLS_ROOT/model-rubric/SKILL.md" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+text = Path(sys.argv[1]).read_text()
+normalized = " ".join(text.split())
+assert "`efficiency` is an integer from 1 through 10" in normalized
+assert "every completed model row's `efficiency` is an integer from 1 through 10" in normalized
+example = text.split("The completed file has this shape:", 1)[1].split("```yaml", 1)[1].split("```", 1)[0]
+match = re.search(r"(?m)^\s+efficiency:\s*(\S+)\s*$", example)
+assert match, "completed-rubric example missing efficiency"
+value = match.group(1)
+assert value.isdigit(), f"example efficiency is not numeric: {value}"
+assert 1 <= int(value) <= 10, f"example efficiency out of range: {value}"
 PY
   if [ "$status" -ne 0 ]; then
     printf '%s\n' "$output" >&2
