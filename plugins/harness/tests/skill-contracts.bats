@@ -190,17 +190,32 @@ for stale in ("studio" + "-baseline/", "Rubric" + "_Setup.md", "/" + "machine:",
 for clause in (
     "When invoked by `harness:setup`, a current rubric does not stop this skill",
     "reconcile CLI-backed `capabilities`",
-    "cost semantics",
     "trust for hard problems",
     "taste",
     "working style",
     "derive `routing` fresh",
-    "`routing.taste`",
-    "at or above `routing.taste_min`",
-    "`routing.review`",
-    "`routing.independent`",
 ):
     assert clause in normalized, f"model-rubric is missing its owned procedure: {clause}"
+for clause in (
+    "cost per successful task",
+    "`mean_task_cost_usd / pass_at_1`",
+    "`routing.orchestrator`",
+    "orchestration preference",
+    "`orchestrator`, `default`, `quick`, and `review` are required",
+    "Provider diversity is an optimization, not a setup prerequisite",
+    "Claude and Codex",
+    "Claude only",
+    "Codex only",
+    "one reachable model-effort row",
+    "no reachable model-effort row",
+    "Opus remains eligible",
+    "A running agent cannot replace itself",
+):
+    assert clause in normalized, f"model-rubric missing procedure: {clause}"
+
+example = text.split("The completed file has this shape:", 1)[1].split("```yaml", 1)[1].split("```", 1)[0]
+for field in ("provider", "trust", "efficiency", "benchmark", "orchestrator", "fallback"):
+    assert field in example, f"completed-rubric example missing field: {field}"
 PY
   if [ "$status" -ne 0 ]; then
     printf '%s\n' "$output" >&2
