@@ -26,16 +26,19 @@ The plugin is public and generic; the data is yours.
 
 ## Migrating from Machine
 
-Migrate in this order on every machine so there is never a gap in control-plane
-ownership:
+Migrate in this order so there is never a gap in control-plane ownership:
 
-1. Install Harness: `/plugin install harness@studio-moser`.
-2. Run `/harness:setup`, then `/harness:sync`. Confirm shared settings contain
-   `"harness@studio-moser": true` and that the sync reports a clean remote SHA.
-3. Only after Harness is enabled and verified, remove the retired entry and plugin:
-   `/plugin uninstall machine@studio-moser`. Sync again so no shared
-   `machine@studio-moser` setting remains.
-4. Restart active agent sessions or reload plugins, then repeat on the next machine.
+1. Install Harness on every machine: `/plugin install harness@studio-moser`.
+   Keep Machine installed while the fleet is in transition.
+2. Verify Harness works on every machine by starting a fresh session and running
+   `/harness:sync --dry-run`; do not change the shared settings yet.
+3. After every machine can load Harness, merge and pull the private agents migration.
+   This is the **tracked setting removal**: it enables
+   `"harness@studio-moser": true` and removes `machine@studio-moser` from the
+   shared repository without uninstalling the cached Machine plugin.
+4. Rerun `/harness:sync` on every machine and require its clean remote-SHA report.
+5. Only then perform the **cached plugin uninstall** on every machine:
+   `/plugin uninstall machine@studio-moser`. Reload active sessions afterward.
 
 Product Pulse and PM depend on Harness for provider-neutral execution and review;
 install or migrate Harness before running either consumer.
@@ -113,6 +116,7 @@ and confirms a remote is private before the first push.
 | | |
 |---|---|
 | `scripts/link-plan.sh [repo]` | read-only drift report; exit 1 if any link needs work |
+| `scripts/sync-preflight.sh <repo>` | query and ingest the remote before any reconciliation writer runs |
 | `scripts/reconcile_shared_settings.py [--check] <settings.json> [...]` | enable Harness and remove the retired Machine setting atomically |
 | `scripts/mcp-manifest.sh <runtime-mcp.json> <mcp.manifest>` | generate or validate the names-only portable MCP inventory |
 | `scripts/stamp-baseline.sh <target> [body]` | idempotently stamp the Harness project block; defaults to the bundled template |

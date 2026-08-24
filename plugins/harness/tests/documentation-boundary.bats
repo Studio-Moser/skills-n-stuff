@@ -38,18 +38,20 @@ PY
   [ "$status" -eq 0 ]
 }
 
-@test "migration docs replace Machine only after Harness is enabled" {
+@test "migration docs separate tracked setting removal from cached plugin uninstall" {
   run python3 - "$HARNESS_README" <<'PY'
 from pathlib import Path
 import sys
 
 text = Path(sys.argv[1]).read_text()
 install = text.index("/plugin install harness@studio-moser")
-enable = text.index('"harness@studio-moser": true')
-remove = text.index("machine@studio-moser")
+verify = text.index("Verify Harness works on every machine")
+private_migration = text.index("merge and pull the private agents migration")
+sync = text.index("/harness:sync", private_migration)
 uninstall = text.index("/plugin uninstall machine@studio-moser")
-assert install < enable < remove
-assert enable < uninstall
+assert install < verify < private_migration < sync < uninstall
+assert "tracked setting removal" in text
+assert "cached plugin uninstall" in text
 PY
   [ "$status" -eq 0 ]
 }

@@ -4,8 +4,8 @@ description: >-
   Make this machine match your personal agent repo — the private repo holding your
   skills, global CLAUDE.md, and shared Claude Code settings. On first run it clones
   an existing private repo or safely creates one from loose configuration; after
-  that it commits this machine's changes, pulls, and pushes so the repo actually
-  stays current. Re-links anything that drifted back into ~/.claude, lints for paths
+  that it ingests the current remote before reconciliation, then commits and pushes
+  this machine's changes. Re-links anything that drifted back into ~/.claude, lints for paths
   that would be wrong on another machine, and optionally triggers a pull on your
   other machines. Trigger: "sync my config", "sync my machines", "update my skills from
   my repo", "is this machine up to date", or /harness:sync.
@@ -62,6 +62,7 @@ Skip everything else, explicitly:
   `Derived: [skipped in dry run]`.
 - **Phase 2's reconciliation and Phase 3.75's final transaction** — they write
   shared settings, manifests, the repo, or the remote.
+- **Phase 0.5's remote preflight** — it may fetch and fast-forward the repo.
 - **Phase 2.5's plugin half** (marketplace add / plugin install) — installs
   software. Run only its MCP verification block, not this one.
 - **Phase 2.6's step 0 fix block** (the `.gitignore` write and `git rm
@@ -106,7 +107,7 @@ the `diff_status` value in between.
 **absent** — first run on this machine. Do not assume a remote already exists.
 Continue through First-run safety and adoption below.
 
-**found** — continue to Phase 1.
+**found** — continue to Phase 0.5.
 
 ---
 
@@ -134,8 +135,8 @@ is either in this archive or explicitly declined after a shown diff.
 Ask one question:
 
 - **Existing private repository** — ask for its exact URL; never guess it. Clone it
-  into `$repo`, then use Phase 1's recursive diff and keep/discard prompts for every
-  live file or directory that conflicts with the clone.
+  into `$repo`, run Phase 0.5, then use Phase 1's recursive diff and keep/discard
+  prompts for every live file or directory that conflicts with the clone.
 - **Loose configuration with no repository yet** — adopt the current machine using
   the procedure below.
 
@@ -187,9 +188,37 @@ versioned, but Phase 4 must report that it is not synchronized elsewhere.
 
 ---
 
+## Phase 0.5: Ingest the remote before any reconciliation
+
+Run this on every normal sync after locating or cloning an existing repository,
+before Phase 1 can replace links or any later phase can write shared state. Do
+not run it in dry-run mode because a clean repository may be fetched and
+fast-forwarded.
+
+```bash
+set -euo pipefail
+repo="${AGENTS_REPO:-$HOME/.agents}"
+harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
+"$harness/scripts/sync-preflight.sh" "$repo"
+```
+
+The helper queries the actual remote branch. A clean repository is fetched and
+fast-forwarded before any derived output is computed. Local work may continue
+only while that remote still matches the already-known tracking SHA. If both
+local work and a newer remote exist, it stops with an explicit instruction to
+commit or stash the local work, ingest the remote, and rerun Sync. Divergence
+also stops; never merge, rebase, or force automatically. A remote branch that
+does not exist yet is a valid first-push state.
+
+If the remote moves after this preflight, Phase 3.75 queries the actual remote
+again and stops before commit or push. It never pulls after the derived files
+and scans have run.
+
+---
+
 ## Phase 1: Link check
 
-**Run this before pulling.** `CLAUDE.md` and `settings.json` are both rewritten by
+**Remote ingestion must already be complete.** `CLAUDE.md` and `settings.json` are both rewritten by
 tooling — a memory tool's bootstrap block edits one, Claude Code writes the other
 on plugin toggle. A writer that does atomic-replace (temp file + rename) rather
 than write-in-place silently converts a symlink back into a real file, and sync
@@ -342,6 +371,7 @@ keep-file `cp`.** Run this in the same command block as the copy so the sanitize
 file, never its machine-only routing, becomes the repo copy:
 
 ```bash
+set -euo pipefail
 repo="${AGENTS_REPO:-$HOME/.agents}"
 claude="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
@@ -612,7 +642,7 @@ if not os.path.exists(manifest_path):
     print("MCP_STATE=not declared")
     raise SystemExit(0)
 
-declared = {line for line in open(manifest_path) if (line := line.strip())}
+declared = {line.strip() for line in open(manifest_path) if line.strip()}
 servers = load(mcp_path).get("mcpServers", {})
 disabled = set(load(local_path).get("disabledMcpjsonServers", []))
 
@@ -1069,6 +1099,7 @@ leave a stale derived file. The finalizer is the last command; nothing may write
 the repo after it returns:
 
 ```bash
+set -euo pipefail
 repo="${AGENTS_REPO:-$HOME/.agents}"
 claude="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
@@ -1076,7 +1107,15 @@ harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*
 [ ! -e "$repo/claude/settings.json" ] || "$harness/scripts/localize-skill-overrides.py" "$repo/claude/settings.json" "$claude/settings.local.json"
 [ ! -e "$repo/claude/settings.json" ] || "$harness/scripts/reconcile_shared_settings.py" "$repo/claude/settings.json"
 [ ! -f "$claude/mcp.json" ] || "$harness/scripts/mcp-manifest.sh" "$claude/mcp.json" "$repo/mcp.manifest"
-"$harness/scripts/skills-manifest.sh" "$repo"
+if ! listing="$(npx skills list -g --json 2>/dev/null)"; then
+  echo "SKILLS_STATE=failed: npx skills list -g --json failed — manifest not regenerated" >&2
+  exit 1
+fi
+if [ -z "$listing" ] || ! printf '%s' "$listing" | python3 -c 'import json,sys; json.load(sys.stdin)' >/dev/null 2>&1; then
+  echo "SKILLS_STATE=failed: npx skills list -g --json produced no parseable output — manifest not regenerated" >&2
+  exit 1
+fi
+printf '%s' "$listing" | "$harness/scripts/skills-manifest.sh" "$repo"
 "$harness/scripts/render-codex-agents.sh" "$repo"
 "$harness/scripts/link-plan.sh" "$repo"
 "$harness/scripts/portability-lint.sh" "$repo"
@@ -1085,7 +1124,9 @@ harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*
 
 `sync-finalize.sh` stages the complete result, checks the staged diff, reruns the
 portability gate, validates the MCP inventory, and performs explicit staged secret
-and machine-local state scans. Only then does it perform exactly one commit, pull, and push.
+and machine-local state scans. Only then does it perform at most one commit and
+exactly one push; remote ingestion has already completed before reconciliation, so the
+finalizer never pulls.
 It fails closed on divergence, a missing remote, any write after staging,
 or a rejected push; never retry with merge, rebase, or force.
 
@@ -1104,7 +1145,8 @@ Harness sync — {repo}
   Derived:    {codex/AGENTS.md unchanged | codex/AGENTS.md regenerated | failed: <reason> |
                [skipped in dry run]}
   Committed:  {nothing local | <short message>: N added, M modified, K deleted}
-  Pull:       {up to date | N commits: <oneline list> | DIVERGED — not pushed}
+  Ingest:     {up to date | fast-forwarded N commits: <oneline list> |
+               skipped in dry run | DIVERGED — not pushed}
   Push:       {pushed <sha> | skipped: <reason> | no remote configured}
   Final:      {clean worktree, remote SHA <sha> | FAILED: <reason>}
   Plugins:    {up to date | added N marketplace(s), installed M, updated K — restart or

@@ -28,6 +28,13 @@ for name in ("harness", "pm", "product-pulse"):
             f"{name}: marketplace {marketplace_version!r} != manifest {manifest_version!r}"
         )
 
+metadata_version = marketplace.get("metadata", {}).get("version")
+pm_version = entries["pm"]["version"]
+if metadata_version != pm_version:
+    failures.append(
+        f"marketplace metadata {metadata_version!r} != PM release line {pm_version!r}"
+    )
+
 assert not failures, "\n".join(failures)
 PY
   if [ "$status" -ne 0 ]; then

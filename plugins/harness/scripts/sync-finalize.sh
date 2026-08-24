@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Stage and validate every repo write, then perform exactly one commit/pull/push
-# transaction and prove the local tree matches the remote result.
+# Stage and validate every repo write, then perform one commit/push transaction
+# and prove the local tree matches the actual remote result.
 set -euo pipefail
 
 [ $# -eq 2 ] || { echo "usage: sync-finalize.sh <agents-repo> <commit-message>" >&2; exit 2; }
@@ -50,21 +50,22 @@ if local_state:
     print("SYNC_STATE=failed: staged local-state scan failed", file=sys.stderr)
     raise SystemExit(1)
 
-changed = [
-    item.decode("utf-8", "surrogateescape")
-    for item in git("diff", "--cached", "--name-only", "--diff-filter=ACMR", "-z").split(b"\0")
-    if item
-]
 patterns = (
     re.compile(rb"-----BEGIN (?:RSA |OPENSSH |EC |DSA |PGP )?PRIVATE KEY-----"),
-    re.compile(rb"\b(?:ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[A-Z0-9]{16}|xox[baprs]-[A-Za-z0-9-]{10,})\b"),
     re.compile(
-        rb"(?im)\b(?:api[_-]?(?:key|token)|access[_-]?token|auth[_-]?token|client[_-]?secret|password)\b"
-        rb"\s*[:=]\s*[\"']?[^\s\"',}]{16,}"
+        rb"\b(?:ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|"
+        rb"AKIA[A-Z0-9]{16}|xox[baprs]-[A-Za-z0-9-]{10,}|"
+        rb"sk-proj-[A-Za-z0-9_-]{10,}|sk-ant-[A-Za-z0-9_-]{10,})\b"
+    ),
+    re.compile(
+        rb"(?im)\b(?:(?:(?:openai|anthropic|google|gemini|groq|openrouter|"
+        rb"mistral|xai|cohere|perplexity)[_-]?)?api[_-]?(?:key|token)|"
+        rb"access[_-]?token|auth[_-]?token|client[_-]?secret|password)\b"
+        rb"[\"']?\s*[:=]\s*[\"']?(?!\$)[^\s\"',}]{16,}"
     ),
 )
 secret_paths = []
-for name in changed:
+for name in tracked:
     try:
         blob = git("show", f":{name}")
     except subprocess.CalledProcessError:
@@ -77,49 +78,68 @@ if secret_paths:
     print("SYNC_STATE=failed: staged secret scan failed", file=sys.stderr)
     raise SystemExit(1)
 
-print("STAGED_SCANS=portability,secret,local-state clean")
+print("STAGED_SCANS=portability,final-index-secret,local-state clean")
 PY
 
 git -C "$repo" diff --cached --stat
 git -C "$repo" diff --cached --name-status
+
+branch="$(git -C "$repo" branch --show-current)"
+[ -n "$branch" ] || { echo "SYNC_STATE=failed: detached HEAD cannot sync" >&2; exit 1; }
+
+remote="$(git -C "$repo" config --get "branch.$branch.remote" || true)"
+merge_ref="$(git -C "$repo" config --get "branch.$branch.merge" || true)"
+[ -n "$remote" ] || remote=origin
+[ -n "$merge_ref" ] || merge_ref="refs/heads/$branch"
+git -C "$repo" remote get-url "$remote" >/dev/null 2>&1 || {
+  echo "SYNC_STATE=failed: no upstream or $remote remote" >&2
+  exit 1
+}
+
+query_remote_sha() {
+  local line
+  line="$(git -C "$repo" ls-remote --heads "$remote" "$merge_ref")" || {
+    echo "SYNC_STATE=failed: could not query $remote" >&2
+    return 1
+  }
+  printf '%s' "${line%%[[:space:]]*}"
+}
+
+remote_branch="${merge_ref#refs/heads/}"
+tracking_ref="refs/remotes/$remote/$remote_branch"
+remote_before="$(query_remote_sha)" || exit 1
+set_upstream=0
+if [ -n "$remote_before" ]; then
+  expected_remote="$(git -C "$repo" rev-parse "$tracking_ref" 2>/dev/null || true)"
+  if [ -z "$expected_remote" ]; then
+    echo "SYNC_STATE=failed: existing remote branch was not preflighted; rerun sync" >&2
+    exit 1
+  fi
+  if [ "$remote_before" != "$expected_remote" ]; then
+    echo "SYNC_STATE=failed: remote moved after preflight; rerun sync" >&2
+    exit 1
+  fi
+  if ! git -C "$repo" merge-base --is-ancestor "$remote_before" HEAD; then
+    echo "SYNC_STATE=failed: local HEAD does not contain the preflighted remote; rerun sync" >&2
+    exit 1
+  fi
+else
+  set_upstream=1
+fi
 
 if ! git -C "$repo" diff --cached --quiet; then
   git -C "$repo" commit -m "$message"
 fi
 
 if [ -n "$(git -C "$repo" status --porcelain --untracked-files=all)" ]; then
-  echo "SYNC_STATE=failed: worktree changed before pull/push" >&2
-  exit 1
-fi
-
-branch="$(git -C "$repo" branch --show-current)"
-[ -n "$branch" ] || { echo "SYNC_STATE=failed: detached HEAD cannot sync" >&2; exit 1; }
-
-set_upstream=0
-if upstream="$(git -C "$repo" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null)"; then
-  git -C "$repo" pull --ff-only
-else
-  git -C "$repo" remote get-url origin >/dev/null 2>&1 || {
-    echo "SYNC_STATE=failed: no upstream or origin remote" >&2
-    exit 1
-  }
-  if git -C "$repo" ls-remote --exit-code --heads origin "refs/heads/$branch" >/dev/null 2>&1; then
-    git -C "$repo" branch --set-upstream-to="origin/$branch" "$branch"
-    git -C "$repo" pull --ff-only
-  else
-    set_upstream=1
-  fi
-fi
-
-if [ -n "$(git -C "$repo" status --porcelain --untracked-files=all)" ]; then
-  echo "SYNC_STATE=failed: worktree changed after pull" >&2
+  echo "SYNC_STATE=failed: worktree changed before push" >&2
   exit 1
 fi
 
 if [ "$set_upstream" -eq 1 ]; then
-  git -C "$repo" push -u origin "$branch"
+  git -C "$repo" push -u "$remote" "$branch:$merge_ref"
 else
-  git -C "$repo" push
+  git -C "$repo" push "$remote" "$branch:$merge_ref"
 fi
 
 if [ -n "$(git -C "$repo" status --porcelain --untracked-files=all)" ]; then
@@ -127,11 +147,10 @@ if [ -n "$(git -C "$repo" status --porcelain --untracked-files=all)" ]; then
   exit 1
 fi
 
-upstream="$(git -C "$repo" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}')"
 local_sha="$(git -C "$repo" rev-parse HEAD)"
-remote_sha="$(git -C "$repo" rev-parse "$upstream")"
+remote_sha="$(query_remote_sha)" || exit 1
 if [ "$local_sha" != "$remote_sha" ]; then
-  echo "SYNC_STATE=failed: local HEAD does not match remote-tracking SHA" >&2
+  echo "SYNC_STATE=failed: remote moved during or after push" >&2
   exit 1
 fi
 
