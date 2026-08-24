@@ -26,10 +26,16 @@ links, repositories, or remote state.
    checks without a pending repair.
 2. Discover the current runtime capabilities with the same read-only `command -v`
    inventory used by Ordered setup.
-3. Resolve the rubric through `scripts/rubric-path.sh --check`. When it is set, validate
-   without rewriting it: required execute and review routes resolve to existing model
-   rows, every CLI-backed row needed by those routes has a currently present
-   capability, and no required route names an absent executor.
+3. Resolve the rubric through `scripts/rubric-path.sh --check`. When it is set,
+   validate it against the Harness 0.7 completion contract without rewriting it:
+   `routing.orchestrator`, `routing.default`, `routing.quick`, and `routing.review`
+   are present; every emitted route resolves to an exact `(name, effort)` model row;
+   every routed row's `provider` is reachable; and `via`, when present, names a
+   discovered executor. Also require every completed model row's `efficiency` to be
+   an integer from 1 through 10. When `routing.independent` is present, require its
+   provider to differ from the provider of `routing.orchestrator` and the provider
+   of any named authoring model. A rubric that satisfies only the pre-0.7
+   execute/review checks is not configured.
 4. Return the complete HarnessResult defined by the Harness contract. Use
    `status: accepted` with `evidence.outcome: proven` only when the Sync dry run and
    current rubric/capability validation all pass. Otherwise use `status: blocked` with

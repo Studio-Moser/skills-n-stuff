@@ -113,7 +113,8 @@ problems explicitly; do not infer it from benchmark scores:
 2. **Billing and efficiency semantics:** per provider, record whether billing is
    metered dollars or a flat subscription whose constraints are quota burn and
    latency. Use `efficiency` for the developer-specific synthesis of those
-   constraints and the observed software-work evidence.
+   constraints and the observed software-work evidence. In a completed row,
+   `efficiency` is an integer from 1 through 10.
 3. **Trust for hard problems:** identify models the developer trusts or refuses
    for ambiguous unsupervised work.
 4. **Orchestration preference:** identify the trusted model the developer wants
@@ -172,12 +173,17 @@ The routing table uses exact `<model>@<effort>` values:
 Derive and degrade from the observed capability inventory exactly as follows:
 
 - Claude and Codex -> cross-provider routes are allowed but not required.
-- Claude only -> derive required routes from Claude and omit impossible independence.
-- Codex only -> derive required routes from Codex and require no native-Claude explore route.
+- Claude only -> derive required routes from Claude and omit `routing.independent`.
+- Codex only -> derive required routes from Codex, omit `routing.independent`, and
+  require no native-Claude explore route.
 - one reachable model-effort row -> reuse it for required routes and omit optional routes.
 - no reachable model-effort row -> block and do not write a valid-looking rubric.
 
-Provider diversity is an optimization, not a setup prerequisite.
+Provider diversity is an optimization, not a setup prerequisite; every
+single-provider setup must omit `routing.independent`. When present,
+`routing.independent` must resolve to a provider distinct from
+the provider of `routing.orchestrator` and from the provider of any named
+authoring model.
 
 `via` is executor metadata interpreted by Harness. Consumers never branch on it.
 Every eventual dispatch still passes model and effort explicitly.
@@ -198,7 +204,7 @@ models:
     intelligence: 8
     taste: 8
     trust: trusted
-    efficiency: preferred
+    efficiency: 8
     benchmark: { suite: deepswe, version: "X.Y", observed: YYYY-MM-DD, pass_at_1: 0.5, mean_task_cost_usd: 1.0, cost_per_success_usd: 2.0, mean_output_tokens: 1000, mean_steps: 10, mean_duration_seconds: 60 }
 routing:
   orchestrator: model-name@high
@@ -237,6 +243,9 @@ a completed rubric when a required route is absent, a route lacks an exact row,
 a benchmark division is inconsistent beyond rounding, or no row is reachable.
 Validate both `provider` and `via` reachability for every routed row against the
 current capability inventory; block or rederive when either is unavailable.
-Optional unavailable routes are omitted. When present, `routing.taste` must name
-a reachable row at or above `routing.taste_min`. A Setup invocation reports
-`reconciled: true` even when the file did not change.
+Reject `routing.independent` when its provider matches either the orchestrator's
+provider or a named authoring provider. Validation requires that every completed
+model row's `efficiency` is an integer from 1 through 10; reject any other value.
+Optional unavailable routes are omitted. When present,
+`routing.taste` must name a reachable row at or above `routing.taste_min`. A Setup
+invocation reports `reconciled: true` even when the file did not change.
