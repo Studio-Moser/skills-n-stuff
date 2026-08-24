@@ -90,3 +90,34 @@ PY
   fi
   [ "$status" -eq 0 ]
 }
+
+@test "Harness-consuming PM skills invoke skills instead of dispatching agents" {
+  run python3 - "$REPO" <<'PY'
+from pathlib import Path
+import re
+import sys
+import yaml
+
+root = Path(sys.argv[1]) / "plugins" / "pm" / "skills"
+failures = []
+for name in ("dev-task", "sprint-dev", "ingest", "triage"):
+    path = root / name / "SKILL.md"
+    match = re.match(r"^---\n(.*?)\n---\n", path.read_text(), re.S)
+    metadata = yaml.safe_load(match.group(1)) if match else {}
+    tools = str(metadata.get("allowed-tools", "")).split()
+    if "Skill" not in tools:
+        failures.append(f"{name}: allowed-tools omits Skill")
+    if "Agent" in tools:
+        failures.append(f"{name}: allowed-tools retains direct Agent dispatch")
+
+setup = (root / "setup" / "SKILL.md").read_text()
+if "Agent" in str(yaml.safe_load(re.match(r"^---\n(.*?)\n---\n", setup, re.S).group(1)).get("allowed-tools", "")).split():
+    failures.append("setup: allowed-tools retains direct Agent dispatch")
+
+assert not failures, "\n".join(failures)
+PY
+  if [ "$status" -ne 0 ]; then
+    printf '%s\n' "$output" >&2
+  fi
+  [ "$status" -eq 0 ]
+}

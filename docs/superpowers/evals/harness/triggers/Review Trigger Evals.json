@@ -1,0 +1,22 @@
+[
+  {"query": "Run a Harness review request against immutable commit 3deb5d7. Use the configured review route, fresh evidence, read-only authority, and reproduce the touched Bats suites before accepting anything.", "should_trigger": true},
+  {"query": "I want a paid cross-provider adversarial review of this pinned plan snapshot. Ask for explicit independent-route cost approval first and keep the reviewer context separate from the author.", "should_trigger": true},
+  {"query": "Review this immutable patch artifact at /tmp/review-42/change.patch with SHA-256 digest 61d8...; don't silently switch to the moving working tree if the commit-only adapter can't consume it.", "should_trigger": true},
+  {"query": "The executor claims commit a1b2c3 passes ./scripts/check-migration.sh. Treat its report as a claim, inspect every material finding against that SHA, and reproduce the check in the parent.", "should_trigger": true},
+  {"query": "Prepare the typed blocked result for a Harness review because the caller supplied only 'current diff' and no immutable commit or snapshot digest.", "should_trigger": true},
+  {"query": "Independently review fixed commit 77a19e0, but no cost approval has been given yet. Preserve independence or use only a named authorized fallback; do not assume approval from the review request.", "should_trigger": true},
+  {"query": "A Codex worker authored the implementation, so review it through a fresh configured route that preserves reviewer independence, then validate its findings natively.", "should_trigger": true},
+  {"query": "Review the exported database schema snapshot with digest 9f4c... as the exact target, classify direct versus supporting evidence, and return every HarnessResult field.", "should_trigger": true},
+  {"query": "Use Harness to review pinned security-fix commit d34db33 without writes. The request names auth invariants and an integration seam; do not expand the axes or authority.", "should_trigger": true},
+  {"query": "The external reviewer reported a high-severity null dereference at parser.c:91. Verify that exact finding against commit c0ffee0 and withdraw it if it is not reproducible there.", "should_trigger": true},
+  {"query": "Review my current uncommitted diff and leave ordinary code-review comments. I haven't asked for a Harness route or an independent provider run.", "should_trigger": false},
+  {"query": "Address the review comments on the open GitHub PR for this branch, push the fixes, and reply to each thread.", "should_trigger": false},
+  {"query": "Run the PM sprint review loop for issue #82, update the PR lifecycle, and move the tracker item when the PR merges.", "should_trigger": false},
+  {"query": "Proofread Design Notes.md for clarity, inconsistent terms, and awkward sentences; edit the prose directly.", "should_trigger": false},
+  {"query": "What changed in commit 3deb5d7? Give me a concise explanation of the diff; don't run a separate reviewer.", "should_trigger": false},
+  {"query": "Write a reusable pull-request review checklist for our TypeScript team. This is documentation, not a review of a fixed target.", "should_trigger": false},
+  {"query": "Compare three hosted observability vendors and recommend which one we should trial. Cite current pricing and docs.", "should_trigger": false},
+  {"query": "Visually review the running dashboard in Chrome at localhost:3000 and attach screenshots of the responsive breakpoints.", "should_trigger": false},
+  {"query": "Review my personal model rubric and tell me whether the bulk route is still cost effective; do not review a commit.", "should_trigger": false},
+  {"query": "Evaluate whether the Harness execute skill description triggers on the right prompts and optimize its held-out accuracy.", "should_trigger": false}
+]

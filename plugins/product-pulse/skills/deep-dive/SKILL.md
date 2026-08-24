@@ -1,13 +1,9 @@
 ---
 name: deep-dive
 description: >-
-  Deep-dive research and analysis of external reference materials (YouTube videos,
-  articles, GitHub repos, documentation, code sources) against the current project.
-  Reads pulse-config.yaml for config. Reports save to {research_dir}/deep-dives/.
-  ONLY trigger when the user explicitly asks to research, analyze, or compare
-  a resource against their project — not just because they share a link.
-  Trigger: "research this", "deep dive on", "analyze this reference",
-  "compare to project", or /product-pulse:deep-dive.
+  Use when the user explicitly asks to research, analyze, or compare external
+  videos, articles, repositories, documentation, or code against the current project.
+allowed-tools: "Bash Read Write Edit Skill"
 ---
 
 # Product Pulse — Deep Dive
@@ -15,6 +11,12 @@ description: >-
 You are a senior technical research analyst. The user has shared one or more links to external resources — videos, articles, repos, docs — and wants you to thoroughly analyze them in the context of the project you're currently working in together.
 
 Your job is to go deep, not shallow. The user is counting on you to surface things they wouldn't find on their own.
+
+Harness owns routing and execution. Invoke the named Harness skill through `Skill`;
+do not read Harness skill, reference, script, or rubric files, and do not perform
+Harness phases inside Product Pulse. Do not read or inspect the model rubric, and
+do not resolve a model, effort, provider, or executor. Do not repair an unresolved
+or blocked route inside Product Pulse; consume and report the typed Harness Result.
 
 ---
 
@@ -96,31 +98,51 @@ If the output directory is empty or doesn't exist yet, skip this phase.
 
 For each link the user provides, extract as much substance as possible:
 
-- **YouTube / Shorts / Instagram / TikTok / Threads videos**: Fetch the full transcript via `Skill({ skill: "transcribe:transcribe", args: "<url>" })`. Then analyze the full content — key concepts, tools mentioned, architectural patterns, specific recommendations, code examples discussed. If transcribe fails, surface the stderr message to the user and stop; do not try to analyze the video without its transcript.
-- **Articles / blog posts / docs**: Read the full content and identify the core ideas, technical specifics, libraries/tools referenced, and any opinionated takes on best practices.
-- **GitHub repos**: Examine the README, project structure, key source files, dependencies, and architectural decisions. Understand what the repo does and how it does it.
-- **Other links**: Adapt your approach — the goal is always to thoroughly understand what the resource is communicating.
+- **YouTube / Shorts / Instagram / TikTok / Threads videos**: Fetch the full transcript via `Skill({ skill: "transcribe:transcribe", args: "<url>" })` and pass the transcript as source content. If transcribe fails, surface the stderr message to the user and stop; do not analyze the video without its transcript.
+- **Articles / blog posts / docs**: Fetch the full readable content plus canonical URL, title, author or publisher, and publication or update date.
+- **GitHub repos**: Collect the README, project structure, key source files, dependencies, release state, and canonical repository URL needed for the research question.
+- **Other links**: Adapt collection to the resource while preserving the full accessible content and metadata needed to verify later claims.
 
-Summarize each resource's key points for yourself before moving on. You need a solid mental model of what was shared.
+Record the full source content, canonical URL, title, author or publisher,
+publication date or last-update date, and access failures. Do not analyze a video when
+transcription fails and do not treat a snippet as the full source content.
 
 ---
 
-## Phase 3: Cross-Reference Resources Against Each Other
+## Phase 3: Define Cross-Reference Requirements
 
 **Only when multiple resources are provided.** Skip this phase for single-resource research.
 
-Before comparing to the project, compare the resources to each other:
+Include all accepted resource extracts in an additional Phase 5 `bulk` request. Require
+that comparison to cover:
 
 - **Agreements** — Where do the sources align? Shared recommendations carry more weight.
 - **Contradictions** — Where do they disagree? Flag these prominently and note which source has stronger evidence (more recent, more authoritative, better-supported claims).
 - **Complementary angles** — Does one resource cover ground the others miss? Identify the combined picture that emerges from reading all of them together.
 - **Gaps** — What important aspects does none of the resources address?
 
-This cross-reference analysis becomes a section in the final report. When sources contradict each other, don't pick a winner silently — lay out both positions and explain why one might be more trustworthy.
+This cross-reference analysis becomes a section in the final report. When sources
+contradict each other, don't pick a winner silently; use the Phase 6 review request when
+the conflict is high-impact or would drive a recommendation.
 
 ---
 
-## Phase 4: Research the Ecosystem
+## Phase 4: Audit the Current Project
+
+Before any project-comparison request, inspect the codebase and project:
+
+- Read the project structure, key configuration files, and documentation
+- Understand the tech stack, architecture, and major dependencies
+- Look at how the project currently handles the areas the resources touch on
+- Identify the project's architectural philosophy and patterns in use
+
+Record the current project facts and repository-relative files that support each fact.
+These audited inputs must be present in every comparison-bearing Phase 5 packet. Do not
+request a project comparison until this audit is complete.
+
+---
+
+## Phase 5: Research the Ecosystem
 
 Go beyond the resources themselves. For every significant concept, tool, library, pattern, or product mentioned:
 
@@ -129,9 +151,61 @@ Go beyond the resources themselves. For every significant concept, tool, library
 - Find known issues, gotchas, and common pitfalls
 - Check for recent developments — has the landscape changed since the resource was published?
 
-**Parallelize this phase.** When there are multiple concepts to research, use subagents to investigate them simultaneously rather than sequentially. The user is waiting — don't serialize work that can run in parallel.
+Request independent extraction, ecosystem research, and project comparison through
+Harness. For each resource or bounded concept bundle, invoke `harness:execute` with
+`operation: execute` and `route: bulk`. Submit independent requests concurrently.
 
-**Model routing.** Concept-research subagents are bulk fan-out — dispatch them on a cheap, capable model (pass `model` on each Agent call), following the project's model-selection rubric if its `AGENTS.md`/`CLAUDE.md` defines one. Reserve a strong model for the comparison and synthesis in Phase 6, and for adjudicating conflicting sources.
+```yaml
+operation: execute
+route: bulk
+outcome: Return a source-faithful extraction and bounded project comparison for one external resource or concept bundle
+context:
+  project: {project_id}
+  mode: fresh
+  state: {research question, full source content, canonical URL, title, author or publisher, publication date or last update, related resource extracts, prior-report conclusions, and current project facts}
+  files: [{repository-relative project files needed for the bounded comparison}]
+  memory:
+    enabled: {memory.connector is not null}
+    recall:
+      - purpose: Recover durable prior conclusions relevant to this deep-dive topic
+        query: Prior deep-dive conclusions for {project_id} and {topic}
+        limit: 10
+    capture: []
+authority:
+  working_directory: {absolute primary repository root}
+  allowed_paths: [{read-only paths named in context.files}]
+  tools: [internet research, read-only source and repository inspection]
+  approvals: []
+constraints:
+  - |
+    Product Pulse deep-dive researcher:
+    Extract the source's claims, evidence, technical specifics, named tools, patterns,
+    recommendations, and caveats from the full source content. Preserve a citation URL
+    for every material external claim. Do not fabricate a URL, quote, API, repository
+    fact, or source position, and do not analyze inaccessible content as though read.
+  - |
+    Assess credibility using author or publisher authority, primary versus secondary
+    evidence, corroboration, publication date or last update, currentness, disclosed
+    incentives, and conflicts. Research current official documentation, alternatives,
+    known issues, pitfalls, and material developments since publication. Separate source
+    claims, corroborating evidence, contradiction, and analyst inference.
+  - |
+    Perform a bounded project comparison against the supplied current project facts and
+    repository files: identify confirmed agreements, differences, applicable gaps,
+    tradeoffs, and non-applicable advice with exact file references. Do not infer project
+    behavior from absent evidence and do not modify files.
+  - |
+    Return Resource Extraction, Source Credibility and Freshness, Ecosystem Evidence,
+    Project Comparison, Contradictions and Unknowns, and Citations. Rate each significant
+    finding High, Medium, or Low confidence using the supplied Product Pulse definitions.
+verification:
+  seam: Reopen every citation and compare each extracted claim, credibility judgment, date, project reference, and confidence rating with the full source content and repository evidence
+  expected: The extraction and project comparison are complete, current, citation-backed, explicit about unknowns, and contain no fabricated or strengthened claim
+```
+
+Consume the exact Harness Result. Accept research only from `status: accepted` with
+`evidence.outcome: proven`, then reproduce the verification seam. A summary, exit code,
+or inaccessible citation is not proof.
 
 ### Confidence Ratings
 
@@ -154,20 +228,100 @@ If a resource is stale or its advice has been superseded, flag that prominently.
 
 ---
 
-## Phase 5: Audit the Current Project
-
-Turn your attention to the codebase and project you're working in:
-
-- Read the project structure, key configuration files, and documentation
-- Understand the tech stack, architecture, and major dependencies
-- Look at how the project currently handles the areas the resources touch on
-- Identify the project's architectural philosophy and patterns in use
-
-Be thorough. You need to understand the project well enough to make meaningful comparisons.
-
----
-
 ## Phase 6: Compare and Analyze
+
+When accepted sources are contradictory or a high-impact recommendation depends on a
+contested claim, materialize the disputed claim, full citations, credibility
+assessments, excerpts, and project impact as one immutable snapshot digest. Invoke
+`harness:review` with `operation: review` and `route: review` before synthesis.
+
+```yaml
+operation: review
+route: review
+outcome: Adjudicate one contradictory or insufficiently corroborated high-impact deep-dive claim without changing project or report files
+context:
+  project: {project_id}
+  mode: fresh
+  state: {disputed claim, source excerpts, publication dates, credibility assessments, corroboration attempts, and project impact}
+  files: [{read-only repository-relative immutable claim packet when materialized as a file}]
+authority:
+  working_directory: {absolute primary repository root}
+  allowed_paths: [{read-only immutable claim packet, cited evidence, and bounded project references}]
+  tools: [read-only source and repository inspection]
+  approvals: []
+constraints:
+  - Compare the contradictory evidence without strengthening either position
+  - Assess source credibility, freshness, authority, directness, corroboration, and incentives
+  - Verify all citations and project references and identify what remains unknown
+  - Report whether the high-impact claim is supported, refuted, or unresolved; do not edit files
+verification:
+  seam: Reopen every citation and reproduce the credibility and project-impact comparison against the immutable claim packet
+  expected: The adjudication names the best-supported position and every unresolved uncertainty with no fabricated claim
+  fixed_target: {immutable digest of the contradictory or high-impact claim packet and cited evidence}
+```
+
+Only use an adjudication with `status: accepted`, matching `evidence.fixed_target`,
+and `evidence.outcome: proven`. Otherwise keep the contradiction visible and do not
+base a recommendation on it.
+
+Invoke `harness:execute` with `operation: execute` and `route: taste` for the final
+analysis draft. Product Pulse remains the accepting workflow and publishes the report
+only after checking the returned Harness Result.
+
+```yaml
+operation: execute
+route: taste
+outcome: Synthesize accepted deep-dive research into a decisive, citation-preserving report draft for this project
+context:
+  project: {project_id}
+  mode: fresh
+  state: {research question, accepted extraction and project-comparison results, accepted adjudications, prior-report index, product context, and intended slug}
+  files: [{repository-relative project and prior-report paths cited by accepted research}]
+  memory:
+    enabled: {memory.connector is not null}
+    recall: []
+    capture:
+      - when: accepted
+        type: insight
+        summary: Deep dive on {topic}: {key conclusion in fewer than 80 characters}
+        content: {proven findings, project comparison, confidence, and recommendations}
+        topics: [deep-dive, {project_id}-research, {topic tags}]
+      - when: accepted and a proven conclusion reverses a referenced prior report
+        type: decision
+        summary: Deep-dive conclusion changed for {topic}
+        content: {prior conclusion, new evidence, and bounded reason for the change}
+        topics: [deep-dive, {project_id}-research, changed-conclusion]
+authority:
+  working_directory: {absolute primary repository root}
+  allowed_paths: [{read-only paths named in context.files}]
+  tools: [read-only inspection]
+  approvals: []
+constraints:
+  - |
+    Product Pulse deep-dive synthesis:
+    Synthesize the accepted resource extracts, ecosystem evidence, adjudications, prior
+    research, and project comparison. Separate source fact, project observation, and
+    inference. Preserve citations, source credibility and freshness caveats, confidence
+    ratings, contradictions, and unknowns. Never fabricate or strengthen a claim.
+  - |
+    Return Resource Summary; Cross-Reference Analysis when multiple resources exist;
+    Ecosystem Context; Project Comparison with exact files and patterns; Risks & Gaps;
+    Prior Research when relevant; ## Sources with compact citation links; and concrete,
+    prioritized Action Items. Each action includes why, effort, confidence, tradeoffs,
+    and the evidence it follows from. Make actionable recommendations and say when the
+    project's current approach is better or source advice does not apply.
+  - |
+    The chat and saved report bodies must match. Include complete YAML frontmatter data
+    and intended report path {research_dir}/deep-dives/{slug}.md; use the next numeric
+    suffix instead of overwriting an existing report. Do not write or publish files.
+verification:
+  seam: Trace every report claim and actionable recommendation to accepted cited evidence and verify project references, confidence, required sections, frontmatter data, and report path
+  expected: The report draft is decisive, source-faithful, project-specific, complete, and ready for Product Pulse publication
+```
+
+Require `status: accepted` and `evidence.outcome: proven`, then reproduce the seam.
+Reject a draft that changes a citation, hides a contradiction, invents a project fact,
+or drops a required section.
 
 Cross-reference everything: resources, ecosystem research, prior reports, and the current project.
 
@@ -234,23 +388,11 @@ Wrap the report in YAML frontmatter matching the template at `references/report-
 
 ## Phase 9: Save to Memory (if configured)
 
-If `memory.connector` is set in pulse-config.yaml (not `null`), look for MCP tools whose names contain that connector prefix. If found, capture key insights:
-
-```
-capture_thought({
-  content: "{detailed research findings and recommendations}",
-  summary: "Deep dive: {topic} — {key conclusion in <80 chars}",
-  type: "insight",
-  topics: ["deep-dive", "{project_id}-research", "{topic tags}"],
-  source: "deep-dive-{slug}",
-  project: "{project_id}",
-  metadata: { topic: "{topic}", resources: {N}, confidence: "{overall confidence}" }
-})
-```
-
-If a prior report was referenced and the new research contradicts it, capture a separate thought noting the shift in understanding with `type: "decision"`.
-
-If `memory.connector: null` or no matching tools are found, skip this phase.
+The Phase 6 synthesis request carries the insight capture intent and the conditional
+changed-conclusion intent. After Product Pulse reproduces the report proof, retain any
+returned Harness memory identifiers. If memory is disabled or unavailable, continue
+with the saved report and leave those optional identifiers empty; do not call a
+provider directly.
 
 ---
 

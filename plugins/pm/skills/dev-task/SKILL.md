@@ -5,108 +5,187 @@ description: >-
   interactively in the current repo, especially when a teammate needs guided approval
   gates. Do not use for a sprint or backlog batch, open-ended design, standalone
   review, or diagnosis before a cause is known.
-allowed-tools: "Bash Read Write Edit Agent Skill"
+allowed-tools: "Bash Read Write Edit Skill"
 ---
 
 # PM — Dev Task
 
-Guide ONE person through ONE development task, foreground and interactive, the Studio Moser way. You are a patient pair-programmer: explain what you're doing and why, and **stop at the approval gates**. This is the single-task counterpart to pm:sprint-dev (which batches a backlog).
+Guide ONE person through ONE development task, foreground and interactive, the Studio
+Moser way. Stop at the approval gates. PM owns the development workflow and submits
+bounded execution and review work to Harness; it never resolves the concrete runtime.
 
-**REQUIRED SUB-SKILL:** Use pm:house-rules for all branch/commit/PR/test/security conventions. Do not restate them — defer.
+**REQUIRED SUB-SKILL:** Use pm:house-rules for branch, commit, PR, test, and security
+conventions. Do not restate them here.
 
-**Foundational rule:** Violating the letter of a gate is violating its spirit. "It's small" / "I'm in a hurry" are not exemptions. What *is* allowed is the **change class** from the house rules (Polish / Small / Feature): name it first. For a **Polish** batch — styling, spacing, copy, no logic — the one-line class declaration *is* the plan (the user overrides it in one word), and the suite, the review, and the single commit run once at the checkpoint (the user says commit / PR / done; the batch needs logic — commit it first, then proceed as Small; the user starts an unrelated task; the session ends), not after every edit. Security, auth, payment, or data-model flows are never Polish, copy and styling included. Small and Feature run the gates as written below.
+Name the change class first. Polish uses its one-line class declaration as the plan and
+runs its suite, review, and commit at the checkpoint. Small and Feature changes use the
+gates below.
 
-## When to use this vs. alternatives
+## 1. Frame
 
-| Situation | Use |
-|---|---|
-| One focused change, want guidance/gates | **dev-task** (this) |
-| A backlog of ready items, batch into PRs | pm:sprint-dev |
-| Requirements are vague / design is open | superpowers:brainstorming first, then come back |
-| You're stuck on a bug, behavior is mysterious | superpowers:systematic-debugging |
+- If project memory is enabled, define optional recall intent for relevant constraints,
+  prior decisions, and known failure modes. Carry that intent in the Phase 4 Harness
+  Request; PM never discovers or calls a provider. Continue from repository state
+  when Harness returns no enrichment.
+- Read the repository's `CLAUDE.md` or `AGENTS.md`.
+- Load `references/work-readiness.md`. It is the source of truth for whether the
+  delivery slice is assignable and for the `Outcome`, `Blockers`, `Testing Seam`, and
+  `Proof` fields.
+- Restate the task and its four delivery-slice fields from the approved item or spec.
+- Stop when a blocker is unresolved. State the evidence needed to resume.
+- Name material unknowns and risks. Use superpowers:brainstorming before planning only
+  when the request remains genuinely ambiguous or large.
 
-## The workflow
+## 2. Plan — GATE
 
-### 1. Frame
-- If a memory MCP is connected (e.g. shelby-memory), recall relevant prior context; skip silently if not. See references/memory-integration.md.
-- Read the repo's `CLAUDE.md` / `AGENTS.md` if present.
-- Load `references/work-readiness.md`. Use it as the source of truth for the delivery
-  slice and do not restate its field definitions.
-- Load your model rubric from `${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml`. If it's missing, offer to run `/machine:model-rubric` (or follow `studio-baseline/Rubric_Setup.md` with no plugin) — this is user-global, done once. Use it when choosing models for any sub-agent work.
-- Restate the task in one or two sentences and capture its `Outcome`, `Blockers`,
-  `Testing Seam`, and current `Proof` from the approved item or spec. If there is no
-  approved item, propose those values for approval with the plan.
-- Stop before planning when a blocker is unresolved. Name the blocker and the evidence
-  needed to resume instead of treating the task as ready.
-- Name any unknowns or risks. If the ask is genuinely ambiguous or large, **REQUIRED SUB-SKILL:** Use superpowers:brainstorming before planning.
+Write a concise 5–10 bullet plan with files and edge cases. For a multi-step Feature,
+use superpowers:writing-plans. Show the delivery slice before the steps:
 
-### 2. Plan — GATE
-- Write a concise plan: 5–10 bullets, what you'll change, which files, edge cases. For multi-step work, **REQUIRED SUB-SKILL:** Use superpowers:writing-plans.
-- Show the delivery slice before the implementation steps:
-  - `Outcome`: {value}
-  - `Blockers`: {value or none}
-  - `Testing Seam`: {procedure and expected result}
-  - `Proof`: {current proof state; normally unproven before implementation}
-- **STOP. Present the plan and wait for the user to explicitly approve this plan.** Until then take no implementation action — no branching, no creating or editing files, no code.
+```text
+Outcome: {bounded observable result}
+Blockers: {resolved prerequisites or none}
+Testing Seam: {procedure and expected result}
+Proof: {current proof; normally unproven}
+```
 
-### 3. Branch
-- Per pm:house-rules. If the change needs isolation from current work, **REQUIRED SUB-SKILL:** Use superpowers:using-git-worktrees.
+Stop and wait for explicit approval. Do not branch or edit before approval.
 
-### 4. Implement
-- Follow project conventions and the pm:house-rules implementation discipline (shortest diff, reuse first, root cause over symptom, no speculative abstractions). Keep the change focused.
-- When the task warrants tests, **REQUIRED SUB-SKILL:** Use superpowers:test-driven-development.
-- If behavior is mysterious, **REQUIRED SUB-SKILL:** Use superpowers:systematic-debugging.
-- Commit incrementally (conventional commits per pm:house-rules).
-- **If you discover unrelated work, do NOT do it inline.** Note it for the user; keep the definition of done fixed.
-- If implementation is delegated, include the approved delivery-slice fields verbatim
-  in the worker prompt. The worker owns that outcome, not adjacent cleanup.
+## 3. Branch
 
-### 5. Review
-- Load `references/review-proof.md` and apply it as the source of truth for the review
-  target, report, evidence, and completion gate. Give the independent reviewer the
-  approved requirements and current `Testing Seam` proof.
-- Self-review against the pm:house-rules security + quality checklist — but per house-rules Verification, your own pass is a first draft, not proof.
-- Then run `/code-review`, or dispatch the `code-reviewer` subagent for an independent read that re-runs the tests itself — dispatch `routing.review` from the rubric (`${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml`) per `references/model-orchestration.md`'s dispatch procedure — split the `model@effort` value, honor `via:`, pass model + effort explicitly. If you want an adversarial read of *your own* diff by a model that hasn't seen this conversation, that's `routing.independent` — ask first, it's the expensive option. Fix every BLOCKER and any SUGGESTION you agree with; dispute wrong findings per house-rules rather than distorting correct code.
-- Do not pass this gate until the reference's completion conditions hold for the current
-  fixed point.
+Create or verify the branch/worktree per pm:house-rules. Never implement on the default
+branch.
 
-### 6. Verify — GATE
-- Run the project's tests/build/lint. **REQUIRED SUB-SKILL:** Use superpowers:verification-before-completion.
-- Execute the named `Testing Seam` and update `Proof` with the command or procedure and
-  actual result. The task is incomplete if the outcome is not delivered or its proof
-  remains unproven.
-- **Run the commands yourself and paste the actual output here.** Never claim "passing" without pasted evidence.
+## 4. Execute through Harness
 
-### 7. PR
-- Open the PR per pm:house-rules (What/Why/Testing). Share the URL.
+Use `harness:execute` with `operation: execute`. Choose only the semantic altitude PM
+knows: `route: bulk` for clear-spec or mechanical work, `route: quick` only for a short
+latency-sensitive step, and `route: taste` for user-facing design, copy, or public API
+work. Harness owns all concrete routing and execution decisions.
 
-### 8. Wrap
-- Summarize what shipped and what was intentionally left out.
-- **REQUIRED SUB-SKILL:** Use superpowers:finishing-a-development-branch for merge/PR/cleanup options.
-- If a project tracker is configured (`.pm/config.yml` exists), offer to update the item. If not, skip silently — dev-task never requires /pm:setup.
-- If a memory MCP is connected, save any reusable learning; skip silently if not. See references/memory-integration.md.
+Submit a complete Harness Request shaped like this, replacing every placeholder with
+the approved slice's actual values:
 
-## Rationalization table — do not skip gates
+```yaml
+operation: execute
+route: {bulk | quick | taste}
+outcome: {Outcome}
+context:
+  project: {canonical project identifier when known}
+  mode: fresh
+  state: {approved plan, change class, current Proof, and repository state}
+  files: [{repository-relative implementation and test paths}]
+  memory:
+    enabled: {true when project memory is configured; otherwise false}
+    recall: Relevant project constraints, decisions, and known failure modes for this bounded task
+    capture: []
+authority:
+  working_directory: {absolute repository root or approved worktree}
+  allowed_paths: [{paths approved by the plan}]
+  tools: [{repository tools needed to edit, test, and commit}]
+  approvals: []
+constraints:
+  - "Blockers: {resolved Blockers or none}"
+  - {approved acceptance criteria and negative constraints}
+  - Use test-driven development for behavior changes and leave a runnable check for non-trivial logic
+  - Preserve trust-boundary validation, data-loss-preventing error handling, security, and accessibility basics
+  - Keep the change to the approved slice, run the planned tests, and make atomic conventional commits
+  - {commit actions authorized by the approved plan; PM opens the PR after acceptance}
+verification:
+  seam: {Testing Seam procedure}
+  expected: {Testing Seam expected result}
+```
 
-| Excuse | Reality |
-|---|---|
-| "It's tiny, skip the plan" | Tiny changes still surprise. A 5-bullet plan costs 30 seconds and catches scope errors. Present it. (Polish excepted — the class line is its plan.) |
-| "They're in a hurry" | The gate IS the speed — it prevents the rework that's actually slow. |
-| "I'll run tests after the PR" | A PR is a claim it works. Verify before, with evidence. |
-| "I'll just fix this other thing too" | That's scope creep. Note it; keep done fixed. |
-| "I already eyeballed it, it's fine" | Eyeballing ≠ running. Run it and paste output. |
-| "Branching is overkill here" | Never commit to main. Branch per house-rules. |
+The implementation request carries the approved delivery slice verbatim, including
+its blockers and testing seam. Discovered work stays out of scope and is reported to
+PM instead of being fixed inline.
 
-## Red flags — STOP
+Consume the returned Harness Result. Keep a `blocked`, `failed`, or `abandoned` result
+visible with its blockers; do not reinterpret it as delivered. Inspect the returned
+artifacts and evidence before continuing.
 
-- About to Edit/Write code before the user approved a plan (Polish excepted — the class line is its plan).
-- About to say "done" / "tests pass" without pasted command output.
-- About to add something not in the agreed scope.
-- Working directly on the default branch.
+## 5. Review
 
-All of these mean: stop, return to the relevant gate.
+Load `references/review-proof.md` in the PM orchestrator. Copy its complete PM review
+axes and completion constraints into the request; do not pass that PM-private path to
+Harness. Self-review the fixed work against the already-loaded house rules, then submit
+a read-only `harness:review` request with `operation: review`. Ordinary review uses
+`route: review`. A fresh-context adversarial review uses `route: independent` only
+after the user explicitly approves its cost.
 
-## Common mistakes
+```yaml
+operation: review
+route: {review | independent}
+outcome: Report whether the fixed target satisfies the approved delivery slice
+context:
+  project: {canonical project identifier when known}
+  mode: fresh
+  state: {approved requirements and current Testing Seam Proof}
+  files: [{changed and review-relevant repository paths}]
+  memory:
+    enabled: {true when project memory is configured; otherwise false}
+    recall: Prior review-sensitive decisions and known regressions for this fixed target
+    capture:
+      - Reusable project learning only after the fixed target has proven evidence
+authority:
+  working_directory: {absolute repository root or worktree}
+  allowed_paths: [{read-only review scope}]
+  tools: [{read-only inspection and verification tools}]
+  approvals: []
+constraints:
+  - |
+    PM review axes:
+    Quality: inspect the fixed-point diff and affected paths for correctness,
+    regressions, security, edge cases, error handling, performance, maintainability,
+    and adequate tests. Reproduce relevant verification instead of accepting the
+    implementer's claim.
+    Spec Fidelity: compare the fixed-point diff with the approved issue, plan, and
+    acceptance criteria. Report missing or partial requirements, unrequested behavior,
+    and implementations that do not match the requirement; state when no spec exists.
+    Blast Radius: apply this axis when the diff changes Persisted data, schema, or
+    migration behavior; Public API, protocol, wire format, or serialization behavior;
+    Authentication, authorization, permissions, or another security boundary; or
+    Shared runtime, dependency, build, deployment, or configuration behavior. For each
+    trigger, name the central safety assumption and require a check aimed at it. If no
+    trigger matches, record Blast Radius as not applicable.
+    Report each applicable axis separately. Completion requires current proven Harness
+    evidence for this fixed target, Quality and Spec Fidelity reports, every triggered
+    Blast Radius assumption and check, reproduced verification, and no unresolved or
+    unevidenced blocker.
+  - Report each finding with severity, file, line, failure mode, and fix direction
+  - Do not modify the target
+verification:
+  seam: {Testing Seam procedure plus applicable blast-radius checks}
+  expected: {approved acceptance result and no unresolved review blocker}
+  fixed_target: {commit SHA or immutable snapshot digest}
+```
 
-- Restating house-rules inline instead of deferring — defer.
-- Dumping everything you read into the plan — the plan is what you'll DO, not what you saw.
+Treat the returned report as a claim under the Harness contract. Reproduce the relevant
+check, confirm the fixed target is unchanged, and address or evidence-dispute every
+blocker. Any fix creates a new fixed target and requires a new Harness review request.
+
+## 6. Verify — GATE
+
+Use superpowers:verification-before-completion. Run the full repository tests/build/
+lint and reproduce the named Testing Seam against the returned artifact. Record the
+actual command or procedure and result in `Proof`. The slice is incomplete while its
+Outcome is missing, its Harness evidence is unproven, or a PM review blocker remains.
+
+## 7. PR
+
+Open the PR per pm:house-rules with What, Why, and Testing, then share the URL.
+
+## 8. Wrap
+
+Summarize what shipped and what stayed out of scope. Use
+superpowers:finishing-a-development-branch for the merge/PR/cleanup choice. If a PM
+tracker is configured, offer to update the item. Save reusable project learning when a
+Harness returns accepted post-proof memory identifiers; otherwise continue without
+memory enrichment.
+
+## Stop conditions
+
+- An approval gate is still open.
+- A blocker makes the delivery slice unassignable.
+- The Harness Result is not accepted with current proof.
+- The fixed target changed after review.
+- The proposed action is outside the approved delivery slice or authority.

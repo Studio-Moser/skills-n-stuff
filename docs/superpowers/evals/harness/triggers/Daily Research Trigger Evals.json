@@ -1,0 +1,22 @@
+[
+  {"query": "Research multiple sources using cheap fan-out and judgment-heavy synthesis, then publish the normal Product Pulse artifact.", "should_trigger": true},
+  {"query": "Run today's Product Pulse scan across all configured domains, filter it through this week's priorities, and publish the dated daily report for PM ingestion.", "should_trigger": true},
+  {"query": "what's new today for Acme? rotate the configured search terms, check every Always Check item, dedupe against recent reports, and open the normal research PR", "should_trigger": true},
+  {"query": "Please do the daily research pass: parallel source scans per domain, source credibility checks, one synthesized action list, and the usual auto-mergeable report.", "should_trigger": true},
+  {"query": "Scan our configured competitors, audience, growth, market, and product sources for changes since yesterday and write the Product Pulse daily artifact.", "should_trigger": true},
+  {"query": "We missed this morning's research automation. Catch up now using pulse-config.yaml and research-sources.yaml, keep five findings max per domain, and publish today's report.", "should_trigger": true},
+  {"query": "Use inexpensive parallel research for the five domains, then a higher-judgment synthesis step; Product Pulse should retain citation and publication ownership.", "should_trigger": true},
+  {"query": "Check whether any of our persistent architectural watch items changed today, include normal domain findings too, and surface hits at the top of the daily report.", "should_trigger": true},
+  {"query": "It's a quiet news day. Run the configured daily scan anyway and use the condensed format if at least three domains have no qualified findings.", "should_trigger": true},
+  {"query": "Generate today's source-backed Product Pulse brief under the correct YYYY-MM/WNN folder, with Action Items, Source Performance, Noted, and Search Terms Used.", "should_trigger": true},
+  {"query": "Read the last seven daily reports and create this week's strategy brief with exactly three priorities and recommendations for PM.", "should_trigger": false},
+  {"query": "Deep dive on this YouTube talk and compare its architecture recommendations against our current codebase, with citations.", "should_trigger": false},
+  {"query": "Set up Product Pulse for a new repository: interview me about domains and competitors, then create pulse-config.yaml and research-context.md.", "should_trigger": false},
+  {"query": "Search the web for today's three biggest AI stories and summarize them in chat. This project has no Product Pulse configuration and I don't want a report or PR.", "should_trigger": false},
+  {"query": "Triage the action items from yesterday's daily report into ready, needs-info, or rejected tracker items.", "should_trigger": false},
+  {"query": "Reconcile the issue tracker against merged PRs and current git history; don't perform any new external research.", "should_trigger": false},
+  {"query": "Run one bounded Harness bulk request to extract facts from these URLs and return the typed result; there is no Product Pulse publication step.", "should_trigger": false},
+  {"query": "Explain how the daily research workflow deduplicates findings and ranks source quality. Do not run it or write files.", "should_trigger": false},
+  {"query": "Monitor this single vendor status page every hour and notify me when the incident is resolved.", "should_trigger": false},
+  {"query": "Write a market-analysis template we can reuse next quarter; don't scan sources or publish today's daily report.", "should_trigger": false}
+]

@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Claude Code plugins by Studio Moser \u2014 strategy, research, design, and product development tools.",
-    "version": "0.18.0",
+    "version": "0.19.0",
     "pluginRoot": "./plugins"
   },
   "plugins": [
@@ -128,7 +128,8 @@
         "product",
         "growth",
         "deep-dive"
-      ]
+      ],
+      "version": "0.5.0"
     },
     {
       "name": "pm",
@@ -154,12 +155,12 @@
         "triage",
         "sprint"
       ],
-      "version": "0.18.0"
+      "version": "0.19.0"
     },
     {
-      "name": "machine",
-      "source": "./plugins/machine",
-      "description": "Keep personal agent configuration identical across every machine you work on. Links a private repo of skills, global instructions, and shared Claude Code settings into ~/.claude, detects drift and non-portable paths, and optionally pushes to other machines. Also owns the per-developer model-routing rubric and syncs it through the same repo.",
+      "name": "harness",
+      "source": "./plugins/harness",
+      "description": "Provider-neutral control plane for universal agent rules, personal setup and sync, semantic routing, bounded execution, review, computer use, and evidence-bearing results. Keeps private skills, global instructions, shared settings, and the per-developer model rubric portable across machines.",
       "author": {
         "name": "Studio Moser"
       },
@@ -180,7 +181,7 @@
         "sync",
         "agent-config"
       ],
-      "version": "0.5.0"
+      "version": "0.6.0"
     },
     {
       "name": "site-capture",

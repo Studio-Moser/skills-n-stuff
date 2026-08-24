@@ -97,4 +97,9 @@ mcp__trello__update_card_details({
 
 ## Phase 3: Deferred blocker handling — Trello fallback
 
-Phase 3 (deferred blocker handling) is GitHub-specific (uses sub-issues). The Trello equivalent — child cards / blocking checklists — is out of scope for this plan; if a sub-agent files a "spawned-during-sprint" finding while running on Trello, it should `mcp__trello__add_card_to_list` it to `LIST_NEEDS_TRIAGE` with a label `spawned-during-sprint`, and reconcile-time triage handles it like any other incoming item.
+Phase 3 (deferred blocker handling) is GitHub-specific (uses sub-issues). The Trello
+equivalent—child cards or blocking checklists—is out of scope for this plan. If a
+Harness Result reports a `spawned-during-sprint` finding while running on Trello, PM
+adds it to `LIST_NEEDS_TRIAGE` with `mcp__trello__add_card_to_list` and the
+`spawned-during-sprint` label. Reconcile-time triage then handles it like any other
+incoming item.

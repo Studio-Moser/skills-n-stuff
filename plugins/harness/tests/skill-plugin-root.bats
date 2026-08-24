@@ -1,0 +1,120 @@
+#!/usr/bin/env bats
+#
+# Guard: no skill body may call a plugin script through $CLAUDE_PLUGIN_ROOT.
+#
+# Claude Code expands $CLAUDE_PLUGIN_ROOT for a skill's load-time `!`…``
+# substitution, but does not export it into the environment the agent's Bash
+# tool runs in. A ```bash block running "$CLAUDE_PLUGIN_ROOT/scripts/foo.sh"
+# therefore fails with "no such file or directory" — every script invocation
+# in harness:sync and harness:model-rubric was broken this way, and it only
+# surfaced on a real run.
+#
+# Each block must resolve the root itself, the same way it re-resolves repo=
+# and claude= (nothing persists between blocks):
+#
+#   harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ \
+#     2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
+#
+# which honours the variable when it is set and falls back to the newest
+# installed copy when it is not.
+
+setup() {
+  REPO="$(cd "${BATS_TEST_DIRNAME}/../../.." && pwd)"
+}
+
+@test "no skill body invokes a plugin script via \$CLAUDE_PLUGIN_ROOT" {
+  # Repo-wide. Was machine-scoped when first written because pm and generate
+  # carried the same defect; both were fixed, so this now guards everything.
+  #
+  # Load-time `!`…`` substitution is expanded by Claude Code before the agent
+  # sees it and is unaffected — pm relies on that form in four skills and it
+  # must keep working. Only bash the agent executes itself is checked.
+  run python3 - "$REPO" <<'PY'
+import glob, os, re, sys
+
+repo = sys.argv[1]
+bad = []
+for path in sorted(glob.glob(os.path.join(repo, "plugins/*/skills/*/SKILL.md"))):
+    src = open(path).read()
+    rel = os.path.relpath(path, repo)
+    for block in re.findall(r"```bash\n(.*?)\n```", src, re.S):
+        for line in block.split("\n"):
+            if line.lstrip().startswith("#"):
+                continue
+            # Using it as a path prefix is the bug: "$CLAUDE_PLUGIN_ROOT/scripts/…".
+            # Reading it with a fallback is the *fix* and must not be flagged:
+            #   harness="${CLAUDE_PLUGIN_ROOT:-$(…)}"
+            # `!`…`` load-time substitution is expanded by Claude Code before the
+            # agent ever sees it, so it is fine too — this only covers bash the
+            # agent executes itself.
+            if re.search(r'\$\{?CLAUDE_PLUGIN_ROOT\}?/', line):
+                bad.append((rel, line.strip()))
+
+for rel, line in bad:
+    print(f"{rel}: {line}")
+    print("    ^ $CLAUDE_PLUGIN_ROOT is unset in the Bash tool; resolve the root in-block")
+print(f"offenders={len(bad)}")
+sys.exit(1 if bad else 0)
+PY
+  [ "$status" -eq 0 ] || return 1
+  [ -n "$output" ]
+}
+
+@test "every harness skill block calling a plugin script resolves the root first" {
+  run python3 - "$REPO" <<'PY'
+import glob, os, re, sys
+
+repo = sys.argv[1]
+bad = []
+checked = 0
+for path in sorted(glob.glob(os.path.join(repo, "plugins/harness/skills/*/SKILL.md"))):
+    rel = os.path.relpath(path, repo)
+    for block in re.findall(r"```bash\n(.*?)\n```", open(path).read(), re.S):
+        if '"$harness/scripts/' not in block:
+            continue
+        checked += 1
+        if 'harness="${CLAUDE_PLUGIN_ROOT' not in block:
+            first = next((l for l in block.split("\n") if '"$harness/scripts/' in l), "")
+            bad.append((rel, first.strip()))
+
+for rel, line in bad:
+    print(f"{rel}: {line}")
+    print("    ^ block uses $harness without resolving it; nothing persists between blocks")
+print(f"checked={checked} offenders={len(bad)}")
+sys.exit(1 if bad else 0)
+PY
+  [ "$status" -eq 0 ] || return 1
+  [ -n "$output" ]
+}
+
+@test "provider-neutral dispatch skills resolve rubric-path through the Harness root" {
+  run python3 - "$REPO" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+repo = Path(sys.argv[1])
+failures = []
+for name in ("execute", "review", "computer-use"):
+    path = repo / "plugins" / "harness" / "skills" / name / "SKILL.md"
+    if not path.is_file():
+        failures.append(f"{name}: missing skill")
+        continue
+    blocks = re.findall(r"```bash\n(.*?)\n```", path.read_text(), re.S)
+    routing_blocks = [block for block in blocks if '"$harness/scripts/rubric-path.sh"' in block]
+    if len(routing_blocks) != 1:
+        failures.append(f"{name}: expected one rubric-path command block, found {len(routing_blocks)}")
+        continue
+    block = routing_blocks[0]
+    if 'harness="${CLAUDE_PLUGIN_ROOT' not in block:
+        failures.append(f"{name}: rubric-path block does not resolve the Harness root")
+    if block.index('harness="${CLAUDE_PLUGIN_ROOT') > block.index('"$harness/scripts/rubric-path.sh"'):
+        failures.append(f"{name}: Harness root is resolved after rubric-path use")
+
+assert not failures, "\n".join(failures)
+PY
+  if [ "$status" -ne 0 ]; then
+    printf '%s\n' "$output" >&2
+  fi
+  [ "$status" -eq 0 ]
+}

@@ -18,9 +18,16 @@ Add the marketplace:
 
 Then turn on auto-update — Claude Code leaves it **off** by default for third-party marketplaces, so without this you stay on whatever version you first installed: `/plugin` → **Marketplaces** → `studio-moser` → **Enable auto-update**. (Or refresh by hand any time: `/plugin marketplace update studio-moser` then `/plugin update <plugin>@studio-moser`.)
 
-Then install plugins:
+Marketplace metadata has its own release version and is bumped independently
+from plugin releases. Each plugin's marketplace entry still matches its manifest.
+
+Install Harness first; PM and Product Pulse use it for routing, bounded execution,
+review, evidence, and optional memory enrichment:
 
 ```bash
+/plugin install harness@studio-moser
+/harness:setup
+
 /plugin install product-pulse@studio-moser
 ```
 
@@ -51,7 +58,7 @@ Strategic intelligence system for product teams. Weekly strategy briefs, daily m
 
 **Skills:**
 - `/product-pulse:setup` — Onboard a new project (run once)
-- `/product-pulse:weekly-strategist` — Monday morning strategic analysis with 5 analyst agents
+- `/product-pulse:weekly-strategist` — Monday morning strategic analysis with 5 self-contained analyst packets routed through Harness
 - `/product-pulse:daily-research` — Daily domain-specific research filtered through weekly strategy
 - `/product-pulse:deep-dive` — Deep-dive research on external resources (videos, articles, repos, docs)
 
@@ -70,6 +77,21 @@ Backend-agnostic project management for AI-native teams. Ingests research report
 - `/pm:dev-task` — Interactive, guided single-task dev workflow (plan → approve → build → review → verify → PR)
 
 [Full documentation](plugins/pm/README.md)
+
+### Harness
+
+Owns universal agent rules, personal configuration across machines, semantic
+routing, bounded execution, and evidence-bearing results.
+
+**Skills:**
+- `/harness:setup` — configure the personal agents repository, links, runtimes, and rubric
+- `/harness:sync` — reconcile your personal agent repository with this machine
+- `/harness:model-rubric` — create or refresh your user-global model-routing rubric
+- `/harness:execute` — run one bounded request through a resolved semantic route
+- `/harness:review` — independently verify a fixed target and return reproducible evidence
+- `/harness:computer-use` — operate a local app or browser with explicit capability and proof
+
+[Full documentation](plugins/harness/README.md)
 
 ### Site Capture
 

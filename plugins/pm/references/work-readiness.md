@@ -1,6 +1,8 @@
 # Work readiness
 
-This reference defines when an item is ready to specify, schedule, or execute. It is the source of truth for the terms below; consumers require its fields without redefining them.
+This reference defines when an item is ready to specify, schedule, or assign for
+development. It is the source of truth for the PM terms below; consumers require its
+fields without redefining them.
 
 ## Consumer pointers
 
@@ -9,7 +11,20 @@ This reference defines when an item is ready to specify, schedule, or execute. I
 | `skills/triage/SKILL.md` | Verifying a bug claim and creating an M/L/XL spec. |
 | `skills/sprint-dev/SKILL.md` | Selecting ready work and proposing execution batches. |
 | `skills/dev-task/SKILL.md` | Turning an approved item into an implementation assignment. |
-| `skills/codex-implementation/SKILL.md` | Assessing an implementation assignment before work begins. |
+| `harness:execute` | Receiving an assignable PM delivery slice as a Harness Request. |
+
+## Harness boundary
+
+PM decides whether a slice is assignable and supplies its Outcome, Blockers, Testing
+Seam, current Proof, relevant files, and development constraints. Put those values in
+the `context`, `constraints`, and `verification` fields defined by the
+[Harness contract](../../harness/references/harness-contract.md) and
+[handoff reference](../../harness/references/handoff.md).
+
+Harness owns authority enforcement, execution, and universal evidence semantics. PM
+consumes the returned status, artifacts, blockers, and evidence under the
+[Harness verification contract](../../harness/references/verification.md); it does not
+change readiness fields based on concrete execution details.
 
 ## Verified claims
 
@@ -41,7 +56,7 @@ A delivery slice is one independently deliverable, verifiable outcome. It carrie
 - **Outcome**: the user- or system-visible result.
 - **Blockers**: the prerequisite slices or facts, or `none`.
 - **Testing seam**: the check that proves the outcome.
-- **Proof**: the executed check and result.
+- **Proof**: PM's record of the executed check and Harness evidence for the slice.
 
 Each proposed pull request completes one delivery slice. Multiple items may share a
 pull request only when they are required steps for that same outcome; separate outcomes

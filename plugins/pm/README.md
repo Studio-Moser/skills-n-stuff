@@ -13,16 +13,18 @@ PM is a **six-skill pipeline** that manages the full lifecycle of work items, fr
 | `/pm:setup` | Scaffolder | Once per workspace | Detects the workspace, loads only the selected backend reference, creates PM config and domain files, and stamps the shared agent baseline |
 | `/pm:ingest` | Discoverer | After new research lands | Separates source evidence from proposed outcomes, deduplicates candidates, and files `status/needs-triage` items through the selected backend |
 | `/pm:triage` | Classifier | When items need decisions | Verifies claims before design, prepares independently verifiable delivery slices, splits XL work under goal epics, scores, and promotes |
-| `/pm:sprint-dev` | Builder | When you're ready to ship | Selects the unblocked frontier, treats shared-file overlap as scheduling collisions, and dispatches approved slices with named proof |
+| `/pm:sprint-dev` | Builder | When you're ready to ship | Selects the unblocked frontier, treats shared-file overlap as scheduling collisions, and submits approved slices as Harness operations with named proof |
 | `/pm:dev-task` | Pair-programmer | Implementing one focused change | Guides one approved delivery slice through implementation, evidence-backed review, and PR creation; works with or without `/pm:setup` |
 | `/pm:reconcile` | Janitor | After sprints or merges | Completion tracking, stale detection, blocker classification, CONTEXT.md and ADR proposals |
 
 ### Two build modes
 
-- **`/pm:sprint-dev`** — *work the backlog.* Selects unblocked ready slices, schedules collisions, then dispatches the approved PR set. Needs `/pm:setup` + a tracker.
+- **`/pm:sprint-dev`** — *work the backlog.* Selects unblocked ready slices, schedules collisions, then submits the approved PR set as Harness operations. Needs `/pm:setup` + a tracker.
 - **`/pm:dev-task`** — *walk me through this one task.* Interactive and foreground, with approval gates around one bounded change. Works in any repo, no setup required.
 
-Both defer to the shared `house-rules` skill for conventions.
+Both defer through `pm:house-rules` to the
+[Harness-owned universal rules](../harness/references/house-rules.md); PM does not
+maintain a second conventions document.
 New to the team workflow? See [How we do dev tasks](docs/how-we-do-dev-tasks.md).
 
 ### Readiness and proof
@@ -30,15 +32,26 @@ New to the team workflow? See [How we do dev tasks](docs/how-we-do-dev-tasks.md)
 Two canonical references govern PM's shared decisions:
 
 - [`references/work-readiness.md`](references/work-readiness.md) owns verified claims, testing seams, delivery slices, blockers, the unblocked frontier, and scheduling collisions.
-- [`references/review-proof.md`](references/review-proof.md) owns the fixed review target, applicable review axes, evidence levels, and approval conditions.
+- [`references/review-proof.md`](references/review-proof.md) owns PM's development review axes, Blast Radius triggers, and acceptance constraints.
 
 Skills load those references only at the branch where their rules apply. This README describes the resulting behavior; the references own the definitions.
 
-### Model routing & orchestration
+### Harness execution
 
-`sprint-dev` and `dev-task` route each sub-agent to a model by task altitude — cheap capable models for clear-spec mechanical work, the strongest model for ambiguous or taste-sensitive work — and verify output with an independent, looping check rather than trusting a worker's self-report. That behavior reads a **model-selection rubric** that lives per-developer, user-global, at `${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml` — not in the repo. `/machine:model-rubric` (or any agent following `studio-baseline/Rubric_Setup.md` directly, no plugin required) creates it, drafted from the *current* model lineup (preferring the Artificial Analysis API), scored per (model, effort) pair on cost/intelligence/taste plus DeepSWE agentic data, and re-checked on a 14-day cadence. `pm` only reads it — it does not create or refresh it. What `/pm:setup` stamps into the repo's `AGENTS.md` is a shared **baseline reminder block** — house-rules essentials plus a nudge to load the personal rubric — so every developer gets the same house rules and routing reminder via the repo, while their scored rubric stays theirs and stays current. The canonical, model-agnostic doctrine lives in [`references/model-orchestration.md`](references/model-orchestration.md).
+PM is a workflow consumer of the [Harness contract](../harness/references/harness-contract.md).
+It sends complete provider-neutral requests to `harness:execute` and
+`harness:review`, selecting only the semantic route: `bulk` for clear-spec
+mechanical work and scorecards, `quick` only for latency-sensitive steps, `taste`
+for user-facing design/copy/API work, `review` for ordinary fixed-target review, and
+explicitly approved `independent` for an adversarial fresh-context review.
 
-**Optional cross-vendor executor:** if you run the OpenAI `codex` CLI, three capability-gated skills (`/pm:codex-review`, `/pm:codex-implementation`, `/pm:codex-computer-use`) let the orchestrator shell bulk/mechanical work out to it. They're inert on machines without the CLI, and nothing in PM depends on them.
+PM defines the development axes and constraints and submits Harness operations. Those
+constraints include readiness, delivery-slice Outcomes, Blockers, Testing Seams,
+tracker and PR boundaries, plus the Quality, Spec Fidelity, and Blast Radius review
+axes. Harness owns dispatch, fixed-target materialization, and evidence mechanics,
+including concrete routing, execution authority, and the returned Harness Result.
+Harness may delegate workers within the request's authority; PM consumes the Result
+and reproduces the named proof before marking a delivery slice complete.
 
 ### The Flow
 
@@ -70,12 +83,15 @@ status/needs-triage → [reject → out-of-scope/]
 
 - **Ingest** creates `status/needs-triage` items only -- never promotes beyond that
 - **Triage** verifies reported behavior before design, prepares delivery slices, scores, and promotes (or rejects) with your approval
-- **Sprint-dev** moves approved frontier items to `status/in-progress`, dispatches agents, and creates PRs
+- **Sprint-dev** moves approved frontier items to `status/in-progress`, submits Harness operations, and creates PRs
 - **Reconcile** detects merged PRs and closes done items automatically
 
 ## Prerequisites
 
 **Required:**
+
+- [Harness](../harness/) configured through `/harness:setup` for provider-neutral
+  execution and review. `/pm:setup` checks this dependency but does not configure it.
 
 ```bash
 # GitHub CLI — issue tracking, labels, PRs
@@ -111,7 +127,9 @@ Run the onboarding wizard once per workspace:
 /pm:setup
 ```
 
-This detects your workspace layout, interviews you about issue tracking preferences, and scaffolds:
+This detects your workspace layout, interviews you about issue tracking preferences,
+stamps the [Harness-owned project baseline](../harness/templates/AGENTS_Baseline.md),
+and scaffolds:
 
 ```
 .pm/
@@ -210,7 +228,7 @@ PM uses a namespaced label taxonomy split across **status**, **owner**, **priori
 | `priority/p2` | Normal |
 | `priority/p3` | Low / someday |
 | `blocker` | Blocks other work -- escalate (urgency flag, orthogonal to status) |
-| `spawned-during-sprint` | Filed by a sub-agent during sprint execution |
+| `spawned-during-sprint` | Filed by PM when a Harness Result reports work discovered during sprint execution |
 | `epic` | Goal container grouping related issues -- carries no `status/*` label; body is a Goal/Why statement, not a checklist |
 | `size/S` | Small: < 1 hour |
 | `size/M` | Medium: 1--4 hours |
@@ -348,7 +366,8 @@ A structured glossary at the repo root. Contains:
 - **Relationships** -- how concepts relate to each other
 - **Ambiguities** -- terms that are easily confused, with resolutions
 
-Reconcile proposes additions when it encounters new terms in merged PRs. Sprint-dev reads this before dispatching sub-agents so they use consistent terminology.
+Reconcile proposes additions when it encounters new terms in merged PRs. Sprint-dev
+copies this context into Harness requests so executors use consistent terminology.
 
 ### Architecture Decision Records (ADRs)
 
@@ -387,7 +406,10 @@ PM supports multi-repo workspaces where a primary repo holds planning artifacts 
 - **Reconcile scans git history** across all configured repos when detecting completions
 - **Labels sync** across repos if you opt in during setup
 
-Each spec's "Code References" section specifies the target repo, so sub-agents know where to work. The agent-ready scorecard enforces that each item targets a single repo (criterion 5: bounded scope).
+Each spec's "Code References" section specifies the target repo. PM copies those
+references into the Harness Request, and Harness may delegate workers within that
+repository boundary. The agent-ready scorecard enforces that each item targets a
+single repo (criterion 5: bounded scope).
 
 ## Pairing with Product Pulse
 
@@ -398,7 +420,7 @@ PM and Product Pulse are designed as a pair. Product Pulse handles intelligence 
 | Research | Daily research, weekly strategy, deep-dives | -- |
 | Discovery | Identifies ideas, adds to backlog | Ingests reports, files issues |
 | Planning | Recommends items for speccing | Sorts, specs, scores, promotes |
-| Execution | -- | Dispatches sub-agents, creates PRs |
+| Execution | -- | Submits Harness operations, creates PRs |
 | Maintenance | -- | Closes done items, flags stale work, proposes ADRs |
 | Config | Owns `pulse-config.yaml` | Reads shared config, owns `.pm/config.yml` |
 

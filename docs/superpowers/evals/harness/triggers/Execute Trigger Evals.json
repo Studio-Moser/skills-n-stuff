@@ -1,0 +1,22 @@
+[
+  {"query": "Run this complete HarnessRequest: operation execute, route bulk, outcome regenerate the checked-in API index, cwd /tmp/acme-docs, writes limited to docs/API Index.md, and verify with ./scripts/check-api-index.sh.", "should_trigger": true},
+  {"query": "Perform one bounded non-code transformation outside PM: update the terminology table in CONTEXT.md from the cited source files, verify its columns and traceability, and don't create a branch, commit, PR, or test.", "should_trigger": true},
+  {"query": "Execute and verify the bounded task from the current repo and temp run artifacts even though Shelby tools are unavailable; return the complete typed result with empty memory IDs.", "should_trigger": true},
+  {"query": "The requested bulk route resolves through a provider CLI that is missing on PATH, and I have not authorized a provider change. Handle the execution request without widening authority.", "should_trigger": true},
+  {"query": "Delegate this mechanical implementation through the configured semantic route. The worker must receive model and effort explicitly, cwd /worktrees/payments-fix, workspace-write only there, and the exact integration-test seam.", "should_trigger": true},
+  {"query": "I have a bounded Harness execution packet whose resolved model has no external via adapter. Run it using the native runtime with fresh context, then independently reproduce the verification seam.", "should_trigger": true},
+  {"query": "Carry out this provider-neutral request, but writes are allowed only under packages/parser/fixtures. If the executor can't enforce that narrower ceiling, return blocked rather than relying on a prompt.", "should_trigger": true},
+  {"query": "A cross-provider worker returned report.md and exit zero for the requested transform. Inspect the artifact, reproduce ./scripts/verify-catalog.sh in the parent, and emit the final HarnessResult.", "should_trigger": true},
+  {"query": "Submit these six independent, unattended extraction packets using the configured batch semantic route. Keep each cwd and allowed-path ceiling separate and record every attempt.", "should_trigger": true},
+  {"query": "Normalize this informal request into a bounded Harness execution: change one YAML label in docs/catalog.yml, preserve all other rows, verify with yq, and report actual route plus evidence.", "should_trigger": true},
+  {"query": "Fix the known off-by-one bug in src/Paginator.ts and add one regression test. This is one named Small change in the current repo; handle it directly with the normal dev-task workflow.", "should_trigger": false},
+  {"query": "Build all status/ready owner/ai items from the configured tracker, group them into PRs, and update issue states as each one merges.", "should_trigger": false},
+  {"query": "Independently review commit 8e2fa91 and prove the changed parser tests without modifying the repository.", "should_trigger": false},
+  {"query": "Open the local macOS app, click through onboarding, and prove the final state with a screenshot; code inspection is not sufficient.", "should_trigger": false},
+  {"query": "Refresh my personal model rubric with current provider prices and benchmark rows, preserving the taste scores I already chose.", "should_trigger": false},
+  {"query": "Harness is installed but this is a new laptop. Configure the agents repo, portable links, capability inventory, and personal rubric.", "should_trigger": false},
+  {"query": "Read docs/Architecture.md and explain in plain English why the service uses an outbox. Don't edit or execute anything.", "should_trigger": false},
+  {"query": "Run npm test and tell me which test currently fails. Do not delegate, edit files, or create a Harness request.", "should_trigger": false},
+  {"query": "Run today's Product Pulse scan across our configured domains, synthesize the findings, and publish the normal dated research report.", "should_trigger": false},
+  {"query": "Move issue #184 from needs-triage to ready after scoring its Outcome, Blockers, Testing Seam, and Proof fields.", "should_trigger": false}
+]

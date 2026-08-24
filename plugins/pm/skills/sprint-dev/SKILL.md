@@ -5,12 +5,14 @@ description: >-
   from a configured tracker. Do not use for one named change, an untriaged item, or
   tracker reconciliation.
 effort: high
-allowed-tools: "Bash Read Write Edit Agent Skill"
+allowed-tools: "Bash Read Write Edit Skill"
 ---
 
 # PM — Sprint Dev
 
-Interactive skill that reads ready items from GitHub Issues (or local backlog), proposes how they should be grouped into PRs, and — with your approval — dispatches parallel sub-agents to implement, review, test, and PR each batch. Updates the issue tracker when work completes.
+Interactive skill that reads ready items from the configured tracker, proposes how they
+should be grouped into PRs, and—with approval—submits bounded implementation and review
+requests to Harness. PM retains the issue tracker and PR lifecycle.
 
 **Manual only.** You decide when to run this and what to build.
 
@@ -23,11 +25,15 @@ Interactive skill that reads ready items from GitHub Issues (or local backlog), 
 - **Never auto-build.** Always present the proposal and wait for user approval.
 - **Work the frontier.** Dispatch only delivery slices on the unblocked frontier.
 - **Schedule collisions.** Apply the scheduling-collision rule in `references/work-readiness.md`; choose isolation or run sequentially for each collision.
-- **Every PR must pass.** Sub-agents run self-review + full test suite before PRing.
-- **Trust the check, not the worker.** A sub-agent's self-review and "tests pass" are its opening claim, not proof. Phase 2C independently re-executes verification and loops findings back until the check actually passes — no code merges on a worker's own say-so, the orchestrator's included.
-- **Backlog is sacred.** Only the orchestrator edits the backlog, never sub-agents.
+- **Every PR must pass.** Each Harness execution request requires self-review and the
+  full test suite before opening its PR.
+- **Trust the check, not the result summary.** Phase 2C submits a fixed-target Harness
+  review request, reproduces verification, and loops findings back until the check
+  passes. No code merges on an executor's claim alone.
+- **Backlog is sacred.** Only PM edits the backlog, never the Harness executor.
 - **Report live.** Tell the user about each PR as it completes, don't batch results.
-- **Discovered work stays out of scope.** Sub-agents do NOT fix things they find along the way — they file issues tagged `spawned-during-sprint`.
+- **Discovered work stays out of scope.** Harness requests require workers to report it
+  without fixing it inline; PM files any resulting `spawned-during-sprint` item.
 
 ---
 
@@ -51,9 +57,9 @@ Read `{research_dir}/research-context.md` for project structure, repo info, and 
 
 ### 0.1.5 Read Domain Knowledge
 
-Read `CONTEXT.md` from workspace root (multi-repo) or primary repo root (single-repo). Extract domain terms, aliases to avoid, and relationships. These will be passed to sub-agents in their prompts so they use correct terminology.
+Read `CONTEXT.md` from workspace root (multi-repo) or primary repo root (single-repo). Extract domain terms, aliases to avoid, and relationships. These become Harness Request constraints so the executor uses correct terminology.
 
-Read `.pm/out-of-scope/` directory. For each `.md` file, extract the feature name and decision summary. These become negative constraints in sub-agent prompts: "Do NOT implement {feature} — see .pm/out-of-scope/{slug}.md for reasoning."
+Read `.pm/out-of-scope/` directory. For each `.md` file, extract the feature name and decision summary. These become negative Harness Request constraints: "Do NOT implement {feature} — see .pm/out-of-scope/{slug}.md for reasoning."
 
 If neither file/directory exists, continue without them — they're optional.
 
@@ -73,7 +79,10 @@ If any pull fails, note it and continue. Single-element `repos:` is the monorepo
 
 ### 0.3 Context Recovery (if memory configured)
 
-If `memory.connector` is set in `pulse-config.yaml` (not `null`), look for MCP tools matching that prefix. If found, search memory for prior sprint-dev runs — known blockers, failed items, in-flight branches. If `memory.connector: null` or no matching tools are found, skip this phase.
+If `memory.connector` is set in `pulse-config.yaml` (not `null`), define a recall
+intent for prior sprint blockers, failed items, and in-flight branches. Attach it to
+Phase 2 Harness requests. PM does not discover or call a memory provider; if Harness
+returns no enrichment, continue from tracker, Git, and repository state.
 
 ### 0.4 Check Existing Branches
 
@@ -283,93 +292,230 @@ For worktree-capable projects:
 git worktree add .claude/worktrees/pulse-{cluster}-{date} -b pulse/{cluster}-{YYYY-MM-DD} main
 ```
 
-### 2B. Dispatch Sub-Agent
+### 2B. Submit Harness execution requests
 
-**Pick the model and effort per task altitude.** Load the current developer's rubric from `${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml` (if missing, offer to run `/machine:model-rubric` — or follow `studio-baseline/Rubric_Setup.md` with no plugin — before dispatching, or fall back to the default model). Route by it: route clear-spec / mechanical implementation to a cheaper capable model, reserve the strongest model for ambiguous or taste-sensitive work (UI, copy, API/SDK design), and keep reasoning effort matched to difficulty rather than defaulting to the ceiling. If no rubric exists, dispatch with the default model. Dispatch the chosen `model@effort` routing value per `references/model-orchestration.md` (split it; `via: codex` rows dispatch through the codex skills; natives pass Agent `model` tier + `effort`); don't predefine reviewer/explorer/adversarial archetypes — let the orchestrator pick roles per task.
+For each approved delivery slice, invoke `harness:execute` with
+`operation: execute`. Use `route: bulk` for clear-spec or mechanical work,
+`route: quick` only for a short latency-sensitive step, and `route: taste` for
+user-facing UI, copy, or public API work. PM chooses only this semantic altitude;
+Harness resolves execution.
 
-Build a comprehensive sub-agent prompt with:
-- Batch items (number, description, priority, size, spec link)
-- Delivery slice fields from the approved item or spec: `Outcome`, `Blockers`,
-  `Testing Seam`, and current `Proof`
-- **For L/XL items with specs**: include the full spec content — sub-agent follows the Chunks order
-- **For S/M items**: include research report context and item description
-- Product context (tech stack, conventions, test commands)
-- Branch/worktree path
-- Memory context for each item
-- Freshness notes (Yellow items get diff summary)
-- **Implementation discipline** (state it in the prompt — sub-agents don't auto-load it): the pm:house-rules implementation discipline — reuse existing code / stdlib / platform first, shortest diff that fully solves it, no speculative abstractions or unrequested refactors, root cause over symptom.
+Submit one complete Harness Request per delivery slice:
 
-**Domain terminology (from CONTEXT.md):**
-{Include the Terms table so the agent uses correct names}
-
-**Out-of-scope constraints:**
-{For each .pm/out-of-scope/ entry: "Do NOT implement {feature}. Reason: {decision summary}"}
-
-**Sub-agent workflow requirements:**
-
-1. **Understand** — Read spec (if exists) or linked research report, relevant source files
-2. **Plan** — Brief implementation plan. L/XL items: follow spec Chunks. Medium items: show plan and get approval
-3. **Implement** — Write code. TDD where applicable. Follow spec's Acceptance Criteria
-4. **Self-Review** — Apply the pm:house-rules security + quality checklist (correctness, edge cases, error handling, no secrets, no dead code or debug artifacts, conventions). Then additionally for sprints:
-   - Completeness — all batch items addressed or explicitly noted as skipped
-   - Spec compliance — all Acceptance Criteria met for specced items
-5. **Verify** — Run project test/build commands from product context
-   - Execute the named `Testing Seam`, record the command or procedure and actual
-     result in `Proof`, and do not call the slice complete without that proof.
-6. **Commit** — Atomic commits, clear messages
-7. **Discovered work** — If you find something that needs to be done but isn't in your current spec, do NOT do it inline. Instead, create a GitHub Issue (or note for the orchestrator) tagged `spawned-during-sprint` with a description of what was found and why it matters. Your definition of done stays fixed to the original spec.
-
-Dispatch non-colliding slices in parallel. For a scheduling collision, follow the
-approved isolation decision or run the slices sequentially.
-
-**State file ownership up front.** Collision scheduling keeps known overlaps ordered or
-isolated, but parallel workers can still discover paths neither slice named — shared
-types, barrel exports, config, lockfiles. Before dispatching, list the paths each batch
-is expected to touch and put them in that worker's prompt: "You own `{paths}`. Do not
-edit files owned by another batch — if your work requires a change outside your paths,
-stop and report it to the orchestrator instead of making it." A newly discovered
-overlap means the affected slices must run sequentially unless they are isolated.
-
-Ownership in the prompt is an instruction, not a guarantee — nothing stops a worker editing outside its paths. When batches run genuinely in parallel, give each one its own worktree (`git worktree add ../{repo}-{batch} -b {branch} origin/main`, `isolation: 'worktree'` for workflow agents) so collisions are impossible rather than merely discouraged. See the concurrent-sessions section of `pm:house-rules`.
-
-**Pick the model per batch from the rubric** (`${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml`) and **always dispatch per `references/model-orchestration.md`** — split each `model@effort` value, honor `via:`, and pass model + effort explicitly; omitting either inherits session defaults and silently defeats the routing. Clear-spec/mechanical batches → `routing.bulk`; latency-sensitive single steps → `routing.quick`; unattended fan-out → `routing.batch` (only if set — never for attended work); user-facing batches (UI, copy, API surface) → a row with `taste >= routing.taste_min`. Unsure between two tiers → take the cheaper and escalate on failure.
-
-```
-Agent(subagent_type="general-purpose", model=<tier from rubric>, effort=<effort from rubric>, prompt=built_prompt)
+```yaml
+operation: execute
+route: {bulk | quick | taste}
+outcome: {approved Outcome}
+context:
+  project: {canonical project identifier when known}
+  mode: fresh
+  state: {item identifiers, approved spec or item body, freshness notes, and current Proof}
+  files: [{repository-relative owned implementation and test paths}]
+  memory:
+    enabled: {memory.connector is not null}
+    recall:
+      - purpose: Recover prior blockers, failed sprint attempts, and in-flight branches for this delivery slice
+        query: Prior sprint-dev outcomes for this project and the approved item identifiers
+        limit: 10
+    capture: []
+authority:
+  working_directory: {absolute approved worktree}
+  allowed_paths: [{paths owned by this delivery slice}]
+  tools: [{repository tools needed to edit, test, and commit}]
+  approvals: []
+constraints:
+  - "Blockers: {resolved Blockers or none}"
+  - {acceptance criteria and negative constraints}
+  - {full L/XL spec or S/M item and research constraints}
+  - {domain terminology from CONTEXT.md}
+  - {out-of-scope decisions from .pm/out-of-scope}
+  - Use test-driven development for behavior changes and leave a runnable check for non-trivial logic
+  - Preserve trust-boundary validation, data-loss-preventing error handling, security, and accessibility basics
+  - Keep the change to the approved slice, run the planned tests, and make atomic conventional commits
+  - Commit the approved delivery slice; do not push, open a PR, or edit PM tracker files
+  - Report discovered work without implementing it inline
+verification:
+  seam: {Testing Seam procedure}
+  expected: {Testing Seam expected result plus project test/build success}
 ```
 
-Three or more independent batches is the case for a dynamic workflow instead of loose parallel Agent calls — propose it with its rough shape and cost, and wait for a yes unless the session has already opted in to multi-agent orchestration. Inside the script, every `agent()` carries its own `model`.
+The request must carry the approved `Outcome`, `Blockers`, `Testing Seam`, and
+current `Proof` verbatim. It also carries batch item metadata, the product context,
+memory context when available, and every approved file-ownership constraint.
 
-### 2C. Independent Check & Fix Loop
+Submit non-colliding requests concurrently. For each scheduling collision, follow the
+approved isolation decision or run the requests sequentially. Parallel requests use
+separate worktrees, and each request's `authority.allowed_paths` states its file
+ownership ceiling. A newly discovered overlap returns as a blocker; PM then orders or
+re-isolates the affected slices instead of widening either request.
 
-Load `references/review-proof.md` and use it as the source of truth for the review
-target, report, evidence, and completion gate. Give the same independent reviewer the
-approved requirements and current `Testing Seam` proof. Findings loop back to the
-implementer until the reference's completion conditions hold for the current fixed
-point or the PR is reported as blocked.
+Consume each Harness Result without interpreting its concrete route details. A
+`blocked`, `failed`, or `abandoned` result stays visible with its blockers. For an
+`accepted` result, inspect the changed-file list, report artifact, fixed commit, and
+recorded checks. PM then pushes the approved branch and opens one PR for the delivery
+slice before moving to review.
 
-After each sub-agent creates its PR, run the `code-review` skill against that PR. Keep
-the existing one-reviewer policy. Score each issue 0-100 for confidence (0 = false
-positive, 25 = somewhat, 50 = moderate, 75 = high, 100 = certain).
+### 2C. Fixed-target review and fix loop
 
-**Filter**: keep issues with a confidence score **above 24** (i.e., 25+).
+Load `references/review-proof.md` in the PM orchestrator and copy its complete review
+axes and completion constraints into the request; do not pass that PM-private path to
+Harness. Invoke `harness:review` with `operation: review` and `route: review`. Keep the
+one-reviewer policy. Use `route: independent` only when the user separately approves
+the cost of a fresh-context adversarial review.
 
-If any issues clear the bar, run the fix loop (max 2 rounds):
+Resolve the approved PR base and head to commits, materialize their exact binary
+full-index diff under a repository-relative review-artifact path, and identify that
+immutable snapshot by its SHA-256 digest. Base and head describe the snapshot in
+request context; they are not the fixed target. Stop if any command fails or the
+identifier does not have the required shape. Use PM's materializer so a retained exact
+artifact is reusable, while a retained path with different bytes blocks review without
+being overwritten.
 
-1. Dispatch a follow-up sub-agent on the same branch (check out the PR branch), dispatched per `references/model-orchestration.md`'s procedure — `routing.bulk` for mechanical fixes, the batch's original model@effort when the finding is subtle.
-2. For each filtered issue, either fix it **or** dispute it: if the finding is wrong for this codebase (a false positive, or it contradicts the spec — e.g. flagging content as "too short" that the spec says should be short), leave the code as-is and record a one-line justification instead of forcing a change. Disputes are legitimate; don't pad or distort correct work to satisfy a bad finding.
-3. Run the full verify protocol (tests/build/lint/typecheck per project) and **paste the actual output** — never report "passing" without evidence.
-4. Commit as new commits — `fix: address code review findings`. Push to the same branch (never force push).
-5. **Re-check**: re-run the reviewer against the new commits, confirming each previously-filtered issue is now resolved or justified-as-disputed. If new above-threshold issues remain and a round is left, loop; otherwise stop and report the residual issues rather than merging over them.
-6. Post a PR comment summarizing what was fixed, what was disputed (with reasons), and any issue left unresolved after the loop.
+```bash
+BASE_SHA="$(git rev-parse "${BASE_REF}^{commit}")" || exit 1
+HEAD_SHA="$(git rev-parse "${HEAD_REF}^{commit}")" || exit 1
+WORKTREE_ROOT="$(git rev-parse --show-toplevel)" || exit 1
+pm="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/pm/*/ 2>/dev/null | sort -V | tail -1)}"; pm="${pm%/}"
+REVIEW_ARTIFACT_STATUS=0
+REVIEW_ARTIFACT_RESULT="$("$pm/scripts/materialize-review-artifact.sh" "$WORKTREE_ROOT" "$BASE_SHA" "$HEAD_SHA")" || REVIEW_ARTIFACT_STATUS=$?
+if [ "$REVIEW_ARTIFACT_STATUS" -eq 3 ]; then
+  echo "Review blocked: the retained digest path conflicts with the expected snapshot; inspect the reported path before retrying." >&2
+  exit 3
+elif [ "$REVIEW_ARTIFACT_STATUS" -ne 0 ]; then
+  exit "$REVIEW_ARTIFACT_STATUS"
+fi
 
-No rank is above this check — if the orchestrator itself hand-edited any code (e.g. a shared fix across branches), that code goes through the same check, not around it.
+REVIEW_ARTIFACT_STATE=""
+REVIEW_FIXED_TARGET=""
+REVIEW_ARTIFACT_REL=""
+while IFS='=' read -r key value; do
+  case "$key" in
+    "state") REVIEW_ARTIFACT_STATE="$value" ;;
+    "fixed_target") REVIEW_FIXED_TARGET="$value" ;;
+    "artifact") REVIEW_ARTIFACT_REL="$value" ;;
+  esac
+done <<EOF
+$REVIEW_ARTIFACT_RESULT
+EOF
+
+case "$REVIEW_ARTIFACT_STATE" in created|reused) ;; *) exit 1 ;; esac
+REVIEW_DIGEST="${REVIEW_FIXED_TARGET#snapshot:sha256:}"
+printf '%s\n' "$REVIEW_FIXED_TARGET" | grep -Eq '^snapshot:sha256:[0-9a-f]{64}$' || exit 1
+[ "$REVIEW_ARTIFACT_REL" = ".harness-review/review-${REVIEW_DIGEST}.patch" ] || exit 1
+```
+
+Retain the parsed fixed target and artifact values in PM's orchestrator state through
+the Harness call and replace the request placeholders with them. A `created` or
+`reused` state may proceed. Exit 3 is a visible review blocker carrying the helper's
+path, actual digest, and expected digest; do not delete or replace the conflicting
+artifact. Do not rely on shell variables surviving between the materialization,
+Harness invocation, and cleanup commands.
+
+```yaml
+operation: review
+route: {review | independent}
+outcome: Report whether this fixed PR target satisfies its approved delivery slice
+context:
+  project: {canonical project identifier when known}
+  mode: fresh
+  state: {approved item/spec, acceptance criteria, current Testing Seam Proof, base commit ${BASE_SHA} and head commit ${HEAD_SHA}; ${REVIEW_ARTIFACT_REL} is their exact materialized diff}
+  files: [{changed and review-relevant repository paths, plus ${REVIEW_ARTIFACT_REL}}]
+  memory:
+    enabled: {memory.connector is not null}
+    recall: []
+    capture:
+      - when: accepted
+        type: decision
+        summary: Sprint delivery accepted for {item identifiers}
+        content: {proven outcome, durable decisions or gotchas, fixed target, and verification result}
+        topics: [pm-sprint-dev, {canonical project identifier}, {item identifiers}]
+authority:
+  working_directory: {absolute PR worktree}
+  allowed_paths: [{read-only PR scope, plus ${REVIEW_ARTIFACT_REL}}]
+  tools: [{read-only inspection and project verification tools}]
+  approvals: []
+constraints:
+  - |
+    PM review axes:
+    Quality: inspect the fixed-point diff and affected paths for correctness,
+    regressions, security, edge cases, error handling, performance, maintainability,
+    and adequate tests. Reproduce relevant verification instead of accepting the
+    implementer's claim.
+    Spec Fidelity: compare the fixed-point diff with the approved issue, plan, and
+    acceptance criteria. Report missing or partial requirements, unrequested behavior,
+    and implementations that do not match the requirement; state when no spec exists.
+    Blast Radius: apply this axis when the diff changes Persisted data, schema, or
+    migration behavior; Public API, protocol, wire format, or serialization behavior;
+    Authentication, authorization, permissions, or another security boundary; or
+    Shared runtime, dependency, build, deployment, or configuration behavior. For each
+    trigger, name the central safety assumption and require a check aimed at it. If no
+    trigger matches, record Blast Radius as not applicable.
+    Report each applicable axis separately. Completion requires current proven Harness
+    evidence for this fixed target, Quality and Spec Fidelity reports, every triggered
+    Blast Radius assumption and check, reproduced verification, and no unresolved or
+    unevidenced blocker.
+  - Score each finding from 0–100 confidence and report file, line, failure mode, and fix direction
+  - Do not modify the fixed target
+verification:
+  seam: {Testing Seam plus applicable blast-radius checks}
+  expected: {approved acceptance result and no unresolved finding above 24 confidence}
+  fixed_target: ${REVIEW_FIXED_TARGET}
+```
+
+Treat the Harness review report as a claim. Recompute the repository-relative
+artifact's digest and confirm the returned fixed target equals `${REVIEW_FIXED_TARGET}`.
+A changed artifact, digest, or returned target invalidates the review and requires a
+new snapshot and request; retain the artifact so the failure remains inspectable.
+Reproduce the relevant checks and keep only findings with confidence above 24 while
+the artifact remains available.
+
+Only after result-target verification and the relevant reproduced checks succeed,
+remove the exact artifact created above. Remove its directory only when empty; never
+delete another run's evidence.
+
+```bash
+WORKTREE_ROOT="$(git rev-parse --show-toplevel)" || exit 1
+REVIEW_DIGEST="{recorded 64-character digest from the request}"
+REVIEW_FIXED_TARGET="snapshot:sha256:${REVIEW_DIGEST}"
+REVIEW_ARTIFACT_REL="{exact repository-relative artifact path from the request}"
+printf '%s\n' "$REVIEW_DIGEST" | grep -Eq '^[0-9a-f]{64}$' || exit 1
+[ "$REVIEW_ARTIFACT_REL" = ".harness-review/review-${REVIEW_DIGEST}.patch" ] || exit 1
+REVIEW_ARTIFACT_DIR_ABS="$WORKTREE_ROOT/.harness-review"
+REVIEW_ARTIFACT_ABS="$WORKTREE_ROOT/$REVIEW_ARTIFACT_REL"
+HARNESS_RESULT_FIXED_TARGET="{exact evidence.fixed_target from the returned Harness Result}"
+RECOMPUTED_REVIEW_DIGEST="$(shasum -a 256 "$REVIEW_ARTIFACT_ABS" | awk '{print $1}')"
+[ "$RECOMPUTED_REVIEW_DIGEST" = "$REVIEW_DIGEST" ] || exit 1
+[ "$HARNESS_RESULT_FIXED_TARGET" = "$REVIEW_FIXED_TARGET" ] || exit 1
+# Run and confirm the request's verification seam before cleanup.
+rm -f "$REVIEW_ARTIFACT_ABS" || exit 1
+rmdir "$REVIEW_ARTIFACT_DIR_ABS" 2>/dev/null || true
+```
+
+If findings clear the bar, run the fix loop for at most two rounds:
+
+1. Submit a new complete Phase 2B `harness:execute` request on the same branch. Its
+   outcome is to resolve the accepted findings without widening the slice; use
+   `route: bulk` for mechanical fixes or `route: taste` when the finding concerns
+   user-facing design, copy, or a public API.
+2. Fix each finding or dispute it with concrete evidence when it is false or contradicts
+   the approved spec.
+3. Require the full tests/build/lint/typecheck plus the named Testing Seam, with actual
+   output in the returned evidence.
+4. After Harness returns the normal follow-up commit, PM pushes it to the existing PR;
+   never force-push.
+5. Pin the new commit and submit another complete Harness review request. Confirm every
+   prior finding is resolved or evidenced as disputed. If a round remains, repeat;
+   otherwise report residual issues instead of merging over them.
+6. Post a PR comment summarizing fixes, disputes, evidence, and unresolved findings.
+
+No author is above this check. PM-authored fixes use the same fixed-target Harness
+review path.
 
 Report inline:
 
 ```
-Independent Check: {cluster}
-  Fixed point: {base/head SHAs or snapshot digest}
+Fixed-target Check: {cluster}
+  Fixed point: ${REVIEW_FIXED_TARGET} (base ${BASE_SHA}, head ${HEAD_SHA} in context)
   Axes: {contract report summary}
   Issues found: {N}   Above threshold (>24): {N}
   Round 1 fixed: {N}  disputed: {N}
@@ -383,7 +529,7 @@ If nothing clears the threshold on the first pass, note "clean" and proceed.
 
 ### 2D. Report Results
 
-After each sub-agent completes, immediately tell the user:
+After each Harness execution and review cycle completes, immediately tell the user:
 
 ```
 PR Complete: {cluster}
@@ -414,7 +560,7 @@ For each item in the batch:
 **Backlog file sync (both backends):**
 If `$backlog_active` and `$backlog_ideas` exist (backward-compatible with product-pulse workflow):
 - **PR open, not yet merged** -> flip the status in its sprint-section row from `status/ready` -> `status/in-review` and embed the PR link inline in the item description
-- **PR already merged** before the sub-agent returned -> remove the row from its sprint section and add a row to `## Done (last 7 days)` in `$backlog_active`
+- **PR already merged** before the Harness Result returned -> remove the row from its sprint section and add a row to `## Done (last 7 days)` in `$backlog_active`
 - **Skipped/failed** -> leave in its current section with status unchanged
 
 If a sprint subsection now has zero `status/ready` rows left, leave the section header in place unless the whole sprint is complete; in that case delete the entire subsection and summarize it in the commit message.
@@ -426,13 +572,14 @@ git commit -m "backlog: update — {cluster} batch complete ({N} items)"
 git push origin "$default_branch"
 ```
 
-Save to memory and clean up worktree if used.
+Retain any optional memory identifiers from the accepted Harness review result, then
+clean up the worktree if used. PM does not call a memory provider directly.
 
 ---
 
 ## Error Recovery
 
-- **Sub-agent failure**: Push partial work if commits exist, otherwise delete branch. Report to user, ask retry or skip.
+- **Harness execution failure**: Preserve any returned commits, otherwise clean up the branch. Report the typed status and blockers, then ask whether to retry or skip.
 - **Repo failure**: Reset to main, log affected items, continue with next batch.
 - **Never**: force push, modify main directly (except backlog), delete remote branches, skip verification, proceed without user approval.
 
