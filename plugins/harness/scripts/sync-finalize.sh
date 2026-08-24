@@ -34,6 +34,42 @@ if [ "$fetch_urls" != "$push_urls" ] || [[ "$fetch_urls" == *$'\n'* ]]; then
   exit 1
 fi
 
+git_dir="$(git -C "$repo" rev-parse --absolute-git-dir)"
+state_path="$git_dir/harness-sync-expected-remote"
+[ -f "$state_path" ] || {
+  echo "SYNC_STATE=failed: remote was not preflighted; rerun sync" >&2
+  exit 1
+}
+if ! {
+  IFS= read -r expected_remote
+  IFS= read -r expected_merge_ref
+  IFS= read -r expected_sha
+  IFS= read -r expected_endpoint
+  ! IFS= read -r extra
+} < "$state_path"; then
+  echo "SYNC_STATE=failed: invalid preflight state; rerun sync" >&2
+  exit 1
+fi
+if [ "$expected_remote" != "$remote" ] || [ "$expected_merge_ref" != "$merge_ref" ]; then
+  echo "SYNC_STATE=failed: branch or remote changed after preflight; rerun sync" >&2
+  exit 1
+fi
+if [ "$expected_endpoint" != "$fetch_urls" ]; then
+  echo "SYNC_STATE=failed: remote endpoint changed after preflight; rerun sync" >&2
+  exit 1
+fi
+case "$expected_sha" in
+  ABSENT) ;;
+  *[!0-9a-f]*|'')
+    echo "SYNC_STATE=failed: invalid preflight state; rerun sync" >&2
+    exit 1
+    ;;
+esac
+if [ "$expected_sha" != ABSENT ] && [ "${#expected_sha}" -ne 40 ] && [ "${#expected_sha}" -ne 64 ]; then
+  echo "SYNC_STATE=failed: invalid preflight state; rerun sync" >&2
+  exit 1
+fi
+
 git -C "$repo" add -A
 git -C "$repo" diff --cached --check
 "$scripts/portability-lint.sh" "$repo"
@@ -105,37 +141,6 @@ PY
 
 git -C "$repo" diff --cached --stat
 git -C "$repo" diff --cached --name-status
-
-git_dir="$(git -C "$repo" rev-parse --absolute-git-dir)"
-state_path="$git_dir/harness-sync-expected-remote"
-[ -f "$state_path" ] || {
-  echo "SYNC_STATE=failed: remote was not preflighted; rerun sync" >&2
-  exit 1
-}
-if ! {
-  IFS= read -r expected_remote
-  IFS= read -r expected_merge_ref
-  IFS= read -r expected_sha
-  ! IFS= read -r extra
-} < "$state_path"; then
-  echo "SYNC_STATE=failed: invalid preflight state; rerun sync" >&2
-  exit 1
-fi
-if [ "$expected_remote" != "$remote" ] || [ "$expected_merge_ref" != "$merge_ref" ]; then
-  echo "SYNC_STATE=failed: branch or remote changed after preflight; rerun sync" >&2
-  exit 1
-fi
-case "$expected_sha" in
-  ABSENT) ;;
-  *[!0-9a-f]*|'')
-    echo "SYNC_STATE=failed: invalid preflight state; rerun sync" >&2
-    exit 1
-    ;;
-esac
-if [ "$expected_sha" != ABSENT ] && [ "${#expected_sha}" -ne 40 ] && [ "${#expected_sha}" -ne 64 ]; then
-  echo "SYNC_STATE=failed: invalid preflight state; rerun sync" >&2
-  exit 1
-fi
 
 query_remote_sha() {
   local line

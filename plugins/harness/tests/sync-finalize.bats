@@ -230,6 +230,25 @@ EOF
   ! git --git-dir="$push_remote" show-ref --verify --quiet refs/heads/main
 }
 
+@test "a remote URL swap after preflight is rejected before local or remote mutation" {
+  swapped_remote="$BATS_TEST_TMPDIR/swapped-remote.git"
+  git clone -q --bare "$REMOTE" "$swapped_remote"
+  before_local="$(git -C "$REPO" rev-parse HEAD)"
+  before_original="$(remote_head)"
+  before_swapped="$(git --git-dir="$swapped_remote" rev-parse refs/heads/main)"
+  git -C "$REPO" remote set-url origin "$swapped_remote"
+  printf 'portable change\n' > "$REPO/config.md"
+
+  run "$SCRIPT" "$REPO" "harness: sync swapped endpoint"
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"endpoint changed after preflight"* ]] || return 1
+  [ "$(git -C "$REPO" rev-parse HEAD)" = "$before_local" ]
+  git -C "$REPO" diff --cached --quiet
+  [ "$(remote_head)" = "$before_original" ]
+  [ "$(git --git-dir="$swapped_remote" rev-parse refs/heads/main)" = "$before_swapped" ]
+}
+
 @test "remote movement after preflight stops before commit without pulling" {
   updater="$BATS_TEST_TMPDIR/updater"
   git clone -q "$REMOTE" "$updater"

@@ -50,7 +50,7 @@ persist_expected_remote() {
   parent="$(dirname "$state_path")"
   temporary="$(mktemp "$parent/.harness-sync-expected-remote.XXXXXX")"
   chmod 600 "$temporary"
-  printf '%s\n%s\n%s\n' "$remote" "$merge_ref" "$expected" > "$temporary"
+  printf '%s\n%s\n%s\n%s\n' "$remote" "$merge_ref" "$expected" "$fetch_urls" > "$temporary"
   mv -f "$temporary" "$state_path"
 }
 
