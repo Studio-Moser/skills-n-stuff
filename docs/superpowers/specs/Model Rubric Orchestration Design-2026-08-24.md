@@ -218,8 +218,8 @@ agents repository remains the synced source of truth.
   top-level preference while keeping delegated HarnessRequests provider-neutral.
 - `plugins/harness/tests/*.bats`: schema, capability matrix, migration, benchmark
   arithmetic, and route-resolution contract coverage.
-- Public Harness documentation and zero-plugin rubric setup documentation where
-  they describe the old `cost` field or route set.
+- Public Harness documentation where it describes the old `cost` field or route
+  set. This repository no longer ships a separate zero-plugin rubric guide.
 - Tim's synced `config/studio-moser/model-rubric.yml`, updated separately through
   `harness:model-rubric` after the plugin behavior is released and installed.
 
