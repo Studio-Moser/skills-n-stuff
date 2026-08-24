@@ -36,7 +36,7 @@ def write_atomic(path: Path, data: dict) -> None:
         "w", dir=path.parent, prefix=f".{path.name}.", delete=False
     ) as handle:
         temporary = Path(handle.name)
-        json.dump(data, handle, indent=2)
+        json.dump(data, handle, indent=2, ensure_ascii=False)
         handle.write("\n")
     try:
         os.chmod(temporary, mode)
