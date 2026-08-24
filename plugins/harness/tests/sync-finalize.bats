@@ -117,6 +117,16 @@ EOF
   [ "$(remote_head)" = "$(git -C "$REPO" rev-parse HEAD)" ]
 }
 
+@test "dotted environment references are not treated as literal secrets" {
+  printf '%s\n' 'API_TOKEN: api.env.INTERNAL_TOKEN' > "$REPO/provider-env-reference.txt"
+
+  run "$SCRIPT" "$REPO" "harness: sync dotted environment reference"
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"SYNC_STATE=clean"* ]] || return 1
+  [ "$(remote_head)" = "$(git -C "$REPO" rev-parse HEAD)" ]
+}
+
 make_racing_git() {
   RACE_BIN="$BATS_TEST_TMPDIR/race-bin"
   RACE_MARKER="$BATS_TEST_TMPDIR/race-ran"

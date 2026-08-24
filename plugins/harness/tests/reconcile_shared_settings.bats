@@ -54,3 +54,19 @@ PY
   [ "$(cat "$SETTINGS")" = "$before" ]
   [[ "$output" != *"Traceback"* ]]
 }
+
+@test "migration preserves literal Unicode instead of rewriting escapes" {
+  cat > "$SETTINGS" <<'JSON'
+{
+  "enabledPlugins": {
+    "harness@studio-moser": true
+  },
+  "statusLine": "Harness — ready"
+}
+JSON
+  before="$(cat "$SETTINGS")"
+
+  "$SCRIPT" "$SETTINGS"
+
+  [ "$(cat "$SETTINGS")" = "$before" ]
+}

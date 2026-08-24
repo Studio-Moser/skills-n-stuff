@@ -106,7 +106,7 @@ if local_state:
     print("SYNC_STATE=failed: staged local-state scan failed", file=sys.stderr)
     raise SystemExit(1)
 
-patterns = (
+literal_patterns = (
     re.compile(rb"-----BEGIN (?:RSA |OPENSSH |EC |DSA |PGP )?PRIVATE KEY-----"),
     re.compile(
         rb"\b(?:ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|"
@@ -114,21 +114,33 @@ patterns = (
         rb"sk-proj-[A-Za-z0-9_-]{10,}|sk-ant-[A-Za-z0-9_-]{10,}|"
         rb"AIza[A-Za-z0-9_-]{20,}|gsk_[A-Za-z0-9_-]{20,})\b"
     ),
-    re.compile(
-        rb"(?im)\b(?:(?:(?:openai|anthropic|azure[_-]?openai|deepseek|google|"
-        rb"gemini|groq|openrouter|mistral|xai|cohere|perplexity)[_-]?)?"
-        rb"api[_-]?(?:key|token)|"
-        rb"access[_-]?token|auth[_-]?token|client[_-]?secret|password)\b"
-        rb"[\"']?\s*[:=]\s*[\"']?(?!\$)[^\s\"',}]{16,}"
-    ),
 )
+assignment_pattern = re.compile(
+    rb"(?im)\b(?:(?:(?:openai|anthropic|azure[_-]?openai|deepseek|google|"
+    rb"gemini|groq|openrouter|mistral|xai|cohere|perplexity)[_-]?)?"
+    rb"api[_-]?(?:key|token)|"
+    rb"access[_-]?token|auth[_-]?token|client[_-]?secret|password)\b"
+    rb"[\"']?\s*[:=]\s*[\"']?(?!\$)(?P<value>[^\s\"',}]{16,})"
+)
+dotted_env_reference = re.compile(
+    rb"(?:[A-Za-z_][A-Za-z0-9_]*\.)*env\.[A-Z][A-Z0-9_]*"
+)
+
+def contains_secret(blob: bytes) -> bool:
+    if any(pattern.search(blob) for pattern in literal_patterns):
+        return True
+    return any(
+        not dotted_env_reference.fullmatch(match.group("value"))
+        for match in assignment_pattern.finditer(blob)
+    )
+
 secret_paths = []
 for name in tracked:
     try:
         blob = git("show", f":{name}")
     except subprocess.CalledProcessError:
         continue
-    if any(pattern.search(blob) for pattern in patterns):
+    if contains_secret(blob):
         secret_paths.append(name)
 if secret_paths:
     for name in secret_paths:
