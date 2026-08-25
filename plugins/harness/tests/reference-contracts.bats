@@ -96,6 +96,9 @@ assert parse_schema(result_schema) == [
     ("route.effort", "resolved effort"),
     ("route.provider", "resolved provider"),
     ("route.executor", "native agent or external CLI"),
+    ("route.resolution", "primary | fallback"),
+    ("route.attempted", "ordered model-effort dispatches"),
+    ("route.fallback_reason", "typed availability reason or empty"),
     ("artifacts", None),
     ("artifacts.files", "changed or created paths"),
     ("artifacts.report", "optional report path"),
@@ -146,11 +149,11 @@ require_clause(
 )
 require_clause(
     routing,
-    "`fallback` names an eligible general fallback but never authorizes an automatic fallback or escalation.",
+    "Candidate order is exactly `routing.<route>` followed by `fallbacks.<route>` in listed order.",
 )
 require_clause(
     routing,
-    "Provider diversity is optional; a single reachable model-effort row may satisfy every required route.",
+    "`fallbacks.<route>` is the only standing authorization for automatic fallback; `routing.fallback` grants none.",
 )
 require_clause(
     contract,
@@ -159,17 +162,35 @@ require_clause(
 require_clause(shelby, "The missing Shelby does not block execution.")
 require_clause(
     routing,
-    "`resolved`: the requested route and all required capabilities are available.",
+    "Automatic provider switching is limited to `quota`, `authentication`, `rate_limit`, `provider_unavailable`, and preflight `missing_executor`.",
 )
 require_clause(
     routing,
-    "`fallback`: the requested resolution is unavailable and the request explicitly "
-    "authorized a named fallback route or executor that preserves its boundaries.",
+    "When a candidate's provider matches the native provider, use native execution even if its model row declares `via`.",
 )
-require_clause(routing, "`blocked`: no authorized safe resolution exists.")
 require_clause(
     routing,
-    "If a required capability is missing, return `fallback` only when that fallback was authorized; otherwise `blocked`.",
+    "Every attempt preserves the original HarnessRequest's operation, tools, approvals, working directory, allowed paths, fixed target, sandbox, and verification seam.",
+)
+require_clause(
+    routing,
+    "Timed availability failures open a local circuit for 24 hours for `quota` and `authentication`, and for 15 minutes, 1 hour, 6 hours, then 24 hours for repeated `rate_limit` or `provider_unavailable` failures.",
+)
+require_clause(
+    routing,
+    "After a cooldown expires, exactly one selector may claim the half-open probe for 15 minutes.",
+)
+require_clause(
+    routing,
+    "External Codex availability is classified only from `turn/completed.turn.error.codexErrorInfo`.",
+)
+require_clause(
+    routing,
+    "A missing or incompatible Codex App Server is preflight `missing_executor` and never creates a timed circuit or dispatch attempt.",
+)
+require_clause(
+    routing,
+    "Every `independent` candidate differs from the persistent `routing.orchestrator` provider and every request-supplied authoring provider.",
 )
 require_clause(handoff, "Secrets and unbounded logs are forbidden;")
 PY

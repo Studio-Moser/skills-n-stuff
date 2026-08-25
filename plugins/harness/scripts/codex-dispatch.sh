@@ -3,12 +3,12 @@
 set -euo pipefail
 
 usage() {
-  echo "usage: codex-dispatch.sh --operation execute|review|computer-use --cwd DIR --sandbox MODE --approval never --model MODEL --effort EFFORT --prompt FILE --report FILE [--fixed-target SHA] [--skip-git-repo-check]" >&2
+  printf '%s\n' '{"status":"failed"}'
   exit 2
 }
 
 blocked() {
-  echo "BLOCKED: $1" >&2
+  printf '%s\n' '{"status":"failed"}'
   exit 4
 }
 
@@ -46,9 +46,10 @@ done
 [ -d "$cwd" ] || blocked "working directory does not exist"
 [ -r "$prompt" ] || blocked "prompt is not readable"
 
-# Codex exec is non-interactive. An outstanding on-request approval cannot be
-# surfaced safely, while `never` denies escalation and returns the failure to the
-# worker. The parent must obtain every required approval before dispatch.
+# The App Server turn is non-interactive. An outstanding on-request approval
+# cannot be surfaced safely, while `never` denies escalation and returns the
+# failure to the worker. The parent must obtain every required approval before
+# dispatch.
 [ "$approval" = "never" ] || blocked "outstanding approvals cannot be enforced by non-interactive Codex"
 
 case "$operation" in
@@ -72,32 +73,20 @@ case "$operation" in
   *) usage ;;
 esac
 
-codex_bin="${HARNESS_CODEX_BIN:-codex}"
-if [[ "$codex_bin" == */* ]]; then
-  [ -x "$codex_bin" ] || blocked "Codex executable is unavailable"
-else
-  command -v "$codex_bin" >/dev/null 2>&1 || blocked "Codex executable is unavailable"
-fi
-
+driver="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/codex-app-server.py"
 command=(
-  "$codex_bin"
-  -C "$cwd"
-  -s "$sandbox"
-  -a never
-  -m "$model"
-  -c "model_reasoning_effort=$effort"
+  "$driver" run
+  --codex-bin "${HARNESS_CODEX_BIN:-codex}"
+  --operation "$operation"
+  --cwd "$cwd"
+  --sandbox "$sandbox"
+  --approval never
+  --model "$model"
+  --effort "$effort"
+  --prompt "$prompt"
+  --report "$report"
 )
-case "$operation" in
-  execute|computer-use)
-    command+=(exec)
-    if [ "$skip_git_repo_check" = true ]; then
-      command+=(--skip-git-repo-check)
-    fi
-    command+=(-)
-    ;;
-  review)
-    command+=(review --commit "$fixed_target" -)
-    ;;
-esac
+[ -z "$fixed_target" ] || command+=(--fixed-target "$fixed_target")
+[ "$skip_git_repo_check" = false ] || command+=(--skip-git-repo-check)
 
-"${command[@]}" < "$prompt" > "$report"
+exec "${command[@]}"

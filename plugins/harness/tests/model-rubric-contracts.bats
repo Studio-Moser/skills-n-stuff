@@ -51,3 +51,53 @@ PY
   fi
   [ "$status" -eq 0 ]
 }
+
+@test "model rubric derives explicit compatible cross-provider fallback chains" {
+  run python3 - "${BATS_TEST_DIRNAME}/../skills/model-rubric/SKILL.md" <<'PY'
+from pathlib import Path
+import sys
+
+text = Path(sys.argv[1]).read_text()
+normalized = " ".join(text.split())
+required = (
+    "derive an ordered `fallbacks.<route>` chain",
+    "every fallback provider differs from every earlier provider in its chain",
+    "`taste` fallback meets `routing.taste_min`",
+    "`independent` fallback remains distinct from every named authoring provider",
+    "legacy `routing.fallback` is never automatic authorization",
+    "remove `routing.fallback` only after every replacement chain validates",
+    "single-provider rubrics remain valid with no fallback chains",
+    "show the fallback chains before writing",
+)
+missing = [clause for clause in required if clause not in normalized]
+assert not missing, "model-rubric fallback contract missing: " + ", ".join(missing)
+
+completed = """fallbacks:
+  orchestrator: [backup-model@high]
+  default: [backup-model@high]
+  quick: [backup-model@high]
+  review: [backup-model@high]"""
+assert completed in text, "completed-rubric example missing explicit fallback chains"
+PY
+  if [ "$status" -ne 0 ]; then
+    printf '%s\n' "$output" >&2
+  fi
+  [ "$status" -eq 0 ]
+}
+
+@test "seed defers fallback derivation until after the developer interview" {
+  run python3 - "$SEED_PATH" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+text = Path(sys.argv[1]).read_text()
+assert re.search(r"(?m)^fallbacks:\s*\{\}\s*(?:#.*)?$", text), "seed missing empty fallbacks map"
+assert len(re.findall(r"(?m)^fallbacks:", text)) == 1, "seed declares multiple fallback maps"
+assert "Setup derives values only after the developer interview" in text
+PY
+  if [ "$status" -ne 0 ]; then
+    printf '%s\n' "$output" >&2
+  fi
+  [ "$status" -eq 0 ]
+}

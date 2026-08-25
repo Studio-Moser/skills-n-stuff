@@ -103,6 +103,9 @@ def main() -> int:
             "effort": args.effort,
             "provider": args.provider,
             "executor": args.executor,
+            "resolution": "primary",
+            "attempted": [f"{args.model}@{args.effort}"],
+            "fallback_reason": None,
         },
         "artifacts": {"files": files, "report": args.report_path},
         "evidence": {

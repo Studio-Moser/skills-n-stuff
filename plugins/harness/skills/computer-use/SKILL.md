@@ -49,29 +49,94 @@ project scope has been resolved. Missing Shelby is non-blocking.
 
 ## Resolve and dispatch
 
-Resolve the semantic route and matching model row through Harness:
+Resolve the active rubric only through Harness:
 
 ```bash
 harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
 "$harness/scripts/rubric-path.sh" --check
-"$harness/scripts/rubric-path.sh"
+RUBRIC_PATH="$("$harness/scripts/rubric-path.sh")"
 ```
 
-Pass the resolved model and effort explicitly on every dispatch. If `via` is
-absent, use the capable native runtime with the complete HandoffPacket and the
-requested context mode.
+Run one bounded selection loop. `HARNESS_ATTEMPTED` starts as `[]` and contains
+only ordered candidates already dispatched by this request and then recorded as
+unavailable. Call the canonical resolver on every iteration:
+
+```bash
+ROUTE_RESULT="$($harness/scripts/resolve-route.py select \
+  --rubric "$RUBRIC_PATH" \
+  --route "$HARNESS_ROUTE" \
+  --native-provider "$HARNESS_NATIVE_PROVIDER" \
+  --executors "$HARNESS_EXECUTORS" \
+  --attempted "$HARNESS_ATTEMPTED")"
+```
+
+For `independent`, that same call also passes
+`--authoring-providers "$HARNESS_AUTHORING_PROVIDERS"` containing every provider
+that authored the target. The resolver always adds the persistent orchestrator
+provider; callers supply the complete request-specific author list.
+
+Read the returned JSON structurally. A blocked selection returns the complete
+blocked HarnessResult. A matching native provider uses the capable native
+runtime even when the selected row has `via`; otherwise the returned external
+executor must be explicit, callable, and able to enforce every required
+computer-use capability and approval. If `via` is absent, use the native runtime
+only when the selected provider is native, with the complete HandoffPacket and
+requested context mode. Pass the resolved model and effort explicitly on every
+dispatch.
+
+The only availability reasons are `quota`, `authentication`, `rate_limit`,
+`provider_unavailable`, and preflight `missing_executor`. The resolver owns
+`missing_executor`, open-circuit skips, cooldowns, and the single half-open probe;
+do not append a preflight skip to `--attempted`. After dispatch, classify only a
+bounded typed availability result from the executor boundary; do not infer one
+from unbounded raw provider text. On `quota`, `authentication`, `rate_limit`, or
+`provider_unavailable`, call `resolve-route.py record-failure` for the selected
+provider and executor, append the selected model-effort candidate to
+`HARNESS_ATTEMPTED`, and repeat with the unchanged HarnessRequest and confirmation
+policy. On success, call `resolve-route.py record-success` for that provider and
+executor. Any non-availability response also proves endpoint health, so clear an
+outstanding circuit before handling its task or output failure. Task, output,
+verification, authority, and approval failures stop without changing providers.
+Between iterations, do not change the request's operation, tools, approvals,
+working directory, allowed paths, fixed target, sandbox, verification seam, or
+confirmation policy; only the attempted list and selected route data change.
+Exhausting the unique-provider chain returns `blocked`; the loop cannot exceed
+the authorized candidates and cannot downgrade the requested computer-use proof.
+
+In the terminal result, copy the selection's `resolution` to
+`route.resolution`; set `route.attempted` to every candidate actually dispatched,
+including the terminal candidate; and copy the typed selection `reason` to
+`route.fallback_reason`, or leave it empty. Never add preflight skips to
+`route.attempted`.
 
 ### Internal Codex adapter
 
-For `via: codex`, first require `command -v codex`. Use `read-only` or
-`workspace-write` for repo-contained checks. Use `danger-full-access` only when
-the request explicitly authorizes machine-wide access and no per-action approval
-remains. A non-interactive Codex run cannot surface a required UI confirmation.
+Enter this adapter only when the selected candidate is non-native and the
+resolver returned `executor: codex`; a native selection remains native even when
+its model row declares `via: codex`. Before the first selection, include `codex`
+in `HARNESS_EXECUTORS` only when `codex-app-server.py check` returns
+`{"status":"available"}`. That check requires both `command -v codex` and the
+typed Codex App Server terminal-error seam. Use
+`read-only` or `workspace-write` for repo-contained checks. Use
+`danger-full-access` only when the request explicitly authorizes machine-wide
+access and no per-action approval remains. A non-interactive Codex run cannot
+surface a required UI confirmation.
 Obtain it in the parent first, use an authorized native runtime that can retain
 it, or return `blocked`. Once all approvals are cleared, use `approval: never` so
 Codex cannot request a later sandbox escalation. If that sandbox/approval pair
 would exceed the authority ceiling, choose an authorized native executor or
 return `blocked`.
+
+Read the guarded adapter's compact JSON and exit code, never stderr or raw
+provider text. Exit 69 with `{"status":"missing_executor"}` means remove `codex`
+from the callable inventory and reselect without `record-failure` or an appended
+dispatch attempt. Only exit 75 with
+`{"status":"availability_failure","reason":"..."}` authorizes a timed
+availability record. Exit 1 with `{"status":"failed"}` stops without changing
+providers; it covers untyped, task, policy, sandbox, malformed-protocol, and
+generic worker failures. Exit 0 with `{"status":"succeeded"}` places only the
+final agent text in the report. No adapter result contains raw error text, logs,
+or secrets.
 
 The prompt contains the exact behavior, platform/app, allowed launch or deep-link
 commands, fixtures or seed state, source-edit permission, working directory,
@@ -97,7 +162,9 @@ REPORT="$ARTIFACT_DIR/report.md"
 
 Pass `--skip-git-repo-check` to the adapter only when the validated working
 directory is not a Git repository. The adapter never adds automatic approval,
-an approval bypass, or a broader directory. Require the worker to report pass,
+an approval bypass, or a broader directory. Its ephemeral App Server thread
+starts read-only and applies the explicitly authorized sandbox only at turn
+scope, so project trust is not widened or persisted. Require the worker to report pass,
 fail, or blocked; steps performed; observed behavior; screenshot/log paths; and
 actionable findings.
 
@@ -112,6 +179,7 @@ establishes it.
 
 Return every field in the HarnessResult: `status`, `route.requested`,
 `route.actual_model`, `route.effort`, `route.provider`, `route.executor`,
+`route.resolution`, `route.attempted`, `route.fallback_reason`,
 `artifacts.files`, `artifacts.report`, `evidence.fixed_target`,
 `evidence.checks`, `evidence.outcome`, `telemetry.attempts`,
 `telemetry.elapsed`, `telemetry.verification_failures`,

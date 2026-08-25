@@ -19,9 +19,11 @@ satisfy `routing.orchestrator`.
 - `routing.fallback` is optional and still requires caller authorization under
   the existing typed fallback rules.
 
-`fallback` names an eligible general fallback but never authorizes an automatic
-fallback or escalation. Provider diversity is optional; a single reachable
-model-effort row may satisfy every required route.
+`routing.fallback` names an eligible general fallback but never authorizes an
+automatic fallback or escalation. `fallbacks.<route>` is the only standing
+authorization for automatic fallback; `routing.fallback` grants none. Provider
+diversity remains optional when a route has no fallback chain; a single
+reachable model-effort row may satisfy every required route.
 
 ## Semantic routes
 
@@ -39,38 +41,99 @@ that value from the reachable rows at or above `routing.taste_min`, under the
 developer's cost and trust preferences. `routing.taste_min` is an input to
 rubric setup, not a runtime route value.
 
-## Rubric lookup and explicit dispatch
+## Ordered candidate resolution
 
 1. Resolve the active rubric through `scripts/rubric-path.sh`; do not guess a
    repository or user-global path.
-2. Look up the requested semantic key in `routing`. Its value must be
-   `model@effort`.
-3. Find the matching `models` row by both `name` and `effort`. Resolve its
-   provider and confirm the provider/model is reachable through discovered
-   capabilities.
-4. Interpret optional model-row `via` as executor metadata. When present, it
-   selects that external executor; when absent, use the native agent or current
-   runtime. A consumer never branches on `via`.
-5. Pass the resolved model and effort explicitly on every dispatch. Never rely
+2. Candidate order is exactly `routing.<route>` followed by
+   `fallbacks.<route>` in listed order. Each value must be `model@effort`, and a
+   provider may appear only once in the chain.
+3. Find each candidate's `models` row by both `name` and `effort`. Every `taste`
+   candidate must satisfy `routing.taste_min`. Every `independent` candidate
+   differs from the persistent `routing.orchestrator` provider and every
+   request-supplied authoring provider. A rubric with `routing.independent` but
+   no orchestrator boundary fails closed. Provider and executor names cannot
+   contain the reserved circuit-key delimiter `|`.
+4. When a candidate's provider matches the native provider, use native execution
+   even if its model row declares `via`. Otherwise `via` must name a callable
+   external executor; a consumer never invents or implicitly selects one.
+   `validate` checks every primary and fallback row individually, so one reachable
+   candidate cannot mask another unreachable authorized row.
+5. Call `scripts/resolve-route.py select` with the semantic route, native
+   provider, callable executors, every authoring provider for `independent`, and
+   the ordered unavailable candidates already dispatched by this request in
+   `--attempted`.
+6. Pass the selected model and effort explicitly on every dispatch. Never rely
    on a runtime default. Record the requested route and concrete dispatch in the
    result.
 
 A stale, missing, malformed, or internally inconsistent rubric is a resolution
 failure, not permission to invent a model choice.
 
-## Resolution outcomes
+## Bounded selection loop
 
-Every lookup produces one typed route-resolution outcome:
+Automatic provider switching is limited to `quota`, `authentication`,
+`rate_limit`, `provider_unavailable`, and preflight `missing_executor`.
+`missing_executor` is classified by the resolver before dispatch. After a
+dispatch, the executor boundary may classify only the other four reasons; it
+must not parse raw provider text beyond that bounded typed classification seam.
 
-- `resolved`: the requested route and all required capabilities are available.
-- `fallback`: the requested resolution is unavailable and the request explicitly
-  authorized a named fallback route or executor that preserves its boundaries.
-- `blocked`: no authorized safe resolution exists.
+External Codex availability is classified only from
+`turn/completed.turn.error.codexErrorInfo`. The guarded App Server driver maps
+`usageLimitExceeded` to `quota`; `unauthorized` or HTTP 401/403 to
+`authentication`; HTTP 429 to `rate_limit`; and `serverOverloaded`,
+`internalServerError`, structured connection/stream/disconnect/too-many-attempts
+without a non-5xx status, or HTTP 5xx to `provider_unavailable`. All untyped,
+missing, malformed, task, policy, sandbox, context/session-budget, and other
+failures stop. Raw error text, logs, and secrets are never adapter output.
 
-If a required capability is missing, return `fallback` only when that fallback
-was authorized; otherwise `blocked`. Never silently change independence,
-provider boundary, computer-use requirements, permission scope, working
-directory, or required approvals.
+A missing or incompatible Codex App Server is preflight `missing_executor` and
+never creates a timed circuit or dispatch attempt. Capability discovery includes
+`codex` only when `scripts/codex-app-server.py check` proves the required schema
+and initialize-only stdio handshake.
+If the seam disappears after selection, remove `codex` from the callable
+inventory and reselect without recording failure or appending the candidate.
+
+On a typed post-dispatch availability failure, call `record-failure` without any
+raw error or secret-bearing value, append that dispatched candidate to
+`--attempted`, and select again. On success, call `record-success`. Preflight
+skips and candidates omitted by an open circuit are not dispatch attempts and
+are not appended. The resolver rejects an attempted candidate unless its exact
+provider/executor has matching recorded typed availability state. Stop when the
+ordered chain is exhausted.
+
+Every attempt preserves the original HarnessRequest's operation, tools,
+approvals, working directory, allowed paths, fixed target, sandbox, and
+verification seam. Task, output, verification, authority, and approval failures
+stop without changing providers. A malformed route, unavailable state, missing
+authorization, failed taste or independence gate, or exhausted chain returns
+`blocked`.
+
+The final HarnessResult records `route.resolution` as `primary` or `fallback`,
+`route.attempted` as the ordered candidates actually dispatched, and
+`route.fallback_reason` as the typed availability reason that caused fallback or
+empty. A matching native provider is still a primary or fallback candidate by
+its position in the authorized chain; executor choice does not change that
+provenance.
+
+## Provider health circuits
+
+Timed availability failures open a local circuit for 24 hours for `quota` and
+`authentication`, and for 15 minutes, 1 hour, 6 hours, then 24 hours for repeated
+`rate_limit` or `provider_unavailable` failures. A provider/executor success
+clears its circuit. `missing_executor` is a preflight fact and is not persisted.
+
+While a circuit is open, selection skips that provider/executor endpoint. After
+a cooldown expires, exactly one selector may claim the half-open probe for 15
+minutes. Other concurrent selectors continue through the authorized chain. The
+local health state contains only provider, executor, typed reason, failure count,
+and timestamps; it contains no raw error or secret-bearing value.
+
+Every selection holds the sibling circuit lock, including the first selection
+before a health document exists. The lock file may therefore precede the JSON
+state file; the JSON file is written only when health is recorded.
+
+## Fallback versus escalation
 
 Escalation is distinct from fallback: it is a bounded retry at a stronger
 configured resolution after failed verification. Escalate only when the request

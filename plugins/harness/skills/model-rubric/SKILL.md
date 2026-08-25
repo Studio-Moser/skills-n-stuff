@@ -21,12 +21,18 @@ allowed-tools: "Bash Read Write Edit WebFetch"
 Owns creating and refreshing the per-developer model-routing rubric.
 
 When invoked by `harness:setup`, treat its `command -v` inventory as current
-machine evidence. A current rubric does not stop this skill: first reconcile
-CLI-backed `capabilities`, show the changes, and derive `routing` fresh whenever
-reachability changed. Do not retain a route to an executor known to be absent.
-Preserve non-CLI subscription facts, taste, and billing semantics. Return the path,
-reviewed date, whether reconciliation ran, whether the file changed, validation
-checks, and any blocker to Setup.
+machine evidence, including its native provider and callable executors. A current
+rubric does not stop this skill: first reconcile CLI-backed `capabilities`, show
+the changes, and derive `routing` fresh whenever reachability changed. Do not
+retain a route to an executor known to be absent. Preserve non-CLI subscription
+facts, taste, and billing semantics. Return the path, reviewed date, whether
+reconciliation ran, whether the file changed, validation checks, and any blocker
+to Setup.
+
+For Codex, the inventory is callable only after `codex-app-server.py check`
+proves the Codex App Server typed-error seam; `command -v codex` alone does not
+advertise an external executor. A missing or incompatible seam removes Codex
+from reachability without creating a timed provider circuit.
 
 ## 1. Check current state
 
@@ -108,8 +114,10 @@ problems explicitly; do not infer it from benchmark scores:
 
 1. **Capabilities and providers:** which native runtimes, providers, and CLIs are
    usable, and which subscriptions or metered APIs back them? Verify every
-   CLI-backed claim with `command -v`. A Setup-provided inventory is evidence for
-   this step, not permission to infer subscriptions.
+   CLI-backed claim with `command -v`; Codex additionally requires the successful
+   App Server check above. A Setup-provided inventory is evidence for this step,
+   not permission to infer subscriptions. Carry any named authoring-provider
+   exclusions from Setup through draft and final validation.
 2. **Billing and efficiency semantics:** per provider, record whether billing is
    metered dollars or a flat subscription whose constraints are quota burn and
    latency. Use `efficiency` for the developer-specific synthesis of those
@@ -148,8 +156,9 @@ exists. Treat it only as a seed:
 4. update data-backed `intelligence` and `benchmark`, preserving user-owned
    `taste`;
 5. mark cross-provider CLI rows with `via: <cli>`;
-6. derive `routing` fresh from the reachable rows;
-7. remove `seed: true`, replace `reviewed:` with today's date, and record the
+6. derive the scalar `routing` primaries from the reachable rows;
+7. derive and validate the route-specific `fallbacks` chains below;
+8. remove `seed: true`, replace `reviewed:` with today's date, and record the
    actual sources used.
 
 For a Setup reconciliation, add/drop affected model rows and derive `routing`
@@ -164,7 +173,7 @@ The routing table uses exact `<model>@<effort>` values:
 - required `routing.quick`: short latency-sensitive delegated work;
 - required `routing.review`: strongest trusted non-wasteful fixed-target reviewer;
 - optional `routing.bulk`, `routing.explore`, `routing.batch`, `routing.taste`,
-  `routing.independent`, and `routing.fallback` when their semantics are reachable.
+  and `routing.independent` when their semantics are reachable.
 
 `orchestrator`, `default`, `quick`, and `review` are required. Keep
 `routing.taste_min` as the developer's input for choosing a reachable
@@ -185,6 +194,28 @@ single-provider setup must omit `routing.independent`. When present,
 the provider of `routing.orchestrator` and from the provider of any named
 authoring model.
 
+After choosing each primary, derive an ordered `fallbacks.<route>` chain from the
+remaining rows. For every configured route:
+
+- Filter other-provider rows by the same trust, latency, batch, computer-use,
+  taste, independence, and operation constraints used to choose that route's
+  primary. Preserve the developer's preference order among the compatible rows.
+- The primary provider is first, and every fallback provider differs from every
+  earlier provider in its chain. Include at most one row from each provider.
+- A `taste` fallback meets `routing.taste_min`. An `independent` fallback remains
+  distinct from every named authoring provider as well as every earlier provider
+  in its chain.
+- A matching native provider is reachable natively even if its row declares
+  `via`; a non-native row is reachable only through its callable declared
+  executor.
+- Empty chains are allowed. Provider diversity never becomes a prerequisite:
+  single-provider rubrics remain valid with no fallback chains.
+
+Never infer a chain from generic rubric fields or raw executor errors; legacy
+`routing.fallback` is never automatic authorization. Only an explicit creation or
+refresh may derive route-specific chains, and consumers use only the validated
+`fallbacks.<route>` list as standing fallback authorization.
+
 `via` is executor metadata interpreted by Harness. Consumers never branch on it.
 Every eventual dispatch still passes model and effort explicitly.
 
@@ -199,31 +230,74 @@ capabilities:
 models:
   - name: model-name
     effort: high
-    provider: provider-name
-    via: codex
+    provider: anthropic
     intelligence: 8
     taste: 8
     trust: trusted
     efficiency: 8
     benchmark: { suite: deepswe, version: "X.Y", observed: YYYY-MM-DD, pass_at_1: 0.5, mean_task_cost_usd: 1.0, cost_per_success_usd: 2.0, mean_output_tokens: 1000, mean_steps: 10, mean_duration_seconds: 60 }
+  - name: backup-model
+    effort: high
+    provider: openai
+    via: codex
+    intelligence: 8
+    taste: 8
+    trust: trusted
+    efficiency: 8
 routing:
   orchestrator: model-name@high
   default: model-name@high
   quick: model-name@high
   review: model-name@high
-  fallback: model-name@high
+fallbacks:
+  orchestrator: [backup-model@high]
+  default: [backup-model@high]
+  quick: [backup-model@high]
+  review: [backup-model@high]
 ```
 
-Show the draft before writing on first-time setup. Developer edits override seed
-judgment. Never write a credential, secret-bearing profile, absolute machine
-path, or temporary evidence into the rubric.
+Build the complete candidate document at a local temporary path. Before writing
+the user-global rubric, show the complete draft and show the fallback chains
+before writing. Developer edits override seed judgment. Validate the draft with
+the same native-provider and callable-executor inventory used for derivation:
+
+```bash
+harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
+"$harness/scripts/resolve-route.py" validate \
+  --rubric "$DRAFT_RUBRIC" \
+  --native-provider "$HARNESS_NATIVE_PROVIDER" \
+  --executors "$HARNESS_EXECUTORS" \
+  --authoring-providers "$HARNESS_AUTHORING_PROVIDERS"
+```
+
+This command never takes a health-state path. Require exit 0 and
+`{"status":"valid"}` before writing through the config-directory symlink. A
+missing resolver, `python3`, or `yq`, malformed output, or blocked result stops
+the write; do not reproduce or guess the resolver's semantics. The optional
+`--authoring-providers "$HARNESS_AUTHORING_PROVIDERS"` input uses the same
+CSV/JSON-list contract as request selection; the validator always enforces the
+persistent `routing.orchestrator` provider boundary even when that optional list
+is empty. Never write a
+credential, secret-bearing profile, absolute machine path, or temporary evidence
+into the rubric.
 
 For migration, a rubric without `routing.orchestrator` requires an explicit
 orchestration preference question; do not infer the preference from benchmark
-rank. Preserve capabilities, trust, taste, and billing semantics; refresh
-benchmark evidence; replace `cost` with `efficiency`; and rederive routes from
-reachable rows. Opus remains eligible when reachable and trusted, but never
-outranks a user's Fable orchestration preference through coding cost alone.
+rank. Preserve capabilities, trust, taste, billing semantics, every developer
+score and preference, and the scalar `routing.<route>` primaries. Refresh
+benchmark evidence and replace `cost` with `efficiency`. If capability
+reconciliation must change an unreachable primary, complete and show that
+existing reconciliation before beginning fallback migration; migration itself
+does not silently replace primaries. Opus remains eligible when reachable and
+trusted, but never outranks a user's Fable orchestration preference through
+coding cost alone.
+
+Treat `routing.fallback` as legacy data only. During an explicit refresh, derive
+the compatible route-specific replacements while leaving the legacy value in
+the temporary draft, validate every replacement chain, then remove
+`routing.fallback` only after every replacement chain validates. Validate the
+final draft again before writing it. Status checks never migrate a rubric, and a
+failed migration leaves the original file unchanged.
 
 A running agent cannot replace itself. `routing.orchestrator` guides a future
 top-level session when its host supports explicit model selection; it never
@@ -247,5 +321,7 @@ Reject `routing.independent` when its provider matches either the orchestrator's
 provider or a named authoring provider. Validation requires that every completed
 model row's `efficiency` is an integer from 1 through 10; reject any other value.
 Optional unavailable routes are omitted. When present,
-`routing.taste` must name a reachable row at or above `routing.taste_min`. A Setup
-invocation reports `reconciled: true` even when the file did not change.
+`routing.taste` must name a reachable row at or above `routing.taste_min`. Reject
+an unvalidated fallback chain or a completed rubric that still contains
+`routing.fallback`. A Setup invocation reports `reconciled: true` even when the
+file did not change.

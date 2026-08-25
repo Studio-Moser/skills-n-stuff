@@ -25,17 +25,42 @@ links, repositories, or remote state.
    agents repository, portable links, declared skills, MCP commands, and portability
    checks without a pending repair.
 2. Discover the current runtime capabilities with the same read-only `command -v`
-   inventory used by Ordered setup.
+   inventory used by Ordered setup. Require `python3`, `yq`, and the resolver at
+   `$harness/scripts/resolve-route.py`, plus the adapter checker at
+   `$harness/scripts/codex-app-server.py`; a missing required script or dependency
+   is a blocker, not permission to infer configured status. `command -v codex`
+   is only a binary preflight: advertise `codex` as present only when this bounded
+   check exits 0 with `{"status":"available"}`:
+
+   ```bash
+   "$harness/scripts/codex-app-server.py" check --codex-bin "$HARNESS_CODEX_BIN"
+   ```
+
+   A `{"status":"missing_executor"}` result removes or refreshes `codex` from the
+   callable executor inventory without a timed circuit or dispatch attempt.
 3. Resolve the rubric through `scripts/rubric-path.sh --check`. When it is set,
-   validate it against the Harness 0.7 completion contract without rewriting it:
-   `routing.orchestrator`, `routing.default`, `routing.quick`, and `routing.review`
-   are present; every emitted route resolves to an exact `(name, effort)` model row;
-   every routed row's `provider` is reachable; and `via`, when present, names a
-   discovered executor. Also require every completed model row's `efficiency` to be
-   an integer from 1 through 10. When `routing.independent` is present, require its
-   provider to differ from the provider of `routing.orchestrator` and the provider
-   of any named authoring model. A rubric that satisfies only the pre-0.7
-   execute/review checks is not configured.
+   first require the Harness 0.7 completion markers: `routing.orchestrator`,
+   `routing.default`, `routing.quick`, and `routing.review` are present and every
+   completed model row's `efficiency` is an integer from 1 through 10. Then run
+   the canonical validator against the current native provider and callable
+   executors:
+
+   ```bash
+   harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
+   "$harness/scripts/resolve-route.py" validate \
+     --rubric "$RUBRIC_PATH" \
+     --native-provider "$HARNESS_NATIVE_PROVIDER" \
+     --executors "$HARNESS_EXECUTORS" \
+     --authoring-providers "$HARNESS_AUTHORING_PROVIDERS"
+   ```
+
+   Require exit 0 and `{"status":"valid"}`. The command never receives a
+   health-state path and must not create or update provider-health state. It
+   proves exact model rows, unique providers within chains, taste thresholds,
+   the persistent orchestrator-provider boundary, any named authoring-provider
+   exclusions in current Setup context, and current provider/executor reachability
+   without rewriting the rubric. A
+   rubric that satisfies only the pre-0.7 execute/review checks is not configured.
 4. Return the complete HarnessResult defined by the Harness contract. Use
    `status: accepted` with `evidence.outcome: proven` only when the Sync dry run and
    current rubric/capability validation all pass. Otherwise use `status: blocked` with
@@ -62,23 +87,35 @@ non-blocking, as in Ordered setup.
    current rubric, plus the known supported agent runtimes:
 
    ```bash
-   for capability in claude codex gemini pi hermes; do
+   for capability in claude gemini pi hermes; do
      if command -v "$capability" >/dev/null 2>&1; then
        printf '%s\tpresent\n' "$capability"
      else
        printf '%s\tabsent\n' "$capability"
      fi
    done
+   if command -v codex >/dev/null 2>&1 && \
+     "$harness/scripts/codex-app-server.py" check \
+       --codex-bin "$(command -v codex)" >/dev/null; then
+     printf '%s\tpresent\n' codex
+   else
+     printf '%s\tabsent\n' codex
+   fi
    ```
 
-4. Invoke `harness:model-rubric`, passing the observed capability inventory as
-   current setup context. That skill owns the rubric path, interview, creation,
-   refresh, validation, and audit mechanics. Do not write or parse a second
-   rubric here. It must reconcile the rubric's `capabilities` with the observed
-   inventory and rederive affected routes instead of retaining a stale executor.
+4. Invoke `harness:model-rubric`, passing the same native-provider and
+   callable-executor inventory used by configured-status validation, together
+   with the observed capabilities and any named authoring-provider exclusions,
+   as current setup context. That skill owns the
+   rubric path, interview, creation, refresh, validation, and audit mechanics.
+   Do not write or parse a second rubric here. It must reconcile the rubric's
+   `capabilities` with the observed inventory, rederive affected routes instead
+   of retaining a stale executor, and report a validated write only after its
+   temporary draft passes `resolve-route.py validate` with that inventory.
 5. Invoke `harness:sync` again if the rubric changed inside the agents repository,
-   so the existing commit, pull, push, and conflict mechanics publish that
-   version-controlled change.
+   but only after Model Rubric reports a validated write, so the existing commit,
+   pull, push, and conflict mechanics publish that version-controlled change. A
+   blocked validation never authorizes Sync.
 6. Inspect the runtime's callable tool names for Shelby only after the portable
    setup is usable. When Shelby tool names are present, continue setup and return
    only identifiers from successful Shelby calls. Resolve canonical project

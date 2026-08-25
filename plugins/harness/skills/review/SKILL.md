@@ -54,32 +54,93 @@ does not change the review status. Consumers do not discover or invoke provider 
 
 ## Resolve and dispatch
 
-Resolve the route and matching model row through Harness:
+Resolve the active rubric only through Harness:
 
 ```bash
 harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
 "$harness/scripts/rubric-path.sh" --check
-"$harness/scripts/rubric-path.sh"
+RUBRIC_PATH="$("$harness/scripts/rubric-path.sh")"
 ```
 
-Pass the resolved model and effort explicitly on every dispatch. If `via` is
-absent, use the native runtime with the chosen context mode and complete
-HandoffPacket. Missing required capability produces only an authorized fallback
-or `blocked`; never silently weaken independence or authority.
+Run one bounded selection loop. `HARNESS_ATTEMPTED` starts as `[]` and contains
+only ordered candidates already dispatched by this request and then recorded as
+unavailable. Call the canonical resolver on every iteration:
+
+```bash
+ROUTE_RESULT="$($harness/scripts/resolve-route.py select \
+  --rubric "$RUBRIC_PATH" \
+  --route "$HARNESS_ROUTE" \
+  --native-provider "$HARNESS_NATIVE_PROVIDER" \
+  --executors "$HARNESS_EXECUTORS" \
+  --attempted "$HARNESS_ATTEMPTED")"
+```
+
+For `independent`, that same `select` call must also pass
+`--authoring-providers "$HARNESS_AUTHORING_PROVIDERS"` containing every provider
+that authored the fixed target; never issue the shorter call for that route. The
+resolver adds the persistent orchestrator provider automatically.
+Read the returned JSON structurally. A blocked selection returns the complete
+blocked HarnessResult. A matching native provider uses native review even when
+the selected row has `via`; otherwise the returned external executor must be
+explicit and callable. If `via` is absent, use the native runtime only when the
+selected provider is native, with the chosen context mode and complete
+HandoffPacket. Pass the resolved model and effort explicitly on every dispatch.
+
+The only availability reasons are `quota`, `authentication`, `rate_limit`,
+`provider_unavailable`, and preflight `missing_executor`. The resolver owns
+`missing_executor`, open-circuit skips, cooldowns, and the single half-open probe;
+do not append a preflight skip to `--attempted`. After dispatch, classify only a
+bounded typed availability result from the executor boundary; do not infer one
+from unbounded raw provider text. On `quota`, `authentication`, `rate_limit`, or
+`provider_unavailable`, call `resolve-route.py record-failure` for the selected
+provider and executor, append the selected model-effort candidate to
+`HARNESS_ATTEMPTED`, and repeat with the unchanged HarnessRequest and same fixed
+target. On success, call `resolve-route.py record-success` for that provider and
+executor. Any non-availability response also proves endpoint health, so clear an
+outstanding circuit before handling its task or output failure. Task, output,
+verification, authority, and approval failures stop without changing providers.
+Between iterations, do not change the request's operation, tools, approvals,
+working directory, allowed paths, fixed target, sandbox, or verification seam;
+only the attempted list and selected route data change. Exhausting the
+unique-provider chain returns `blocked`; the loop cannot exceed the authorized
+candidates and must never weaken independence or authority.
+
+In the terminal result, copy the selection's `resolution` to
+`route.resolution`; set `route.attempted` to every candidate actually dispatched,
+including the terminal candidate; and copy the typed selection `reason` to
+`route.fallback_reason`, or leave it empty. Never add preflight skips to
+`route.attempted`.
 
 ### Internal Codex adapter
 
-For `via: codex`, require `command -v codex`. Create a temporary report and a
-self-contained prompt containing the fixed target, requirements, available
-proof, review axes supplied by the consumer, authority, and exact HarnessResult
-return shape. Do not include secrets or unbounded logs.
+Enter this adapter only when the selected candidate is non-native and the
+resolver returned `executor: codex`; a native selection remains native even when
+its model row declares `via: codex`. Before the first selection, include `codex`
+in `HARNESS_EXECUTORS` only when `codex-app-server.py check` returns
+`{"status":"available"}`. That check requires both `command -v codex` and the
+typed Codex App Server terminal-error seam. Create a temporary report and a self-contained prompt containing the fixed target,
+requirements, available proof, review axes supplied by the consumer, authority,
+and exact HarnessResult return shape. Do not include secrets or unbounded logs.
 
 Obtain any independent-review cost approval before dispatch. Any other
 outstanding approval returns an authorized fallback or `blocked`; the
 non-interactive adapter cannot surface it. A cleared request uses
 `approval: never` so Codex cannot escalate beyond the read-only review.
 
-For a commit target, use the native fixed-commit review command:
+Read the guarded adapter's compact JSON and exit code, never stderr or raw
+provider text. On exit 69 with `{"status":"missing_executor"}`, remove `codex`
+from the callable inventory and reselect without `record-failure` or an appended
+dispatch attempt. Only exit 75 with
+`{"status":"availability_failure","reason":"..."}` authorizes a timed
+availability record. Exit 1 with `{"status":"failed"}` stops without changing
+providers; it covers untyped, task, policy, sandbox, malformed-protocol, and
+generic worker failures. Exit 0 with `{"status":"succeeded"}` places only the
+final agent text in the report. No adapter result contains raw error text, logs,
+or secrets.
+
+For a commit target, the driver starts an ephemeral read-only App Server thread,
+applies the read-only sandbox again at turn scope, and injects the immutable
+fixed-target SHA as a binding instruction before the self-contained prompt:
 
 ```bash
 harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
@@ -120,6 +181,7 @@ outcome exists and current direct proof establishes it.
 
 Return every field in the HarnessResult: `status`, `route.requested`,
 `route.actual_model`, `route.effort`, `route.provider`, `route.executor`,
+`route.resolution`, `route.attempted`, `route.fallback_reason`,
 `artifacts.files`, `artifacts.report`, `evidence.fixed_target`,
 `evidence.checks`, `evidence.outcome`, `telemetry.attempts`,
 `telemetry.elapsed`, `telemetry.verification_failures`,
