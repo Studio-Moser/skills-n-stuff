@@ -106,10 +106,13 @@ including the terminal candidate; and copy the typed selection `reason` to
 
 ### Internal Codex adapter
 
-For `via: codex`, first require `command -v codex`. Use `read-only` or
-`workspace-write` for repo-contained checks. Use `danger-full-access` only when
-the request explicitly authorizes machine-wide access and no per-action approval
-remains. A non-interactive Codex run cannot surface a required UI confirmation.
+Enter this adapter only when the selected candidate is non-native and the
+resolver returned `executor: codex`; a native selection remains native even when
+its model row declares `via: codex`. Then require `command -v codex`. Use
+`read-only` or `workspace-write` for repo-contained checks. Use
+`danger-full-access` only when the request explicitly authorizes machine-wide
+access and no per-action approval remains. A non-interactive Codex run cannot
+surface a required UI confirmation.
 Obtain it in the parent first, use an authorized native runtime that can retain
 it, or return `blocked`. Once all approvals are cleared, use `approval: never` so
 Codex cannot request a later sandbox escalation. If that sandbox/approval pair

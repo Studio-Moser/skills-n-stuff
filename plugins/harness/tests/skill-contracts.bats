@@ -112,6 +112,13 @@ for name, text in skills.items():
     ):
         if clause not in normalized:
             failures.append(f"{name}: missing fallback boundary: {clause}")
+    adapter = normalized.split("### Internal Codex adapter", 1)[-1]
+    clause = (
+        "Enter this adapter only when the selected candidate is non-native and the resolver returned "
+        "`executor: codex`; a native selection remains native even when its model row declares `via: codex`"
+    )
+    if clause not in adapter:
+        failures.append(f"{name}: Codex adapter is not qualified by the resolver-selected executor")
 
 execute = " ".join(skills["execute"].split())
 for clause in (

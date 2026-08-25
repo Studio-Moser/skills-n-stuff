@@ -112,10 +112,12 @@ including the terminal candidate; and copy the typed selection `reason` to
 
 ### Internal Codex adapter
 
-For `via: codex`, require `command -v codex`. Create a temporary report and a
-self-contained prompt containing the fixed target, requirements, available
-proof, review axes supplied by the consumer, authority, and exact HarnessResult
-return shape. Do not include secrets or unbounded logs.
+Enter this adapter only when the selected candidate is non-native and the
+resolver returned `executor: codex`; a native selection remains native even when
+its model row declares `via: codex`. Then require `command -v codex`. Create a
+temporary report and a self-contained prompt containing the fixed target,
+requirements, available proof, review axes supplied by the consumer, authority,
+and exact HarnessResult return shape. Do not include secrets or unbounded logs.
 
 Obtain any independent-review cost approval before dispatch. Any other
 outstanding approval returns an authorized fallback or `blocked`; the

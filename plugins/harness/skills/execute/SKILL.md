@@ -113,9 +113,11 @@ including the terminal candidate; and copy the typed selection `reason` to
 
 ### Internal Codex adapter
 
-When the resolved model row says `via: codex`, first run `command -v codex`.
-Missing Codex uses only an explicitly authorized fallback; otherwise return
-`blocked`. Choose `read-only` when no writes are authorized and
+Enter this adapter only when the selected candidate is non-native and the
+resolver returned `executor: codex`; a native selection remains native even when
+its model row declares `via: codex`. Then run `command -v codex`. Missing Codex
+uses only an explicitly authorized fallback; otherwise return `blocked`. Choose
+`read-only` when no writes are authorized and
 `workspace-write` only when writes across the working directory are authorized.
 If narrower allowed paths cannot be enforced, use an authorized native executor
 that can enforce them or return `blocked`; a prompt-only restriction is not an
