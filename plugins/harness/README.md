@@ -31,6 +31,16 @@ machine; Claude plus Codex enables cross-provider delegation, while either
 provider alone still produces a valid rubric. Software-work efficiency uses
 benchmark cost per successful task rather than token list price alone.
 
+## Provider-resilient routes
+
+The rubric may define an ordered `fallbacks.<route>` list for a semantic route.
+Harness switches only when the selected provider or executor has a typed
+availability failure; authority, verification, and all other request constraints
+stay unchanged. Route health is machine-local: timed failures open cooldowns,
+and after a cooldown exactly one post-cooldown half-open probe may run before
+the route is considered healthy again. Without an explicit ordered fallback,
+Harness does not switch providers or executors.
+
 ## Migrating from Machine
 
 Migrate in this order so there is never a gap in control-plane ownership:
@@ -135,6 +145,7 @@ and confirms a remote is private before the first push.
 | `scripts/stamp-baseline.sh <target> [body]` | idempotently stamp the Harness project block; defaults to the bundled template |
 | `scripts/portability-lint.sh [repo]` | fail on machine-specific absolute paths |
 | `scripts/rubric-path.sh [--check]` | resolve the rubric path / report `set`\|`unset` |
+| `scripts/resolve-route.py validate\|select\|record-failure\|record-success ...` | validate a rubric, select an authorized route, and record local availability health |
 | `scripts/fetch-model-data.sh` | current model cost + intelligence as TSV (exit 3 = no API key) |
 | `scripts/skills-reconcile.sh <repo>` | read-only diff of `skills.manifest` vs. reality (reads `npx skills list -g --json` on stdin) |
 | `scripts/skills-manifest.sh <repo>` | regenerate `skills.manifest` and the `.gitignore` block from reality (same stdin) |
