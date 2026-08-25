@@ -31,7 +31,10 @@ assert_complete_result() {
 import json, os
 r = json.loads(os.environ["RESULT_JSON"])
 assert list(r) == ["status", "route", "artifacts", "evidence", "telemetry", "shelby", "blockers"]
-assert list(r["route"]) == ["requested", "actual_model", "effort", "provider", "executor"]
+assert list(r["route"]) == [
+    "requested", "actual_model", "effort", "provider", "executor",
+    "resolution", "attempted", "fallback_reason",
+]
 assert list(r["artifacts"]) == ["files", "report"]
 assert list(r["evidence"]) == ["fixed_target", "checks", "outcome"]
 assert list(r["telemetry"]) == ["attempts", "elapsed", "verification_failures", "token_or_quota_usage"]
@@ -39,6 +42,8 @@ assert list(r["shelby"]) == ["project_id", "run_id", "checkpoint_ids"]
 assert r["route"] == {
     "requested": "default", "actual_model": "setup-model", "effort": "medium",
     "provider": "native", "executor": "current-runtime",
+    "resolution": "primary", "attempted": ["setup-model@medium"],
+    "fallback_reason": None,
 }
 PY
 }

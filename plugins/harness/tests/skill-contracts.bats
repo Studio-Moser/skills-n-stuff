@@ -76,7 +76,8 @@ skills = {name: path.read_text() for name, path in skill_paths.items()}
 
 result_fields = (
     "status", "route.requested", "route.actual_model", "route.effort",
-    "route.provider", "route.executor", "artifacts.files", "artifacts.report",
+    "route.provider", "route.executor", "route.resolution", "route.attempted",
+    "route.fallback_reason", "artifacts.files", "artifacts.report",
     "evidence.fixed_target", "evidence.checks", "evidence.outcome",
     "telemetry.attempts", "telemetry.elapsed", "telemetry.verification_failures",
     "telemetry.token_or_quota_usage", "shelby.project_id", "shelby.run_id",
@@ -97,6 +98,20 @@ for name, text in skills.items():
     ):
         if clause not in normalized:
             failures.append(f"{name}: missing contract clause: {clause}")
+    for token in (
+        "resolve-route.py", "record-failure", "record-success", "--attempted",
+        "quota", "authentication", "rate_limit", "provider_unavailable",
+        "missing_executor",
+    ):
+        if token not in text:
+            failures.append(f"{name}: resolver loop omits {token}")
+    for clause in (
+        "bounded selection loop",
+        "unchanged HarnessRequest",
+        "Task, output, verification, authority, and approval failures stop without changing providers",
+    ):
+        if clause not in normalized:
+            failures.append(f"{name}: missing fallback boundary: {clause}")
 
 execute = " ".join(skills["execute"].split())
 for clause in (

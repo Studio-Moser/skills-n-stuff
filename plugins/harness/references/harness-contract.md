@@ -66,6 +66,9 @@ route:
   effort: resolved effort
   provider: resolved provider
   executor: native agent or external CLI
+  resolution: primary | fallback
+  attempted: ordered model-effort dispatches
+  fallback_reason: typed availability reason or empty
 artifacts:
   files: changed or created paths
   report: optional report path
@@ -84,6 +87,13 @@ shelby:
   checkpoint_ids: optional
 blockers: explicit unresolved items
 ```
+
+`route.attempted` contains only candidates actually dispatched, in dispatch
+order, including the terminal successful or failed attempt. Preflight skips do
+not appear there. `route.fallback_reason` is the typed availability reason that
+caused a fallback selection, or empty for a primary resolution. These provenance
+fields describe routing; they do not alter the request's authority or proof
+requirements.
 
 Use the statuses consistently:
 

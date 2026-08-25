@@ -49,17 +49,60 @@ project scope has been resolved. Missing Shelby is non-blocking.
 
 ## Resolve and dispatch
 
-Resolve the semantic route and matching model row through Harness:
+Resolve the active rubric only through Harness:
 
 ```bash
 harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
 "$harness/scripts/rubric-path.sh" --check
-"$harness/scripts/rubric-path.sh"
+RUBRIC_PATH="$("$harness/scripts/rubric-path.sh")"
 ```
 
-Pass the resolved model and effort explicitly on every dispatch. If `via` is
-absent, use the capable native runtime with the complete HandoffPacket and the
-requested context mode.
+Run one bounded selection loop. `HARNESS_ATTEMPTED` starts as `[]` and contains
+only ordered candidates already dispatched by this request and then recorded as
+unavailable. Call the canonical resolver on every iteration:
+
+```bash
+ROUTE_RESULT="$($harness/scripts/resolve-route.py select \
+  --rubric "$RUBRIC_PATH" \
+  --route "$HARNESS_ROUTE" \
+  --native-provider "$HARNESS_NATIVE_PROVIDER" \
+  --executors "$HARNESS_EXECUTORS" \
+  --attempted "$HARNESS_ATTEMPTED")"
+```
+
+Read the returned JSON structurally. A blocked selection returns the complete
+blocked HarnessResult. A matching native provider uses the capable native
+runtime even when the selected row has `via`; otherwise the returned external
+executor must be explicit, callable, and able to enforce every required
+computer-use capability and approval. If `via` is absent, use the native runtime
+only when the selected provider is native, with the complete HandoffPacket and
+requested context mode. Pass the resolved model and effort explicitly on every
+dispatch.
+
+The only availability reasons are `quota`, `authentication`, `rate_limit`,
+`provider_unavailable`, and preflight `missing_executor`. The resolver owns
+`missing_executor`, open-circuit skips, cooldowns, and the single half-open probe;
+do not append a preflight skip to `--attempted`. After dispatch, classify only a
+bounded typed availability result from the executor boundary; do not infer one
+from unbounded raw provider text. On `quota`, `authentication`, `rate_limit`, or
+`provider_unavailable`, call `resolve-route.py record-failure` for the selected
+provider and executor, append the selected model-effort candidate to
+`HARNESS_ATTEMPTED`, and repeat with the unchanged HarnessRequest and confirmation
+policy. On success, call `resolve-route.py record-success` for that provider and
+executor. Any non-availability response also proves endpoint health, so clear an
+outstanding circuit before handling its task or output failure. Task, output,
+verification, authority, and approval failures stop without changing providers.
+Between iterations, do not change the request's operation, tools, approvals,
+working directory, allowed paths, fixed target, sandbox, verification seam, or
+confirmation policy; only the attempted list and selected route data change.
+Exhausting the unique-provider chain returns `blocked`; the loop cannot exceed
+the authorized candidates and cannot downgrade the requested computer-use proof.
+
+In the terminal result, copy the selection's `resolution` to
+`route.resolution`; set `route.attempted` to every candidate actually dispatched,
+including the terminal candidate; and copy the typed selection `reason` to
+`route.fallback_reason`, or leave it empty. Never add preflight skips to
+`route.attempted`.
 
 ### Internal Codex adapter
 
@@ -112,6 +155,7 @@ establishes it.
 
 Return every field in the HarnessResult: `status`, `route.requested`,
 `route.actual_model`, `route.effort`, `route.provider`, `route.executor`,
+`route.resolution`, `route.attempted`, `route.fallback_reason`,
 `artifacts.files`, `artifacts.report`, `evidence.fixed_target`,
 `evidence.checks`, `evidence.outcome`, `telemetry.attempts`,
 `telemetry.elapsed`, `telemetry.verification_failures`,
