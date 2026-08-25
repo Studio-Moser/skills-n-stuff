@@ -20,6 +20,7 @@ models:
     via: codex
     taste: 9
 routing:
+  orchestrator: gpt-5.6-sol@high
   default: gpt-5.6-sol@high
   taste: claude-fable-5@high
   independent: claude-fable-5@high
@@ -90,6 +91,134 @@ PY
     --native-provider anthropic --executors codex
   [ "$status" -eq 0 ]
   assert_result 'result == {"status": "valid"}'
+}
+
+@test "validate rejects an unreachable primary even when its fallback is reachable" {
+  cat > "$RUBRIC" <<'YAML'
+models:
+  - name: unavailable-primary
+    effort: high
+    provider: anthropic
+  - name: reachable-fallback
+    effort: high
+    provider: openai
+    via: codex
+routing:
+  default: unavailable-primary@high
+fallbacks:
+  default: [reachable-fallback@high]
+YAML
+
+  run "$SCRIPT" validate --rubric "$RUBRIC" \
+    --native-provider openai --executors ""
+  [ "$status" -eq 4 ]
+  assert_result '(
+      result["status"] == "blocked"
+      and "route default" in result["blockers"][0]
+      and "unavailable-primary@high" in result["blockers"][0]
+  )'
+}
+
+@test "validate rejects an unreachable fallback even when its primary is reachable" {
+  cat > "$RUBRIC" <<'YAML'
+models:
+  - name: reachable-primary
+    effort: high
+    provider: openai
+  - name: unavailable-fallback
+    effort: high
+    provider: anthropic
+routing:
+  default: reachable-primary@high
+fallbacks:
+  default: [unavailable-fallback@high]
+YAML
+
+  run "$SCRIPT" validate --rubric "$RUBRIC" \
+    --native-provider openai --executors ""
+  [ "$status" -eq 4 ]
+  assert_result '(
+      result["status"] == "blocked"
+      and "route default" in result["blockers"][0]
+      and "unavailable-fallback@high" in result["blockers"][0]
+  )'
+}
+
+@test "select automatically excludes the persistent orchestrator provider from independent" {
+  sed -i '' 's/independent: claude-fable-5@high/independent: gpt-5.6-sol@high/' "$RUBRIC"
+
+  run "$SCRIPT" select --rubric "$RUBRIC" --state "$STATE" \
+    --route independent --native-provider openai --executors codex \
+    --now 2026-08-25T12:00:00Z
+  [ "$status" -eq 4 ]
+  assert_result '(
+      result["status"] == "blocked"
+      and "orchestrator provider" in result["blockers"][0]
+  )'
+}
+
+@test "validate excludes orchestrator and supplied authoring providers from every independent candidate" {
+  sed -i '' 's/independent: claude-fable-5@high/independent: gpt-5.6-sol@high/' "$RUBRIC"
+
+  run "$SCRIPT" validate --rubric "$RUBRIC" \
+    --native-provider anthropic --executors codex
+  [ "$status" -eq 4 ]
+  assert_result '(
+      result["status"] == "blocked"
+      and "independent candidate gpt-5.6-sol@high" in result["blockers"][0]
+      and "orchestrator provider" in result["blockers"][0]
+  )'
+
+  sed -i '' 's/independent: gpt-5.6-sol@high/independent: claude-fable-5@high/' "$RUBRIC"
+  run "$SCRIPT" validate --rubric "$RUBRIC" \
+    --native-provider anthropic --executors codex \
+    --authoring-providers '["anthropic"]'
+  [ "$status" -eq 4 ]
+  assert_result '(
+      result["status"] == "blocked"
+      and "independent candidate claude-fable-5@high" in result["blockers"][0]
+      and "authoring provider" in result["blockers"][0]
+  )'
+}
+
+@test "validate rejects an independent fallback from the orchestrator provider" {
+  cat > "$RUBRIC" <<'YAML'
+models:
+  - name: orchestrator-model
+    effort: high
+    provider: openai
+    via: codex
+  - name: independent-primary
+    effort: high
+    provider: google
+    via: gemini
+routing:
+  orchestrator: orchestrator-model@high
+  independent: independent-primary@high
+fallbacks:
+  independent: [orchestrator-model@high]
+YAML
+
+  run "$SCRIPT" validate --rubric "$RUBRIC" \
+    --native-provider anthropic --executors codex,gemini
+  [ "$status" -eq 4 ]
+  assert_result '(
+      result["status"] == "blocked"
+      and "independent candidate orchestrator-model@high" in result["blockers"][0]
+      and "orchestrator provider" in result["blockers"][0]
+  )'
+}
+
+@test "independent validation fails closed without an orchestrator boundary" {
+  sed -i '' '/orchestrator:/d' "$RUBRIC"
+
+  run "$SCRIPT" validate --rubric "$RUBRIC" \
+    --native-provider anthropic --executors codex
+  [ "$status" -eq 4 ]
+  assert_result '(
+      result["status"] == "blocked"
+      and "routing.orchestrator" in result["blockers"][0]
+  )'
 }
 
 @test "taste fallback below the configured minimum blocks selection" {

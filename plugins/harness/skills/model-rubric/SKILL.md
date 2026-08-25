@@ -29,6 +29,11 @@ facts, taste, and billing semantics. Return the path, reviewed date, whether
 reconciliation ran, whether the file changed, validation checks, and any blocker
 to Setup.
 
+For Codex, the inventory is callable only after `codex-app-server.py check`
+proves the Codex App Server typed-error seam; `command -v codex` alone does not
+advertise an external executor. A missing or incompatible seam removes Codex
+from reachability without creating a timed provider circuit.
+
 ## 1. Check current state
 
 ```bash
@@ -109,8 +114,10 @@ problems explicitly; do not infer it from benchmark scores:
 
 1. **Capabilities and providers:** which native runtimes, providers, and CLIs are
    usable, and which subscriptions or metered APIs back them? Verify every
-   CLI-backed claim with `command -v`. A Setup-provided inventory is evidence for
-   this step, not permission to infer subscriptions.
+   CLI-backed claim with `command -v`; Codex additionally requires the successful
+   App Server check above. A Setup-provided inventory is evidence for this step,
+   not permission to infer subscriptions. Carry any named authoring-provider
+   exclusions from Setup through draft and final validation.
 2. **Billing and efficiency semantics:** per provider, record whether billing is
    metered dollars or a flat subscription whose constraints are quota burn and
    latency. Use `efficiency` for the developer-specific synthesis of those
@@ -259,13 +266,18 @@ harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*
 "$harness/scripts/resolve-route.py" validate \
   --rubric "$DRAFT_RUBRIC" \
   --native-provider "$HARNESS_NATIVE_PROVIDER" \
-  --executors "$HARNESS_EXECUTORS"
+  --executors "$HARNESS_EXECUTORS" \
+  --authoring-providers "$HARNESS_AUTHORING_PROVIDERS"
 ```
 
 This command never takes a health-state path. Require exit 0 and
 `{"status":"valid"}` before writing through the config-directory symlink. A
 missing resolver, `python3`, or `yq`, malformed output, or blocked result stops
-the write; do not reproduce or guess the resolver's semantics. Never write a
+the write; do not reproduce or guess the resolver's semantics. The optional
+`--authoring-providers "$HARNESS_AUTHORING_PROVIDERS"` input uses the same
+CSV/JSON-list contract as request selection; the validator always enforces the
+persistent `routing.orchestrator` provider boundary even when that optional list
+is empty. Never write a
 credential, secret-bearing profile, absolute machine path, or temporary evidence
 into the rubric.
 

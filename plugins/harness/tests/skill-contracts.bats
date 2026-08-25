@@ -101,7 +101,7 @@ for name, text in skills.items():
     for token in (
         "resolve-route.py", "record-failure", "record-success", "--attempted",
         "quota", "authentication", "rate_limit", "provider_unavailable",
-        "missing_executor",
+        "missing_executor", "codex-app-server.py", "availability_failure",
     ):
         if token not in text:
             failures.append(f"{name}: resolver loop omits {token}")
@@ -119,6 +119,16 @@ for name, text in skills.items():
     )
     if clause not in adapter:
         failures.append(f"{name}: Codex adapter is not qualified by the resolver-selected executor")
+    if '--authoring-providers "$HARNESS_AUTHORING_PROVIDERS"' not in text:
+        failures.append(f"{name}: independent selection omits request authoring providers")
+    for clause in (
+        'include `codex` in `HARNESS_EXECUTORS` only when `codex-app-server.py check` returns `{"status":"available"}`',
+        "remove `codex` from the callable inventory and reselect without `record-failure` or an appended dispatch attempt",
+        'Only exit 75 with `{"status":"availability_failure","reason":"..."}` authorizes a timed availability record',
+        'Exit 1 with `{"status":"failed"}` stops without changing providers',
+    ):
+        if clause not in adapter:
+            failures.append(f"{name}: missing typed Codex adapter boundary: {clause}")
 
 execute = " ".join(skills["execute"].split())
 for clause in (
@@ -192,7 +202,7 @@ missing = [clause for clause in required if clause not in normalized]
 assert not missing, "setup contract missing: " + ", ".join(missing)
 assert "setup-result.py" in text, "setup does not use the runnable result seam"
 script_refs = [line for line in text.splitlines() if "$harness/scripts/" in line]
-allowed_scripts = ("setup-result.py", "resolve-route.py")
+allowed_scripts = ("setup-result.py", "resolve-route.py", "codex-app-server.py")
 assert all(any(script in line for script in allowed_scripts) for line in script_refs), "setup duplicates Sync or rubric mechanics"
 PY
   if [ "$status" -ne 0 ]; then
@@ -214,17 +224,22 @@ for token in (
     '--rubric "$RUBRIC_PATH"',
     '--native-provider "$HARNESS_NATIVE_PROVIDER"',
     '--executors "$HARNESS_EXECUTORS"',
+    '--authoring-providers "$HARNESS_AUTHORING_PROVIDERS"',
 ):
     assert token in status, f"setup status missing validator input: {token}"
 for dependency in ("`python3`", "`yq`", "the resolver"):
     assert dependency in normalized, f"setup status missing dependency blocker: {dependency}"
 assert "--health-state" not in status, "setup status mutates resolver health state"
 assert "read-only" in normalized, "setup status does not preserve its read-only boundary"
+assert '"$harness/scripts/codex-app-server.py" check' in status
+assert "advertise `codex` as present only when" in normalized
+assert "persistent orchestrator-provider boundary" in normalized
 
 ordered = text.split("## Ordered setup", 1)[1].split("## Completion", 1)[0]
 ordered_normalized = " ".join(ordered.split())
 for clause in (
     "passing the same native-provider and callable-executor inventory",
+    "named authoring-provider exclusions",
     "validated write",
 ):
     assert clause in ordered_normalized, f"ordered setup missing validated rubric handoff: {clause}"
@@ -271,6 +286,8 @@ for clause in (
     "User-owned trust and preferences govern orchestration, taste, exploration, and review; benchmark data is supporting evidence only",
     "Validate both `provider` and `via` reachability for every routed row",
     "block or rederive when either is unavailable",
+    "Codex App Server typed-error seam",
+    "`--authoring-providers \"$HARNESS_AUTHORING_PROVIDERS\"`",
 ):
     assert clause in normalized, f"model-rubric missing procedure: {clause}"
 

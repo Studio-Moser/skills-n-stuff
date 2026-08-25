@@ -77,7 +77,8 @@ ROUTE_RESULT="$($harness/scripts/resolve-route.py select \
 
 For `independent`, that same `select` call must also pass
 `--authoring-providers "$HARNESS_AUTHORING_PROVIDERS"` containing every provider
-that authored the fixed target; never issue the shorter call for that route.
+that authored the fixed target; never issue the shorter call for that route. The
+resolver adds the persistent orchestrator provider automatically.
 Read the returned JSON structurally. A blocked selection returns the complete
 blocked HarnessResult. A matching native provider uses native review even when
 the selected row has `via`; otherwise the returned external executor must be
@@ -114,8 +115,10 @@ including the terminal candidate; and copy the typed selection `reason` to
 
 Enter this adapter only when the selected candidate is non-native and the
 resolver returned `executor: codex`; a native selection remains native even when
-its model row declares `via: codex`. Then require `command -v codex`. Create a
-temporary report and a self-contained prompt containing the fixed target,
+its model row declares `via: codex`. Before the first selection, include `codex`
+in `HARNESS_EXECUTORS` only when `codex-app-server.py check` returns
+`{"status":"available"}`. That check requires both `command -v codex` and the
+typed Codex App Server terminal-error seam. Create a temporary report and a self-contained prompt containing the fixed target,
 requirements, available proof, review axes supplied by the consumer, authority,
 and exact HarnessResult return shape. Do not include secrets or unbounded logs.
 
@@ -124,7 +127,20 @@ outstanding approval returns an authorized fallback or `blocked`; the
 non-interactive adapter cannot surface it. A cleared request uses
 `approval: never` so Codex cannot escalate beyond the read-only review.
 
-For a commit target, use the native fixed-commit review command:
+Read the guarded adapter's compact JSON and exit code, never stderr or raw
+provider text. On exit 69 with `{"status":"missing_executor"}`, remove `codex`
+from the callable inventory and reselect without `record-failure` or an appended
+dispatch attempt. Only exit 75 with
+`{"status":"availability_failure","reason":"..."}` authorizes a timed
+availability record. Exit 1 with `{"status":"failed"}` stops without changing
+providers; it covers untyped, task, policy, sandbox, malformed-protocol, and
+generic worker failures. Exit 0 with `{"status":"succeeded"}` places only the
+final agent text in the report. No adapter result contains raw error text, logs,
+or secrets.
+
+For a commit target, the driver starts an ephemeral read-only App Server thread,
+applies the read-only sandbox again at turn scope, and injects the immutable
+fixed-target SHA as a binding instruction before the self-contained prompt:
 
 ```bash
 harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"

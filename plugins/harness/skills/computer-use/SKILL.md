@@ -70,6 +70,11 @@ ROUTE_RESULT="$($harness/scripts/resolve-route.py select \
   --attempted "$HARNESS_ATTEMPTED")"
 ```
 
+For `independent`, that same call also passes
+`--authoring-providers "$HARNESS_AUTHORING_PROVIDERS"` containing every provider
+that authored the target. The resolver always adds the persistent orchestrator
+provider; callers supply the complete request-specific author list.
+
 Read the returned JSON structurally. A blocked selection returns the complete
 blocked HarnessResult. A matching native provider uses the capable native
 runtime even when the selected row has `via`; otherwise the returned external
@@ -108,7 +113,10 @@ including the terminal candidate; and copy the typed selection `reason` to
 
 Enter this adapter only when the selected candidate is non-native and the
 resolver returned `executor: codex`; a native selection remains native even when
-its model row declares `via: codex`. Then require `command -v codex`. Use
+its model row declares `via: codex`. Before the first selection, include `codex`
+in `HARNESS_EXECUTORS` only when `codex-app-server.py check` returns
+`{"status":"available"}`. That check requires both `command -v codex` and the
+typed Codex App Server terminal-error seam. Use
 `read-only` or `workspace-write` for repo-contained checks. Use
 `danger-full-access` only when the request explicitly authorizes machine-wide
 access and no per-action approval remains. A non-interactive Codex run cannot
@@ -118,6 +126,17 @@ it, or return `blocked`. Once all approvals are cleared, use `approval: never` s
 Codex cannot request a later sandbox escalation. If that sandbox/approval pair
 would exceed the authority ceiling, choose an authorized native executor or
 return `blocked`.
+
+Read the guarded adapter's compact JSON and exit code, never stderr or raw
+provider text. Exit 69 with `{"status":"missing_executor"}` means remove `codex`
+from the callable inventory and reselect without `record-failure` or an appended
+dispatch attempt. Only exit 75 with
+`{"status":"availability_failure","reason":"..."}` authorizes a timed
+availability record. Exit 1 with `{"status":"failed"}` stops without changing
+providers; it covers untyped, task, policy, sandbox, malformed-protocol, and
+generic worker failures. Exit 0 with `{"status":"succeeded"}` places only the
+final agent text in the report. No adapter result contains raw error text, logs,
+or secrets.
 
 The prompt contains the exact behavior, platform/app, allowed launch or deep-link
 commands, fixtures or seed state, source-edit permission, working directory,
@@ -143,7 +162,9 @@ REPORT="$ARTIFACT_DIR/report.md"
 
 Pass `--skip-git-repo-check` to the adapter only when the validated working
 directory is not a Git repository. The adapter never adds automatic approval,
-an approval bypass, or a broader directory. Require the worker to report pass,
+an approval bypass, or a broader directory. Its ephemeral App Server thread
+starts read-only and applies the explicitly authorized sandbox only at turn
+scope, so project trust is not widened or persisted. Require the worker to report pass,
 fail, or blocked; steps performed; observed behavior; screenshot/log paths; and
 actionable findings.
 

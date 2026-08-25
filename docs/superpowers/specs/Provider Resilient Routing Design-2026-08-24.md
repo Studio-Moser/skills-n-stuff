@@ -70,8 +70,9 @@ eligible only when all of these hold:
 4. The candidate preserves the HarnessRequest's operation, tools, approvals,
    working directory, allowed paths, and other authority boundaries.
 5. A `taste` candidate meets `routing.taste_min`.
-6. An `independent` candidate differs from every supplied authoring provider and
-   any other provider boundary required by the request.
+6. An `independent` candidate differs from the persistent
+   `routing.orchestrator` provider and every supplied authoring provider. A
+   rubric cannot configure `independent` without an orchestrator boundary.
 7. The candidate's provider is different from every earlier provider in that
    route chain. Same-provider retries are escalation, not fallback.
 8. Its provider/executor circuit is not open, or this request has atomically
@@ -95,8 +96,9 @@ prose.
 The resolver has four bounded operations:
 
 1. `validate`: load the rubric without mutating health state and validate every
-   primary route, fallback chain, exact row, provider transition, taste floor,
-   independence constraint, and reachable executor supplied by Setup.
+   primary and fallback row individually, exact row, provider transition, taste
+   floor, persistent orchestrator boundary, optional supplied authoring-provider
+   exclusions, and reachable executor supplied by Setup.
 2. `select`: load and validate the rubric, evaluate route candidates and circuit
    state, atomically claim an expired half-open probe when needed, and return one
    JSON resolution.
@@ -167,6 +169,40 @@ Unknown errors, worker task failures, invalid output, failed verification,
 authority failures, and approval blockers never trigger provider fallback. They
 return their existing typed result or use a separately authorized escalation.
 This prevents provider switching from hiding a real task or proof failure.
+
+### External Codex App Server adapter
+
+The guarded `codex-dispatch.sh` delegates external Codex work to the
+Python-standard-library `codex-app-server.py` driver. Capability discovery first
+runs its read-only `check` operation against the installed App Server schema and
+an initialize-only stdio handshake. A missing executable or incompatible typed
+terminal seam is preflight `missing_executor`: remove `codex` from the callable
+inventory and reselect without recording a timed circuit or dispatch attempt.
+
+The driver starts an ephemeral thread with a read-only sandbox, then applies the
+request's explicit `read-only`, `workspace-write`, or `danger-full-access`
+sandbox at turn scope with approval policy `never`. This avoids persisting
+project trust while preserving cwd, model, effort, approval, sandbox, and
+skip-Git semantics. Review remains read-only and prepends a binding instruction
+that names the immutable fixed-target SHA before the self-contained review
+prompt.
+
+Only `turn/completed.turn.error.codexErrorInfo` classifies availability:
+
+- `usageLimitExceeded` maps to `quota`;
+- `unauthorized` and structured HTTP 401/403 map to `authentication`;
+- structured HTTP 429 maps to `rate_limit`; and
+- `serverOverloaded`, `internalServerError`, structured
+  connection/stream/disconnect/too-many-attempts without a non-5xx status, and
+  structured HTTP 5xx map to `provider_unavailable`.
+
+Everything else—including missing, untyped, malformed, `badRequest`, context or
+session budget, sandbox/policy/cyber/misalignment, and generic worker failure—stops
+without fallback. The bounded result is exit 0 `{"status":"succeeded"}` with the
+final agent text in the report; exit 75
+`{"status":"availability_failure","reason":"..."}`; exit 69
+`{"status":"missing_executor"}`; or exit 1 `{"status":"failed"}`. It never emits
+raw error text, provider logs, request content, or secrets.
 
 ## Circuit Breaker
 
@@ -311,6 +347,8 @@ accepted/proven synthesis draft.
 
 - `plugins/harness/scripts/resolve-route.py`: deterministic route selection,
   circuit transitions, atomic state, and bounded JSON results.
+- `plugins/harness/scripts/codex-app-server.py`: typed external Codex protocol,
+  authority-preserving turn construction, and bounded adapter results.
 - `plugins/harness/references/routing.md`: ordered fallback, retry, cooldown, and
   provider-independence semantics.
 - `plugins/harness/references/harness-contract.md`: new HarnessResult route fields.
@@ -346,6 +384,12 @@ Write focused tests before implementation for:
 13. legacy `routing.fallback` migration without unsafe automatic use;
 14. complete HarnessResult fallback provenance with no raw error leakage; and
 15. unchanged Product Pulse and PM provider-neutral boundaries.
+
+Final-review additions cover the deterministic App Server protocol for success,
+all four typed availability reasons, missing/incompatible preflight, malformed
+and untyped failure, no raw-message leakage, report extraction, fixed-target
+binding, explicit authority fields, every routed row's reachability, and the
+persistent plus request-specific independence boundaries.
 
 The complete Harness, Product Pulse, PM, portability, secret-scan, and version
 suites must pass. The final live acceptance test uses the pending Shelby deep dive

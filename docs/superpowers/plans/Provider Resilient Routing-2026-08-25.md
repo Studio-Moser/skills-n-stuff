@@ -524,3 +524,13 @@ git diff --check origin/main...HEAD
 Expected: clean worktree; only the design, plan, resolver, Harness contracts/skills/tests/docs, and two Harness version fields differ from `origin/main`; every suite exits `0`.
 
 After implementation and review, publish the branch through the repository PR workflow, install Harness `0.8.0`, run `harness:model-rubric` to migrate Tim's live rubric, and resume the pending Shelby deep dive. Those live configuration and research writes are separate accepting workflows and must not be committed to this plugin branch.
+
+## Final-review correction — 2026-08-25
+
+The completed implementation is amended by one final fix wave: external Codex
+dispatch uses the typed App Server terminal contract rather than raw CLI status;
+`validate` checks every routed row individually; and both validation and
+selection enforce the persistent orchestrator-provider boundary plus optional
+named authoring providers for `independent`. The final-review ledger contains the
+authoritative rulings and acceptance gates; completed task history above remains
+unchanged.

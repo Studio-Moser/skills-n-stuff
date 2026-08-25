@@ -180,6 +180,18 @@ require_clause(
     routing,
     "After a cooldown expires, exactly one selector may claim the half-open probe for 15 minutes.",
 )
+require_clause(
+    routing,
+    "External Codex availability is classified only from `turn/completed.turn.error.codexErrorInfo`.",
+)
+require_clause(
+    routing,
+    "A missing or incompatible Codex App Server is preflight `missing_executor` and never creates a timed circuit or dispatch attempt.",
+)
+require_clause(
+    routing,
+    "Every `independent` candidate differs from the persistent `routing.orchestrator` provider and every request-supplied authoring provider.",
+)
 require_clause(handoff, "Secrets and unbounded logs are forbidden;")
 PY
   if [ "$status" -ne 0 ]; then

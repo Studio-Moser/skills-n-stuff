@@ -38,6 +38,19 @@ PY
   [ "$status" -eq 0 ]
 }
 
+@test "Harness docs list the typed Codex App Server adapter" {
+  run python3 - "$HARNESS_README" <<'PY'
+from pathlib import Path
+import sys
+
+text = Path(sys.argv[1]).read_text()
+assert "scripts/codex-app-server.py check" in text
+assert "turn/completed.turn.error.codexErrorInfo" in text
+assert "raw error text" in " ".join(text.split())
+PY
+  [ "$status" -eq 0 ]
+}
+
 @test "migration docs separate tracked setting removal from cached plugin uninstall" {
   run python3 - "$HARNESS_README" <<'PY'
 from pathlib import Path

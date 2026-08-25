@@ -26,8 +26,18 @@ links, repositories, or remote state.
    checks without a pending repair.
 2. Discover the current runtime capabilities with the same read-only `command -v`
    inventory used by Ordered setup. Require `python3`, `yq`, and the resolver at
-   `$harness/scripts/resolve-route.py`; missing `python3`, `yq`, or the resolver
-   is a blocker, not permission to infer configured status.
+   `$harness/scripts/resolve-route.py`, plus the adapter checker at
+   `$harness/scripts/codex-app-server.py`; a missing required script or dependency
+   is a blocker, not permission to infer configured status. `command -v codex`
+   is only a binary preflight: advertise `codex` as present only when this bounded
+   check exits 0 with `{"status":"available"}`:
+
+   ```bash
+   "$harness/scripts/codex-app-server.py" check --codex-bin "$HARNESS_CODEX_BIN"
+   ```
+
+   A `{"status":"missing_executor"}` result removes or refreshes `codex` from the
+   callable executor inventory without a timed circuit or dispatch attempt.
 3. Resolve the rubric through `scripts/rubric-path.sh --check`. When it is set,
    first require the Harness 0.7 completion markers: `routing.orchestrator`,
    `routing.default`, `routing.quick`, and `routing.review` are present and every
@@ -40,13 +50,16 @@ links, repositories, or remote state.
    "$harness/scripts/resolve-route.py" validate \
      --rubric "$RUBRIC_PATH" \
      --native-provider "$HARNESS_NATIVE_PROVIDER" \
-     --executors "$HARNESS_EXECUTORS"
+     --executors "$HARNESS_EXECUTORS" \
+     --authoring-providers "$HARNESS_AUTHORING_PROVIDERS"
    ```
 
    Require exit 0 and `{"status":"valid"}`. The command never receives a
    health-state path and must not create or update provider-health state. It
    proves exact model rows, unique providers within chains, taste thresholds,
-   and current provider/executor reachability without rewriting the rubric. A
+   the persistent orchestrator-provider boundary, any named authoring-provider
+   exclusions in current Setup context, and current provider/executor reachability
+   without rewriting the rubric. A
    rubric that satisfies only the pre-0.7 execute/review checks is not configured.
 4. Return the complete HarnessResult defined by the Harness contract. Use
    `status: accepted` with `evidence.outcome: proven` only when the Sync dry run and
@@ -74,18 +87,26 @@ non-blocking, as in Ordered setup.
    current rubric, plus the known supported agent runtimes:
 
    ```bash
-   for capability in claude codex gemini pi hermes; do
+   for capability in claude gemini pi hermes; do
      if command -v "$capability" >/dev/null 2>&1; then
        printf '%s\tpresent\n' "$capability"
      else
        printf '%s\tabsent\n' "$capability"
      fi
    done
+   if command -v codex >/dev/null 2>&1 && \
+     "$harness/scripts/codex-app-server.py" check \
+       --codex-bin "$(command -v codex)" >/dev/null; then
+     printf '%s\tpresent\n' codex
+   else
+     printf '%s\tabsent\n' codex
+   fi
    ```
 
 4. Invoke `harness:model-rubric`, passing the same native-provider and
    callable-executor inventory used by configured-status validation, together
-   with the observed capabilities, as current setup context. That skill owns the
+   with the observed capabilities and any named authoring-provider exclusions,
+   as current setup context. That skill owns the
    rubric path, interview, creation, refresh, validation, and audit mechanics.
    Do not write or parse a second rubric here. It must reconcile the rubric's
    `capabilities` with the observed inventory, rederive affected routes instead

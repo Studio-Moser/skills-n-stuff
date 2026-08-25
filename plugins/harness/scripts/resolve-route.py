@@ -384,8 +384,29 @@ def parse_attempted(value: str) -> list[str]:
 def validate_reachable_routes(chains: dict[str, list[str]], rows: dict[tuple[str, str], dict],
                               native_provider: str, executors: set[str]) -> None:
     for route, refs in chains.items():
-        if not any(resolve_executor(rows[split_ref(ref)], native_provider, executors)[0] for ref in refs):
-            raise Blocked(f"route {route} has no reachable executor")
+        for ref in refs:
+            if resolve_executor(rows[split_ref(ref)], native_provider, executors)[0] is None:
+                raise Blocked(f"route {route} candidate {ref} has no reachable executor")
+
+
+def validate_independent_routes(
+    chains: dict[str, list[str]],
+    rows: dict[tuple[str, str], dict],
+    authoring_providers: set[str],
+) -> None:
+    if "independent" not in chains:
+        return
+    if "orchestrator" not in chains:
+        raise Blocked(
+            "routing.independent requires routing.orchestrator provider boundary"
+        )
+    orchestrator_provider = rows[split_ref(chains["orchestrator"][0])]["provider"]
+    for ref in chains["independent"]:
+        provider = rows[split_ref(ref)]["provider"]
+        if provider == orchestrator_provider:
+            raise Blocked(f"independent candidate {ref} uses the orchestrator provider")
+        if provider in authoring_providers:
+            raise Blocked(f"independent candidate {ref} uses an authoring provider")
 
 
 def candidate_for(ref: str, row: dict, executor: str) -> Candidate:
@@ -403,6 +424,7 @@ def select(args: argparse.Namespace) -> int:
     document = load_rubric(args.rubric)
     rows = model_rows(document)
     chains = parse_routes(document, rows)
+    validate_independent_routes(chains, rows, authoring_providers)
     if args.route not in chains:
         raise Blocked(f"routing.{args.route} is not configured")
 
@@ -425,13 +447,6 @@ def select(args: argparse.Namespace) -> int:
                 if circuit:
                     fallback_reason = fallback_reason or circuit["reason"]
                 continue
-            if args.route == "independent" and row["provider"] in authoring_providers:
-                blocked(
-                    f"independent candidate {ref} uses an authoring provider",
-                    attempted,
-                    skipped,
-                )
-                return EXIT_BLOCKED
             if executor is None:
                 skipped.append(ref)
                 fallback_reason = fallback_reason or reason
@@ -537,9 +552,13 @@ def record_success(args: argparse.Namespace) -> int:
 
 def validate(args: argparse.Namespace) -> int:
     executors = set(parse_csv(args.executors, "--executors"))
+    authoring_providers = set(
+        parse_csv(args.authoring_providers, "--authoring-providers")
+    )
     document = load_rubric(args.rubric)
     rows = model_rows(document)
     chains = parse_routes(document, rows)
+    validate_independent_routes(chains, rows, authoring_providers)
     validate_reachable_routes(chains, rows, args.native_provider, executors)
     compact_json({"status": "valid"})
     return 0
@@ -553,10 +572,10 @@ def build_parser() -> Arguments:
         command.add_argument("--rubric", required=True)
         command.add_argument("--native-provider", required=True)
         command.add_argument("--executors", required=True)
+        command.add_argument("--authoring-providers", default="")
         if operation == "select":
             command.add_argument("--state")
             command.add_argument("--route", required=True)
-            command.add_argument("--authoring-providers", default="")
             command.add_argument("--attempted", default="")
             command.add_argument("--now")
     failure = subcommands.add_parser("record-failure")

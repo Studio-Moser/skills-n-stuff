@@ -78,6 +78,11 @@ ROUTE_RESULT="$($harness/scripts/resolve-route.py select \
   --attempted "$HARNESS_ATTEMPTED")"
 ```
 
+For `independent`, that same call also passes
+`--authoring-providers "$HARNESS_AUTHORING_PROVIDERS"` containing every provider
+that authored the target. The resolver always adds the persistent orchestrator
+provider; callers supply the complete request-specific author list.
+
 Read the returned JSON structurally. A blocked selection returns the complete
 blocked HarnessResult. A matching native provider uses the native runtime even
 when the selected model row has `via`; otherwise the returned external executor
@@ -115,8 +120,11 @@ including the terminal candidate; and copy the typed selection `reason` to
 
 Enter this adapter only when the selected candidate is non-native and the
 resolver returned `executor: codex`; a native selection remains native even when
-its model row declares `via: codex`. Then run `command -v codex`. Missing Codex
-uses only an explicitly authorized fallback; otherwise return `blocked`. Choose
+its model row declares `via: codex`. Before the first selection, include `codex`
+in `HARNESS_EXECUTORS` only when `codex-app-server.py check` returns
+`{"status":"available"}`. That check requires both the executable and the typed
+Codex App Server terminal-error seam; `command -v codex` alone is insufficient.
+Choose
 `read-only` when no writes are authorized and
 `workspace-write` only when writes across the working directory are authorized.
 If narrower allowed paths cannot be enforced, use an authorized native executor
@@ -129,6 +137,18 @@ authorized fallback or `blocked`. After the parent obtains every required
 approval, dispatch with `approval: never`; in Codex this denies later escalation
 instead of silently approving it. If the sandbox and approval policy together
 cannot enforce the request ceiling, do not invoke Codex.
+
+Read the guarded adapter's compact JSON and exit code, never stderr or raw
+provider text. Exit 69 with `{"status":"missing_executor"}` means the executable
+or required App Server seam disappeared after discovery: remove `codex` from the
+callable inventory and reselect without `record-failure` or an appended dispatch
+attempt. Only exit 75 with
+`{"status":"availability_failure","reason":"..."}` authorizes a timed
+availability record, and the reason must be one of the resolver's four timed
+categories. Exit 1 with `{"status":"failed"}` stops without changing providers;
+it covers untyped, task, policy, sandbox, malformed-protocol, and generic worker
+failures. Exit 0 with `{"status":"succeeded"}` places only the final agent text
+in the report. No adapter result contains raw error text, logs, or secrets.
 
 Create a temporary artifact directory and a self-contained prompt. The prompt's
 positive recipe is: outcome, working directory, allowed paths, constraints,
@@ -158,8 +178,10 @@ REPORT="$ARTIFACT_DIR/report.md"
   --report "$REPORT"
 ```
 
-The adapter never adds `--add-dir`, automatic approval, or an approval/sandbox
-bypass. Do not let the worker commit, push, deploy, edit global config, or take
+The driver starts an ephemeral App Server thread read-only, then applies the
+explicit selected sandbox at turn scope so project trust is not widened or
+persisted. The adapter never adds `--add-dir`, automatic approval, or an
+approval/sandbox bypass. Do not let the worker commit, push, deploy, edit global config, or take
 any other external action unless the request explicitly grants it. A
 non-interactive prompt proceeds within the approved packet without stopping at
 internal plan gates; a still-required user approval blocked dispatch above.

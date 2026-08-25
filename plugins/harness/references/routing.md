@@ -50,10 +50,14 @@ rubric setup, not a runtime route value.
    provider may appear only once in the chain.
 3. Find each candidate's `models` row by both `name` and `effort`. Every `taste`
    candidate must satisfy `routing.taste_min`. Every `independent` candidate
-   must use a provider distinct from every supplied authoring provider.
+   differs from the persistent `routing.orchestrator` provider and every
+   request-supplied authoring provider. A rubric with `routing.independent` but
+   no orchestrator boundary fails closed.
 4. When a candidate's provider matches the native provider, use native execution
    even if its model row declares `via`. Otherwise `via` must name a callable
    external executor; a consumer never invents or implicitly selects one.
+   `validate` checks every primary and fallback row individually, so one reachable
+   candidate cannot mask another unreachable authorized row.
 5. Call `scripts/resolve-route.py select` with the semantic route, native
    provider, callable executors, every authoring provider for `independent`, and
    the ordered unavailable candidates already dispatched by this request in
@@ -72,6 +76,22 @@ Automatic provider switching is limited to `quota`, `authentication`,
 `missing_executor` is classified by the resolver before dispatch. After a
 dispatch, the executor boundary may classify only the other four reasons; it
 must not parse raw provider text beyond that bounded typed classification seam.
+
+External Codex availability is classified only from
+`turn/completed.turn.error.codexErrorInfo`. The guarded App Server driver maps
+`usageLimitExceeded` to `quota`; `unauthorized` or HTTP 401/403 to
+`authentication`; HTTP 429 to `rate_limit`; and `serverOverloaded`,
+`internalServerError`, structured connection/stream/disconnect/too-many-attempts
+without a non-5xx status, or HTTP 5xx to `provider_unavailable`. All untyped,
+missing, malformed, task, policy, sandbox, context/session-budget, and other
+failures stop. Raw error text, logs, and secrets are never adapter output.
+
+A missing or incompatible Codex App Server is preflight `missing_executor` and
+never creates a timed circuit or dispatch attempt. Capability discovery includes
+`codex` only when `scripts/codex-app-server.py check` proves the required schema
+and initialize-only stdio handshake.
+If the seam disappears after selection, remove `codex` from the callable
+inventory and reselect without recording failure or appending the candidate.
 
 On a typed post-dispatch availability failure, call `record-failure` without any
 raw error or secret-bearing value, append that dispatched candidate to
