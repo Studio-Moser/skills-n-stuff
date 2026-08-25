@@ -84,7 +84,7 @@ def cooldown_seconds(reason: str, failure_count: int) -> int:
 
 
 def default_state_path() -> Path:
-    root = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local/state"))
+    root = Path(os.environ.get("XDG_STATE_HOME") or Path.home() / ".local/state")
     return root / "studio-moser/harness/provider-health.json"
 
 
@@ -147,6 +147,7 @@ def validate_state(document: object) -> dict:
             or not isinstance(circuit, dict)
             or set(circuit) != fields
             or circuit["state"] != "open"
+            or not isinstance(circuit["reason"], str)
             or circuit["reason"] not in TIMED_AVAILABILITY_REASONS
             or isinstance(circuit["failure_count"], bool)
             or not isinstance(circuit["failure_count"], int)
@@ -201,13 +202,15 @@ def write_state(path: Path, state: dict) -> None:
                 pass
 
 
+def state_lock_path(path: Path) -> Path:
+    return path.with_name(f"{path.name}.lock")
+
+
 @contextmanager
 def locked_state(path: Path) -> Iterator[dict]:
     try:
         path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-        descriptor = os.open(
-            path.with_name(f"{path.name}.lock"), os.O_RDWR | os.O_CREAT, 0o600
-        )
+        descriptor = os.open(state_lock_path(path), os.O_RDWR | os.O_CREAT, 0o600)
         os.fchmod(descriptor, 0o600)
     except OSError as error:
         raise Blocked("provider health state could not be locked") from error
@@ -219,6 +222,15 @@ def locked_state(path: Path) -> Iterator[dict]:
         yield load_state(path)
     finally:
         os.close(descriptor)
+
+
+@contextmanager
+def state_for_selection(path: Path) -> Iterator[dict]:
+    if not path.exists() and not state_lock_path(path).exists():
+        yield {"version": 1, "circuits": {}}
+        return
+    with locked_state(path) as health:
+        yield health
 
 
 def blocked(message: str, attempted: list[str] | None = None,
@@ -398,7 +410,7 @@ def select(args: argparse.Namespace) -> int:
     fallback_reason: str | None = None
 
     path = state_path(args.state)
-    with locked_state(path) as health:
+    with state_for_selection(path) as health:
         circuits = health["circuits"]
         for index, ref in enumerate(chains[args.route]):
             row = rows[split_ref(ref)]

@@ -353,13 +353,40 @@ PY
     --route default --native-provider openai --executors codex \
     --now 2026-08-25T12:00:00Z
   [ "$status" -eq 0 ]
-  [ ! -e "$state_root/studio-moser/harness/provider-health.json" ]
+  [ ! -e "$state_root" ]
 
   run env XDG_STATE_HOME="$state_root" "$SCRIPT" record-failure \
     --provider anthropic --executor native --reason quota \
     --now 2026-08-25T12:00:00Z
   [ "$status" -eq 0 ]
   [ -e "$state_root/studio-moser/harness/provider-health.json" ]
+}
+
+@test "empty XDG state home falls back to HOME without repo-local state" {
+  local temporary_home="${BATS_TEST_TMPDIR}/home"
+  local working_directory="${BATS_TEST_TMPDIR}/working"
+  mkdir -p "$temporary_home" "$working_directory"
+  export SCRIPT RUBRIC temporary_home working_directory
+
+  run bash -c '
+    cd "$working_directory"
+    XDG_STATE_HOME="" HOME="$temporary_home" "$SCRIPT" select \
+      --rubric "$RUBRIC" --route default --native-provider openai \
+      --executors codex --now 2026-08-25T12:00:00Z
+  '
+  [ "$status" -eq 0 ]
+  [ ! -e "$temporary_home/.local/state" ]
+  [ ! -e "$working_directory/studio-moser" ]
+
+  run bash -c '
+    cd "$working_directory"
+    XDG_STATE_HOME="" HOME="$temporary_home" "$SCRIPT" record-failure \
+      --provider anthropic --executor native --reason quota \
+      --now 2026-08-25T12:00:00Z
+  '
+  [ "$status" -eq 0 ]
+  [ -e "$temporary_home/.local/state/studio-moser/harness/provider-health.json" ]
+  [ ! -e "$working_directory/studio-moser" ]
 }
 
 @test "malformed state blocks selection and recording without overwrite" {
@@ -378,6 +405,27 @@ JSON
   run "$SCRIPT" record-failure --state "$STATE" \
     --provider anthropic --executor native --reason quota \
     --now 2026-08-25T12:00:00Z
+  [ "$status" -eq 4 ]
+  assert_result 'result["status"] == "blocked" and "state" in result["blockers"][0]'
+  cmp "$STATE" "${STATE}.original"
+}
+
+@test "unhashable malformed reason blocks without overwrite" {
+  cat > "$STATE" <<'JSON'
+{"version":1,"circuits":{"anthropic|native":{"state":"open","reason":[],"failure_count":1,"last_failure_at":"2026-08-25T12:00:00Z","unavailable_until":"2026-08-26T12:00:00Z","probe_claimed_at":null}}}
+JSON
+  cp "$STATE" "${STATE}.original"
+
+  run "$SCRIPT" select --rubric "$RUBRIC" --state "$STATE" \
+    --route taste --native-provider anthropic --executors codex \
+    --now 2026-08-25T12:01:00Z
+  [ "$status" -eq 4 ]
+  assert_result 'result["status"] == "blocked" and "state" in result["blockers"][0]'
+  cmp "$STATE" "${STATE}.original"
+
+  run "$SCRIPT" record-failure --state "$STATE" \
+    --provider anthropic --executor native --reason quota \
+    --now 2026-08-25T12:01:00Z
   [ "$status" -eq 4 ]
   assert_result 'result["status"] == "blocked" and "state" in result["blockers"][0]'
   cmp "$STATE" "${STATE}.original"
