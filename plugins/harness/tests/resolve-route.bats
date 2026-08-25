@@ -189,7 +189,7 @@ YAML
     --provider anthropic --executor native --reason quota \
     --now 2026-08-25T12:00:00Z
   [ "$status" -eq 0 ]
-  [[ "$output" == *'"unavailable_until":"2026-08-26T12:00:00Z"'* ]]
+  [[ "$output" == *'"unavailable_until":"2026-08-26T12:00:00Z"'* ]] || return 1
 
   run "$SCRIPT" select --rubric "$RUBRIC" --state "$STATE" \
     --route taste --native-provider anthropic --executors codex \
