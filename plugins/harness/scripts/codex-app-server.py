@@ -13,8 +13,9 @@ import subprocess
 import sys
 import tempfile
 import time
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 
 EXIT_FAILED = 1
@@ -353,18 +354,85 @@ def require_git_repository(cwd: str) -> None:
         raise AdapterFailure
 
 
-def run_turn(args: argparse.Namespace, binary: str) -> str | None:
-    if not args.skip_git_repo_check:
-        require_git_repository(args.cwd)
+def git_output(cwd: str, *arguments: str) -> str:
     try:
-        prompt = Path(args.prompt).read_text(encoding="utf-8")
-        Path(args.report).write_text("", encoding="utf-8")
-    except (OSError, UnicodeError) as error:
+        process = subprocess.run(
+            ["git", "-C", cwd, *arguments],
+            check=False,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        )
+    except OSError as error:
         raise AdapterFailure from error
-    if args.operation == "review":
-        prompt = review_prompt(prompt, args.fixed_target)
+    output = process.stdout.strip()
+    if process.returncode != 0 or not output:
+        raise AdapterFailure
+    return output
 
-    server = AppServer(binary, args.cwd)
+
+def run_quiet(command: list[str]) -> None:
+    try:
+        process = subprocess.run(
+            command,
+            check=False,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except OSError as error:
+        raise AdapterFailure from error
+    if process.returncode != 0:
+        raise AdapterFailure
+
+
+@contextmanager
+def pinned_review_workspace(
+    cwd: str, fixed_target: str | None
+) -> Iterator[tuple[str, str]]:
+    if fixed_target is None or FIXED_TARGET_PATTERN.fullmatch(fixed_target) is None:
+        raise AdapterFailure
+    repository_root = Path(git_output(cwd, "rev-parse", "--show-toplevel")).resolve()
+    requested_cwd = Path(cwd).resolve()
+    try:
+        relative_cwd = requested_cwd.relative_to(repository_root)
+    except ValueError as error:
+        raise AdapterFailure from error
+    resolved_target = git_output(cwd, "rev-parse", "--verify", f"{fixed_target}^{{commit}}")
+    if FIXED_TARGET_PATTERN.fullmatch(resolved_target) is None:
+        raise AdapterFailure
+
+    with tempfile.TemporaryDirectory(prefix="harness-codex-review.") as temporary:
+        snapshot = Path(temporary) / "repository"
+        run_quiet(
+            [
+                "git",
+                "clone",
+                "--quiet",
+                "--no-checkout",
+                "--no-hardlinks",
+                "--local",
+                "--",
+                str(repository_root),
+                str(snapshot),
+            ]
+        )
+        run_quiet(
+            ["git", "-C", str(snapshot), "checkout", "--quiet", "--detach", resolved_target]
+        )
+        if git_output(str(snapshot), "rev-parse", "HEAD") != resolved_target:
+            raise AdapterFailure
+        snapshot_cwd = snapshot / relative_cwd
+        if not snapshot_cwd.is_dir():
+            raise AdapterFailure
+        yield str(snapshot_cwd), resolved_target
+
+
+def execute_turn(
+    args: argparse.Namespace, binary: str, prompt: str, runtime_cwd: str
+) -> str | None:
+    server = AppServer(binary, runtime_cwd)
     try:
         deadline = time.monotonic() + TURN_TIMEOUT_SECONDS
         server.send(
@@ -389,7 +457,7 @@ def run_turn(args: argparse.Namespace, binary: str) -> str | None:
                 "params": {
                     "allowProviderModelFallback": False,
                     "approvalPolicy": "never",
-                    "cwd": args.cwd,
+                    "cwd": runtime_cwd,
                     "ephemeral": True,
                     "model": args.model,
                     "sandbox": "read-only",
@@ -407,11 +475,11 @@ def run_turn(args: argparse.Namespace, binary: str) -> str | None:
                 "method": "turn/start",
                 "params": {
                     "approvalPolicy": "never",
-                    "cwd": args.cwd,
+                    "cwd": runtime_cwd,
                     "effort": args.effort,
                     "input": [{"type": "text", "text": prompt}],
                     "model": args.model,
-                    "sandboxPolicy": sandbox_policy(args.sandbox, args.cwd),
+                    "sandboxPolicy": sandbox_policy(args.sandbox, runtime_cwd),
                     "threadId": thread_id,
                 },
             }
@@ -456,6 +524,25 @@ def run_turn(args: argparse.Namespace, binary: str) -> str | None:
             return reason
     finally:
         server.close()
+
+
+def run_turn(args: argparse.Namespace, binary: str) -> str | None:
+    if not args.skip_git_repo_check:
+        require_git_repository(args.cwd)
+    try:
+        prompt = Path(args.prompt).read_text(encoding="utf-8")
+        Path(args.report).write_text("", encoding="utf-8")
+    except (OSError, UnicodeError) as error:
+        raise AdapterFailure from error
+    if args.operation != "review":
+        return execute_turn(args, binary, prompt, args.cwd)
+    with pinned_review_workspace(args.cwd, args.fixed_target) as (
+        runtime_cwd,
+        resolved_target,
+    ):
+        return execute_turn(
+            args, binary, review_prompt(prompt, resolved_target), runtime_cwd
+        )
 
 
 def parser() -> Arguments:

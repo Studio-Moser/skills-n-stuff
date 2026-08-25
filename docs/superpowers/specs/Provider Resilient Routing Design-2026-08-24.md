@@ -183,9 +183,10 @@ The driver starts an ephemeral thread with a read-only sandbox, then applies the
 request's explicit `read-only`, `workspace-write`, or `danger-full-access`
 sandbox at turn scope with approval policy `never`. This avoids persisting
 project trust while preserving cwd, model, effort, approval, sandbox, and
-skip-Git semantics. Review remains read-only and prepends a binding instruction
-that names the immutable fixed-target SHA before the self-contained review
-prompt.
+skip-Git semantics. Review validates the immutable fixed-target commit, checks
+it out into an ephemeral local clone, runs from that pinned snapshot under the
+read-only sandbox, and prepends the resolved SHA as a binding instruction before
+the self-contained review prompt.
 
 Only `turn/completed.turn.error.codexErrorInfo` classifies availability:
 
@@ -250,6 +251,12 @@ dispatch calls `record-success` and closes the circuit. Another availability
 failure reopens it at the next cooldown step. A process that dies after claiming
 a probe cannot suppress the provider forever: a stale probe lease expires after
 the corresponding short outage interval.
+
+Every selection acquires the sibling lock before loading state, including the
+first selection before the JSON document exists. The lock may be created before
+the health document; the document remains absent until a circuit transition is
+recorded. An attempted candidate is eligible for exclusion only when its exact
+provider/executor has matching recorded typed availability state.
 
 The retry timestamp controls whether dispatch may begin; it does not schedule a
 background job. The next eligible HarnessRequest performs the probe.

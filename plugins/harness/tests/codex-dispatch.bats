@@ -108,8 +108,23 @@ assert turn["sandboxPolicy"] == {"type": "dangerFullAccess"}
 PY
 }
 
-@test "review binds the immutable target into a read-only turn" {
-  local target=1111111111111111111111111111111111111111
+@test "review materializes the immutable target instead of divergent HEAD or working tree" {
+  printf '%s\n' 'fixed target contents' > "$FIXTURE/cwd/review-target.txt"
+  git -C "$FIXTURE/cwd" add review-target.txt
+  git -C "$FIXTURE/cwd" \
+    -c user.name='Harness Tests' -c user.email='harness@example.invalid' \
+    commit -qm 'fixed target'
+  local target
+  target="$(git -C "$FIXTURE/cwd" rev-parse HEAD)"
+  printf '%s\n' 'later HEAD contents' > "$FIXTURE/cwd/review-target.txt"
+  git -C "$FIXTURE/cwd" add review-target.txt
+  git -C "$FIXTURE/cwd" \
+    -c user.name='Harness Tests' -c user.email='harness@example.invalid' \
+    commit -qm 'later head'
+  printf '%s\n' 'dirty working tree contents' > "$FIXTURE/cwd/review-target.txt"
+  export HARNESS_CODEX_STUB_MODE=success_snapshot
+  export HARNESS_CODEX_SNAPSHOT_FILE=review-target.txt
+
   run "$SCRIPT" \
     --operation review \
     --cwd "$FIXTURE/cwd" \
@@ -122,7 +137,9 @@ PY
     --fixed-target "$target"
 
   [ "$status" -eq 0 ]
-  CAPTURE_PATH="$CAPTURE" EXPECTED_TARGET="$target" python3 - <<'PY'
+  [ "$(cat "$REPORT")" = "fixed target contents" ]
+  CAPTURE_PATH="$CAPTURE" EXPECTED_CWD="$FIXTURE/cwd" \
+    EXPECTED_TARGET="$target" python3 - <<'PY'
 import json
 import os
 
@@ -130,9 +147,34 @@ messages = [json.loads(line) for line in open(os.environ["CAPTURE_PATH"], encodi
 turn = next(message["params"] for message in messages if message.get("method") == "turn/start")
 text = turn["input"][0]["text"]
 assert turn["sandboxPolicy"]["type"] == "readOnly"
+assert turn["cwd"] != os.environ["EXPECTED_CWD"]
+assert not os.path.exists(turn["cwd"])
 assert os.environ["EXPECTED_TARGET"] in text
 assert "immutable fixed target" in text
 assert text.endswith("bounded request\n")
+PY
+}
+
+@test "review rejects a nonexistent fixed target before dispatch" {
+  run "$SCRIPT" \
+    --operation review \
+    --cwd "$FIXTURE/cwd" \
+    --sandbox read-only \
+    --approval never \
+    --model gpt-review \
+    --effort max \
+    --prompt "$PROMPT" \
+    --report "$REPORT" \
+    --fixed-target 1111111111111111111111111111111111111111
+
+  [ "$status" -eq 1 ]
+  assert_result 'result == {"status": "failed"}'
+  CAPTURE_PATH="$CAPTURE" python3 - <<'PY'
+import json
+import os
+
+messages = [json.loads(line) for line in open(os.environ["CAPTURE_PATH"], encoding="utf-8")]
+assert not any(message.get("method") == "turn/start" for message in messages)
 PY
 }
 

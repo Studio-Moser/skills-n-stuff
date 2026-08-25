@@ -534,3 +534,9 @@ selection enforce the persistent orchestrator-provider boundary plus optional
 named authoring providers for `independent`. The final-review ledger contains the
 authoritative rulings and acceptance gates; completed task history above remains
 unchanged.
+
+PR review adds a second bounded correction: external Codex review validates and
+materializes the exact commit in an ephemeral clone; every selection holds the
+circuit lock through the missing-state transition; `--attempted` exclusions
+require matching recorded typed availability state; and rubric validation
+rejects the circuit-key delimiter in provider or executor fields.

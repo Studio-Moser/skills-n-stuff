@@ -52,7 +52,8 @@ rubric setup, not a runtime route value.
    candidate must satisfy `routing.taste_min`. Every `independent` candidate
    differs from the persistent `routing.orchestrator` provider and every
    request-supplied authoring provider. A rubric with `routing.independent` but
-   no orchestrator boundary fails closed.
+   no orchestrator boundary fails closed. Provider and executor names cannot
+   contain the reserved circuit-key delimiter `|`.
 4. When a candidate's provider matches the native provider, use native execution
    even if its model row declares `via`. Otherwise `via` must name a callable
    external executor; a consumer never invents or implicitly selects one.
@@ -97,7 +98,9 @@ On a typed post-dispatch availability failure, call `record-failure` without any
 raw error or secret-bearing value, append that dispatched candidate to
 `--attempted`, and select again. On success, call `record-success`. Preflight
 skips and candidates omitted by an open circuit are not dispatch attempts and
-are not appended. Stop when the ordered chain is exhausted.
+are not appended. The resolver rejects an attempted candidate unless its exact
+provider/executor has matching recorded typed availability state. Stop when the
+ordered chain is exhausted.
 
 Every attempt preserves the original HarnessRequest's operation, tools,
 approvals, working directory, allowed paths, fixed target, sandbox, and
@@ -125,6 +128,10 @@ a cooldown expires, exactly one selector may claim the half-open probe for 15
 minutes. Other concurrent selectors continue through the authorized chain. The
 local health state contains only provider, executor, typed reason, failure count,
 and timestamps; it contains no raw error or secret-bearing value.
+
+Every selection holds the sibling circuit lock, including the first selection
+before a health document exists. The lock file may therefore precede the JSON
+state file; the JSON file is written only when health is recorded.
 
 ## Fallback versus escalation
 

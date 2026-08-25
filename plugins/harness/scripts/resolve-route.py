@@ -226,9 +226,6 @@ def locked_state(path: Path) -> Iterator[dict]:
 
 @contextmanager
 def state_for_selection(path: Path) -> Iterator[dict]:
-    if not path.exists() and not state_lock_path(path).exists():
-        yield {"version": 1, "circuits": {}}
-        return
     with locked_state(path) as health:
         yield health
 
@@ -271,6 +268,13 @@ def require_string(value: object, field: str) -> str:
     return value
 
 
+def require_circuit_component(value: object, field: str) -> str:
+    component = require_string(value, field)
+    if "|" in component:
+        raise Blocked(f"{field} must not contain '|'")
+    return component
+
+
 def require_argument_string(value: object, field: str) -> str:
     if not isinstance(value, str) or not value or "|" in value:
         raise argparse.ArgumentError(
@@ -290,9 +294,9 @@ def model_rows(document: dict) -> dict[tuple[str, str], dict]:
             raise Blocked(f"models[{index}] must be a mapping")
         name = require_string(row.get("name"), f"models[{index}].name")
         effort = require_string(row.get("effort"), f"models[{index}].effort")
-        require_string(row.get("provider"), f"models[{index}].provider")
+        require_circuit_component(row.get("provider"), f"models[{index}].provider")
         if "via" in row and row["via"] is not None:
-            require_string(row["via"], f"models[{index}].via")
+            require_circuit_component(row["via"], f"models[{index}].via")
         if "taste" in row and (
             isinstance(row["taste"], bool) or not isinstance(row["taste"], int)
         ):
@@ -415,6 +419,37 @@ def candidate_for(ref: str, row: dict, executor: str) -> Candidate:
     return Candidate(ref, model, effort, row["provider"], executor, taste)
 
 
+def configured_executor(row: dict, native_provider: str) -> str | None:
+    if row["provider"] == native_provider:
+        return "native"
+    via = row.get("via")
+    return via if isinstance(via, str) else None
+
+
+def validate_attempted(
+    attempted: list[str],
+    chain: list[str],
+    rows: dict[tuple[str, str], dict],
+    circuits: dict,
+    native_provider: str,
+) -> None:
+    authorized = set(chain)
+    for ref in attempted:
+        if ref not in authorized:
+            raise Blocked(f"attempted candidate {ref} is not authorized for this route")
+        row = rows[split_ref(ref)]
+        executor = configured_executor(row, native_provider)
+        circuit = (
+            circuits.get(circuit_key(row["provider"], executor))
+            if executor is not None
+            else None
+        )
+        if circuit is None:
+            raise Blocked(
+                f"attempted candidate {ref} has no recorded availability failure"
+            )
+
+
 def select(args: argparse.Namespace) -> int:
     attempted = parse_attempted(args.attempted)
     attempted_set = set(attempted)
@@ -434,12 +469,20 @@ def select(args: argparse.Namespace) -> int:
     path = state_path(args.state)
     with state_for_selection(path) as health:
         circuits = health["circuits"]
+        validate_attempted(
+            attempted,
+            chains[args.route],
+            rows,
+            circuits,
+            args.native_provider,
+        )
         for index, ref in enumerate(chains[args.route]):
             row = rows[split_ref(ref)]
             executor, reason = resolve_executor(row, args.native_provider, executors)
+            endpoint_executor = configured_executor(row, args.native_provider)
             circuit = (
-                circuits.get(circuit_key(row["provider"], executor))
-                if executor
+                circuits.get(circuit_key(row["provider"], endpoint_executor))
+                if endpoint_executor
                 else None
             )
             if ref in attempted_set:

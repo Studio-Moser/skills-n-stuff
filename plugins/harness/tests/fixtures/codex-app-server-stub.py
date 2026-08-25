@@ -147,12 +147,18 @@ def serve(mode: str) -> int:
             if mode == "process_failure":
                 print(RAW_MARKER, file=sys.stderr, flush=True)
                 return 7
-            if mode == "success":
+            if mode in {"success", "success_snapshot"}:
+                text = "stub final report"
+                if mode == "success_snapshot":
+                    relative_path = os.environ["HARNESS_CODEX_SNAPSHOT_FILE"]
+                    text = (Path(request["params"]["cwd"]) / relative_path).read_text(
+                        encoding="utf-8"
+                    ).strip()
                 item = {
                     "id": "message-1",
                     "type": "agentMessage",
                     "phase": "final_answer",
-                    "text": "stub final report",
+                    "text": text,
                 }
                 send(
                     {

@@ -268,6 +268,11 @@ YAML
 }
 
 @test "exhausted candidates block without retrying an attempted provider" {
+  run "$SCRIPT" record-failure --state "$STATE" \
+    --provider openai --executor native --reason quota \
+    --now 2026-08-25T11:59:00Z
+  [ "$status" -eq 0 ]
+
   run "$SCRIPT" select --rubric "$RUBRIC" --state "$STATE" \
     --route default --native-provider openai --executors codex \
     --attempted gpt-5.6-sol@high --now 2026-08-25T12:00:00Z
@@ -311,6 +316,17 @@ YAML
     --route default --native-provider openai --executors "" --attempted invalid
   [ "$status" -eq 2 ]
   assert_result 'result["status"] == "error" and "invalid model-effort" in result["blockers"][0]'
+}
+
+@test "attempted candidate without a recorded typed circuit blocks fallback" {
+  run "$SCRIPT" select --rubric "$RUBRIC" --state "$STATE" \
+    --route taste --native-provider anthropic --executors codex \
+    --attempted claude-fable-5@high --now 2026-08-25T12:00:00Z
+  [ "$status" -eq 4 ]
+  assert_result '(
+      result["status"] == "blocked"
+      and "recorded availability" in result["blockers"][0]
+  )'
 }
 
 @test "quota defaults to 24 hours, skips selection, and success clears the endpoint" {
@@ -435,6 +451,43 @@ assert len(fallbacks) == 1 and fallbacks[0]["reason"] == "rate_limit", results
 PY
 }
 
+@test "first selection holds the circuit lock before state exists" {
+  run python3 - "$SCRIPT" "$STATE" <<'PY'
+import fcntl
+import importlib.util
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+script, state_value = sys.argv[1:]
+sys.dont_write_bytecode = True
+spec = importlib.util.spec_from_file_location("resolve_route", script)
+module = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = module
+spec.loader.exec_module(module)
+state = Path(state_value)
+lock = module.state_lock_path(state)
+child = """
+import fcntl, os, pathlib, sys
+path = pathlib.Path(sys.argv[1])
+path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+descriptor = os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
+try:
+    fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+except BlockingIOError:
+    raise SystemExit(23)
+raise SystemExit(0)
+"""
+with module.state_for_selection(state):
+    contender = subprocess.run([sys.executable, "-c", child, str(lock)], check=False)
+    assert contender.returncode == 23, contender.returncode
+assert not state.exists()
+assert lock.exists()
+PY
+  [ "$status" -eq 0 ]
+}
+
 @test "probe lease can only be reclaimed after 15 minutes" {
   run "$SCRIPT" record-failure --state "$STATE" \
     --provider anthropic --executor native --reason rate_limit \
@@ -475,20 +528,36 @@ assert mode == 0o600, oct(mode)
 PY
 }
 
-@test "default state path is lazy until circuit state is needed" {
+@test "selection initializes only the circuit lock before health is recorded" {
   local state_root="${BATS_TEST_TMPDIR}/xdg-state"
 
   run env XDG_STATE_HOME="$state_root" "$SCRIPT" select --rubric "$RUBRIC" \
     --route default --native-provider openai --executors codex \
     --now 2026-08-25T12:00:00Z
   [ "$status" -eq 0 ]
-  [ ! -e "$state_root" ]
+  [ ! -e "$state_root/studio-moser/harness/provider-health.json" ]
+  [ -e "$state_root/studio-moser/harness/provider-health.json.lock" ]
 
   run env XDG_STATE_HOME="$state_root" "$SCRIPT" record-failure \
     --provider anthropic --executor native --reason quota \
     --now 2026-08-25T12:00:00Z
   [ "$status" -eq 0 ]
   [ -e "$state_root/studio-moser/harness/provider-health.json" ]
+}
+
+@test "rubric rejects the reserved circuit-key delimiter in provider and executor" {
+  sed -i '' 's/provider: openai/provider: openai|other/' "$RUBRIC"
+  run "$SCRIPT" validate --rubric "$RUBRIC" \
+    --native-provider anthropic --executors codex
+  [ "$status" -eq 4 ]
+  assert_result 'result["status"] == "blocked" and "provider" in result["blockers"][0]'
+
+  write_rubric
+  sed -i '' 's/via: codex/via: codex|other/' "$RUBRIC"
+  run "$SCRIPT" validate --rubric "$RUBRIC" \
+    --native-provider anthropic --executors codex
+  [ "$status" -eq 4 ]
+  assert_result 'result["status"] == "blocked" and "via" in result["blockers"][0]'
 }
 
 @test "empty XDG state home falls back to HOME without repo-local state" {
@@ -504,7 +573,8 @@ PY
       --executors codex --now 2026-08-25T12:00:00Z
   '
   [ "$status" -eq 0 ]
-  [ ! -e "$temporary_home/.local/state" ]
+  [ ! -e "$temporary_home/.local/state/studio-moser/harness/provider-health.json" ]
+  [ -e "$temporary_home/.local/state/studio-moser/harness/provider-health.json.lock" ]
   [ ! -e "$working_directory/studio-moser" ]
 
   run bash -c '

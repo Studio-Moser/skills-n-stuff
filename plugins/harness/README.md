@@ -46,7 +46,9 @@ discovery first checks that its typed
 `turn/completed.turn.error.codexErrorInfo` seam is callable; a missing or
 incompatible seam is a preflight skip, not a dispatch attempt or timed circuit.
 Only its structured terminal metadata may authorize availability fallback—raw
-error text is never parsed or returned.
+error text is never parsed or returned. External review validates the fixed
+commit, checks it out into an ephemeral local clone, and runs the read-only turn
+from that pinned snapshot rather than the caller's moving checkout.
 
 ## Migrating from Machine
 
