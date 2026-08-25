@@ -82,6 +82,7 @@ routing: {}
 # routing is DERIVED from this developer's capabilities, trust, and efficiency at
 # interview time — never copied from a seed or another developer. Values are
 # <model>@<effort>.
+fallbacks: {}               # Setup derives values only after the developer interview
 # Coding-benchmark efficiency never overrides user-owned orchestration trust or taste.
 # House anti-patterns (effort-curve facts, safe to distribute):
 #   - luna below max is worthless for agentic work; at max it's unattended-batch-only

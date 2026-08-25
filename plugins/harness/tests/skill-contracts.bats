@@ -192,7 +192,8 @@ missing = [clause for clause in required if clause not in normalized]
 assert not missing, "setup contract missing: " + ", ".join(missing)
 assert "setup-result.py" in text, "setup does not use the runnable result seam"
 script_refs = [line for line in text.splitlines() if "$harness/scripts/" in line]
-assert all("setup-result.py" in line for line in script_refs), "setup duplicates Sync or rubric mechanics"
+allowed_scripts = ("setup-result.py", "resolve-route.py")
+assert all(any(script in line for script in allowed_scripts) for line in script_refs), "setup duplicates Sync or rubric mechanics"
 PY
   if [ "$status" -ne 0 ]; then
     printf '%s\n' "$output" >&2
@@ -200,7 +201,7 @@ PY
   [ "$status" -eq 0 ]
 }
 
-@test "setup status requires the complete 0.7 rubric contract" {
+@test "setup status uses the canonical non-mutating rubric validator" {
   run python3 - "$SKILLS_ROOT/setup/SKILL.md" <<'PY'
 from pathlib import Path
 import sys
@@ -208,14 +209,25 @@ import sys
 text = Path(sys.argv[1]).read_text()
 status = text.split("## Configured-status mode", 1)[1].split("## Ordered setup", 1)[0]
 normalized = " ".join(status.split())
-for clause in (
-    "`routing.orchestrator`, `routing.default`, `routing.quick`, and `routing.review`",
-    "exact `(name, effort)` model row",
-    "routed row's `provider` is reachable",
-    "`via`, when present, names a discovered executor",
-    "A rubric that satisfies only the pre-0.7 execute/review checks is not configured",
+for token in (
+    '"$harness/scripts/resolve-route.py" validate',
+    '--rubric "$RUBRIC_PATH"',
+    '--native-provider "$HARNESS_NATIVE_PROVIDER"',
+    '--executors "$HARNESS_EXECUTORS"',
 ):
-    assert clause in normalized, f"setup status missing 0.7 validation: {clause}"
+    assert token in status, f"setup status missing validator input: {token}"
+for dependency in ("`python3`", "`yq`", "the resolver"):
+    assert dependency in normalized, f"setup status missing dependency blocker: {dependency}"
+assert "--health-state" not in status, "setup status mutates resolver health state"
+assert "read-only" in normalized, "setup status does not preserve its read-only boundary"
+
+ordered = text.split("## Ordered setup", 1)[1].split("## Completion", 1)[0]
+ordered_normalized = " ".join(ordered.split())
+for clause in (
+    "passing the same native-provider and callable-executor inventory",
+    "validated write",
+):
+    assert clause in ordered_normalized, f"ordered setup missing validated rubric handoff: {clause}"
 PY
   if [ "$status" -ne 0 ]; then
     printf '%s\n' "$output" >&2
