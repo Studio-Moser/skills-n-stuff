@@ -4,10 +4,17 @@
 from __future__ import annotations
 
 import argparse
+import fcntl
 import json
+import os
 import subprocess
 import sys
+import tempfile
+from contextlib import contextmanager
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from typing import Iterator
 
 
 AVAILABILITY_REASONS = {
@@ -17,6 +24,10 @@ AVAILABILITY_REASONS = {
     "provider_unavailable",
     "missing_executor",
 }
+TIMED_AVAILABILITY_REASONS = AVAILABILITY_REASONS - {"missing_executor"}
+OUTAGE_DELAYS = (900, 3600, 21600, 86400)
+DAY_SECONDS = 86400
+PROBE_LEASE_SECONDS = 900
 EXIT_BLOCKED = 4
 
 
@@ -59,6 +70,157 @@ def compact_json(value: dict) -> None:
     print(json.dumps(value, separators=(",", ":")))
 
 
+def circuit_key(provider: str, executor: str) -> str:
+    return f"{provider}|{executor}"
+
+
+def cooldown_seconds(reason: str, failure_count: int) -> int:
+    if reason in {"quota", "authentication"}:
+        return DAY_SECONDS
+    if reason in {"rate_limit", "provider_unavailable"}:
+        index = min(max(failure_count, 1) - 1, len(OUTAGE_DELAYS) - 1)
+        return OUTAGE_DELAYS[index]
+    raise ValueError(f"not a timed availability failure: {reason}")
+
+
+def default_state_path() -> Path:
+    root = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local/state"))
+    return root / "studio-moser/harness/provider-health.json"
+
+
+def state_path(value: str | None) -> Path:
+    return Path(value) if value else default_state_path()
+
+
+def decode_timestamp(value: object) -> datetime:
+    if not isinstance(value, str) or not value:
+        raise ValueError("timestamp must be a non-empty string")
+    normalized = f"{value[:-1]}+00:00" if value.endswith("Z") else value
+    parsed = datetime.fromisoformat(normalized)
+    if parsed.tzinfo is None:
+        raise ValueError("timestamp must include a timezone")
+    return parsed.astimezone(timezone.utc)
+
+
+def parse_timestamp(value: str | None, field: str) -> datetime:
+    if value is None:
+        return datetime.now(timezone.utc)
+    try:
+        return decode_timestamp(value)
+    except ValueError as error:
+        raise argparse.ArgumentError(None, f"{field} must be an ISO 8601 timestamp") from error
+
+
+def format_timestamp(value: datetime) -> str:
+    return value.astimezone(timezone.utc).isoformat(timespec="seconds").replace(
+        "+00:00", "Z"
+    )
+
+
+def malformed_state() -> Blocked:
+    return Blocked("provider health state is malformed")
+
+
+def validate_state(document: object) -> dict:
+    if not isinstance(document, dict) or set(document) != {"version", "circuits"}:
+        raise malformed_state()
+    if (
+        isinstance(document["version"], bool)
+        or document["version"] != 1
+        or not isinstance(document["circuits"], dict)
+    ):
+        raise malformed_state()
+
+    fields = {
+        "state",
+        "reason",
+        "failure_count",
+        "last_failure_at",
+        "unavailable_until",
+        "probe_claimed_at",
+    }
+    for key, circuit in document["circuits"].items():
+        if (
+            not isinstance(key, str)
+            or key.count("|") != 1
+            or not all(key.split("|"))
+            or not isinstance(circuit, dict)
+            or set(circuit) != fields
+            or circuit["state"] != "open"
+            or circuit["reason"] not in TIMED_AVAILABILITY_REASONS
+            or isinstance(circuit["failure_count"], bool)
+            or not isinstance(circuit["failure_count"], int)
+            or circuit["failure_count"] < 1
+        ):
+            raise malformed_state()
+        try:
+            decode_timestamp(circuit["last_failure_at"])
+            decode_timestamp(circuit["unavailable_until"])
+            if circuit["probe_claimed_at"] is not None:
+                decode_timestamp(circuit["probe_claimed_at"])
+        except (TypeError, ValueError) as error:
+            raise malformed_state() from error
+    return document
+
+
+def load_state(path: Path) -> dict:
+    if not path.exists():
+        return {"version": 1, "circuits": {}}
+    try:
+        with path.open(encoding="utf-8") as handle:
+            document = json.load(handle)
+    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+        raise malformed_state() from error
+    return validate_state(document)
+
+
+def write_state(path: Path, state: dict) -> None:
+    descriptor = -1
+    temporary = ""
+    try:
+        descriptor, temporary = tempfile.mkstemp(
+            prefix=f".{path.name}.", dir=path.parent
+        )
+        os.fchmod(descriptor, 0o600)
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            descriptor = -1
+            json.dump(state, handle, separators=(",", ":"))
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+    except OSError as error:
+        raise Blocked("provider health state could not be written") from error
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+        if temporary:
+            try:
+                os.unlink(temporary)
+            except FileNotFoundError:
+                pass
+
+
+@contextmanager
+def locked_state(path: Path) -> Iterator[dict]:
+    try:
+        path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        descriptor = os.open(
+            path.with_name(f"{path.name}.lock"), os.O_RDWR | os.O_CREAT, 0o600
+        )
+        os.fchmod(descriptor, 0o600)
+    except OSError as error:
+        raise Blocked("provider health state could not be locked") from error
+    try:
+        try:
+            fcntl.flock(descriptor, fcntl.LOCK_EX)
+        except OSError as error:
+            raise Blocked("provider health state could not be locked") from error
+        yield load_state(path)
+    finally:
+        os.close(descriptor)
+
+
 def blocked(message: str, attempted: list[str] | None = None,
             skipped: list[str] | None = None) -> None:
     result: dict[str, object] = {"status": "blocked", "blockers": [message]}
@@ -94,6 +256,14 @@ def load_rubric(path: str) -> dict:
 def require_string(value: object, field: str) -> str:
     if not isinstance(value, str) or not value:
         raise Blocked(f"{field} must be a non-empty string")
+    return value
+
+
+def require_argument_string(value: object, field: str) -> str:
+    if not isinstance(value, str) or not value or "|" in value:
+        raise argparse.ArgumentError(
+            None, f"{field} must be a non-empty string without '|'"
+        )
     return value
 
 
@@ -217,6 +387,7 @@ def select(args: argparse.Namespace) -> int:
     attempted_set = set(attempted)
     authoring_providers = set(parse_csv(args.authoring_providers, "--authoring-providers"))
     executors = set(parse_csv(args.executors, "--executors"))
+    now = parse_timestamp(args.now, "--now")
     document = load_rubric(args.rubric)
     rows = model_rows(document)
     chains = parse_routes(document, rows)
@@ -226,39 +397,130 @@ def select(args: argparse.Namespace) -> int:
     skipped: list[str] = []
     fallback_reason: str | None = None
 
-    for index, ref in enumerate(chains[args.route]):
-        row = rows[split_ref(ref)]
-        if ref in attempted_set:
-            skipped.append(ref)
-            continue
-        if args.route == "independent" and row["provider"] in authoring_providers:
-            blocked(f"independent candidate {ref} uses an authoring provider", attempted, skipped)
-            return EXIT_BLOCKED
-        executor, reason = resolve_executor(row, args.native_provider, executors)
-        if executor is None:
-            skipped.append(ref)
-            fallback_reason = fallback_reason or reason
-            continue
+    path = state_path(args.state)
+    with locked_state(path) as health:
+        circuits = health["circuits"]
+        for index, ref in enumerate(chains[args.route]):
+            row = rows[split_ref(ref)]
+            executor, reason = resolve_executor(row, args.native_provider, executors)
+            circuit = (
+                circuits.get(circuit_key(row["provider"], executor))
+                if executor
+                else None
+            )
+            if ref in attempted_set:
+                skipped.append(ref)
+                if circuit:
+                    fallback_reason = fallback_reason or circuit["reason"]
+                continue
+            if args.route == "independent" and row["provider"] in authoring_providers:
+                blocked(
+                    f"independent candidate {ref} uses an authoring provider",
+                    attempted,
+                    skipped,
+                )
+                return EXIT_BLOCKED
+            if executor is None:
+                skipped.append(ref)
+                fallback_reason = fallback_reason or reason
+                continue
 
-        candidate = candidate_for(ref, row, executor)
-        result: dict[str, object] = {
-            "status": "resolved" if index == 0 else "fallback",
-            "resolution": "primary" if index == 0 else "fallback",
-            "candidate": candidate.ref,
-            "model": candidate.model,
-            "effort": candidate.effort,
-            "provider": candidate.provider,
-            "executor": candidate.executor,
-        }
-        if index > 0 and fallback_reason:
-            result["reason"] = fallback_reason
-        if skipped:
-            result["skipped"] = skipped
-        compact_json(result)
-        return 0
+            probe = False
+            if circuit:
+                unavailable_until = decode_timestamp(circuit["unavailable_until"])
+                claimed_at = circuit["probe_claimed_at"]
+                lease_is_fresh = claimed_at is not None and (
+                    now - decode_timestamp(claimed_at)
+                ).total_seconds() < PROBE_LEASE_SECONDS
+                if now < unavailable_until or lease_is_fresh:
+                    skipped.append(ref)
+                    fallback_reason = fallback_reason or circuit["reason"]
+                    continue
+                circuit["probe_claimed_at"] = format_timestamp(now)
+                write_state(path, health)
+                probe = True
+
+            candidate = candidate_for(ref, row, executor)
+            result: dict[str, object] = {
+                "status": "resolved" if index == 0 else "fallback",
+                "resolution": "primary" if index == 0 else "fallback",
+                "candidate": candidate.ref,
+                "model": candidate.model,
+                "effort": candidate.effort,
+                "provider": candidate.provider,
+                "executor": candidate.executor,
+            }
+            if index > 0 and fallback_reason:
+                result["reason"] = fallback_reason
+            if skipped:
+                result["skipped"] = skipped
+            if probe:
+                result["probe"] = True
+            compact_json(result)
+            return 0
 
     blocked(f"no eligible {args.route} candidate remains", attempted, skipped)
     return EXIT_BLOCKED
+
+
+def record_failure(args: argparse.Namespace) -> int:
+    provider = require_argument_string(args.provider, "--provider")
+    executor = require_argument_string(args.executor, "--executor")
+    now = parse_timestamp(args.now, "--now")
+    retry_at = parse_timestamp(args.retry_at, "--retry-at") if args.retry_at else None
+    if retry_at is not None and args.reason != "quota":
+        raise argparse.ArgumentError(None, "--retry-at is only valid for quota")
+
+    path = state_path(args.state)
+    key = circuit_key(provider, executor)
+    with locked_state(path) as health:
+        previous = health["circuits"].get(key)
+        failure_count = (
+            previous["failure_count"] + 1
+            if previous and previous["reason"] == args.reason
+            else 1
+        )
+        unavailable_until = now + timedelta(
+            seconds=cooldown_seconds(args.reason, failure_count)
+        )
+        if args.reason == "quota" and retry_at is not None and retry_at > now:
+            unavailable_until = retry_at
+        circuit = {
+            "state": "open",
+            "reason": args.reason,
+            "failure_count": failure_count,
+            "last_failure_at": format_timestamp(now),
+            "unavailable_until": format_timestamp(unavailable_until),
+            "probe_claimed_at": None,
+        }
+        health["circuits"][key] = circuit
+        write_state(path, health)
+
+    compact_json(
+        {
+            "status": "recorded",
+            "provider": provider,
+            "executor": executor,
+            "reason": args.reason,
+            "failure_count": failure_count,
+            "unavailable_until": circuit["unavailable_until"],
+        }
+    )
+    return 0
+
+
+def record_success(args: argparse.Namespace) -> int:
+    provider = require_argument_string(args.provider, "--provider")
+    executor = require_argument_string(args.executor, "--executor")
+    parse_timestamp(args.now, "--now")
+    path = state_path(args.state)
+    key = circuit_key(provider, executor)
+    with locked_state(path) as health:
+        if key in health["circuits"]:
+            del health["circuits"][key]
+            write_state(path, health)
+    compact_json({"status": "cleared", "provider": provider, "executor": executor})
+    return 0
 
 
 def validate(args: argparse.Namespace) -> int:
@@ -285,6 +547,21 @@ def build_parser() -> Arguments:
             command.add_argument("--authoring-providers", default="")
             command.add_argument("--attempted", default="")
             command.add_argument("--now")
+    failure = subcommands.add_parser("record-failure")
+    failure.add_argument("--state")
+    failure.add_argument("--provider", required=True)
+    failure.add_argument("--executor", required=True)
+    failure.add_argument(
+        "--reason", required=True, choices=sorted(TIMED_AVAILABILITY_REASONS)
+    )
+    failure.add_argument("--retry-at")
+    failure.add_argument("--now")
+
+    success = subcommands.add_parser("record-success")
+    success.add_argument("--state")
+    success.add_argument("--provider", required=True)
+    success.add_argument("--executor", required=True)
+    success.add_argument("--now")
     return parser
 
 
@@ -293,7 +570,11 @@ def main(argv: list[str]) -> int:
         args = build_parser().parse_args(argv)
         if args.operation == "validate":
             return validate(args)
-        return select(args)
+        if args.operation == "select":
+            return select(args)
+        if args.operation == "record-failure":
+            return record_failure(args)
+        return record_success(args)
     except argparse.ArgumentError as error:
         compact_json({"status": "error", "blockers": [str(error)]})
         return 2

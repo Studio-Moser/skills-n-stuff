@@ -41,6 +41,19 @@ assert eval(sys.argv[1], {"result": result}), result
 PY
 }
 
+assert_state() {
+  local program="$1"
+  STATE_PATH="$STATE" python3 - "$program" <<'PY'
+import json
+import os
+import sys
+
+with open(os.environ["STATE_PATH"], encoding="utf-8") as handle:
+    state = json.load(handle)
+assert eval(sys.argv[1], {"state": state}), state
+PY
+}
+
 @test "matching provider uses native even when the row declares via" {
   run "$SCRIPT" select --rubric "$RUBRIC" --state "$STATE" \
     --route default --native-provider openai --executors "" \
@@ -169,4 +182,203 @@ YAML
     --route default --native-provider openai --executors "" --attempted invalid
   [ "$status" -eq 2 ]
   assert_result 'result["status"] == "error" and "invalid model-effort" in result["blockers"][0]'
+}
+
+@test "quota defaults to 24 hours, skips selection, and success clears the endpoint" {
+  run "$SCRIPT" record-failure --state "$STATE" \
+    --provider anthropic --executor native --reason quota \
+    --now 2026-08-25T12:00:00Z
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"unavailable_until":"2026-08-26T12:00:00Z"'* ]]
+
+  run "$SCRIPT" select --rubric "$RUBRIC" --state "$STATE" \
+    --route taste --native-provider anthropic --executors codex \
+    --now 2026-08-25T12:01:00Z
+  [ "$status" -eq 0 ]
+  assert_result '(
+      result["resolution"], result["candidate"], result["reason"]
+  ) == ("fallback", "gpt-5.6-sol@high", "quota")'
+
+  run "$SCRIPT" select --rubric "$RUBRIC" --state "$STATE" \
+    --route taste --native-provider anthropic --executors codex \
+    --attempted claude-fable-5@high --now 2026-08-25T12:02:00Z
+  [ "$status" -eq 0 ]
+  assert_result 'result["resolution"] == "fallback" and result["reason"] == "quota"'
+
+  run "$SCRIPT" record-success --state "$STATE" \
+    --provider anthropic --executor native --now 2026-08-26T12:00:01Z
+  [ "$status" -eq 0 ]
+  assert_state '"anthropic|native" not in state["circuits"]'
+}
+
+@test "quota uses a supplied future reset timestamp" {
+  run "$SCRIPT" record-failure --state "$STATE" \
+    --provider anthropic --executor native --reason quota \
+    --retry-at 2026-08-25T18:30:00Z --now 2026-08-25T12:00:00Z
+  [ "$status" -eq 0 ]
+  assert_result 'result["unavailable_until"] == "2026-08-25T18:30:00Z"'
+  assert_state 'state["circuits"]["anthropic|native"]["unavailable_until"] == "2026-08-25T18:30:00Z"'
+}
+
+@test "authentication defaults to a 24 hour cooldown" {
+  run "$SCRIPT" record-failure --state "$STATE" \
+    --provider anthropic --executor native --reason authentication \
+    --now 2026-08-25T12:00:00Z
+  [ "$status" -eq 0 ]
+  assert_result 'result["unavailable_until"] == "2026-08-26T12:00:00Z"'
+}
+
+@test "rate limit and outage cooldowns advance and cap at 24 hours" {
+  run "$SCRIPT" record-failure --state "$STATE" \
+    --provider anthropic --executor native --reason rate_limit \
+    --now 2026-08-25T12:00:00Z
+  [ "$status" -eq 0 ]
+  assert_result '(
+      result["failure_count"], result["unavailable_until"]
+  ) == (1, "2026-08-25T12:15:00Z")'
+
+  run "$SCRIPT" record-failure --state "$STATE" \
+    --provider anthropic --executor native --reason provider_unavailable \
+    --now 2026-08-25T12:01:00Z
+  [ "$status" -eq 0 ]
+  assert_result '(
+      result["failure_count"], result["unavailable_until"]
+  ) == (1, "2026-08-25T12:16:00Z")'
+
+  local expected
+  for expected in \
+    '2|2026-08-25T13:02:00Z|2026-08-25T12:02:00Z' \
+    '3|2026-08-25T18:03:00Z|2026-08-25T12:03:00Z' \
+    '4|2026-08-26T12:04:00Z|2026-08-25T12:04:00Z' \
+    '5|2026-08-26T12:05:00Z|2026-08-25T12:05:00Z'
+  do
+    IFS='|' read -r count unavailable now <<< "$expected"
+    run "$SCRIPT" record-failure --state "$STATE" \
+      --provider anthropic --executor native --reason provider_unavailable \
+      --now "$now"
+    [ "$status" -eq 0 ]
+    RESULT_JSON="$output" EXPECTED_COUNT="$count" EXPECTED_UNAVAILABLE="$unavailable" python3 - <<'PY'
+import json
+import os
+
+result = json.loads(os.environ["RESULT_JSON"])
+assert result["failure_count"] == int(os.environ["EXPECTED_COUNT"]), result
+assert result["unavailable_until"] == os.environ["EXPECTED_UNAVAILABLE"], result
+PY
+  done
+}
+
+@test "exactly one concurrent selector claims an expired probe" {
+  run "$SCRIPT" record-failure --state "$STATE" \
+    --provider anthropic --executor native --reason rate_limit \
+    --now 2026-08-25T12:00:00Z
+  [ "$status" -eq 0 ]
+
+  export SCRIPT RUBRIC STATE
+  run bash -c '
+    "$SCRIPT" select --rubric "$RUBRIC" --state "$STATE" \
+      --route taste --native-provider anthropic --executors codex \
+      --now 2026-08-25T12:15:00Z > "${STATE}.one" &
+    first=$!
+    "$SCRIPT" select --rubric "$RUBRIC" --state "$STATE" \
+      --route taste --native-provider anthropic --executors codex \
+      --now 2026-08-25T12:15:00Z > "${STATE}.two" &
+    second=$!
+    wait "$first" && wait "$second"
+  '
+  [ "$status" -eq 0 ]
+
+  STATE_PATH="$STATE" python3 - <<'PY'
+import json
+import os
+
+path = os.environ["STATE_PATH"]
+with open(f"{path}.one", encoding="utf-8") as handle:
+    first = json.load(handle)
+with open(f"{path}.two", encoding="utf-8") as handle:
+    second = json.load(handle)
+results = [first, second]
+probes = [result for result in results if result.get("probe") is True]
+fallbacks = [result for result in results if result["resolution"] == "fallback"]
+assert len(probes) == 1, results
+assert probes[0]["candidate"] == "claude-fable-5@high", results
+assert len(fallbacks) == 1 and fallbacks[0]["reason"] == "rate_limit", results
+PY
+}
+
+@test "probe lease can only be reclaimed after 15 minutes" {
+  run "$SCRIPT" record-failure --state "$STATE" \
+    --provider anthropic --executor native --reason rate_limit \
+    --now 2026-08-25T12:00:00Z
+  [ "$status" -eq 0 ]
+
+  run "$SCRIPT" select --rubric "$RUBRIC" --state "$STATE" \
+    --route taste --native-provider anthropic --executors codex \
+    --now 2026-08-25T12:15:00Z
+  [ "$status" -eq 0 ]
+  assert_result 'result["candidate"] == "claude-fable-5@high" and result["probe"] is True'
+
+  run "$SCRIPT" select --rubric "$RUBRIC" --state "$STATE" \
+    --route taste --native-provider anthropic --executors codex \
+    --now 2026-08-25T12:29:59Z
+  [ "$status" -eq 0 ]
+  assert_result 'result["resolution"] == "fallback" and result["reason"] == "rate_limit"'
+
+  run "$SCRIPT" select --rubric "$RUBRIC" --state "$STATE" \
+    --route taste --native-provider anthropic --executors codex \
+    --now 2026-08-25T12:30:00Z
+  [ "$status" -eq 0 ]
+  assert_result 'result["candidate"] == "claude-fable-5@high" and result["probe"] is True'
+}
+
+@test "circuit state is written with mode 0600" {
+  run "$SCRIPT" record-failure --state "$STATE" \
+    --provider anthropic --executor native --reason quota \
+    --now 2026-08-25T12:00:00Z
+  [ "$status" -eq 0 ]
+
+  STATE_PATH="$STATE" python3 - <<'PY'
+import os
+import stat
+
+mode = stat.S_IMODE(os.stat(os.environ["STATE_PATH"]).st_mode)
+assert mode == 0o600, oct(mode)
+PY
+}
+
+@test "default state path is lazy until circuit state is needed" {
+  local state_root="${BATS_TEST_TMPDIR}/xdg-state"
+
+  run env XDG_STATE_HOME="$state_root" "$SCRIPT" select --rubric "$RUBRIC" \
+    --route default --native-provider openai --executors codex \
+    --now 2026-08-25T12:00:00Z
+  [ "$status" -eq 0 ]
+  [ ! -e "$state_root/studio-moser/harness/provider-health.json" ]
+
+  run env XDG_STATE_HOME="$state_root" "$SCRIPT" record-failure \
+    --provider anthropic --executor native --reason quota \
+    --now 2026-08-25T12:00:00Z
+  [ "$status" -eq 0 ]
+  [ -e "$state_root/studio-moser/harness/provider-health.json" ]
+}
+
+@test "malformed state blocks selection and recording without overwrite" {
+  cat > "$STATE" <<'JSON'
+{"version":1,"circuits":[]}
+JSON
+  cp "$STATE" "${STATE}.original"
+
+  run "$SCRIPT" select --rubric "$RUBRIC" --state "$STATE" \
+    --route taste --native-provider anthropic --executors codex \
+    --now 2026-08-25T12:00:00Z
+  [ "$status" -eq 4 ]
+  assert_result 'result["status"] == "blocked" and "state" in result["blockers"][0]'
+  cmp "$STATE" "${STATE}.original"
+
+  run "$SCRIPT" record-failure --state "$STATE" \
+    --provider anthropic --executor native --reason quota \
+    --now 2026-08-25T12:00:00Z
+  [ "$status" -eq 4 ]
+  assert_result 'result["status"] == "blocked" and "state" in result["blockers"][0]'
+  cmp "$STATE" "${STATE}.original"
 }
