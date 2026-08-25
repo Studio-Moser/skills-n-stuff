@@ -62,9 +62,11 @@ The resolver evaluates the primary followed by its fallbacks. A candidate is
 eligible only when all of these hold:
 
 1. Its exact `(name, effort)` row exists.
-2. The row's provider is enabled in `capabilities`.
-3. Its executor is reachable: a row without `via` must match the native runtime
-   provider; a row with `via` requires that declared executor to be callable.
+2. Its provider is reachable: when it matches the native runtime provider,
+   Harness uses the native executor even if the row also declares `via` for
+   cross-runtime use.
+3. Otherwise its declared `via` capability must be enabled and that external
+   executor must be callable. A row without `via` is native-only.
 4. The candidate preserves the HarnessRequest's operation, tools, approvals,
    working directory, allowed paths, and other authority boundaries.
 5. A `taste` candidate meets `routing.taste_min`.
@@ -90,14 +92,17 @@ route-selection implementation. The execution, review, computer-use, setup, and
 model-rubric skills call this script rather than interpreting fallback chains in
 prose.
 
-The resolver has three bounded operations:
+The resolver has four bounded operations:
 
-1. `select`: load and validate the rubric, evaluate route candidates and circuit
+1. `validate`: load the rubric without mutating health state and validate every
+   primary route, fallback chain, exact row, provider transition, taste floor,
+   independence constraint, and reachable executor supplied by Setup.
+2. `select`: load and validate the rubric, evaluate route candidates and circuit
    state, atomically claim an expired half-open probe when needed, and return one
    JSON resolution.
-2. `record-failure`: record a typed availability failure for the selected
+3. `record-failure`: record a typed availability failure for the selected
    provider/executor and calculate its next retry time.
-3. `record-success`: close the selected provider/executor circuit and clear its
+4. `record-success`: close the selected provider/executor circuit and clear its
    failure counter.
 
 `select` accepts the semantic route, native provider, callable executors,
