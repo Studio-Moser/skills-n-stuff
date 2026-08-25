@@ -62,6 +62,23 @@ PY
   ) == ("fallback", "gpt-5.6-sol@high", "openai", "native", "missing_executor")'
 }
 
+@test "callable non-native via executor resolves selection" {
+  run "$SCRIPT" select --rubric "$RUBRIC" --state "$STATE" \
+    --route default --native-provider anthropic --executors codex \
+    --now 2026-08-25T12:00:00Z
+  [ "$status" -eq 0 ]
+  assert_result '(
+      result["status"], result["candidate"], result["provider"], result["executor"]
+  ) == ("resolved", "gpt-5.6-sol@high", "openai", "codex")'
+}
+
+@test "validate recognizes a callable non-native via executor" {
+  run "$SCRIPT" validate --rubric "$RUBRIC" \
+    --native-provider anthropic --executors codex
+  [ "$status" -eq 0 ]
+  assert_result 'result == {"status": "valid"}'
+}
+
 @test "taste fallback below the configured minimum blocks selection" {
   sed -i '' 's/taste: 9/taste: 8/' "$RUBRIC"
 

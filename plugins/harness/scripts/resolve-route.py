@@ -216,6 +216,7 @@ def select(args: argparse.Namespace) -> int:
     attempted = parse_attempted(args.attempted)
     attempted_set = set(attempted)
     authoring_providers = set(parse_csv(args.authoring_providers, "--authoring-providers"))
+    executors = set(parse_csv(args.executors, "--executors"))
     document = load_rubric(args.rubric)
     rows = model_rows(document)
     chains = parse_routes(document, rows)
@@ -233,7 +234,7 @@ def select(args: argparse.Namespace) -> int:
         if args.route == "independent" and row["provider"] in authoring_providers:
             blocked(f"independent candidate {ref} uses an authoring provider", attempted, skipped)
             return EXIT_BLOCKED
-        executor, reason = resolve_executor(row, args.native_provider, set(args.executors))
+        executor, reason = resolve_executor(row, args.native_provider, executors)
         if executor is None:
             skipped.append(ref)
             fallback_reason = fallback_reason or reason
@@ -261,10 +262,11 @@ def select(args: argparse.Namespace) -> int:
 
 
 def validate(args: argparse.Namespace) -> int:
+    executors = set(parse_csv(args.executors, "--executors"))
     document = load_rubric(args.rubric)
     rows = model_rows(document)
     chains = parse_routes(document, rows)
-    validate_reachable_routes(chains, rows, args.native_provider, set(args.executors))
+    validate_reachable_routes(chains, rows, args.native_provider, executors)
     compact_json({"status": "valid"})
     return 0
 
