@@ -64,10 +64,22 @@ blockers beside the PM axis report. PM may require additional checks aimed at a 
 Radius assumption, but their evidence classification and acceptance follow the linked
 Harness verification contract. A missing check stays visible as a PM review blocker.
 
+### Reviewer Input Set
+
+Give the reviewer only the approved requirements, immutable fixed target and exact
+artifact, relevant project files, and current Testing Seam proof. Exclude builder reasoning,
+summaries, proposed verdicts, and prior review conclusions; they are claims, not reviewer
+inputs or evidence.
+
+At least one decisive check must contain a positive acceptance signal that exercises or
+observes the expected behavior. A missing or skipped check, or one that runs zero relevant cases,
+is unproven even when its process exits zero. Empty output supports proof only when emptiness is
+the explicit oracle and the actual status/output is recorded.
+
 ## Completion conditions
 
 Review is complete only when Harness returns current proven evidence for the requested
 fixed target; Quality and Spec Fidelity are reported; every triggered Blast Radius
 entry names its central safety assumption and required check; PM reproduces the
-relevant verification; and every blocker is resolved or disputed with evidence. Any
-unproven assumption or changed target requires a new Harness review request.
+relevant verification with a positive acceptance signal; and every blocker is resolved or disputed
+with evidence. Any unproven assumption or changed target requires a new Harness review request.

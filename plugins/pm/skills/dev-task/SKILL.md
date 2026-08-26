@@ -162,6 +162,9 @@ verification:
 Treat the returned report as a claim under the Harness contract. Reproduce the relevant
 check, confirm the fixed target is unchanged, and address or evidence-dispute every
 blocker. Any fix creates a new fixed target and requires a new Harness review request.
+Run at most two fix/review rounds after the initial review. If residual blockers remain
+after round two, stop, report them, and leave the slice incomplete; do not submit a
+third correction request.
 
 ## 6. Verify — GATE
 

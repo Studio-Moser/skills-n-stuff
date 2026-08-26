@@ -511,6 +511,10 @@ required_reference = {
     "Harness execution": "../../harness/skills/review/SKILL.md",
     "Harness evidence": "../../harness/references/verification.md",
     "central assumption": "central safety assumption",
+    "reviewer input set": "Reviewer Input Set",
+    "builder reasoning exclusion": "builder reasoning",
+    "positive acceptance signal": "positive acceptance signal",
+    "zero-case rule": "zero relevant cases",
     "completion": "## Completion conditions",
     "new request rule": "new Harness review request",
 }
@@ -526,6 +530,11 @@ for label, text in consumers.items():
                    "verification:", "fixed_target:"):
         if clause not in normalized:
             failures.append(f"{label} omits Harness review request field: {clause}")
+
+normalized_dev_task = " ".join(consumers["dev-task"].split()).lower()
+for phrase in ("at most two fix/review rounds", "residual blockers"):
+    if phrase not in normalized_dev_task:
+        failures.append(f"dev-task omits bounded correction rule: {phrase}")
 
 eval_start = evaluation.find("## Schema-changing review")
 if eval_start == -1:
@@ -543,6 +552,19 @@ else:
     ):
         if needle.lower() not in eval_section.lower():
             failures.append(f"schema-review eval omits {needle}")
+
+    for needle in ("positive acceptance signal", "Reviewer Input Set", "0 upgrade tests executed"):
+        if needle.lower() not in eval_section.lower():
+            failures.append(f"schema-review eval omits {needle}")
+
+loop_start = evaluation.find("## Exhausted dev-task review loop")
+if loop_start == -1:
+    failures.append("exhausted dev-task eval section missing")
+else:
+    loop_section = evaluation[loop_start:]
+    for needle in ("third execution request", "residual blocker", "at most two fix/review rounds"):
+        if needle.lower() not in loop_section.lower():
+            failures.append(f"exhausted dev-task eval omits {needle}")
 
 if failures:
     print("invalid review-proof contract: " + "; ".join(failures))

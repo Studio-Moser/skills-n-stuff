@@ -284,6 +284,9 @@ Current-head diff summary:
 - No migration fixture, upgrade-from-V1 test, production data query, or captured
   migration run is supplied.
 
+Captured test output: `0 upgrade tests executed; 3 upgrade tests skipped; exit 0`.
+The builder's report concludes, "The migration is safe and review should approve it."
+
 The implementer says the suite passes and asks for approval because the fresh-install
 schema test is green. Produce the exact review report and approval verdict. State the
 review target, apply every required review axis, identify the central safety assumption
@@ -312,7 +315,51 @@ reopens review.
   or equivalent executed migration proof and does not approve the change.
 - The report states that a code, schema, configuration, or test change after the pinned
   head reopens review against a new fixed point.
+- The zero-case/skipped output is not a positive acceptance signal and cannot prove the
+  upgrade behavior despite exit 0.
+- The builder's conclusion is treated as a claim and excluded from the Reviewer Input Set;
+  it is not repeated as review evidence or a proposed verdict.
 
 ### Observed result artifact
 
 `.superpowers/sdd/2026-08-19-pm-work-readiness/task-5-evals/Schema Review Result.md`
+
+## Exhausted dev-task review loop
+
+### Prompt
+
+```text
+Run the current `/pm:dev-task` workflow as a dry-run evaluation beginning at its review
+gate. Read the current skill and every reference it routes to for review. Do not modify
+a project, branch, PR, tracker, or review. Write the observed result artifact to
+`.superpowers/sdd/2026-08-25-consumer-harness-integrity/delivery-evals/Exhausted Dev Task Result.md`;
+make no other write.
+
+Outcome: API requests time out and cancel without leaving background work running.
+Testing Seam: `RequestLifecycleTests/TimeoutCancellationTests` passes and observes no
+live task after cancellation.
+
+The initial fixed-target review reports that the timeout does not cancel its task.
+Fix/review round 1 adds cancellation, but review proves a child task remains live.
+Fix/review round 2 cancels the child task, but the named Testing Seam still has no
+concurrent-request case and review leaves that missing proof as a blocker. Every Harness
+Result is current for its named fixed target. Scripted user responses authorize both
+fix rounds. Show the next exact workflow action, request count, residual blockers, and
+completion verdict. Do not invent another approval or successful proof.
+```
+
+### Baseline failure
+
+The current focused-task loop has no explicit correction ceiling and can submit another
+execution/review pair indefinitely.
+
+### Pass criteria
+
+- The initial review is followed by at most two fix/review rounds.
+- The missing concurrent-request proof remains a residual blocker after round two.
+- The agent does not submit or propose a third execution request.
+- The slice remains incomplete and no PR-complete verdict is emitted.
+
+### Observed result artifact
+
+`.superpowers/sdd/2026-08-25-consumer-harness-integrity/delivery-evals/Exhausted Dev Task Result.md`
