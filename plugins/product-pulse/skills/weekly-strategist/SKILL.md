@@ -235,6 +235,15 @@ Only use an adjudication with `status: accepted`, matching `evidence.fixed_targe
 and `evidence.outcome: proven`. Otherwise keep the conflict visible and exclude it from
 priority-setting.
 
+### Branch Manifest
+
+Build the Branch Manifest before synthesis with one row for the five analyst roles plus
+every required adjudication. Record branch identity, exact Harness `status`, evidence
+outcome, blockers, and elapsed when available (`unavailable` otherwise). Only
+accepted/proven branches whose verification seam Product Pulse reproduced may
+contribute content. Keep every other expected branch in the manifest and exclude its
+claims.
+
 After every required adjudication is accepted or explicitly excluded, invoke
 `harness:execute` with `operation: execute` and `route: taste` for the strategy draft.
 Product Pulse remains the accepting workflow and writes the files only after validating
@@ -247,7 +256,7 @@ outcome: Produce a concise weekly strategy brief and recommendations draft groun
 context:
   project: {project_id}
   mode: fresh
-  state: {accepted analyst briefs, accepted adjudications, excluded unresolved claims, last 7 daily reports, previous weekly direction, product context, configured repos, and corroboration notes}
+  state: {complete branch manifest, accepted analyst briefs, accepted adjudications, excluded unresolved claims, last 7 daily reports, previous weekly direction, product context, configured repos, and corroboration notes}
   files: [{repository-relative accepted daily reports and prior strategy brief}]
   memory:
     enabled: {memory.connector is not null}
@@ -279,9 +288,14 @@ constraints:
   - |
     Include the intended report paths {week_dir}/{YYYY}-W{NN}-strategy-brief.md and
     {week_dir}/{YYYY}-W{NN}-recommendations.md. Do not write or publish files.
+  - |
+    Report coverage as expected, accepted/proven, failed, blocked, abandoned, and
+    unproven. Count an accepted/unproven result as unproven, not accepted. Mark degraded
+    coverage whenever accepted/proven is fewer than expected. Never describe a failed,
+    blocked, abandoned, unproven, or missing branch as scanned, researched, or covered.
 verification:
-  seam: Trace every theme, priority, alert, and recommendation to accepted cited evidence or adjudication and verify excluded claims, exact priority count, report sections, brevity, and report paths
-  expected: The strategy brief and recommendations are evidence-grounded, decisive, complete, and ready for Product Pulse publication
+  seam: Trace every theme, priority, alert, and recommendation to accepted cited evidence or adjudication and verify branch manifest totals, degraded-coverage disclosure, excluded claims, exact priority count, report sections, brevity, and report paths
+  expected: The strategy brief and recommendations are evidence-grounded, decisive, complete, accurately disclose coverage, and ready for Product Pulse publication
 ```
 
 Require `status: accepted` and `evidence.outcome: proven`, then reproduce the seam.
@@ -332,6 +346,9 @@ Create the directory if it doesn't exist.
 ### Write Strategy Brief
 
 Write to `{week_dir}/{YYYY}-W{NN}-strategy-brief.md` using the template in `references/strategy-brief-template.md`.
+Add this line immediately below the title: `Research Coverage: {accepted}/{expected}
+accepted/proven; {failed} failed; {blocked} blocked; {abandoned} abandoned; {unproven}
+unproven{ — degraded coverage when accepted < expected}`.
 
 ### Write Recommendations
 
@@ -339,6 +356,8 @@ Write to `{week_dir}/{YYYY}-W{NN}-recommendations.md`:
 
 ```markdown
 # Weekly Recommendations — W{NN}
+
+Research Coverage: {accepted}/{expected} accepted/proven; {failed} failed; {blocked} blocked; {abandoned} abandoned; {unproven} unproven{ — degraded coverage when accepted < expected}
 
 Strategic recommendations from the weekly review.
 
@@ -428,6 +447,7 @@ Product Pulse — Weekly Strategy W{NN}
 =======================================
 Theme: {theme}
 Priorities: {p1} | {p2} | {p3}
+Research Coverage: {accepted}/{expected} accepted/proven; {failed} failed; {blocked} blocked; {abandoned} abandoned; {unproven} unproven{ — degraded coverage when accepted < expected}
 Recommended for speccing: {N} items
 Monitor alerts: {N}
 Opportunities: {N} identified

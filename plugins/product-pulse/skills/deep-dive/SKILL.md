@@ -264,6 +264,15 @@ Only use an adjudication with `status: accepted`, matching `evidence.fixed_targe
 and `evidence.outcome: proven`. Otherwise keep the contradiction visible and do not
 base a recommendation on it.
 
+### Branch Manifest
+
+Build the Branch Manifest before synthesis with one row for every scheduled resource,
+concept bundle, and adjudication. Record branch identity, exact Harness `status`,
+evidence outcome, blockers, and elapsed when available (`unavailable` otherwise). Only
+accepted/proven branches whose verification seam Product Pulse reproduced may
+contribute content. Keep every other expected branch in the manifest and exclude its
+claims.
+
 Invoke `harness:execute` with `operation: execute` and `route: taste` for the final
 analysis draft. Product Pulse remains the accepting workflow and publishes the report
 only after checking the returned Harness Result.
@@ -275,7 +284,7 @@ outcome: Synthesize accepted deep-dive research into a decisive, citation-preser
 context:
   project: {project_id}
   mode: fresh
-  state: {research question, accepted extraction and project-comparison results, accepted adjudications, prior-report index, product context, and intended slug}
+  state: {complete branch manifest, research question, accepted extraction and project-comparison results, accepted adjudications, prior-report index, product context, and intended slug}
   files: [{repository-relative project and prior-report paths cited by accepted research}]
   memory:
     enabled: {memory.connector is not null}
@@ -314,9 +323,14 @@ constraints:
     The chat and saved report bodies must match. Include complete YAML frontmatter data
     and intended report path {research_dir}/deep-dives/{slug}.md; use the next numeric
     suffix instead of overwriting an existing report. Do not write or publish files.
+  - |
+    Report coverage as expected, accepted/proven, failed, blocked, abandoned, and
+    unproven. Count an accepted/unproven result as unproven, not accepted. Mark degraded
+    coverage whenever accepted/proven is fewer than expected. Never describe a failed,
+    blocked, abandoned, unproven, or missing branch as scanned, researched, or covered.
 verification:
-  seam: Trace every report claim and actionable recommendation to accepted cited evidence and verify project references, confidence, required sections, frontmatter data, and report path
-  expected: The report draft is decisive, source-faithful, project-specific, complete, and ready for Product Pulse publication
+  seam: Trace every report claim and actionable recommendation to accepted cited evidence and verify branch manifest totals, degraded-coverage disclosure, project references, confidence, required sections, frontmatter data, and report path
+  expected: The report draft is decisive, source-faithful, project-specific, complete, accurately discloses coverage, and ready for Product Pulse publication
 ```
 
 Require `status: accepted` and `evidence.outcome: proven`, then reproduce the seam.
@@ -344,6 +358,11 @@ If current research contradicts a prior conclusion, flag it clearly — the user
 ## Phase 7: Deliver Report in Chat
 
 Present the full report directly in conversation using this structure:
+
+### Research Coverage
+Show expected, accepted/proven, failed, blocked, abandoned, and unproven counts; name
+the failed and blocked branch identities; append `— degraded coverage` whenever
+accepted/proven is fewer than expected.
 
 ### Resource Summary
 Brief overview of each resource's key takeaways. Note publish dates and flag freshness concerns. Keep this concise — the user already knows what they shared.
@@ -383,6 +402,8 @@ Each item states: what to do, why it matters, rough effort (quick win / moderate
 Save the same report content from Phase 7 to `{output_dir}/{slug}.md`. The slug is derived from the primary topic (e.g., `react-server-components.md`, `auth-middleware-comparison.md`). Use kebab-case, no dates in the slug. If a file with the same slug already exists, append `-2` (or the next available number) to avoid overwriting prior research.
 
 Wrap the report in YAML frontmatter matching the template at `references/report-template.md`. The frontmatter must include: title, resources (url, type, title, published), tags, and related_reports (slugs of prior reports referenced, omit if none). The body sections are the same as the chat report from Phase 7.
+Include `### Research Coverage` before `### Resource Summary` with the same counts,
+failed and blocked branch identities, and degraded-coverage disclosure as the chat.
 
 ---
 

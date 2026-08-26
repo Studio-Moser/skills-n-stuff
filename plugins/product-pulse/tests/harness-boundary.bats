@@ -320,3 +320,49 @@ PY
   fi
   [ "$status" -eq 0 ]
 }
+
+@test "Product Pulse manifests every expected research branch before synthesis" {
+  run python3 - "$REPO" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+root = Path(sys.argv[1]) / "plugins/product-pulse/skills"
+requirements = {
+    "daily-research": ("every configured domain", "Research Coverage"),
+    "weekly-strategist": ("five analyst roles", "Research Coverage"),
+    "deep-dive": ("every scheduled resource, concept bundle, and adjudication", "Research Coverage"),
+}
+failures = []
+for name, (expected_set, report_label) in requirements.items():
+    text = (root / name / "SKILL.md").read_text()
+    normalized = " ".join(text.split())
+    lowered = normalized.lower()
+    taste = re.search(r"```yaml\noperation: execute\nroute: taste\n(.*?)\n```", text, re.DOTALL)
+    for phrase in (
+        "Branch Manifest",
+        expected_set,
+        "status",
+        "evidence outcome",
+        "blockers",
+        "elapsed when available",
+        "unproven",
+        "degraded coverage",
+        report_label,
+    ):
+        if phrase.lower() not in lowered:
+            failures.append(f"{name}: missing {phrase}")
+    if not taste or "complete branch manifest" not in " ".join(taste.group(1).split()).lower():
+        failures.append(f"{name}: taste synthesis does not receive complete branch manifest")
+    manifest_position = text.find("Branch Manifest")
+    taste_position = taste.start() if taste else -1
+    if manifest_position < 0 or taste_position < 0 or manifest_position > taste_position:
+        failures.append(f"{name}: branch manifest is not built before synthesis")
+
+assert not failures, "invalid Product Pulse fan-in coverage:\n" + "\n".join(failures)
+PY
+  if [ "$status" -ne 0 ]; then
+    printf '%s\n' "$output" >&2
+  fi
+  [ "$status" -eq 0 ]
+}

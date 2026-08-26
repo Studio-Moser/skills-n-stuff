@@ -194,6 +194,14 @@ Consume the exact Harness Result. Accept findings only from `status: accepted` w
 exit code, or inaccessible citation is not research proof. Log a failed, blocked, or
 abandoned domain and continue with the remaining domains.
 
+### Branch Manifest
+
+Build the Branch Manifest before synthesis with one row for every configured domain.
+Record branch identity, exact Harness `status`, evidence outcome, blockers, and elapsed
+when available (`unavailable` otherwise). Only accepted/proven branches whose
+verification seam Product Pulse reproduced may contribute content. Keep every other
+expected branch in the manifest and exclude its claims.
+
 ---
 
 ## Phase 3: Synthesize
@@ -209,7 +217,7 @@ outcome: Produce a source-preserving daily research report draft from the accept
 context:
   project: {project_id}
   mode: fresh
-  state: {accepted domain findings, weekly strategy, product context, Always Check definitions, and source-check records}
+  state: {complete branch manifest, accepted domain findings, weekly strategy, product context, Always Check definitions, and source-check records}
   files: [{repository-relative recent report paths used for deduplication and strategy}]
   memory:
     enabled: {memory.connector is not null}
@@ -242,9 +250,14 @@ constraints:
     Return a complete draft with domain findings, Action Items, Source Performance,
     Noted, and Search Terms Used sections. Include the intended report path
     {week_dir}/{today}-daily-research.md. Do not write or publish files.
+  - |
+    Report coverage as expected, accepted/proven, failed, blocked, abandoned, and
+    unproven. Count an accepted/unproven result as unproven, not accepted. Mark degraded
+    coverage whenever accepted/proven is fewer than expected. Never describe a failed,
+    blocked, abandoned, unproven, or missing branch as scanned, researched, or covered.
 verification:
-  seam: Trace every report claim and action item to one accepted domain finding and verify caps, deduplication, strategic scoring, citations, and report path
-  expected: The draft is source-faithful, strategically ranked, complete, and ready for Product Pulse publication
+  seam: Trace every report claim and action item to one accepted domain finding and verify branch manifest totals, degraded-coverage disclosure, caps, deduplication, strategic scoring, citations, and report path
+  expected: The draft is source-faithful, strategically ranked, complete, accurately discloses coverage, and ready for Product Pulse publication
 ```
 
 Require `status: accepted` and `evidence.outcome: proven`, reproduce the seam, and
@@ -300,7 +313,7 @@ Write to `{week_dir}/{today}-daily-research.md`. Structure:
 
 **Product**: {product name}
 **Weekly theme**: {theme or "No weekly brief"}
-**Domains scanned**: {N}
+**Research Coverage**: {accepted}/{expected} accepted/proven; {failed} failed; {blocked} blocked; {abandoned} abandoned; {unproven} unproven{ — degraded coverage when accepted < expected}
 **Findings**: {N} total, {N} action items
 
 ---
@@ -387,7 +400,7 @@ gh pr merge "$pr_url" --squash --delete-branch --auto || \
 ```
 Product Pulse — Daily Research ({today})
 ==========================================
-Domains scanned: {N}
+Research Coverage: {accepted}/{expected} accepted/proven; {failed} failed; {blocked} blocked; {abandoned} abandoned; {unproven} unproven{ — degraded coverage when accepted < expected}
 Findings: {N} total
 Action items: {N} in report
 Noted: {N}
