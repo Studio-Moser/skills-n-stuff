@@ -65,7 +65,7 @@ link_all() {
   echo "$output" | grep -qE '^statusline-command\.sh +-> +claude/statusline-command\.sh +MISSING-IN-REPO$'
 }
 
-@test "runtime mcp.json remains machine-local and outside the link plan" {
+@test "legacy mcp.json remains machine-local and outside the link plan" {
   link_all
   printf '%s\n' '{"mcpServers":{}}' > "$CLAUDE_CONFIG_DIR/mcp.json"
   run "$SCRIPT" "$REPO"

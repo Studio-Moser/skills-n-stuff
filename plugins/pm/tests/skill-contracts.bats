@@ -8,6 +8,40 @@ setup() {
   REPO="$(cd "${BATS_TEST_DIRNAME}/../../.." && pwd)"
 }
 
+@test "only invokable PM agents live under agents" {
+  run python3 - "$REPO" <<'PY'
+from pathlib import Path
+import sys
+
+repo = Path(sys.argv[1])
+pm = repo / "plugins/pm"
+failures = []
+
+for path in sorted((pm / "agents").glob("*.md")):
+    if not path.read_text().startswith("---\n"):
+        failures.append(f"agent has no frontmatter: {path.relative_to(repo)}")
+
+packets = {
+    "references/ingestion-analyst.md": "skills/ingest/SKILL.md",
+    "references/scorecard-evaluator.md": "references/triage-scorecard.md",
+}
+for packet, consumer in packets.items():
+    packet_path = pm / packet
+    if not packet_path.is_file():
+        failures.append(f"missing private prompt packet: plugins/pm/{packet}")
+    if f"plugins/pm/{packet}" not in (pm / consumer).read_text():
+        failures.append(f"{consumer} does not load plugins/pm/{packet}")
+
+if failures:
+    print("invalid PM agent/reference classification: " + "; ".join(failures))
+    raise SystemExit(1)
+PY
+  if [ "$status" -ne 0 ]; then
+    echo "$output"
+  fi
+  [ "$status" -eq 0 ]
+}
+
 @test "work-readiness reference defines the readiness rules and consumer routes" {
   run python3 - "$REPO" <<'PY'
 from pathlib import Path
@@ -63,7 +97,7 @@ repo = Path(sys.argv[1])
 triage = (repo / "plugins/pm/skills/triage/SKILL.md").read_text()
 flow = (repo / "plugins/pm/references/triage-spec-flow.md").read_text()
 scorecard = (repo / "plugins/pm/references/triage-scorecard.md").read_text()
-evaluator = (repo / "plugins/pm/agents/scorecard-evaluator.md").read_text()
+evaluator = (repo / "plugins/pm/references/scorecard-evaluator.md").read_text()
 template = (repo / "plugins/pm/templates/spec-template.md").read_text()
 
 failures = []
@@ -254,7 +288,7 @@ import sys
 repo = Path(sys.argv[1])
 flow = (repo / "plugins/pm/references/triage-spec-flow.md").read_text()
 scorecard = (repo / "plugins/pm/references/triage-scorecard.md").read_text()
-evaluator = (repo / "plugins/pm/agents/scorecard-evaluator.md").read_text()
+evaluator = (repo / "plugins/pm/references/scorecard-evaluator.md").read_text()
 template = (repo / "plugins/pm/templates/spec-template.md").read_text()
 
 failures = []
@@ -598,7 +632,7 @@ import sys
 
 repo = Path(sys.argv[1])
 skill = (repo / "plugins/pm/skills/ingest/SKILL.md").read_text()
-analyst = (repo / "plugins/pm/agents/ingestion-analyst.md").read_text()
+analyst = (repo / "plugins/pm/references/ingestion-analyst.md").read_text()
 references = {
     name: repo / f"plugins/pm/references/ingest-{name}.md"
     for name in ("github", "local", "trello")

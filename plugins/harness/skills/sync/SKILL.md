@@ -40,7 +40,7 @@ If the user asks what would change, or passes `--dry-run`, run **only the
 read-only pieces** — `link-plan.sh` (Phase 1's command),
 `reconcile_shared_settings.py --check` for the shared settings file,
 `mcp-manifest.sh --check` for the portable MCP inventory, Phase 2.5's MCP
-verification block against the machine-local runtime file, Phase 2.6's step 0
+verification block against the machine-local user registry, Phase 2.6's step 0
 *detection* block (the `git
 ls-files --error-unmatch` tracked-check and the `.gitignore` presence
 check — not the fix block right after it) and step 1 (the
@@ -48,7 +48,7 @@ check — not the fix block right after it) and step 1 (the
 `portability-lint.sh` (Phase 3's command), and `rubric-audit.sh` (Phase 3.5's
 command — it only reads transcripts) — then print the report from
 Phase 4 and stop. Phase 2.5's MCP block only reads the portable inventory and
-machine-local `mcp.json`, then checks whether each declared server is configured
+Claude Code's machine-local user registry, then checks whether each declared server is configured
 and resolves; it belongs in a dry run because
 that's exactly the kind of thing someone previewing a sync wants to see.
 Phase 2.6's step 0 detection and step 1 are the same shape: `git ls-files
@@ -121,8 +121,9 @@ to create the personal repository; ordinary Sync runs never re-bootstrap it.
 Create a new timestamped archive under `$HOME` containing every present live entry
 managed by `link-plan.sh`: `skills`, `output-styles`, `CLAUDE.md`, `settings.json`,
 `statusline-command.sh`, the cross-tool `studio-moser` config directory, and Codex
-`AGENTS.md`. Back up machine-local `mcp.json` separately in the same archive, but
-never adopt it into Git. Resolve their configured roots exactly as Phase 1 does.
+`AGENTS.md`. Back up a present legacy `$claude/mcp.json` separately in the same
+archive before cleaning it up, but never copy Claude Code's global `.claude.json`
+state or adopt either file into Git. Resolve configured roots exactly as Phase 1 does.
 
 Append each present entry to the archive separately. Missing optional entries are
 normal and must not make the archive fail. Never overwrite an earlier backup, and
@@ -216,9 +217,10 @@ ready. Normal and cloned repositories skip directly to Phase 1.
 
 1. Create `skills/`, `claude/`, `config/studio-moser/`, and `codex/` under `$repo`
    as needed. Copy every present managed entry into its Phase 1 repo path except
-   runtime `mcp.json`; copy, do not move, so the originals remain recoverable
+   machine-local MCP state; copy, do not move, so the originals remain recoverable
    until verification. Generate the secret-free, names-only `$repo/mcp.manifest`
-   from the runtime file instead. Do not adopt Codex `AGENTS.md` as a source:
+   by reading only the top-level `mcpServers` names from Claude Code's global
+   `.claude.json` state. Never copy that state file. Do not adopt Codex `AGENTS.md` as a source:
    preserve any unique instruction in `House Style.md` or `CLAUDE.md`, then let
    Phase 2.2 render the derived file.
 2. Keep local-only state out of Git: `claude/mcp.json`, `settings.local.json`,
@@ -255,10 +257,11 @@ Each line ends in a state:
 | `RELINK(->X)` | symlink points somewhere else | show `X`, confirm, re-link |
 | `MISSING-IN-REPO` | the repo has no such file | report; do not create anything |
 
-Runtime `mcp.json` is deliberately absent from this table. Commands, arguments,
-environment variables, and credentials are machine-local. Phase 2.5 compares its
-server names to the portable, names-only `mcp.manifest`; Sync never links or tracks
-the runtime file.
+Claude Code's global `.claude.json` state is deliberately absent from this table.
+Commands, arguments, environment variables, credentials, OAuth data, and application
+state are machine-local. Phase 2.5 compares only its top-level user-scope MCP server
+names to the portable `mcp.manifest`; Sync never copies, links, prints, or tracks the
+global state file.
 
 **`MISSING-IN-REPO` is checked first and masks the other states.** If the
 repo lacks the file, `link-plan.sh` reports `MISSING-IN-REPO` for that entry
@@ -452,36 +455,42 @@ exists now (pulled or rendered): create the link here — `mkdir -p
 "${CODEX_HOME:-$HOME/.codex}/AGENTS.md"` — unless a real file sits there, in which
 case follow the Phase 1 `AGENTS.md` REAL-FILE rule (move it aside, then link).
 
-### 2.3 Localize the MCP runtime and generate its portable inventory
+### 2.3 Generate the portable MCP inventory and clean up the legacy tracked file
 
-`$claude/mcp.json` is machine-local runtime state. If an older repo tracks it or
-the live path is a symlink into the repo, preserve its resolved bytes as a regular
-live file before untracking it. Never print or copy its command, args, URL,
-headers, or environment into a report. The shared artifact is only the sorted
-server-name inventory `mcp.manifest`:
+Claude Code stores user-scope MCP servers in the top-level `mcpServers` object of
+`${CLAUDE_CONFIG_DIR}/.claude.json` when `CLAUDE_CONFIG_DIR` is set, or
+`$HOME/.claude.json` otherwise. Read that file only to generate the sorted,
+names-only `mcp.manifest`; never copy, link, print, stage, or commit the state file.
+
+`$claude/mcp.json` is a legacy path. If an older repo tracks it or the live legacy
+path is a symlink into the repo, preserve its resolved bytes as a regular live file
+before untracking it. Never print its command, args, URL, headers, or environment:
 
 ```bash
 repo="${AGENTS_REPO:-$HOME/.agents}"
 claude="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
-runtime="$claude/mcp.json"
-if [ -L "$runtime" ]; then
+runtime_mcp="${CLAUDE_CONFIG_DIR:-$HOME}/.claude.json"
+legacy_runtime="$claude/mcp.json"
+if [ -L "$legacy_runtime" ]; then
   temporary="$(mktemp "$claude/.mcp.json.migrate.XXXXXX")"
   trap 'rm -f "$temporary"' EXIT HUP INT TERM
-  cp -pL "$runtime" "$temporary"
-  unlink "$runtime"
-  mv "$temporary" "$runtime"
+  cp -pL "$legacy_runtime" "$temporary"
+  unlink "$legacy_runtime"
+  mv "$temporary" "$legacy_runtime"
   temporary=""
   trap - EXIT HUP INT TERM
 fi
-if [ -f "$runtime" ]; then
-  "$harness/scripts/mcp-manifest.sh" "$runtime" "$repo/mcp.manifest"
+if [ -f "$runtime_mcp" ]; then
+  "$harness/scripts/mcp-manifest.sh" "$runtime_mcp" "$repo/mcp.manifest" || exit $?
+else
+  echo "MCP_STATE=not configured"
 fi
 grep -qxF 'claude/mcp.json' "$repo/.gitignore" 2>/dev/null || printf '%s\n' 'claude/mcp.json' >> "$repo/.gitignore"
 git -C "$repo" rm --cached claude/mcp.json --ignore-unmatch -q
 ```
 
-If the runtime file is missing, report `MCP_STATE=not configured` and do not
+If the user registry is missing, report `MCP_STATE=not configured` and do not
 invent a manifest. In dry-run mode, do not run this block; validate an existing
 inventory with `mcp-manifest.sh --check "$repo/mcp.manifest"` and inspect the live
 file read-only in Phase 2.5.
@@ -629,8 +638,9 @@ to run.
 
 ### MCP servers — verify, report, never auto-install
 
-Read the tracked names-only `mcp.manifest` and the machine-local runtime
-`$claude/mcp.json`. Validate the manifest first. For each declared name, confirm
+Read the tracked names-only `mcp.manifest` and the machine-local user registry
+(`${CLAUDE_CONFIG_DIR}/.claude.json` when configured, otherwise
+`$HOME/.claude.json`). Validate the manifest first. For each declared name, confirm
 that this machine has a matching runtime entry and that a local command resolves;
 a URL-style entry is counted separately. **Do not attempt to install anything.**
 Honour `disabledMcpjsonServers` in `settings.local.json`; a server disabled on
@@ -640,6 +650,7 @@ environment, or credentials — findings name the server only.
 ```bash
 repo="${AGENTS_REPO:-$HOME/.agents}"
 claude="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+runtime_mcp="${CLAUDE_CONFIG_DIR:-$HOME}/.claude.json"
 harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
 [ ! -e "$repo/mcp.manifest" ] || "$harness/scripts/mcp-manifest.sh" --check "$repo/mcp.manifest"
 
@@ -690,7 +701,7 @@ for name in sorted(set(servers) - declared):
     print(f"MCP_LOCAL_ONLY={name}")
 '
 
-printf '%s\n' "$mcp_reconcile_script" | python3 - "$repo/mcp.manifest" "$claude/mcp.json" "$claude/settings.local.json"
+printf '%s\n' "$mcp_reconcile_script" | python3 - "$repo/mcp.manifest" "$runtime_mcp" "$claude/settings.local.json"
 ```
 
 Report unresolved servers by name. `MCP_LOCAL_ONLY` is informational: runtime
@@ -1122,11 +1133,12 @@ last command; nothing may write the repo after it returns:
 set -euo pipefail
 repo="${AGENTS_REPO:-$HOME/.agents}"
 claude="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+runtime_mcp="${CLAUDE_CONFIG_DIR:-$HOME}/.claude.json"
 harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
 
 [ ! -e "$repo/claude/settings.json" ] || "$harness/scripts/localize-skill-overrides.py" "$repo/claude/settings.json" "$claude/settings.local.json"
 [ ! -e "$repo/claude/settings.json" ] || "$harness/scripts/reconcile_shared_settings.py" "$repo/claude/settings.json"
-[ ! -f "$claude/mcp.json" ] || "$harness/scripts/mcp-manifest.sh" "$claude/mcp.json" "$repo/mcp.manifest"
+[ ! -f "$runtime_mcp" ] || "$harness/scripts/mcp-manifest.sh" "$runtime_mcp" "$repo/mcp.manifest"
 "$harness/scripts/render-codex-agents.sh" "$repo"
 "$harness/scripts/link-plan.sh" "$repo"
 "$harness/scripts/portability-lint.sh" "$repo"
