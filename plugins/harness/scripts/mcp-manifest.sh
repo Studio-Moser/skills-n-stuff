@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Write a portable MCP inventory containing server names only, or validate one.
-# Runtime commands, arguments, URLs, headers, environment, and credentials remain
-# machine-local in $CLAUDE_CONFIG_DIR/mcp.json.
+# Commands, arguments, URLs, headers, environment, credentials, OAuth data, and
+# application state remain machine-local in Claude Code's global .claude.json file.
 set -euo pipefail
 
 validate_manifest() {
@@ -34,15 +34,15 @@ if [ "${1:-}" = "--check" ]; then
   exit 0
 fi
 
-[ $# -eq 2 ] || { echo "usage: mcp-manifest.sh <runtime-mcp.json> <mcp.manifest>" >&2; exit 2; }
-runtime="$1"
+[ $# -eq 2 ] || { echo "usage: mcp-manifest.sh <claude-user-state.json> <mcp.manifest>" >&2; exit 2; }
+user_state="$1"
 manifest="$2"
 parent="$(dirname "$manifest")"
 [ -d "$parent" ] || { echo "mcp-manifest: target parent '$parent' is missing" >&2; exit 2; }
 tmp="$(mktemp "$parent/.mcp.manifest.XXXXXX")"
 trap 'rm -f "$tmp"' EXIT HUP INT TERM
 
-python3 - "$runtime" > "$tmp" <<'PY'
+python3 - "$user_state" > "$tmp" <<'PY'
 import json
 from pathlib import Path
 import re
@@ -51,7 +51,7 @@ import sys
 try:
     data = json.loads(Path(sys.argv[1]).read_text())
 except Exception as error:
-    print(f"MCP_MANIFEST_STATE=failed: runtime MCP JSON is not readable: {type(error).__name__}", file=sys.stderr)
+    print(f"MCP_MANIFEST_STATE=failed: Claude user state is not readable: {type(error).__name__}", file=sys.stderr)
     raise SystemExit(1)
 
 servers = data.get("mcpServers", {})
@@ -62,7 +62,7 @@ if not isinstance(servers, dict):
 valid = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 for name in sorted(servers):
     if not valid.fullmatch(name):
-        print("MCP_MANIFEST_STATE=failed: runtime contains an invalid server name", file=sys.stderr)
+        print("MCP_MANIFEST_STATE=failed: Claude user state contains an invalid server name", file=sys.stderr)
         raise SystemExit(1)
     print(name)
 PY
