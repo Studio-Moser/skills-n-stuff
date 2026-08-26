@@ -111,7 +111,7 @@ and exit cleanly.
 | `*-recommendations.md` | `weekly-recommendations` |
 | `deep-dives/*.md` | `deep-dive` |
 
-Read `plugins/pm/agents/ingestion-analyst.md` in the PM orchestrator. Copy its complete
+Read `plugins/pm/references/ingestion-analyst.md` in the PM orchestrator. Copy its complete
 output schema and extraction rules into each request; do not pass the PM-private path
 to Harness. For each report, invoke `harness:execute` with `operation: execute` and
 `route: bulk`. Submit independent requests concurrently; PM does not resolve how

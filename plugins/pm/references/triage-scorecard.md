@@ -11,7 +11,7 @@ XL child items independently; do not score their goal epic.
 
 ## Submit the scorecard request
 
-For each item, read `plugins/pm/agents/scorecard-evaluator.md` in the PM orchestrator.
+For each item, read `plugins/pm/references/scorecard-evaluator.md` in the PM orchestrator.
 Copy its complete evaluation checklist, readiness gate, and output rules into the
 request; do not pass the PM-private path to Harness. Then invoke `harness:execute` with
 `operation: execute` and `route: bulk`. The request is read-only and evaluates one
