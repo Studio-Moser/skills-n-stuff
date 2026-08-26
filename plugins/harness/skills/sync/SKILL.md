@@ -482,7 +482,9 @@ if [ -L "$legacy_runtime" ]; then
   trap - EXIT HUP INT TERM
 fi
 if [ -f "$runtime_mcp" ]; then
-  "$harness/scripts/mcp-manifest.sh" "$runtime_mcp" "$repo/mcp.manifest"
+  "$harness/scripts/mcp-manifest.sh" "$runtime_mcp" "$repo/mcp.manifest" || exit $?
+else
+  echo "MCP_STATE=not configured"
 fi
 grep -qxF 'claude/mcp.json' "$repo/.gitignore" 2>/dev/null || printf '%s\n' 'claude/mcp.json' >> "$repo/.gitignore"
 git -C "$repo" rm --cached claude/mcp.json --ignore-unmatch -q

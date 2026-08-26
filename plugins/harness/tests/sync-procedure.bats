@@ -350,6 +350,68 @@ EOF
   [[ "$output" != *"user-secret"* ]]
 }
 
+@test "MCP inventory generation reports a missing Claude user registry" {
+  phase="$BATS_TEST_TMPDIR/mcp-generation-missing-phase.sh"
+  agents="$BATS_TEST_TMPDIR/agents"
+  claude="$BATS_TEST_TMPDIR/claude-config"
+  harness="$BATS_TEST_TMPDIR/harness"
+  mkdir -p "$agents" "$claude" "$harness/scripts"
+  git init -q -b main "$agents"
+  printf '\n' > "$agents/.gitignore"
+  cat > "$harness/scripts/mcp-manifest.sh" <<'EOF'
+#!/usr/bin/env bash
+exit 99
+EOF
+  chmod +x "$harness/scripts/mcp-manifest.sh"
+  extract_first_bash_block_after \
+    "### 2.3 Generate the portable MCP inventory and clean up the legacy tracked file" \
+    "$phase"
+
+  run env \
+    AGENTS_REPO="$agents" \
+    CLAUDE_CONFIG_DIR="$claude" \
+    CLAUDE_PLUGIN_ROOT="$harness" \
+    bash "$phase"
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"MCP_STATE=not configured"* ]] || return 1
+  [ ! -e "$agents/mcp.manifest" ]
+}
+
+@test "failed MCP inventory generation stops before legacy cleanup" {
+  phase="$BATS_TEST_TMPDIR/mcp-generation-failure-phase.sh"
+  agents="$BATS_TEST_TMPDIR/agents"
+  claude="$BATS_TEST_TMPDIR/claude-config"
+  harness="$BATS_TEST_TMPDIR/harness"
+  mkdir -p "$agents/claude" "$claude" "$harness/scripts"
+  git init -q -b main "$agents"
+  git -C "$agents" config user.email test@example.com
+  git -C "$agents" config user.name "Harness Test"
+  printf 'legacy\n' > "$agents/claude/mcp.json"
+  printf '\n' > "$agents/.gitignore"
+  git -C "$agents" add .gitignore claude/mcp.json
+  git -C "$agents" commit -q -m base
+  printf '%s\n' '{"mcpServers":{"portable-memory":{"command":"sh"}}}' > "$claude/.claude.json"
+  cat > "$harness/scripts/mcp-manifest.sh" <<'EOF'
+#!/usr/bin/env bash
+exit 23
+EOF
+  chmod +x "$harness/scripts/mcp-manifest.sh"
+  extract_first_bash_block_after \
+    "### 2.3 Generate the portable MCP inventory and clean up the legacy tracked file" \
+    "$phase"
+
+  run env \
+    AGENTS_REPO="$agents" \
+    CLAUDE_CONFIG_DIR="$claude" \
+    CLAUDE_PLUGIN_ROOT="$harness" \
+    bash "$phase"
+
+  [ "$status" -eq 23 ]
+  git -C "$agents" ls-files --error-unmatch claude/mcp.json >/dev/null
+  ! grep -qxF 'claude/mcp.json' "$agents/.gitignore"
+}
+
 @test "final validation regenerates MCP inventory from the custom Claude user registry" {
   phase="$BATS_TEST_TMPDIR/mcp-final-phase.sh"
   agents="$BATS_TEST_TMPDIR/agents"
