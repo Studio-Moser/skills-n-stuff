@@ -410,6 +410,7 @@ repo = Path(sys.argv[1])
 sprint = (repo / "plugins/pm/skills/sprint-dev/SKILL.md").read_text()
 dev_task = (repo / "plugins/pm/skills/dev-task/SKILL.md").read_text()
 evaluation = (repo / "plugins/pm/evals/PM Skill Eval.md").read_text()
+readiness = (repo / "plugins/pm/references/work-readiness.md").read_text()
 
 failures = []
 for label, text in (("sprint-dev", sprint), ("dev-task", dev_task)):
@@ -426,6 +427,7 @@ for label, text in (("sprint-dev", sprint), ("dev-task", dev_task)):
             failures.append(f"{label} omits Harness execution request field: {clause}")
 
 normalized_sprint = " ".join(sprint.split()).lower()
+normalized_readiness = " ".join(readiness.split()).lower()
 for phrase in (
     "unblocked frontier",
     "scheduling collision",
@@ -434,6 +436,16 @@ for phrase in (
 ):
     if phrase not in normalized_sprint:
         failures.append(f"sprint-dev omits execution rule: {phrase}")
+for phrase in (
+    "consumes the other slice's outcome",
+    "shared mutable contract",
+    "exclusive environment",
+    "unknown semantic independence",
+):
+    if phrase not in normalized_readiness:
+        failures.append(f"work-readiness omits parallel-safety rule: {phrase}")
+if "parallel safety:" not in normalized_sprint:
+    failures.append("sprint-dev proposal omits Parallel Safety")
 if "max 8 items per batch" in normalized_sprint:
     failures.append("sprint-dev retains the numeric batch cap")
 if "same files must go in the same cluster" in normalized_sprint:
@@ -464,6 +476,9 @@ for needle in (
     "unblocked frontier",
     "scheduling collision",
 ):
+    if needle.lower() not in eval_section.lower():
+        failures.append(f"colliding-item eval omits {needle}")
+for needle in ("non-isolatable staging search index", "Parallel Safety", "worktrees do not isolate"):
     if needle.lower() not in eval_section.lower():
         failures.append(f"colliding-item eval omits {needle}")
 

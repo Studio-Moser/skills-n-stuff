@@ -202,10 +202,11 @@ General cluster categories (adapt to the project):
 - **ui** — Frontend components, pages, visualizations
 - **misc** — Items that don't clearly fit
 
-Collision scheduling: compare the likely paths for every pair of proposed slices. For
-each scheduling collision, record whether the slices will use isolated worktrees or run
-sequentially. Apply the remaining collision and batch-boundary rules from
-`references/work-readiness.md`.
+Collision scheduling: apply the canonical parallel-safety check from
+`references/work-readiness.md` to every pair of proposed slices before comparing their
+likely paths. For each scheduling collision, record whether the slices will use
+isolated worktrees or run sequentially. Apply the remaining collision and
+batch-boundary rules from `references/work-readiness.md`.
 
 For multi-repo projects, also route each item to its target repo based on the product context.
 
@@ -239,6 +240,7 @@ Branch: pulse/{cluster}-{YYYY-MM-DD}
   Blockers: {Blockers or none}
   Testing Seam: {procedure and expected result}
   Proof: {current proof state; normally unproven before implementation}
+  Parallel Safety: {independent because ... | sequential because ...}
   Schedule: {parallel | isolated from PR N | sequential after PR N}
   #{n} {item description}
      Source: GitHub Issue #{n} | Local .pm/items/{n}-{slug}.yml
@@ -343,11 +345,13 @@ The request must carry the approved `Outcome`, `Blockers`, `Testing Seam`, and
 current `Proof` verbatim. It also carries batch item metadata, the product context,
 memory context when available, and every approved file-ownership constraint.
 
-Submit non-colliding requests concurrently. For each scheduling collision, follow the
-approved isolation decision or run the requests sequentially. Parallel requests use
-separate worktrees, and each request's `authority.allowed_paths` states its file
-ownership ceiling. A newly discovered overlap returns as a blocker; PM then orders or
-re-isolates the affected slices instead of widening either request.
+Submit requests concurrently only when the approved `Parallel Safety` decision says
+independent and the existing collision rule from `references/work-readiness.md` is
+satisfied. For each scheduling collision, follow the approved isolation decision or
+run the requests sequentially. Parallel requests use separate worktrees, and each
+request's `authority.allowed_paths` states its file ownership ceiling. A newly
+discovered overlap returns as a blocker; PM then orders or re-isolates the affected
+slices instead of widening either request.
 
 Consume each Harness Result without interpreting its concrete route details. A
 `blocked`, `failed`, or `abandoned` result stays visible with its blockers. For an

@@ -72,9 +72,15 @@ A blocking edge `A -> B` means B cannot produce its outcome until A is complete.
 
 Shared files are scheduling collisions: order the colliding slices or isolate their changes. They do not automatically make the slices one outcome or one pull request.
 
+Before parallel dispatch, confirm that neither slice consumes the other slice's outcome
+and that there is no shared mutable contract, persisted state, or exclusive environment.
+File isolation resolves file collisions only. Unknown semantic independence requires
+sequential execution.
+
 ### Completion conditions
 
 Before dispatch, each proposed slice has explicit blockers and the selected work is on the unblocked frontier. A collision has an ordering or isolation decision, not forced batching.
+Each proposed slice records a parallel-safety decision.
 
 ## Wide refactors
 
