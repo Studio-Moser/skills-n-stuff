@@ -358,6 +358,25 @@ for name, (expected_set, report_label) in requirements.items():
     taste_position = taste.start() if taste else -1
     if manifest_position < 0 or taste_position < 0 or manifest_position > taste_position:
         failures.append(f"{name}: branch manifest is not built before synthesis")
+    manifest = re.search(r"### Branch Manifest\n(.*?)(?:\n---|\n## |\Z)", text, re.DOTALL)
+    if not manifest:
+        failures.append(f"{name}: missing branch manifest for no-result handling")
+        continue
+    manifest_lowered = " ".join(manifest.group(1).split()).lower()
+    for phrase in (
+        "when no harness result exists",
+        "retain the expected identity",
+        "status: unavailable (no result)",
+        "product pulse manifest sentinel",
+        "not a harness status",
+        "evidence outcome `unproven`",
+        "blocker `missing harness result`",
+        "elapsed `unavailable`",
+        "count that row as unproven for coverage",
+        "exclude its claims",
+    ):
+        if phrase not in manifest_lowered:
+            failures.append(f"{name}: branch manifest omits no-result rule: {phrase}")
 
 assert not failures, "invalid Product Pulse fan-in coverage:\n" + "\n".join(failures)
 PY

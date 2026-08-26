@@ -197,8 +197,12 @@ abandoned domain and continue with the remaining domains.
 ### Branch Manifest
 
 Build the Branch Manifest before synthesis with one row for every configured domain.
-Record branch identity, exact Harness `status`, evidence outcome, blockers, and elapsed
-when available (`unavailable` otherwise). Only accepted/proven branches whose
+For a returned result, record branch identity, exact Harness `status`, evidence outcome,
+blockers, and elapsed when available (`unavailable` otherwise). When no Harness Result
+exists, retain the expected identity. Record `status: unavailable (no result)` as a
+Product Pulse manifest sentinel, not a Harness status; record evidence outcome
+`unproven`, blocker `missing Harness Result`, and elapsed `unavailable`; count that row
+as unproven for coverage and exclude its claims. Only accepted/proven branches whose
 verification seam Product Pulse reproduced may contribute content. Keep every other
 expected branch in the manifest and exclude its claims.
 
@@ -256,7 +260,7 @@ constraints:
     coverage whenever accepted/proven is fewer than expected. Never describe a failed,
     blocked, abandoned, unproven, or missing branch as scanned, researched, or covered.
 verification:
-  seam: Trace every report claim and action item to one accepted domain finding and verify branch manifest totals, degraded-coverage disclosure, caps, deduplication, strategic scoring, citations, and report path
+  seam: Trace every report claim and action item to one accepted domain finding and verify branch manifest totals, including no-result unproven classification, degraded-coverage disclosure, caps, deduplication, strategic scoring, citations, and report path
   expected: The draft is source-faithful, strategically ranked, complete, accurately discloses coverage, and ready for Product Pulse publication
 ```
 

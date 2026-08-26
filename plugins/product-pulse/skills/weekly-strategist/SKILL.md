@@ -238,11 +238,14 @@ priority-setting.
 ### Branch Manifest
 
 Build the Branch Manifest before synthesis with one row for the five analyst roles plus
-every required adjudication. Record branch identity, exact Harness `status`, evidence
-outcome, blockers, and elapsed when available (`unavailable` otherwise). Only
-accepted/proven branches whose verification seam Product Pulse reproduced may
-contribute content. Keep every other expected branch in the manifest and exclude its
-claims.
+every required adjudication. For a returned result, record branch identity, exact Harness
+`status`, evidence outcome, blockers, and elapsed when available (`unavailable`
+otherwise). When no Harness Result exists, retain the expected identity. Record
+`status: unavailable (no result)` as a Product Pulse manifest sentinel, not a Harness
+status; record evidence outcome `unproven`, blocker `missing Harness Result`, and elapsed
+`unavailable`; count that row as unproven for coverage and exclude its claims. Only
+accepted/proven branches whose verification seam Product Pulse reproduced may contribute
+content. Keep every other expected branch in the manifest and exclude its claims.
 
 After every required adjudication is accepted or explicitly excluded, invoke
 `harness:execute` with `operation: execute` and `route: taste` for the strategy draft.
@@ -294,7 +297,7 @@ constraints:
     coverage whenever accepted/proven is fewer than expected. Never describe a failed,
     blocked, abandoned, unproven, or missing branch as scanned, researched, or covered.
 verification:
-  seam: Trace every theme, priority, alert, and recommendation to accepted cited evidence or adjudication and verify branch manifest totals, degraded-coverage disclosure, excluded claims, exact priority count, report sections, brevity, and report paths
+  seam: Trace every theme, priority, alert, and recommendation to accepted cited evidence or adjudication and verify branch manifest totals, including no-result unproven classification, degraded-coverage disclosure, excluded claims, exact priority count, report sections, brevity, and report paths
   expected: The strategy brief and recommendations are evidence-grounded, decisive, complete, accurately disclose coverage, and ready for Product Pulse publication
 ```
 
