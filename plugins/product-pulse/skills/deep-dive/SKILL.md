@@ -16,7 +16,8 @@ Harness owns routing and execution. Invoke the named Harness skill through `Skil
 do not read Harness skill, reference, script, or rubric files, and do not perform
 Harness phases inside Product Pulse. Do not read or inspect the model rubric, and
 do not resolve a model, effort, provider, or executor. Do not repair an unresolved
-or blocked route inside Product Pulse; consume and report the typed Harness Result.
+or blocked route inside Product Pulse except for the explicit same-route taste retry
+in Phase 6; consume and report the typed Harness Result.
 
 ---
 
@@ -318,6 +319,17 @@ verification:
   seam: Trace every report claim and actionable recommendation to accepted cited evidence and verify project references, confidence, required sections, frontmatter data, and report path
   expected: The report draft is decisive, source-faithful, project-specific, complete, and ready for Product Pulse publication
 ```
+
+The Product Pulse deep-dive workflow authorizes a Codex fallback. If the first
+`taste` request returns `status: blocked` solely because its resolved executor is
+unavailable or quota-limited, retry the same semantic `route: taste` request once
+through Harness. Carry forward the original outcome, context, files, authority
+ceiling, constraints, and verification target, then add one constraint authorizing
+Harness to select a reachable Codex executor whose declared taste capability meets
+its active `taste_min`. Harness still resolves the model, effort, provider, and
+executor; Product Pulse does not inspect the rubric or name a concrete model. Do not
+retry any other blocker, bypass Harness, or accept a fallback below `taste_min`.
+Consume the second typed result normally; if it is not accepted and proven, stop.
 
 Require `status: accepted` and `evidence.outcome: proven`, then reproduce the seam.
 Reject a draft that changes a citation, hides a contradiction, invents a project fact,

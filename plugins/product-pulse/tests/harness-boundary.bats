@@ -78,6 +78,31 @@ PY
   [ "$status" -eq 0 ]
 }
 
+@test "deep-dive authorizes one Harness-owned Codex fallback for unavailable taste execution" {
+  run python3 - "$REPO" <<'PY'
+from pathlib import Path
+import sys
+
+text = (Path(sys.argv[1]) / "plugins/product-pulse/skills/deep-dive/SKILL.md").read_text()
+normalized = " ".join(text.split())
+required = (
+    "Product Pulse deep-dive workflow authorizes a Codex fallback",
+    "first `taste` request returns `status: blocked` solely because its resolved executor is unavailable or quota-limited",
+    "retry the same semantic `route: taste` request once through Harness",
+    "Harness still resolves the model, effort, provider, and executor",
+    "Do not retry any other blocker",
+    "`taste_min`",
+)
+failures = [phrase for phrase in required if phrase not in normalized]
+
+assert not failures, "deep-dive Codex fallback contract omits:\n" + "\n".join(failures)
+PY
+  if [ "$status" -ne 0 ]; then
+    printf '%s\n' "$output" >&2
+  fi
+  [ "$status" -eq 0 ]
+}
+
 @test "Product Pulse workflows submit semantic Harness routes" {
   run python3 - "$REPO" <<'PY'
 from pathlib import Path
