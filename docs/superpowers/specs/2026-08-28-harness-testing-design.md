@@ -1,7 +1,7 @@
 # Harness Testing Design
 
 **Date:** 2026-08-28
-**Status:** Proposed
+**Status:** Approved
 
 ## Purpose
 
@@ -22,8 +22,10 @@ live repositories, user-global agent configuration, or Shelby memory.
 
 1. Use Harbor as the evaluation runner, sandbox, task format, agent adapter layer,
    trajectory format, result format, and local trial viewer.
-2. Store frozen test projects inside Harbor tasks in the public repository. Do not
-   create a companion fixtures repository.
+2. Store locally authored frozen test projects inside Harbor tasks in the public
+   repository. Resolve the capability pack from its immutable upstream commit into an
+   ignored local cache; do not create a companion fixtures repository or vendor
+   third-party task content without an in-tree license.
 3. Use Harbor RewardKit and separate verifiers for deterministic outcome grading and
    policy checks. Use ATIF trajectories for diagnostic workflow and efficiency metrics.
 4. Keep correctness, workflow compliance, and efficiency as separate dimensions. Do
@@ -92,7 +94,7 @@ agent and task combination after each edit.
 
 ```text
 Harness Testing repository
-  tasks + datasets + experiment arms + policy + sanitized exports + dashboard
+  task packs + experiment arms + policy + sanitized exports + dashboard
             |
             v
 Harbor
@@ -128,7 +130,7 @@ Future Shelby integration -> Harbor custom installed-agent or external-agent bou
 
 ### Harbor owns
 
-- Task schema and dataset manifests.
+- Task schema and local-dataset resolution.
 - Container and network isolation.
 - Agent installation and execution.
 - Claude Code and Codex adapters.
@@ -155,30 +157,23 @@ the unmaintained `harbor-framework/benchmark-template` repository.
 
 ```text
 harness-testing/
-  datasets/
-    contract/
-      dataset.toml
-    workflow/
-      dataset.toml
-    capability/
-      dataset.toml
   tasks/
     contract/
-    react-typescript/
-    static-web/
-    rust/
+    workflow/
   arms/
-    stock/
-    superpowers/
-    studio-harness/
-    combined/
+    Definitions.toml
+    materialized/ (ignored)
   policy/
     command-classification.*
     verification-envelopes.*
   scorer/
     rewardkit criteria and deterministic tests
+  images/
+    pinned agent and verifier base images
   runs/
-    checked-in run definitions, not credentials or raw private jobs
+    Profiles.toml and checked-in run policy, not credentials or raw private jobs
+  src/harness_testing/
+    thin arm, run, validation, regrade, and result adapters
   dashboard/
     static site and sanitized data contract
   results/
@@ -187,20 +182,25 @@ harness-testing/
     task authoring, methodology, interpretation, and release policy
 ```
 
-The exact filenames and extensions must follow Harbor's current generated layout and
-schemas at implementation time. This tree expresses ownership, not permission to invent
-parallel configuration formats.
+Harbor treats a local dataset as a directory whose immediate children are valid task
+directories. Contract and workflow task directories are therefore flat beneath their
+pack directory; checked-in Harbor `JobConfig` YAML selects those paths and task names.
+There is no benchmark-owned local `dataset.toml` format.
 
 Each locally authored Harbor task contains:
 
 - `instruction.md` with one observable assignment;
-- `task.toml` with a stable task identity and version;
+- `task.toml` using Harbor schema `1.4`, with a stable `org/name` identity and task
+  package version;
 - an isolated `environment/` containing the frozen project;
 - an optional `solution/solve.sh` for oracle validation; and
 - `tests/` containing a separate verifier environment and its checks.
 
-Dependencies are version-pinned and baked into task or verifier images. Trial-time
-network access is denied unless a task has a reviewed, narrowly allowlisted need.
+Dependencies and the selected Claude Code and Codex CLI versions are pinned and baked
+into task or verifier base images so isolated trials do not reinstall an agent for every
+attempt. Environment setup may use public networking only while building those pinned
+images. Agent execution switches to a provider-specific allowlist, and the separate
+verifier runs with `network_mode = "no-network"`.
 
 ## Evaluation Packs
 
@@ -237,13 +237,28 @@ private Studio Moser client repositories.
 
 ### Capability pack
 
-The capability pack uses a version-pinned six-task DeepSWE subset: two TypeScript, two
-JavaScript, and two Rust tasks. It measures whether efficiency improvements damage
-general coding capability.
+The capability pack uses DeepSWE v1.1 at commit
+`8cae5984d5dd0ee37445beff0e928dc10c331116`. Its six-task cohort is:
 
-The implementation plan must name the exact published dataset version, stable task IDs,
-licenses, and Harbor invocation after inspecting the current DeepSWE adapter. The subset
-is a deliberate, manually triggered research lane rather than ordinary CI.
+| Language | Difficulty band | Task ID |
+| --- | --- | --- |
+| TypeScript | easier | `happy-dom-abort-pending-body-reads` |
+| TypeScript | harder | `quill-shared-toolbar-focus` |
+| JavaScript | easier | `yjs-map-conflict-detection` |
+| JavaScript | harder | `katex-multicolumn-array-spans` |
+| Rust | easier | `wasmi-trap-coredumps` |
+| Rust | harder | `pest-character-class-coalescing` |
+
+The pinned DeepSWE tree does not contain a license file, although GitHub currently
+classifies the repository as Apache-2.0. Harness Testing therefore does not redistribute
+the task files. A deterministic materializer fetches only the named directories at the
+pinned commit into an ignored cache, records the original digests, and derives local
+images that preinstall the pinned provider CLIs. It preserves task instructions,
+solutions, verifiers, and starting repositories byte-for-byte. Any generated Harbor
+compatibility metadata and derived-image digest are recorded separately from the
+upstream task digest.
+
+This subset is a deliberate, manually triggered research lane rather than ordinary CI.
 
 ## Experiment Arms
 
@@ -268,6 +283,17 @@ Each arm can run with Claude Code or Codex. Every run records:
 - trial count, concurrency, timeout, and network policy; and
 - scorer and dashboard schema versions.
 
+Arms use each provider's real distribution path:
+
+| Provider | Superpowers delivery | Studio Harness delivery |
+| --- | --- | --- |
+| Claude Code | Official plugin seed, including its `SessionStart` hook | Official Studio Moser plugin seed plus a public, benchmark-safe project instruction file |
+| Codex | Official native Codex plugin cache and marketplace config; the package is skills-only because its manifest has no hook | Public Harness skills in `.agents/skills` plus the corresponding project `AGENTS.md` instructions |
+
+The benchmark does not pretend those provider packages have identical surfaces.
+Provenance and the dashboard label Claude's hook-capable Superpowers bundle separately
+from Codex's skills-only bundle.
+
 The complete eight-cell matrix is a calibration experiment, not the default change
 workflow. Ordinary Studio Harness work compares the current A2 baseline with an A2
 candidate. A3 is included only when the change could interact with Superpowers.
@@ -284,6 +310,12 @@ Every trial receives:
 - no Shelby memory or project scope;
 - no prior trial worktree, Git history, cache, or result artifacts; and
 - a separate verifier environment.
+
+Harbor v0.22.0 installs agents during environment setup and switches network policy at
+the agent phase. Locally authored tasks use a no-network runtime baseline with the exact
+CLIs already present in pinned images, a provider API allowlist for `agent.run()`, and a
+no-network separate verifier. Capability tasks keep DeepSWE's no-network runtime and use
+derived images with the same pinned CLIs already installed.
 
 Authentication needed to invoke Claude Code or Codex is injected through Harbor's
 supported secret mechanism and is never written to task, result, or dashboard files.
@@ -401,15 +433,19 @@ Classification operates on ATIF tool calls and executable task metadata. Unknown
 commands remain visible for human review rather than being guessed into a favorable
 class.
 
-RewardKit programmatic criteria produce a multi-dimensional `reward.json`. The main
-`reward` is correctness/integrity. Workflow and efficiency dimensions remain separately
-named and independently reportable.
+RewardKit programmatic criteria live in top-level `tests/reward/`, `tests/workflow/`,
+and `tests/efficiency/` directories and therefore emit `{reward, workflow, efficiency}`.
+`reward` is correctness/integrity and is labelled **Correctness** in reports.
+`efficiency` is only the absolute policy dimension (for example, a forbidden premature
+suite run); the full efficiency vector remains raw diagnostic data and is never collapsed
+into a composite ranking.
 
 ## Benchmark Task QA
 
 Every task must pass these deterministic gates before it can consume model budget:
 
-1. Harbor schema and static validation pass.
+1. The repository's deterministic validator loads `task.toml`, checked-in job YAML, and
+   ATIF fixtures through Harbor v0.22.0's Pydantic models and trajectory validator.
 2. Agent and verifier container images build from pinned inputs.
 3. The oracle solution passes the verifier.
 4. The untouched project fails the task verifier when the task is not a legitimate
@@ -534,10 +570,20 @@ deployment, and licensing guidance. If their current supported path conflicts wi
 design, the plan must prefer Harbor's supported result/leaderboard components or another
 existing static renderer rather than inventing a dashboard framework.
 
+The approved implementation pins Observable Framework `1.13.4` and Observable Plot
+`0.6.17`. The site uses Framework's supported `src/` project root, static data loaders,
+and `dist/` output with Observable's documented GitHub Pages Actions flow. Framework's
+current `base` option affects only a custom 404 page, so the dashboard does not misuse it
+as a project-site prefix. The built artifact must prove navigation and assets work at the
+repository's Pages URL. GitHub Actions are pinned by full commit SHA and receive only the
+least privileges needed to build and deploy Pages.
+
 ## Future Shelby Integration
 
-Shelby is outside the first implementation. The repository nevertheless reserves these
-requirements for a later adapter:
+Shelby is outside the first implementation. The current Rust direction is a
+provider-neutral runtime with typed, append-only turn and tool events, cancellation, and
+durable state. No private Shelby source is copied into this public repository. The
+repository reserves these requirements for a later adapter:
 
 - implement Harbor's current custom external-agent or installed-agent interface without
   forking Harbor;
@@ -549,6 +595,12 @@ requirements for a later adapter:
   benchmark inputs; and
 - run without Shelby's production memory or user project data unless a future benchmark
   explicitly supplies synthetic memory as part of a task fixture.
+
+The seam is a documented future `BaseInstalledAgent`: `install()`, headless `run()`,
+`populate_context_post_run()`, and `SUPPORTS_ATIF = True`. A future adapter maps Shelby's
+native runtime events into ATIF v1.7 and populates Harbor `AgentContext`; the initial
+release contains a contract document and sample manifest only, not executable Shelby
+code.
 
 Claude, Codex, and Shelby results are comparable only when they use the same task and
 verifier versions and expose sufficient telemetry for the dimension being compared.
@@ -582,6 +634,28 @@ to connect it. An unresolved integration is not deferred as an implementation TO
 If current source contradicts this design, amend and reapprove the affected design
 section before implementation. Stop rather than creating a fork or parallel framework
 to preserve an invalid assumption.
+
+## Resolved Integration Pins
+
+The implementation plan is based on these inspected releases and supported surfaces:
+
+| Integration | Pin | Supported surface used |
+| --- | --- | --- |
+| Harbor | `v0.22.0`, commit `4407eb5227a2ff4f0d3f16b2eb48849382fdf276` | Task schema 1.4, top-level `JobConfig`, Docker mounts/network phases, built-in `claude-code` and `codex`, ATIF v1.7, artifacts, separate verifiers, regrade, viewer |
+| RewardKit | `0.1.7` | Folder-based programmatic criteria and `reward-details.json`; no model judge |
+| Claude Code | `2.1.236` initial baseline | `claude --print --verbose --output-format=stream-json`, `--settings`, `CLAUDE_CONFIG_DIR`, read-only `CLAUDE_CODE_PLUGIN_SEED_DIR` |
+| Codex CLI | `0.150.1` initial baseline | `codex exec --json`, `CODEX_HOME`, native `config.toml`, native plugins, `.agents/skills`, `AGENTS.md` |
+| Initial model baseline | Claude `claude-sonnet-4-6`; OpenAI `gpt-5.6-terra`; effort `high` | Fixed model IDs and same-window baseline/candidate comparisons; model changes create a new compatibility series |
+| Superpowers | `v6.3.0`, commit `b36e0829c6d0140e93cfef2ca599b1b07d4a7797` | Provider-native manifests; Claude `SessionStart` hook; Codex skills-only package |
+| Studio Harness | `0.8.1`, source commit `ff8852e737a43a7e23f2cad423905f9361fde8ae` | Claude plugin, public skills, public house rules and project baseline, generated Codex instruction/skill delivery model |
+| DeepSWE | v1.1 content commit `8cae5984d5dd0ee37445beff0e928dc10c331116` | Six exact task directories resolved by commit; no vendoring |
+| Observable Framework / Plot | `1.13.4` / `0.6.17` | Static loaders, `src/`, `dist/`, GitHub Pages |
+| Computer-use fixture | Python MCP SDK `2.1.1`; Playwright `1.62.0`; image manifest `sha256:aa81288e738725378becba5b3e06cb0f3a7f012a610e87e8d767a090ea3f740d` | Task-only streamable-HTTP MCP sidecar, real local browser interaction, protected event/screenshot collection |
+
+Harbor's root `harbor check` command invokes a model-based task-quality checker. It is
+not part of `validate`, CI, or automatic checkpoints. Harbor runs use `harbor run -c`,
+oracle/no-op validation uses `harbor trial start`, regrades use `harbor job regrade`, and
+local inspection uses `harbor view`.
 
 ## Failure Handling
 
@@ -632,3 +706,13 @@ The initial Harness Testing release is complete when:
 - [Terminal-Bench task review automation](https://github.com/harbor-framework/terminal-bench/blob/main/docs/TASK_REVIEW_AUTOMATION.md)
 - [Harbor benchmark-template deprecation notice](https://github.com/harbor-framework/benchmark-template)
 - [agent-belt](https://github.com/jfrog/agent-belt)
+- [Claude model IDs and versioning](https://platform.claude.com/docs/en/about-claude/models/model-ids-and-versions)
+- [Claude Code CLI reference](https://docs.anthropic.com/en/docs/claude-code/cli-usage)
+- [OpenAI model catalog](https://platform.openai.com/docs/models)
+- [Superpowers v6.3.0 source](https://github.com/obra/superpowers/tree/v6.3.0)
+- [Studio Harness pinned source](https://github.com/Studio-Moser/skills-n-stuff/tree/ff8852e737a43a7e23f2cad423905f9361fde8ae/plugins/harness)
+- [DeepSWE pinned source](https://github.com/datacurve-ai/deep-swe/tree/8cae5984d5dd0ee37445beff0e928dc10c331116)
+- [Observable Framework project structure](https://observablehq.com/framework/project-structure)
+- [Observable Framework configuration](https://observablehq.com/framework/config)
+- [Observable Framework GitHub Pages deployment](https://observablehq.com/framework/deploying)
+- [GitHub Pages custom workflows](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages)
