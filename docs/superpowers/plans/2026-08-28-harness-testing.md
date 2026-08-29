@@ -266,13 +266,17 @@ datasets:
 
 The Codex form changes the agent name, model, provider hosts, skills, config, and version;
 the surrounding Harbor structure stays identical. Every run declares `subscription` or
-`api` billing. Subscription jobs contain only the non-secret selector required by the
-pinned Harbor adapter (`CODEX_FORCE_AUTH_JSON=1` or `CLAUDE_FORCE_OAUTH=1`) and never a
-credential. Codex subscription networking is limited to `chatgpt.com` for model traffic
-and `auth.openai.com` for token refresh; API mode uses `api.openai.com`. Authentication
-values come from the launch process environment or the host credential file and are
-excluded from generated files. Do not retry task failures, timeouts, rate limits, safety
-refusals, usage limits, authentication failures, or missing models.
+`api` billing. The approved manifest binds the exact non-secret adapter selector
+(`CODEX_FORCE_AUTH_JSON=1` or `CLAUDE_FORCE_OAUTH=1`), but the generated Harbor job omits
+it. `run execute` injects the selector only into a copied environment for the child
+`harbor` process. This is required by Harbor 0.22.0: its post-run scrubber treats any
+`AgentConfig.env` key containing `AUTH` as sensitive and globally replaces the recorded
+value, so serializing the boolean value `1` there corrupts JSON evidence. Codex
+subscription networking is limited to `chatgpt.com` for model traffic and
+`auth.openai.com` for token refresh; API mode uses `api.openai.com`. Authentication values
+come from the launch process environment or the host credential file and are excluded
+from generated files. Do not retry task failures, timeouts, rate limits, safety refusals,
+usage limits, authentication failures, or missing models.
 
 `AgentConfig.skills` contains the content-addressed **host source directory**, not its
 container mount path. Harbor resolves and hashes that source while building the job lock,
@@ -589,8 +593,9 @@ Cover canonical digest stability, changed-manifest rejection, insufficient
 `max_sessions`, API estimate above `max_budget_usd`, subscription mode with a nonzero
 budget, missing or wrong subscription credentials, API-key fallback in subscription
 mode, missing timeout, concurrency above one for paired runs, implicit A0-A3 matrix
-requests, credentials in output, job-wide arm mount isolation, baseline/candidate
-alternation, and Harbor `JobConfig` validation.
+requests, credentials or subscription selectors in generated jobs, manifest-bound
+selector provenance, child-process-only selector injection, job-wide arm mount
+isolation, baseline/candidate alternation, and Harbor `JobConfig` validation.
 
 - [ ] **Step 2: Define checked-in profiles**
 
@@ -610,11 +615,12 @@ unique. The session count is `cells × tasks × attempts`; no hidden cell is add
 Construct Harbor's `JobConfig` directly, serialize it to YAML, reload it through
 `JobConfig.model_validate`, and write it beneath `runs/generated/{manifest-digest}/`.
 Select exact hosts by billing mode: provider API endpoints for `api`, and provider-native
-subscription endpoints for `subscription`. In subscription mode embed only Harbor's
-non-secret force-auth selector so an API key cannot become the implicit fallback. Mount
-the selected arm read-only. For Codex arms, pass the content-addressed host `skills/`
-directory to Harbor's `skills` field and let Harbor upload it; do not substitute the
-container mount path. Never serialize an auth value.
+subscription endpoints for `subscription`. Bind the required force-auth selector in the
+manifest provenance, but never place it in `AgentConfig.env`; Harbor 0.22.0 otherwise
+scrubs every occurrence of its short value from the result artifacts. Mount the selected
+arm read-only. For Codex arms, pass the content-addressed host `skills/` directory to
+Harbor's `skills` field and let Harbor upload it; do not substitute the container mount
+path. Never serialize an auth value.
 
 - [ ] **Step 4: Add the dry-run report and approval digest**
 
@@ -628,8 +634,10 @@ nothing.
 cap, billing contract, budget cap, and host subscription credential when selected, then
 requires an exact `--approve sha256:...`. Subscription preflight fails closed when the
 credential is absent, malformed, or the relevant API key/base URL is set; it never falls
-back to API billing. It invokes only `harbor run -c PATH_FROM_MANIFEST` in the recorded
-baseline/candidate order.
+back to API billing. Remove every known force-auth selector from a copied child-process
+environment, restore only the manifest-bound selectors in subscription mode, and invoke
+only `harbor run -c PATH_FROM_MANIFEST` in the recorded baseline/candidate order. Never
+mutate the parent process environment.
 
 - [ ] **Step 5: Keep cost semantics honest**
 
@@ -848,15 +856,19 @@ exact digest and subscription-quota use.
 
 Use the pinned Harbor Codex adapter's supported `auth.json` subscription path. Preflight
 the host credential without logging its contents, reject API-key/base-URL fallback, and
-pass only `CODEX_FORCE_AUTH_JSON=1` in the generated job. Missing auth, model access, or
-network capability is a typed infrastructure blocker; do not switch provider, widen the
-allowlist, mount the user home into the task, or install at trial time.
+bind `CODEX_FORCE_AUTH_JSON=1` in the approved manifest while injecting it only into the
+child `harbor` process environment. The generated job must omit the selector. Missing
+auth, model access, or network capability is a typed infrastructure blocker; do not
+switch provider, widen the allowlist, mount the user home into the task, or install at
+trial time.
 
 - [ ] **Step 3: Inspect Harbor-native evidence**
 
 Confirm each trial has a final workspace, RewardKit dimensions, ATIF v1.7 trajectory,
-nullable usage/cost fields, image and arm provenance, and no host path or secret. Use
-`harbor view` for local inspection. Do not publish these raw jobs.
+nullable usage/cost fields, image and arm provenance, and no host path or secret. Parse
+every JSON artifact after Harbor's final scrub; a scored trial with malformed evidence is
+an infrastructure failure, not a benchmark result. Use `harbor view` for local
+inspection. Do not publish these raw jobs.
 
 - [ ] **Step 4: Classify the smoke outcome**
 
