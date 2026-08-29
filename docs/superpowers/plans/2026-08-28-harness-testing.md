@@ -863,6 +863,10 @@ nullable usage/cost fields, image and arm provenance, and no host path or secret
 Record agent task failure separately from auth, rate limit, timeout, verifier, task, and
 sandbox failures. One retry is permitted only for the two named infrastructure exception
 classes already in the manifest. Do not rerun a correctness failure until green.
+If a deterministic plumbing defect stops a cell before its model starts, preserve every
+completed same-window cell and compile a new approval manifest containing only the cells
+that never started. Do not spend quota repeating a valid baseline merely to resume the
+batch.
 
 ---
 
