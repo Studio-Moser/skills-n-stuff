@@ -274,6 +274,12 @@ values come from the launch process environment or the host credential file and 
 excluded from generated files. Do not retry task failures, timeouts, rate limits, safety
 refusals, usage limits, authentication failures, or missing models.
 
+`AgentConfig.skills` contains the content-addressed **host source directory**, not its
+container mount path. Harbor resolves and hashes that source while building the job lock,
+uploads each skill into its default `/harbor/skills` directory, and passes only that
+container destination to the adapter. Never emit `/harness-arm/skills` in the `skills`
+field.
+
 ### Locally authored task contract
 
 Every task uses Harbor schema 1.4, a no-network baseline, an allowlisted agent phase, a
@@ -606,7 +612,9 @@ Construct Harbor's `JobConfig` directly, serialize it to YAML, reload it through
 Select exact hosts by billing mode: provider API endpoints for `api`, and provider-native
 subscription endpoints for `subscription`. In subscription mode embed only Harbor's
 non-secret force-auth selector so an API key cannot become the implicit fallback. Mount
-the selected arm read-only. Never serialize an auth value.
+the selected arm read-only. For Codex arms, pass the content-addressed host `skills/`
+directory to Harbor's `skills` field and let Harbor upload it; do not substitute the
+container mount path. Never serialize an auth value.
 
 - [ ] **Step 4: Add the dry-run report and approval digest**
 
