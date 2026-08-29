@@ -163,7 +163,7 @@ factories around them.
 harness-test validate [--changed-from SHA] [--static-only]
 harness-test images build [--node] [--rust] [--verifier]
 harness-test arm materialize --provider claude|codex --arm A0|A1|A2|A3 [--harness-source SOURCE --harness-commit SHA]
-harness-test run plan --profile PROFILE --cell PROVIDER:ARM:ROLE[:HARNESS_COMMIT] --task TASK ...
+harness-test run plan --profile PROFILE --billing-mode subscription|api --cell PROVIDER:ARM:ROLE[:HARNESS_COMMIT] --task TASK ...
 harness-test run execute --manifest PATH --approve sha256:DIGEST
 harness-test task qa (--task TASK | --pack PACK) [--case CASE | --all-cases]
 harness-test deepswe materialize [--confirm-download]
@@ -194,6 +194,7 @@ class RunCell:
 class RunManifest:
     schema_version: str
     profile: str
+    billing_mode: str
     cells: tuple[RunCell, ...]
     task_ids: tuple[str, ...]
     attempts: int
@@ -203,6 +204,7 @@ class RunManifest:
     max_sessions: int
     max_budget_usd: Decimal
     estimated_budget_usd: Decimal
+    api_equivalent_cost_usd: Decimal
     harbor_config_paths: tuple[str, ...]
     provenance: dict[str, str]
     digest: str
@@ -262,11 +264,15 @@ datasets:
       - react-grouped-ui-updates
 ```
 
-The Codex form changes the agent name, model, provider host, skills, config, and version;
-the surrounding Harbor structure stays identical. Authentication comes from the launch
-process environment and is excluded from generated files. Do not retry task failures,
-timeouts, rate limits, safety refusals, usage limits, authentication failures, or missing
-models.
+The Codex form changes the agent name, model, provider hosts, skills, config, and version;
+the surrounding Harbor structure stays identical. Every run declares `subscription` or
+`api` billing. Subscription jobs contain only the non-secret selector required by the
+pinned Harbor adapter (`CODEX_FORCE_AUTH_JSON=1` or `CLAUDE_FORCE_OAUTH=1`) and never a
+credential. Codex subscription networking is limited to `chatgpt.com` for model traffic
+and `auth.openai.com` for token refresh; API mode uses `api.openai.com`. Authentication
+values come from the launch process environment or the host credential file and are
+excluded from generated files. Do not retry task failures, timeouts, rate limits, safety
+refusals, usage limits, authentication failures, or missing models.
 
 ### Locally authored task contract
 
@@ -571,12 +577,14 @@ called.
 - Modify: `src/harness_testing/CLI.py`
 - Modify: `src/harness_testing/Validate.py`
 
-- [ ] **Step 1: Write failing manifest and budget tests**
+- [ ] **Step 1: Write failing manifest, billing, and auth tests**
 
 Cover canonical digest stability, changed-manifest rejection, insufficient
-`max_sessions`, estimate above `max_budget_usd`, missing timeout, concurrency above one
-for paired runs, implicit A0-A3 matrix requests, credentials in output, job-wide arm
-mount isolation, baseline/candidate alternation, and Harbor `JobConfig` validation.
+`max_sessions`, API estimate above `max_budget_usd`, subscription mode with a nonzero
+budget, missing or wrong subscription credentials, API-key fallback in subscription
+mode, missing timeout, concurrency above one for paired runs, implicit A0-A3 matrix
+requests, credentials in output, job-wide arm mount isolation, baseline/candidate
+alternation, and Harbor `JobConfig` validation.
 
 - [ ] **Step 2: Define checked-in profiles**
 
@@ -595,37 +603,47 @@ unique. The session count is `cells × tasks × attempts`; no hidden cell is add
 
 Construct Harbor's `JobConfig` directly, serialize it to YAML, reload it through
 `JobConfig.model_validate`, and write it beneath `runs/generated/{manifest-digest}/`.
-Use provider API-key endpoints only: `api.anthropic.com` for Claude and
-`api.openai.com` for Codex. Mount the selected arm read-only. Never serialize an auth
-value.
+Select exact hosts by billing mode: provider API endpoints for `api`, and provider-native
+subscription endpoints for `subscription`. In subscription mode embed only Harbor's
+non-secret force-auth selector so an API key cannot become the implicit fallback. Mount
+the selected arm read-only. Never serialize an auth value.
 
 - [ ] **Step 4: Add the dry-run report and approval digest**
 
 `run plan` prints provider, model, effort, arm, candidate commit, task IDs, attempts,
 session count, order, timeouts, concurrency, mount sources/targets, network hosts,
-estimated cost, maximum cost, and every generated Harbor config path. It writes the
-canonical manifest but starts nothing.
+billing mode, expected incremental cost, API-equivalent usage estimate, maximum cost,
+and every generated Harbor config path. It writes the canonical manifest but starts
+nothing.
 
 `run execute` revalidates tasks, arm provenance, image digests, manifest digest, session
-cap, and budget cap, then requires an exact `--approve sha256:...`. It invokes only
-`harbor run -c PATH_FROM_MANIFEST` in the recorded baseline/candidate order.
+cap, billing contract, budget cap, and host subscription credential when selected, then
+requires an exact `--approve sha256:...`. Subscription preflight fails closed when the
+credential is absent, malformed, or the relevant API key/base URL is set; it never falls
+back to API billing. It invokes only `harbor run -c PATH_FROM_MANIFEST` in the recorded
+baseline/candidate order.
 
 - [ ] **Step 5: Keep cost semantics honest**
 
-The session count and Harbor timeouts are hard limits. `max_budget_usd` is conservative
-admission control based on versioned token-price inputs: Claude Sonnet 4.6 at
-`$3 / MTok` input and `$15 / MTok` output, and GPT-5.6 Terra at `$2 / MTok` input and
-`$12 / MTok` output as of 2026-08-28. Provider-reported actual cost is recorded when
-available but never fabricated. If hard live cost termination is not supported by the
-selected CLI, say so in the dry-run instead of calling the estimate a hard provider cap.
+The session count and Harbor timeouts are hard limits. In `api` mode,
+`max_budget_usd` is positive conservative admission control based on versioned
+token-price inputs: Claude Sonnet 4.6 at `$3 / MTok` input and `$15 / MTok` output, and
+GPT-5.6 Terra at `$2 / MTok` input and `$12 / MTok` output as of 2026-08-28. In
+`subscription` mode, `max_budget_usd` and `estimated_budget_usd` must both be zero because
+the run authorizes no incremental API spend; retain the same calculation separately as
+`api_equivalent_cost_usd` for usage comparison. Provider-reported actual cost is recorded
+when available but never fabricated. If hard live cost termination is not supported by
+the selected CLI, say so in the dry-run instead of calling the estimate a hard provider
+cap.
 
 - [ ] **Step 6: Run targeted compiler checks**
 
 ```bash
 uv run pytest tests/unit/test_Runs.py -q
 uv run harness-test run plan --profile smoke \
-  --cell claude:A2:candidate:ff8852e737a43a7e23f2cad423905f9361fde8ae \
-  --task react-grouped-ui-updates --max-sessions 1 --max-budget-usd 10
+  --billing-mode subscription \
+  --cell codex:A2:candidate:ff8852e737a43a7e23f2cad423905f9361fde8ae \
+  --task react-grouped-ui-updates --max-sessions 1 --max-budget-usd 0
 ```
 
 Expected: a one-session manifest is printed and written; no Harbor job starts.
@@ -802,7 +820,7 @@ affected task/verifier images but starts no live model.
 
 ---
 
-### Task 8: Run one explicitly approved four-session plumbing smoke
+### Task 8: Run one explicitly approved Codex-only plumbing smoke
 
 **Files:**
 
@@ -811,16 +829,20 @@ affected task/verifier images but starts no live model.
 
 - [ ] **Step 1: Compile, print, and stop**
 
-Plan exactly one W3 trial for A0 and A2 on Claude and Codex: four sessions total,
-concurrency one, baseline/candidate interleaved, with recorded timeouts and a conservative
-budget estimate. Show the manifest and digest to the user. Do not proceed without their
-explicit approval of that digest and estimated maximum spend.
+Plan exactly one W3 trial for Codex A0 and A2: two sessions total, concurrency one,
+baseline/candidate interleaved, with recorded timeouts, subscription billing, zero
+authorized incremental spend, and an API-equivalent usage estimate. Claude is explicitly
+deferred while its subscription is paused; do not silently substitute it. Show the
+manifest and digest to the user. Do not proceed without their explicit approval of that
+exact digest and subscription-quota use.
 
 - [ ] **Step 2: Execute only the approved manifest**
 
-Use the two providers' supported API-key authentication. Missing auth, model access, or
+Use the pinned Harbor Codex adapter's supported `auth.json` subscription path. Preflight
+the host credential without logging its contents, reject API-key/base-URL fallback, and
+pass only `CODEX_FORCE_AUTH_JSON=1` in the generated job. Missing auth, model access, or
 network capability is a typed infrastructure blocker; do not switch provider, widen the
-allowlist, use a personal config home, or install at trial time.
+allowlist, mount the user home into the task, or install at trial time.
 
 - [ ] **Step 3: Inspect Harbor-native evidence**
 
