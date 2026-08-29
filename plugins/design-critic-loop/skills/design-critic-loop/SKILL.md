@@ -30,7 +30,7 @@ concrete, restate-able **Done Rubric**. Assemble it from, in order:
 
 1. **The brief** — the explicit requirements the user gave.
 2. **The system** — a design system, brand contract, tokens, or a calling skill's
-   checklist (e.g. `mac-design` §5 anti-slop, `figma-design` token contract).
+   checklist (e.g. `mac-app-design` Mac App Done Rubric, `figma-design` token contract).
 3. **A reference** — at least one concrete example (URL, screenshot, "like X") or
    an unambiguous aesthetic direction to judge craft against.
 
@@ -58,8 +58,8 @@ Turn the Done Rubric into explicit, checkable items across three lenses:
 - **Brief** — each requirement as a yes/no line ("covers all 7 tools"; "has a
   clear primary CTA"; "fits a 1080×1080 frame").
 - **System** — token / brand / checklist adherence. Pull the calling skill's
-  rubric **verbatim** (mac-design §5, figma-design token contract, the project
-  DESIGN.md). Each rule is one checkable line.
+  rubric **verbatim** (`mac-app-design` Mac App Done Rubric, `figma-design` token
+  contract, the project `DESIGN.md`). Each rule is one checkable line.
 - **Craft** — the taste bar: visual hierarchy, type scale, spacing rhythm,
   alignment, contrast/legibility, restraint (one accent, one primary action),
   state coverage, motion discipline. Derive concrete criteria from the reference
@@ -128,7 +128,7 @@ Any design skill can delegate verification here. After building, invoke
 `design-critic-loop` and pass your skill's checklist as the **System** (and, where
 it encodes taste, **Craft**) rubric:
 
-- `mac-design` → passes its §5 anti-slop checklist + §1 two-layer glass rules.
+- `mac-app-design` → passes the Mac App Done Rubric from `Mac Interface Contract.md`.
 - `figma-design` → passes its token contract + craft bar.
 - A project workflow → passes its `DESIGN.md`.
 

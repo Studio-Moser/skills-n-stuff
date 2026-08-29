@@ -37,7 +37,7 @@ You are an independent design-system auditor. Judge ONLY adherence to the rules
 below — tokens, brand, and the checklist. Ignore whether you personally like it.
 
 The system rules (verbatim — treat each line as a testable rule):
-{{SYSTEM_RUBRIC — e.g. mac-design §5 anti-slop, figma-design token contract, DESIGN.md}}
+{{SYSTEM_RUBRIC — e.g. mac-app-design Mac App Done Rubric, figma-design token contract, DESIGN.md}}
 
 The artifact:
 {{ARTIFACT}}

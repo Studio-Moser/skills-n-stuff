@@ -1,20 +1,21 @@
 # mac-design
 
-A Claude Code plugin for designing **native-feeling macOS app UI** in the Liquid
-Glass era (macOS 26 "Tahoe").
+A Claude Code plugin for designing **native-feeling macOS apps** in Studio Moser's
+Tauri 2 + SvelteKit 5 + Rust desktop stack.
 
-AI design tools don't have enough context on what a *real* Mac app looks like, so
-their output drifts toward web dashboards and iOS ports. This plugin supplies that
-missing context as a skill that auto-triggers when you're designing a Mac window,
-desktop app, SwiftUI/AppKit screen, or an HTML/CSS Mac-app mockup.
+The WebView is an implementation detail, not permission to ship a website in a
+window. This plugin supplies the Mac product, interface-kit, shell/bridge, agent
+harness, and verification contracts that keep generated apps compact,
+keyboard-first, resizable, accessible, and credible beside native Mac software.
 
 ## What's inside
 
-- **`mac-native-liquid-glass`** skill — the two-layer glass model, window /
-  toolbar / sidebar / menu-bar conventions, Mac metrics and color, a SwiftUI API
-  map, and a 10-point anti-slop checklist. Works for SwiftUI/AppKit *and* HTML/CSS
-  mockups. It layers a project's own brand (`DESIGN.md`) onto the content layer
-  while keeping the chrome system-native.
+- **`mac-app-design`** skill — a prompt contract, semantic Mac UI kit, compact
+  desktop metrics, Tauri/Svelte/Rust ownership model, narrow native capability
+  bridge, Glaze-inspired project harness, and a packaged-app done rubric.
+
+The skill is intentionally macOS-only and is not a SwiftUI UI guide. Other
+operating systems should use separate platform design skills.
 
 ## Install
 
@@ -23,8 +24,10 @@ desktop app, SwiftUI/AppKit screen, or an HTML/CSS Mac-app mockup.
 /plugin install mac-design@studio-moser
 ```
 
-The skill triggers on phrases like "mac app", "Liquid Glass", "toolbar",
-"sidebar", "make this feel native" — or invoke it explicitly.
+The skill triggers on requests for a Mac app, macOS desktop UI, Tauri/WebView Mac
+surface, toolbar/sidebar/inspector design, or “make this feel native.” Invoke it
+explicitly with `/mac-design:mac-app-design` when needed.
 
-Full illustrated guide, reference screenshots, and inspiration library live at
-`Shelby-Docs/design/mac-ui-best-practices/` in the Studio Moser workspace.
+Its Glaze guidance is clean-room: it reproduces the observable harness and design
+discipline of an installed Glaze app, not Glaze's unavailable private prompt or
+proprietary source.

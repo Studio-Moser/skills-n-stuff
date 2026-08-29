@@ -43,8 +43,8 @@
     {
       "name": "mac-design",
       "source": "./plugins/mac-design",
-      "description": "Design native-feeling macOS app UI in the Liquid Glass era (macOS 26 \"Tahoe\"). The context AI design tools lack, so output stops drifting toward web dashboards and iOS ports: the two-layer glass model, window/toolbar/sidebar/menu-bar conventions, Mac metrics and color, a SwiftUI API map, and an anti-slop checklist. Applies to SwiftUI/AppKit apps and HTML/CSS Mac-app mockups alike.",
-      "version": "0.1.2",
+      "description": "Design native-feeling macOS apps in a Tauri 2, SvelteKit 5, Rust, and WebView stack. Provides the Mac product, semantic UI-kit, shell/bridge, Glaze-inspired agent-harness, and packaged-app verification context that keeps generated desktop UI from becoming a web dashboard or mobile port.",
+      "version": "0.2.0",
       "author": {
         "name": "Studio Moser"
       },
@@ -52,22 +52,24 @@
       "keywords": [
         "macos",
         "mac-app",
-        "liquid-glass",
-        "swiftui",
-        "appkit",
+        "tauri",
+        "svelte",
+        "rust",
+        "webview",
         "apple-hig",
         "native-ui",
         "desktop-app",
         "toolbar",
         "sidebar",
+        "inspector",
         "ui-design"
       ],
       "category": "productivity",
       "tags": [
         "design",
         "macos",
-        "liquid-glass",
-        "swiftui",
+        "tauri",
+        "svelte",
         "native-ui"
       ]
     },
