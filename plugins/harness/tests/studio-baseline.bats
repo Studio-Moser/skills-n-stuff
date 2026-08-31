@@ -30,10 +30,13 @@ for phrase in ("Harness Request", "Harness Result"):
     assert phrase in text, f"baseline omits {phrase}"
 required = (
     "semantic route",
+    "do repository work directly",
+    "explicitly requests harness delegation",
     "harness resolves the model and executor",
     "propagates authority",
     "workers return evidence",
     "parent agents reproduce",
+    "do not run setup merely because",
 )
 missing = [phrase for phrase in required if phrase not in lower]
 assert not missing, "baseline omits Harness responsibilities: " + ", ".join(missing)
