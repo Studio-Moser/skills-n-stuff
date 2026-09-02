@@ -89,6 +89,35 @@ write_fixture() {
   echo "$output" | grep -qE 'haiku 0'
 }
 
+@test "a current timestamped entry is counted" {
+  write_fixture
+  now="$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
+  printf '{"type":"assistant","timestamp":"%s","message":{"role":"assistant","content":[{"type":"tool_use","id":"t","name":"Agent","input":{"model":"opus","prompt":"new"}}]}}\n' "$now" >> "$PROJ/abc123.jsonl"
+  run "$SCRIPT" --projects "${BATS_TEST_TMPDIR}/projects" --days 7
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -qE 'Agent dispatches: +4 total'
+  echo "$output" | grep -qE 'opus 2'
+}
+
+@test "when a duplicated session was continued, the larger copy wins" {
+  write_fixture
+  OTHER="${BATS_TEST_TMPDIR}/projects/-Users-me-moved-proj"
+  mkdir -p "$OTHER"
+  cp "$PROJ/abc123.jsonl" "$OTHER/abc123.jsonl"
+  tool_use_line Agent '{"model":"opus","prompt":"continued here"}' >> "$OTHER/abc123.jsonl"
+  run "$SCRIPT" --projects "${BATS_TEST_TMPDIR}/projects"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"1 session(s)"* ]] || return 1
+  echo "$output" | grep -qE 'Agent dispatches: +4 total'
+}
+
+@test "a fresh file whose entries are all old is not a session" {
+  printf '{"type":"assistant","timestamp":"2020-01-01T00:00:00.000Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"t","name":"Agent","input":{"model":"haiku","prompt":"old"}}]}}\n' > "$PROJ/abc123.jsonl"
+  run "$SCRIPT" --projects "${BATS_TEST_TMPDIR}/projects" --days 7
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"0 session(s)"* ]] || return 1
+}
+
 @test "missing projects dir reports 0 sessions, exit 0" {
   run "$SCRIPT" --projects "${BATS_TEST_TMPDIR}/nope"
   [ "$status" -eq 0 ]
