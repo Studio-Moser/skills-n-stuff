@@ -25,12 +25,26 @@ command -v python3 >/dev/null 2>&1 || { echo "rubric-audit.sh: python3 required"
 python3 - "$projects" "$days" << 'PY'
 import json, os, re, sys, time
 from collections import Counter
+from datetime import datetime, timezone
 
 root, days = sys.argv[1], int(sys.argv[2])
 cutoff = time.time() - days * 86400
 CODEX_RE = re.compile(r'(^|[^A-Za-z0-9_-])codex (exec|review)\b')
 
+def in_window(obj):
+    # Entries carry their own ISO timestamp; file mtime only says when the file
+    # was last touched (a moved project directory refreshes it). An entry with
+    # no timestamp is counted so hand-written fixtures still work.
+    ts = obj.get("timestamp")
+    if not ts:
+        return True
+    try:
+        return datetime.fromisoformat(ts.replace("Z", "+00:00")).timestamp() >= cutoff
+    except ValueError:
+        return True
+
 sessions = 0
+seen = set()                # session ids; a moved project dir leaves a duplicate transcript
 models = Counter()          # 'fable' | 'opus' | 'sonnet' | 'haiku' | other | 'UNSET'
 codex_bash = codex_skill = 0
 
@@ -49,6 +63,10 @@ if os.path.isdir(root):
                     continue
             except OSError:
                 continue
+            session_id = fn[:-len(".jsonl")]
+            if session_id in seen:
+                continue
+            seen.add(session_id)
             sessions += 1
             with open(path, encoding="utf-8", errors="replace") as fh:
                 for line in fh:
@@ -56,7 +74,7 @@ if os.path.isdir(root):
                         obj = json.loads(line)
                     except ValueError:
                         continue
-                    if obj.get("type") != "assistant":
+                    if obj.get("type") != "assistant" or not in_window(obj):
                         continue
                     content = (obj.get("message") or {}).get("content")
                     if not isinstance(content, list):

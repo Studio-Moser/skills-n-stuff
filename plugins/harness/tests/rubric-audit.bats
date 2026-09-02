@@ -70,6 +70,25 @@ write_fixture() {
   echo "$output" | grep -qE 'Agent dispatches: +0 total'
 }
 
+@test "a transcript duplicated across project dirs is counted once" {
+  write_fixture
+  OTHER="${BATS_TEST_TMPDIR}/projects/-Users-me-moved-proj"
+  mkdir -p "$OTHER"
+  cp "$PROJ/abc123.jsonl" "$OTHER/abc123.jsonl"
+  run "$SCRIPT" --projects "${BATS_TEST_TMPDIR}/projects"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"1 session(s)"* ]] || return 1
+  echo "$output" | grep -qE 'Agent dispatches: +3 total'
+}
+
+@test "entries with a timestamp older than --days are ignored even in a fresh file" {
+  write_fixture
+  printf '{"type":"assistant","timestamp":"2020-01-01T00:00:00.000Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"t","name":"Agent","input":{"model":"haiku","prompt":"old"}}]}}\n' >> "$PROJ/abc123.jsonl"
+  run "$SCRIPT" --projects "${BATS_TEST_TMPDIR}/projects" --days 7
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -qE 'haiku 0'
+}
+
 @test "missing projects dir reports 0 sessions, exit 0" {
   run "$SCRIPT" --projects "${BATS_TEST_TMPDIR}/nope"
   [ "$status" -eq 0 ]
