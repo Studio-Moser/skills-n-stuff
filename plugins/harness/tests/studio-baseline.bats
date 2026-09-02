@@ -34,8 +34,6 @@ required = (
     "propagates authority",
     "workers return evidence",
     "parent agents reproduce",
-    "matching namespaced harness skill before acting",
-    "/harness:execute",
 )
 missing = [phrase for phrase in required if phrase not in lower]
 assert not missing, "baseline omits Harness responsibilities: " + ", ".join(missing)
@@ -43,6 +41,7 @@ assert not missing, "baseline omits Harness responsibilities: " + ", ".join(miss
 forbidden = (
     "model-rubric.yml", "via:", "command -v", "routing.bulk",
     "routing.quick", "routing.review", "claude-", "codex-",
+    "matching namespaced harness skill before acting", "/harness:execute",
 )
 found = [token for token in forbidden if token in text]
 assert not found, "baseline embeds personal route/provider mechanics: " + ", ".join(found)

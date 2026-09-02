@@ -42,6 +42,10 @@ request, unresolved blocker, unavailable required tool, pending approval that a
 non-interactive worker cannot obtain, or permission boundary the executor cannot
 enforce returns `status: blocked` before dispatch.
 
+Before the first call to an environment-provided action, read its public contract
+or schema when available. Do not guess an action name or payload and recover by
+retrying.
+
 Use Shelby only when callable tool names prove it is available. Resolve one
 canonical project scope first; otherwise follow the repository/temp fallback.
 

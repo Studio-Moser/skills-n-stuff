@@ -1,0 +1,19 @@
+{
+  "description": "Activate the Harness execute procedure only for explicit Harness contract prompts.",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/activate-execute-skill.py"
+            ],
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

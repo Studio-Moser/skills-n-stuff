@@ -114,6 +114,10 @@ for clause in (
 
 normalized = " ".join(text.split())
 assert (
+    "Before the first call to an environment-provided action, read its public contract or schema when available"
+    in normalized
+), "execute allows agents to guess public action payloads before reading their contract"
+assert (
     "Other typed pre-dispatch reasons, including `missing_model_rubric`, stop before selection"
     in normalized
 ), "execute confuses typed pre-dispatch blockers with provider-fallback reasons"
