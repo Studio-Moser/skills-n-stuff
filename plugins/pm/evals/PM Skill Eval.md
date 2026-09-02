@@ -3,6 +3,54 @@
 Behavioral pressure scenarios for PM workflow changes. Bats tests are structural
 contracts only; they are not evidence that an agent follows these workflows.
 
+## Feature walkthrough
+
+### Prompt
+
+```text
+Run `/pm:feature-walkthrough` as a dry-run evaluation. Read the current skill and its
+overlay template first. Do not modify a project, branch, test, browser profile, tracker,
+or external system. The only permitted write is the observed result artifact at
+`.superpowers/sdd/2026-09-02-feature-walkthrough-skill/task-1-evals/Feature Walkthrough Result.md`.
+
+Request: Show me the new profile workflow.
+The repository has a passing Playwright feature test that uses an authorized QA account
+and synthetic profile data. No device choice or output destination is provided.
+
+First, show the exact response that the request receives. Then continue only with the
+scripted user answer `both`, and show the complete dry-run recording plan. Do not claim
+that a command, recording, conversion, or verification ran when it did not.
+```
+
+### Baseline failure
+
+An eager walkthrough can record at an implicit size before confirming the requested
+device, or present video output without preserving existing-test and safety proof.
+
+### Pass criteria
+
+- Before any recording plan, the first response asks exactly: `Desktop, mobile, or both?`
+- With `both`, the plan creates separate desktop and mobile artifacts whose viewport
+  and encoded dimensions are exactly 1920×1080 and 360×800, respectively, with no
+  scaling or letterboxing.
+- The plan uses the canonical overlay: `STEP N`, charcoal surface, white system type,
+  bottom-center placement, 180 ms fade-and-rise motion, two-second default hold, and
+  `pointer-events: none`.
+- The existing Playwright feature test runs and passes before recording; presentation
+  coverage does not replace its proof.
+- The plan confirms authorized QA data, synthetic data, and no exposed secrets,
+  customer data, production-only URLs, or unauthorized external mutation.
+- Final MP4s are H.264 when conversion is available, verified with `ffprobe` and a full
+  decode, and reported with artifact path, browser, viewport, encoded dimensions,
+  duration, and test result.
+- Only run-specific temporary files are removed; artifacts are not silently
+  overwritten or committed; `git status` is checked and any pre-existing worktree
+  changes remain intact.
+
+### Observed result artifact
+
+`.superpowers/sdd/2026-09-02-feature-walkthrough-skill/task-1-evals/Feature Walkthrough Result.md`
+
 ## Evaluation protocol
 
 Run each scenario with a fresh-context agent after the implementation commit:

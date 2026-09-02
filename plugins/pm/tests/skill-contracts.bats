@@ -8,6 +8,36 @@ setup() {
   REPO="$(cd "${BATS_TEST_DIRNAME}/../../.." && pwd)"
 }
 
+@test "feature walkthrough preserves the visual-proof contract" {
+  run python3 - "$REPO" <<'PY'
+from pathlib import Path
+import sys
+
+repo = Path(sys.argv[1])
+failures = []
+skill_path = repo / "plugins/pm/skills/feature-walkthrough/SKILL.md"
+template_path = repo / "plugins/pm/templates/playwright-walkthrough-overlay.ts"
+evaluation = (repo / "plugins/pm/evals/PM Skill Eval.md").read_text()
+if not skill_path.is_file(): failures.append("missing feature-walkthrough skill")
+if not template_path.is_file(): failures.append("missing walkthrough overlay template")
+if skill_path.is_file():
+    skill = " ".join(skill_path.read_text().split())
+    for needle in ("Desktop, mobile, or both?", "1920×1080", "360×800", "existing feature test", "ffprobe", "git status"):
+        if needle not in skill: failures.append(f"skill omits {needle}")
+if template_path.is_file():
+    template = template_path.read_text()
+    for needle in ("showWalkthroughStep", "STEP", "rgba(24, 27, 29, 0.94)", "pointerEvents: 'none'", "180ms", "2_000"):
+        if needle not in template: failures.append(f"template omits {needle}")
+for needle in ("## Feature walkthrough", "Desktop, mobile, or both?", "1920×1080", "360×800", "Feature Walkthrough Result.md"):
+    if needle not in evaluation: failures.append(f"eval omits {needle}")
+assert not failures, "; ".join(failures)
+PY
+  if [ "$status" -ne 0 ]; then
+    echo "$output"
+  fi
+  [ "$status" -eq 0 ]
+}
+
 @test "only invokable PM agents live under agents" {
   run python3 - "$REPO" <<'PY'
 from pathlib import Path
