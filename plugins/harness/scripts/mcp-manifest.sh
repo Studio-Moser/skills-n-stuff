@@ -21,8 +21,8 @@ import sys
 path = Path(sys.argv[1])
 try:
     lines = path.read_text().splitlines()
-except FileNotFoundError:
-    print(f"MCP_MANIFEST_STATE=failed: missing {path}", file=sys.stderr)
+except OSError as error:
+    print(f"MCP_MANIFEST_STATE=failed: unreadable {path}: {type(error).__name__}", file=sys.stderr)
     raise SystemExit(1)
 
 valid = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
