@@ -25,12 +25,26 @@ command -v python3 >/dev/null 2>&1 || { echo "rubric-audit.sh: python3 required"
 python3 - "$projects" "$days" << 'PY'
 import json, os, re, sys, time
 from collections import Counter
+from datetime import datetime
 
 root, days = sys.argv[1], int(sys.argv[2])
 cutoff = time.time() - days * 86400
 CODEX_RE = re.compile(r'(^|[^A-Za-z0-9_-])codex (exec|review)\b')
 
+def in_window(obj):
+    # Entries carry their own ISO timestamp; file mtime only says when the file
+    # was last touched (a moved project directory refreshes it). An entry with
+    # no timestamp is counted so hand-written fixtures still work.
+    ts = obj.get("timestamp")
+    if not isinstance(ts, str) or not ts:
+        return True
+    try:
+        return datetime.fromisoformat(ts.replace("Z", "+00:00")).timestamp() >= cutoff
+    except ValueError:
+        return True
+
 sessions = 0
+transcripts = {}            # session id -> path; a moved project dir leaves a duplicate transcript
 models = Counter()          # 'fable' | 'opus' | 'sonnet' | 'haiku' | other | 'UNSET'
 codex_bash = codex_skill = 0
 
@@ -47,31 +61,43 @@ if os.path.isdir(root):
             try:
                 if os.path.getmtime(path) < cutoff:
                     continue
+                size = os.path.getsize(path)
             except OSError:
                 continue
-            sessions += 1
-            with open(path, encoding="utf-8", errors="replace") as fh:
-                for line in fh:
-                    try:
-                        obj = json.loads(line)
-                    except ValueError:
-                        continue
-                    if obj.get("type") != "assistant":
-                        continue
-                    content = (obj.get("message") or {}).get("content")
-                    if not isinstance(content, list):
-                        continue
-                    for c in content:
-                        if not isinstance(c, dict) or c.get("type") != "tool_use":
-                            continue
-                        name = c.get("name")
-                        inp = c.get("input") or {}
-                        if name in ("Task", "Agent"):
-                            models[inp.get("model") or "UNSET"] += 1
-                        elif name == "Bash" and CODEX_RE.search(inp.get("command") or ""):
-                            codex_bash += 1
-                        elif name == "Skill" and str(inp.get("skill") or "").startswith("pm:codex-"):
-                            codex_skill += 1
+            session_id = fn[:-len(".jsonl")]
+            # A session copied then continued in the new location: the larger copy is
+            # the live one, so it wins regardless of os.walk order.
+            prior = transcripts.get(session_id)
+            if prior is None or size > prior[0]:
+                transcripts[session_id] = (size, path)
+
+for _size, path in transcripts.values():
+    active = False
+    with open(path, encoding="utf-8", errors="replace") as fh:
+        for line in fh:
+            try:
+                obj = json.loads(line)
+            except ValueError:
+                continue
+            if obj.get("type") != "assistant" or not in_window(obj):
+                continue
+            active = True
+            content = (obj.get("message") or {}).get("content")
+            if not isinstance(content, list):
+                continue
+            for c in content:
+                if not isinstance(c, dict) or c.get("type") != "tool_use":
+                    continue
+                name = c.get("name")
+                inp = c.get("input") or {}
+                if name in ("Task", "Agent"):
+                    models[inp.get("model") or "UNSET"] += 1
+                elif name == "Bash" and CODEX_RE.search(inp.get("command") or ""):
+                    codex_bash += 1
+                elif name == "Skill" and str(inp.get("skill") or "").startswith("pm:codex-"):
+                    codex_skill += 1
+    if active:
+        sessions += 1
 
 total = sum(models.values())
 unset = models.get("UNSET", 0)
