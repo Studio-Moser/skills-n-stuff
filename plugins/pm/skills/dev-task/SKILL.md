@@ -173,11 +173,18 @@ lint and reproduce the named Testing Seam against the returned artifact. Record 
 actual command or procedure and result in `Proof`. The slice is incomplete while its
 Outcome is missing, its Harness evidence is unproven, or a PM review blocker remains.
 
-## 7. PR
+## 7. Demonstrate on request
+
+Only when the user explicitly asks to see or record the result, invoke `pm:feature-walkthrough`
+after verification. Pass the approved Outcome, Testing Seam, feature test paths, requested
+devices, and destination. This optional demonstration does not gate completion: retained test,
+build, and review proof remain the completion gate.
+
+## 8. PR
 
 Open the PR per pm:house-rules with What, Why, and Testing, then share the URL.
 
-## 8. Wrap
+## 9. Wrap
 
 Summarize what shipped and what stayed out of scope. Use
 superpowers:finishing-a-development-branch for the merge/PR/cleanup choice. If a PM

@@ -38,6 +38,62 @@ PY
   [ "$status" -eq 0 ]
 }
 
+@test "dev-task routes explicit visual proof through feature walkthroughs" {
+  run python3 - "$REPO" <<'PY'
+from pathlib import Path
+import json
+import sys
+
+repo = Path(sys.argv[1])
+dev_task = (repo / "plugins/pm/skills/dev-task/SKILL.md").read_text()
+readme = (repo / "plugins/pm/README.md").read_text()
+manifest = json.loads((repo / "plugins/pm/.claude-plugin/plugin.json").read_text())
+marketplace = json.loads((repo / ".claude-plugin/marketplace.json").read_text())
+failures = []
+
+route = "## 7. Demonstrate on request"
+verify = "## 6. Verify — GATE"
+pr = "## 8. PR"
+if route not in dev_task:
+    failures.append("dev-task omits the visual-proof route")
+else:
+    section = " ".join(dev_task[dev_task.index(route):dev_task.index(pr, dev_task.index(route))].split()).lower()
+    for needle in (
+        "pm:feature-walkthrough",
+        "only when the user explicitly asks to see or record the result".lower(),
+        "Outcome".lower(),
+        "Testing Seam".lower(),
+        "feature test paths",
+        "requested devices",
+        "destination",
+        "does not gate completion",
+    ):
+        if needle not in section:
+            failures.append(f"visual-proof route omits {needle!r}")
+    if not (dev_task.index(verify) < dev_task.index(route) < dev_task.index(pr)):
+        failures.append("visual-proof route is not after verification and before PR creation")
+
+if "/pm:feature-walkthrough" not in readme:
+    failures.append("README omits /pm:feature-walkthrough")
+if "seven-skill pipeline" not in readme:
+    failures.append("README does not describe a seven-skill pipeline")
+if manifest.get("version") != "0.19.2":
+    failures.append("PM manifest version is not 0.19.2")
+
+pm = next((plugin for plugin in marketplace["plugins"] if plugin["name"] == "pm"), None)
+if pm is None or pm.get("version") != "0.19.2":
+    failures.append("PM marketplace version is not 0.19.2")
+if marketplace["metadata"].get("version") != "0.19.3":
+    failures.append("marketplace metadata version is not 0.19.3")
+
+assert not failures, "; ".join(failures)
+PY
+  if [ "$status" -ne 0 ]; then
+    echo "$output"
+  fi
+  [ "$status" -eq 0 ]
+}
+
 @test "only invokable PM agents live under agents" {
   run python3 - "$REPO" <<'PY'
 from pathlib import Path

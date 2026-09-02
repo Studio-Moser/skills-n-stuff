@@ -6,7 +6,7 @@ A backlog lifecycle plugin for [Claude Code](https://code.claude.com). Takes raw
 
 ## What It Does
 
-PM is a **six-skill pipeline** that manages the full lifecycle of work items, from discovery through delivery:
+PM is a **seven-skill pipeline** that manages the full lifecycle of work items, from discovery through delivery:
 
 | Skill | Role | When | What |
 |-------|------|------|------|
@@ -15,12 +15,14 @@ PM is a **six-skill pipeline** that manages the full lifecycle of work items, fr
 | `/pm:triage` | Classifier | When items need decisions | Verifies claims before design, prepares independently verifiable delivery slices, splits XL work under goal epics, scores, and promotes |
 | `/pm:sprint-dev` | Builder | When you're ready to ship | Selects the unblocked frontier, treats shared-file overlap as scheduling collisions, and submits approved slices as Harness operations with named proof |
 | `/pm:dev-task` | Pair-programmer | Implementing one focused change | Guides one approved delivery slice through implementation, evidence-backed review, and PR creation; works with or without `/pm:setup` |
+| `/pm:feature-walkthrough` | Demonstrator | When visual proof is explicitly requested | Produces a requested web-feature walkthrough from existing Playwright coverage; supplements, never replaces, test, build, and review proof |
 | `/pm:reconcile` | Janitor | After sprints or merges | Completion tracking, stale detection, blocker classification, CONTEXT.md and ADR proposals |
 
 ### Two build modes
 
 - **`/pm:sprint-dev`** — *work the backlog.* Selects unblocked ready slices, schedules collisions, then submits the approved PR set as Harness operations. Needs `/pm:setup` + a tracker.
 - **`/pm:dev-task`** — *walk me through this one task.* Interactive and foreground, with approval gates around one bounded change. Works in any repo, no setup required.
+- **`/pm:feature-walkthrough`** — *show me the verified result.* Records an explicitly requested visual walkthrough from existing Playwright coverage.
 
 Both defer through `pm:house-rules` to the
 [Harness-owned universal rules](../harness/references/house-rules.md); PM does not
