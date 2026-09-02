@@ -2,6 +2,14 @@
 # Write a portable MCP inventory containing server names only, or validate one.
 # Commands, arguments, URLs, headers, environment, credentials, OAuth data, and
 # application state remain machine-local in Claude Code's global .claude.json file.
+#
+# The inventory is the union of every machine's user-scope server names: this
+# machine's names are merged into the existing manifest, never substituted for
+# it, so two machines with different servers stop flipping the file on every
+# sync. A name leaves the manifest only when it is deleted by hand on a machine
+# that no longer has it and no other machine still declares it.
+# ponytail: union-only, so a server retired everywhere lingers until hand-removed;
+# add a per-machine tombstone file if retirements need to propagate.
 set -euo pipefail
 
 validate_manifest() {
@@ -42,7 +50,9 @@ parent="$(dirname "$manifest")"
 tmp="$(mktemp "$parent/.mcp.manifest.XXXXXX")"
 trap 'rm -f "$tmp"' EXIT HUP INT TERM
 
-python3 - "$user_state" > "$tmp" <<'PY'
+[ ! -e "$manifest" ] || validate_manifest "$manifest"
+
+python3 - "$user_state" "$manifest" > "$tmp" <<'PY'
 import json
 from pathlib import Path
 import re
@@ -60,10 +70,14 @@ if not isinstance(servers, dict):
     raise SystemExit(1)
 
 valid = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
-for name in sorted(servers):
+for name in servers:
     if not valid.fullmatch(name):
         print("MCP_MANIFEST_STATE=failed: Claude user state contains an invalid server name", file=sys.stderr)
         raise SystemExit(1)
+
+existing = Path(sys.argv[2])
+declared = set(existing.read_text().splitlines()) if existing.exists() else set()
+for name in sorted(declared | set(servers)):
     print(name)
 PY
 

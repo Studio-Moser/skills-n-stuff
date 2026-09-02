@@ -461,6 +461,12 @@ Claude Code stores user-scope MCP servers in the top-level `mcpServers` object o
 `${CLAUDE_CONFIG_DIR}/.claude.json` when `CLAUDE_CONFIG_DIR` is set, or
 `$HOME/.claude.json` otherwise. Read that file only to generate the sorted,
 names-only `mcp.manifest`; never copy, link, print, stage, or commit the state file.
+The generator merges this machine's names into the existing manifest rather than
+replacing it, so the file is the union of every machine's servers and two machines
+with different servers stop flipping it on each sync. A server retired everywhere
+stays declared until its line is deleted by hand; Phase 2.5 then reports it as
+`not configured on this machine` wherever it is absent, which is the intended
+signal for the removal.
 
 `$claude/mcp.json` is a legacy path. If an older repo tracks it or the live legacy
 path is a symlink into the repo, preserve its resolved bytes as a regular live file
@@ -705,7 +711,7 @@ printf '%s\n' "$mcp_reconcile_script" | python3 - "$repo/mcp.manifest" "$runtime
 ```
 
 Report unresolved servers by name. `MCP_LOCAL_ONLY` is informational: runtime
-details stay local and a name is shared only after the inventory is regenerated.
+details stay local and a name is shared only after the inventory is merged.
 
 ---
 
