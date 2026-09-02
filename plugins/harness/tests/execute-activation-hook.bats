@@ -63,13 +63,13 @@ payload = json.loads(result.stdout)
 output = payload["hookSpecificOutput"]
 assert output["hookEventName"] == "UserPromptSubmit"
 context = output["additionalContext"]
-assert "/harness:execute is already loaded" in context
-adapter = skill.index("### Internal Codex adapter")
-verification = skill.index("## Verify and return")
-assert skill[:adapter] in context
-assert skill[verification:] in context
+assert context.startswith("Detected environment state:")
+assert context.index("Follow this order:") < context.index("Installed excerpts:")
+assert "Read its public contract or schema before the first operational call" in context
+assert "copy its exact `check` value" in context
+assert "invoke the full `/harness:execute` skill" in context
 assert skill not in context
-assert len(context.encode()) < 10_000
+assert len(context.encode()) < 4_000
 assert "missing-rubric" not in context
 assert "copy the returned `reason` to" in context
 assert "`route.fallback_reason`" in context

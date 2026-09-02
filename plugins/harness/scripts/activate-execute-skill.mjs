@@ -31,11 +31,14 @@ function isExplicitExecute(prompt) {
 }
 
 function activationContext(skill, contract) {
-  const adapterMarker = "### Internal Codex adapter";
-  const verificationMarker = "## Verify and return";
-  const [beforeAdapter, afterAdapter] = skill.split(adapterMarker);
-  const [, verification] = afterAdapter.split(verificationMarker);
-
+  const actionStart = "Before the first call to an environment-provided action";
+  const actionEnd = "\n\nUse Shelby only when callable";
+  const actionContract = skill.slice(
+    skill.indexOf(actionStart),
+    skill.indexOf(actionEnd, skill.indexOf(actionStart)),
+  );
+  const resultStart = "Return every field in the HarnessResult";
+  const resultFields = skill.slice(skill.indexOf(resultStart)).trim();
   const contractStart = "For a blocked pre-dispatch terminal result";
   const contractEnd = "\n\n`artifacts.files`";
   const blockedContract = contract.slice(
@@ -43,20 +46,19 @@ function activationContext(skill, contract) {
     contract.indexOf(contractEnd, contract.indexOf(contractStart)),
   );
 
-  return (
-    "Detected environment state: this is an explicit Harness execute contract. " +
-    "/harness:execute is already loaded for this turn; invoking the Skill tool " +
-    "again would duplicate context. The installed procedure below governs the " +
-    "task before any other task action.\n\n" +
-    beforeAdapter +
-    adapterMarker +
-    "\n\nThe non-native Codex adapter details are intentionally not preloaded. That " +
-    "path requires loading the full /harness:execute skill before dispatch.\n\n" +
-    verificationMarker +
-    verification +
-    "\n\nRequired Harness contract excerpt:\n\n" +
-    blockedContract
-  );
+  return [
+    "Detected environment state: this is an explicit Harness execute contract.",
+    "Follow this order:",
+    "1. **Request** — Read and validate the request and its authority ceiling.",
+    "2. **Action contract** — Read its public contract or schema before the first operational call. Use the documented action name and payload shape on the first attempt.",
+    "3. **Action result** — When a structured response includes `check`, copy its exact `check` value to the beginning of `evidence.checks`; append bounded provenance only afterward.",
+    "4. **Terminal result** — Write every HarnessResult field using the installed blocked-result encoding when preflight cannot proceed.",
+    "5. **Dispatch** — If preflight succeeds and route selection or dispatch is needed, invoke the full `/harness:execute` skill before continuing.",
+    "Installed excerpts:",
+    actionContract,
+    blockedContract,
+    resultFields,
+  ].join("\n\n");
 }
 
 function main() {
