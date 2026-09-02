@@ -33,6 +33,31 @@ JSON
   [[ "$output" != *"/Applications"* ]]
 }
 
+@test "portable inventory merges names declared by other machines" {
+  printf 'alpha\nother-machine-only\n' > "$MANIFEST"
+  cat > "$RUNTIME" <<'JSON'
+{"mcpServers": {"zeta": {"command": "server"}, "alpha": {"url": "https://example.invalid/mcp"}}}
+JSON
+
+  "$SCRIPT" "$RUNTIME" "$MANIFEST"
+
+  run cat "$MANIFEST"
+  [ "$status" -eq 0 ]
+  [ "$output" = $'alpha\nother-machine-only\nzeta' ]
+}
+
+@test "portable inventory refuses to merge over an invalid existing manifest" {
+  printf '/Applications/Private.app/Contents/MacOS/server\n' > "$MANIFEST"
+  printf '%s\n' '{"mcpServers": {"alpha": {"command": "server"}}}' > "$RUNTIME"
+
+  run "$SCRIPT" "$RUNTIME" "$MANIFEST"
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"invalid portable MCP server name"* ]] || return 1
+  run cat "$MANIFEST"
+  [ "$output" = "/Applications/Private.app/Contents/MacOS/server" ]
+}
+
 @test "portable inventory check rejects an absolute command" {
   printf '/Applications/Private.app/Contents/MacOS/server\n' > "$MANIFEST"
 
