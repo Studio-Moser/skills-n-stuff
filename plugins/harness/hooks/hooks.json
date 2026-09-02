@@ -6,9 +6,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3",
+            "command": "node",
             "args": [
-              "${CLAUDE_PLUGIN_ROOT}/scripts/activate-execute-skill.py"
+              "${CLAUDE_PLUGIN_ROOT}/scripts/activate-execute-skill.mjs"
             ],
             "timeout": 5
           }

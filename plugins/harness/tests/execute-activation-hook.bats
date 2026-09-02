@@ -2,7 +2,7 @@
 
 setup() {
   REPO="$(cd "$BATS_TEST_DIRNAME/../../.." && pwd)"
-  HOOK="$REPO/plugins/harness/scripts/activate-execute-skill.py"
+  HOOK="$REPO/plugins/harness/scripts/activate-execute-skill.mjs"
   SKILL="$REPO/plugins/harness/skills/execute/SKILL.md"
   CONFIG="$REPO/plugins/harness/hooks/hooks.json"
 }
@@ -20,7 +20,7 @@ for prompt in (
     "How do a Harness Request and Harness Result relate?",
 ):
     result = subprocess.run(
-        [sys.executable, str(hook)],
+        ["node", str(hook)],
         input=json.dumps({"hook_event_name": "UserPromptSubmit", "prompt": prompt}),
         capture_output=True,
         text=True,
@@ -45,7 +45,7 @@ import sys
 hook = Path(sys.argv[1])
 skill = Path(sys.argv[2]).read_text()
 result = subprocess.run(
-    [sys.executable, str(hook)],
+    ["node", str(hook)],
     input=json.dumps(
         {
             "hook_event_name": "UserPromptSubmit",
@@ -69,8 +69,11 @@ verification = skill.index("## Verify and return")
 assert skill[:adapter] in context
 assert skill[verification:] in context
 assert skill not in context
-assert len(context) < 10_000
+assert len(context.encode()) < 10_000
 assert "missing-rubric" not in context
+assert "copy the returned `reason` to" in context
+assert "`route.fallback_reason`" in context
+assert "`path:<absolute-path>`" in context
 PY
   if [ "$status" -ne 0 ]; then
     printf '%s\n' "$output" >&2
@@ -91,8 +94,8 @@ handlers = groups[0]["hooks"]
 assert handlers == [
     {
         "type": "command",
-        "command": "python3",
-        "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/activate-execute-skill.py"],
+        "command": "node",
+        "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/activate-execute-skill.mjs"],
         "timeout": 5,
     }
 ]
