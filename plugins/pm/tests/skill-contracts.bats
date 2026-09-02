@@ -21,9 +21,17 @@ evaluation = (repo / "plugins/pm/evals/PM Skill Eval.md").read_text()
 if not skill_path.is_file(): failures.append("missing feature-walkthrough skill")
 if not template_path.is_file(): failures.append("missing walkthrough overlay template")
 if skill_path.is_file():
-    skill = " ".join(skill_path.read_text().split())
+    skill_text = skill_path.read_text()
+    skill = " ".join(skill_text.split())
     for needle in ("Desktop, mobile, or both?", "1920×1080", "360×800", "existing feature test", "ffprobe", "git status"):
         if needle not in skill: failures.append(f"skill omits {needle}")
+    for label, needle in {
+        "PM installed-root resolution": 'pm="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/pm/*/ 2>/dev/null | sort -V | tail -1)}"; pm="${pm%/}"',
+        "installed overlay helper path": 'overlay="$pm/templates/playwright-walkthrough-overlay.ts"',
+        "installed overlay helper read": 'Read "$overlay" before creating presentation coverage.',
+        "overlay helper copy": "copy it into the run-specific presentation coverage",
+    }.items():
+        if needle not in skill_text: failures.append(f"skill omits {label}")
 if template_path.is_file():
     template = template_path.read_text()
     for needle in ("showWalkthroughStep", "STEP", "rgba(24, 27, 29, 0.94)", "pointerEvents: 'none'", "180ms", "2_000"):

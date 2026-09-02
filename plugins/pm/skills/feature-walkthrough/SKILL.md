@@ -37,9 +37,19 @@ Reuse a project-owned walkthrough spec when present. Otherwise create run-specif
 presentation-only coverage from the existing feature test; do not alter normal E2E
 defaults. Start from a recognizable state, show the action and result, retain enough
 assertion to fail when the outcome is absent, and omit diagnostic assertions from the
-video. Use `plugins/pm/templates/playwright-walkthrough-overlay.ts` for each spoken
-state: `STEP N`, one short present-tense explanation, bottom center, and 180 ms
-fade-and-rise motion. Remove each overlay before the next interaction.
+video. Resolve the installed PM plugin root before using its overlay helper:
+
+```bash
+pm="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/pm/*/ 2>/dev/null | sort -V | tail -1)}"; pm="${pm%/}"
+overlay="$pm/templates/playwright-walkthrough-overlay.ts"
+[ -f "$overlay" ] || { echo "missing walkthrough overlay helper: $overlay" >&2; exit 1; }
+```
+
+Read "$overlay" before creating presentation coverage. Import it from that resolved
+path or copy it into the run-specific presentation coverage; do not recreate an ad hoc
+overlay. Use the helper for each spoken state: `STEP N`, one short present-tense
+explanation, bottom center, and 180 ms fade-and-rise motion. Remove each overlay before
+the next interaction.
 
 For each requested device, record a deterministic flow with one worker, list reporter,
 no automatically opened HTML report, about 350 ms action delay, and deliberate holds:
