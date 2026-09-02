@@ -15,9 +15,9 @@ The skill applies to requests such as “show me the feature,” “record a wal
 If the request does not specify a target, ask one concise question: **Desktop, mobile, or both?**
 
 - Desktop uses a real 1920×1080 viewport and 1920×1080 video.
-- Mobile uses the repository’s supported phone preset when available; otherwise use a 390×844 CSS viewport. Record it on a 1080×1920 portrait canvas.
+- Mobile uses an exact 360×800 viewport and 360×800 video.
 - A user-specified device or size overrides these defaults.
-- “Both” produces separate desktop and mobile files rather than letterboxing two layouts into one size.
+- “Both” produces separate desktop and mobile files. Each file’s encoded dimensions match its browser viewport exactly, with no scaling or letterboxing.
 
 ## Recording Workflow
 
