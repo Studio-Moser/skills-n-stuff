@@ -1,9 +1,10 @@
 ---
 name: execute
 description: >-
-  Use when a workflow has a bounded Harness implementation request that should
-  run through a resolved semantic route, whether the available executor is the
-  native agent runtime or an internal cross-provider adapter.
+  Use for explicit bounded Harness execution, semantic routing, or a typed
+  pre-dispatch blocker such as a missing model rubric or missing executor,
+  whether the available executor is native or an internal cross-provider
+  adapter.
 ---
 
 # Harness Execute
@@ -11,13 +12,19 @@ description: >-
 Execute one bounded provider-neutral request. The consumer owns the outcome;
 Harness owns routing, dispatch, authority preservation, and proof.
 
-Read the exact request/result schema in
-[references/harness-contract.md](../../references/harness-contract.md), route
-resolution in [references/routing.md](../../references/routing.md), the packet
-shape in [references/handoff.md](../../references/handoff.md), evidence rules in
-[references/verification.md](../../references/verification.md), context choice
-in [references/context.md](../../references/context.md), and optional state rules
-in [references/shelby-integration.md](../../references/shelby-integration.md).
+Read only the references whose predicates match the active path:
+
+- Read [the Harness contract](../../references/harness-contract.md) when
+  validating a request or constructing a terminal result.
+- Read [routing](../../references/routing.md) only after preflight succeeds and
+  route selection is needed.
+- Read [handoff](../../references/handoff.md) only before delegated dispatch.
+- Read [verification](../../references/verification.md) only when accepting an
+  artifact or review claim.
+- Read [context](../../references/context.md) only when context mode must be
+  selected.
+- Read [Shelby integration](../../references/shelby-integration.md) only when
+  Shelby is callable or the request enables memory.
 
 ## Validate the request
 
@@ -91,24 +98,27 @@ runtime only when the selected provider is native. Pass the resolved model and
 effort explicitly with the selected context mode and complete HandoffPacket. If
 either cannot be selected explicitly, stop rather than change providers.
 
-The only availability reasons are `quota`, `authentication`, `rate_limit`,
-`provider_unavailable`, and preflight `missing_executor`. The resolver owns
-`missing_executor`, open-circuit skips, cooldowns, and the single half-open probe;
-do not append a preflight skip to `--attempted`. After dispatch, classify only a
-bounded typed availability result from the executor boundary; do not infer one
-from unbounded raw provider text. On `quota`, `authentication`, `rate_limit`, or
-`provider_unavailable`, call `resolve-route.py record-failure` for the selected
-provider and executor (including a known quota retry time when present), append
-the selected model-effort candidate to `HARNESS_ATTEMPTED`, and repeat with the
-unchanged HarnessRequest. On success, call `resolve-route.py record-success` for
-that provider and executor. Any non-availability response also proves endpoint
-health, so clear an outstanding circuit before handling its task or output
-failure. Task, output, verification, authority, and approval failures stop
-without changing providers. Between iterations, do not change the request's
-operation, tools, approvals, working directory, allowed paths, fixed target,
-sandbox, or verification seam; only the attempted list and selected route data
-change. Exhausting the unique-provider chain returns `blocked`; the loop cannot
-exceed the authorized candidates.
+The only resolver-loop reasons that authorize provider fallback are `quota`,
+`authentication`, `rate_limit`, `provider_unavailable`, and preflight
+`missing_executor`. Other typed pre-dispatch reasons, including
+`missing_model_rubric`, stop before selection and use the blocked-result encoding
+in the Harness contract; they never authorize provider switching. The resolver
+owns `missing_executor`, open-circuit skips, cooldowns, and the single half-open
+probe; do not append a preflight skip to `--attempted`. After dispatch, classify
+only a bounded typed availability result from the executor boundary; do not
+infer one from unbounded raw provider text. On `quota`, `authentication`,
+`rate_limit`, or `provider_unavailable`, call `resolve-route.py record-failure`
+for the selected provider and executor (including a known quota retry time when
+present), append the selected model-effort candidate to `HARNESS_ATTEMPTED`, and
+repeat with the unchanged HarnessRequest. On success, call `resolve-route.py
+record-success` for that provider and executor. Any non-availability response
+also proves endpoint health, so clear an outstanding circuit before handling its
+task or output failure. Task, output, verification, authority, and approval
+failures stop without changing providers. Between iterations, do not change the
+request's operation, tools, approvals, working directory, allowed paths, fixed
+target, sandbox, or verification seam; only the attempted list and selected
+route data change. Exhausting the unique-provider chain returns `blocked`; the
+loop cannot exceed the authorized candidates.
 
 In the terminal result, copy the selection's `resolution` to
 `route.resolution`; set `route.attempted` to every candidate actually dispatched,

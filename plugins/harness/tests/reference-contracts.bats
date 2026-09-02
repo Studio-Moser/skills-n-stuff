@@ -159,6 +159,14 @@ require_clause(
     contract,
     "The top-level orchestrator owns the user conversation, scope, approvals, delegation graph, and final acceptance decision.",
 )
+for clause in (
+    "For a typed pre-dispatch block, copy the returned `reason` to `route.fallback_reason`.",
+    "When no dispatch occurred, set unresolved route fields to `null`, `route.attempted` to `[]`, and `telemetry.attempts` to `0`.",
+    "Encode a checked absolute path as `path:<absolute-path>` in `evidence.fixed_target`.",
+    "Begin each `evidence.checks` entry with the exact decisive result",
+    "Begin each blocker with `<reason>:` and follow it with the concrete recovery condition or setup action.",
+):
+    require_clause(contract, clause)
 require_clause(shelby, "The missing Shelby does not block execution.")
 require_clause(
     routing,

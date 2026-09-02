@@ -63,6 +63,63 @@ PY
   [ "$status" -eq 0 ]
 }
 
+@test "execute discovers typed pre-dispatch work and loads references progressively" {
+  run python3 - "$SKILLS_ROOT/execute/SKILL.md" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+text = Path(sys.argv[1]).read_text()
+frontmatter = text.split("---\n", 2)[1]
+description = re.search(
+    r"(?ms)^description:\s*(?:>-\s*\n(?P<folded>(?:^[ \t]+.*\n?)+)|(?P<plain>[^\n]+))",
+    frontmatter,
+)
+value = " ".join(
+    (
+        description.group("folded")
+        if description and description.group("folded")
+        else description.group("plain")
+        if description
+        else ""
+    ).split()
+).lower()
+for trigger in (
+    "explicit bounded harness execution",
+    "semantic routing",
+    "typed pre-dispatch blocker",
+    "missing model rubric",
+    "missing executor",
+):
+    assert trigger in value, f"execute description misses trigger: {trigger}"
+
+opening = " ".join(text.split("## Validate the request", 1)[0].split())
+assert "Read the exact request/result schema" not in opening, (
+    "execute still instructs agents to load every reference unconditionally"
+)
+for clause in (
+    "Read only the references whose predicates match the active path",
+    "when validating a request or constructing a terminal result",
+    "only after preflight succeeds and route selection is needed",
+    "only before delegated dispatch",
+    "only when accepting an artifact or review claim",
+    "only when context mode must be selected",
+    "only when Shelby is callable or the request enables memory",
+):
+    assert clause in opening, f"execute progressive disclosure misses: {clause}"
+
+normalized = " ".join(text.split())
+assert (
+    "Other typed pre-dispatch reasons, including `missing_model_rubric`, stop before selection"
+    in normalized
+), "execute confuses typed pre-dispatch blockers with provider-fallback reasons"
+PY
+  if [ "$status" -ne 0 ]; then
+    printf '%s\n' "$output" >&2
+  fi
+  [ "$status" -eq 0 ]
+}
+
 @test "execution skills preserve request authority and return the complete result contract" {
   run python3 - "$SKILLS_ROOT" <<'PY'
 from pathlib import Path

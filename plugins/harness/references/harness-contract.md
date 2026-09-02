@@ -95,6 +95,21 @@ caused a fallback selection, or empty for a primary resolution. These provenance
 fields describe routing; they do not alter the request's authority or proof
 requirements.
 
+For a blocked pre-dispatch terminal result, use these stable encodings:
+
+- For a typed pre-dispatch block, copy the returned `reason` to
+  `route.fallback_reason`.
+- When no dispatch occurred, set unresolved route fields to `null`,
+  `route.attempted` to `[]`, and `telemetry.attempts` to `0`. The unresolved
+  route fields are `actual_model`, `effort`, `provider`, `executor`, and
+  `resolution`; do not imply that a candidate was selected or invoked.
+- Encode a checked absolute path as `path:<absolute-path>` in
+  `evidence.fixed_target`.
+- Begin each `evidence.checks` entry with the exact decisive result; append the
+  command or procedure afterward only when it adds useful provenance.
+- Begin each blocker with `<reason>:` and follow it with the concrete recovery
+  condition or setup action.
+
 Use the statuses consistently:
 
 - `accepted`: the requested outcome was delivered and has current proof.
