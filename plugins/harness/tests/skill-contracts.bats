@@ -85,7 +85,11 @@ value = " ".join(
     ).split()
 ).lower()
 for trigger in (
+    "mandatory before acting",
     "explicit bounded harness execution",
+    "harnessrequest",
+    "harnessresult",
+    "routing_request",
     "semantic routing",
     "typed pre-dispatch blocker",
     "missing model rubric",

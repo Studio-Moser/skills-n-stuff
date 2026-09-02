@@ -34,6 +34,8 @@ required = (
     "propagates authority",
     "workers return evidence",
     "parent agents reproduce",
+    "matching namespaced harness skill before acting",
+    "/harness:execute",
 )
 missing = [phrase for phrase in required if phrase not in lower]
 assert not missing, "baseline omits Harness responsibilities: " + ", ".join(missing)

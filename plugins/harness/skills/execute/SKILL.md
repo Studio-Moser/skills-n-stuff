@@ -1,9 +1,10 @@
 ---
 name: execute
 description: >-
-  Use for explicit bounded Harness execution, semantic routing, or a typed
-  pre-dispatch blocker such as a missing model rubric or missing executor,
-  whether the available executor is native or an internal cross-provider
+  MANDATORY before acting on explicit bounded Harness execution involving a
+  HarnessRequest, HarnessResult, Routing_Request file, semantic routing, or a
+  typed pre-dispatch blocker such as a missing model rubric or missing
+  executor, whether execution is native or uses an internal cross-provider
   adapter.
 ---
 

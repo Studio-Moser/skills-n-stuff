@@ -70,7 +70,7 @@ route:
   attempted: ordered model-effort dispatches
   fallback_reason: typed availability reason or empty
 artifacts:
-  files: changed or created paths
+  files: delivered task outputs, excluding the HarnessResult envelope
   report: optional report path
 evidence:
   fixed_target: commit or immutable snapshot
@@ -109,6 +109,10 @@ For a blocked pre-dispatch terminal result, use these stable encodings:
   command or procedure afterward only when it adds useful provenance.
 - Begin each blocker with `<reason>:` and follow it with the concrete recovery
   condition or setup action.
+
+`artifacts.files` lists only delivered task outputs outside the result envelope.
+Writing or returning the HarnessResult file does not make it a delivered artifact.
+Leave `artifacts.files` empty when the task produced no other output.
 
 Use the statuses consistently:
 

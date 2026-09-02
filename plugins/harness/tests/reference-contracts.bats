@@ -100,7 +100,7 @@ assert parse_schema(result_schema) == [
     ("route.attempted", "ordered model-effort dispatches"),
     ("route.fallback_reason", "typed availability reason or empty"),
     ("artifacts", None),
-    ("artifacts.files", "changed or created paths"),
+    ("artifacts.files", "delivered task outputs, excluding the HarnessResult envelope"),
     ("artifacts.report", "optional report path"),
     ("evidence", None),
     ("evidence.fixed_target", "commit or immutable snapshot"),
@@ -165,6 +165,7 @@ for clause in (
     "Encode a checked absolute path as `path:<absolute-path>` in `evidence.fixed_target`.",
     "Begin each `evidence.checks` entry with the exact decisive result",
     "Begin each blocker with `<reason>:` and follow it with the concrete recovery condition or setup action.",
+    "Writing or returning the HarnessResult file does not make it a delivered artifact.",
 ):
     require_clause(contract, clause)
 require_clause(shelby, "The missing Shelby does not block execution.")
