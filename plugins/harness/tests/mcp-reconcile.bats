@@ -92,6 +92,36 @@ PY
   [[ "$PLAN" != *"held"* ]]
 }
 
+@test "an installed server whose value is still a placeholder reports NEEDS-SECRET" {
+  python3 - "$RUNTIME" <<'PY'
+import json, sys
+p = sys.argv[1]; d = json.load(open(p))
+d["mcpServers"]["both"]["env"] = {"INST_KEY": "${INST_KEY}"}
+json.dump(d, open(p, "w"))
+PY
+  plan
+  [[ "$PLAN" == *$'NEEDS-SECRET\tboth\tINST_KEY'* ]] || return 1
+  [[ "$PLAN" != *$'INSTALL\tboth'* ]]
+}
+
+@test "a header reference is satisfied only by a real live header value" {
+  python3 - "$REPO/mcp.manifest.json" "$RUNTIME" <<'PY'
+import json, sys
+mp, rp = sys.argv[1:3]
+m = json.load(open(mp)); m["servers"]["installable"] = {"type": "http", "url": "https://example.invalid", "headers": {"X-Key": "${INSTALLABLE_X_KEY}"}, "machines": ["other"]}; json.dump(m, open(mp, "w"))
+r = json.load(open(rp)); r["mcpServers"]["both"]["headers"] = {"X-Key": "${BOTH_X_KEY}"}; json.dump(r, open(rp, "w"))
+PY
+  plan
+  [[ "$PLAN" == *$'NEEDS-SECRET\tinstallable\tINSTALLABLE_X_KEY'* ]] || return 1
+  [[ "$PLAN" == *$'NEEDS-SECRET\tboth\tBOTH_X_KEY'* ]]
+}
+
+@test "an empty exported variable does not count as a held secret" {
+  INST_KEY= run "$SCRIPT" "$REPO" "$RUNTIME" "$LOCAL"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *$'NEEDS-SECRET\tinstallable\tINST_KEY'* ]]
+}
+
 @test "disabled servers are not findings" {
   printf '%s\n' '{"disabledMcpjsonServers": ["installable", "unresolvable"]}' > "$LOCAL"
   plan

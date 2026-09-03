@@ -46,7 +46,7 @@ values = {}
 for name, entry in live.get("mcpServers", {}).items():
     for key, value in (entry.get("env") or {}).items():
         if value and not REF.match(value):
-            values[key] = value
+            values[ref_name(key)] = value
     for key, value in (entry.get("headers") or {}).items():
         if value and not REF.match(value):
             values[ref_name(name, key)] = value
@@ -90,8 +90,9 @@ touched = set()
 for name, entry in live.get("mcpServers", {}).items():
     env = entry.get("env") or {}
     for key in list(env):
-        if key in incoming:
-            env[key] = incoming[key]
+        ref = ref_name(key)
+        if ref in incoming:
+            env[key] = incoming[ref]
             written += 1
             touched.add(name)
     headers = entry.get("headers") or {}

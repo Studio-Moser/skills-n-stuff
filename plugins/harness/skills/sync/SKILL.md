@@ -669,7 +669,7 @@ repo="${AGENTS_REPO:-$HOME/.agents}"
 claude="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 runtime_mcp="${CLAUDE_CONFIG_DIR:-$HOME}/.claude.json"
 harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
-[ ! -e "$repo/mcp.manifest.json" ] || "$harness/scripts/mcp-manifest.sh" --check "$repo/mcp.manifest.json"
+[ ! -e "$repo/mcp.manifest.json" ] || "$harness/scripts/mcp-manifest.sh" --check "$repo/mcp.manifest.json" || exit $?
 [ -f "$runtime_mcp" ] || { echo "MCP_STATE=not configured"; runtime_mcp=/dev/null; }
 "$harness/scripts/mcp-reconcile.sh" "$repo" "$runtime_mcp" "$claude/settings.local.json"
 ```
@@ -688,7 +688,7 @@ between blocks, see Phase 0). The plan line kinds:
 | `SKIP <name>` | declared, not here, recorded in `.fleet-local.json` `skipMcp` |
 | `EXTRA <name>` | here, not declared |
 | `KEEP-LOCAL <name>` | here, not declared, recorded in `keepLocalMcp` |
-| `NEEDS-SECRET <name> <VAR>` | installable, but `VAR` has no value on this machine |
+| `NEEDS-SECRET <name> <VAR>` | declared or installed here, but `VAR` has no value on this machine |
 | `UNRESOLVED <name>` | here, command not on `PATH` |
 
 **In a dry run, stop after the table and plan.** Otherwise, if there is no
@@ -737,9 +737,10 @@ claude mcp remove -s user "<name>"
 
 A non-zero exit is `remove failed: <name>`, an unresolved finding.
 
-**Secrets.** After installs, for every `NEEDS-SECRET <name> <VAR>` line, say
-once that pasted values pass through this session's transcript, then print the
-command to run on a machine that has the values:
+**Secrets.** For every `NEEDS-SECRET <name> <VAR>` line, whether from an install
+or from a server already here, say once that pasted values pass through this
+session's transcript, then print the command to run on a machine that has the
+values:
 
 ```bash
 repo="${AGENTS_REPO:-$HOME/.agents}"

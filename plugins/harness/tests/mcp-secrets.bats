@@ -62,6 +62,24 @@ PY
   python3 -c 'import json,sys; assert "projects" in json.load(open(sys.argv[1]))' "$RUNTIME"
 }
 
+@test "export and import map a lowercase env key through its uppercased reference" {
+  python3 - "$MANIFEST" "$RUNTIME" <<'PY'
+import json, sys
+mp, rp = sys.argv[1:3]
+m = json.load(open(mp)); m["servers"]["kie"]["env"] = {"kie-api-key": "${KIE_API_KEY}"}; json.dump(m, open(mp, "w"))
+r = json.load(open(rp)); r["mcpServers"]["kie"]["env"] = {"kie-api-key": "lower-value"}; json.dump(r, open(rp, "w"))
+PY
+  run "$SCRIPT" export --stdout "$MANIFEST" "$RUNTIME"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"KIE_API_KEY=lower-value"* ]] || return 1
+
+  run "$SCRIPT" import "$RUNTIME" <<'EOF'
+KIE_API_KEY=imported-value
+EOF
+  [ "$status" -eq 0 ]
+  [ "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["mcpServers"]["kie"]["env"]["kie-api-key"])' "$RUNTIME")" = "imported-value" ]
+}
+
 @test "import leaves the registry untouched when it is unreadable" {
   printf 'nope\n' > "$RUNTIME"
   run "$SCRIPT" import "$RUNTIME" <<'EOF'

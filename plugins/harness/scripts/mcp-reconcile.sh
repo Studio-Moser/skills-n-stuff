@@ -11,7 +11,7 @@
 #   SKIP          <name>          declared, not here, in .fleet-local.json skipMcp
 #   EXTRA         <name>          here, not declared
 #   KEEP-LOCAL    <name>          here, not declared, in keepLocalMcp
-#   NEEDS-SECRET  <name> <VAR>    installable, but VAR has no value on this machine
+#   NEEDS-SECRET  <name> <VAR>    declared or installed here, but VAR has no value on this machine
 #   UNRESOLVED    <name>          here, command not on PATH
 #
 # Never prints a command, URL, env value, or header value.
@@ -69,13 +69,13 @@ def resolves(entry):
     return os.access(cmd, os.X_OK) if cmd.startswith("/") else shutil.which(cmd) is not None
 
 # Values this machine already holds, by reference name.
-known = set(k for k in os.environ)
+known = {k for k, v in os.environ.items() if v}
 for name, entry in servers.items():
     for key, value in (entry.get("env") or {}).items():
-        if value:
+        if value and not REF.match(value):
             known.add(ref_name(key))
     for key, value in (entry.get("headers") or {}).items():
-        if value:
+        if value and not REF.match(value):
             known.add(ref_name(name, key))
 
 hosts = sorted({m for e in declared.values() for m in e.get("machines", [])})
@@ -119,7 +119,9 @@ for name in sorted(declared):
         for value in refs:
             m = REF.match(value)
             if m and m.group(1) not in known:
-                plan.append(("NEEDS-SECRET", name, m.group(1)))
+                finding = ("NEEDS-SECRET", name, m.group(1))
+                if finding not in plan:
+                    plan.append(finding)
 
 for name in sorted(servers):
     if name in disabled:
@@ -128,6 +130,18 @@ for name in sorted(servers):
         plan.append(("KEEP-LOCAL", name) if name in keep else ("EXTRA", name))
     if not resolves(servers[name]):
         plan.append(("UNRESOLVED", name))
+
+for name in sorted(servers):
+    if name in disabled:
+        continue
+    entry = servers[name]
+    refs = list((entry.get("env") or {}).values()) + list((entry.get("headers") or {}).values())
+    for value in refs:
+        m = REF.match(value)
+        if m and m.group(1) not in known:
+            finding = ("NEEDS-SECRET", name, m.group(1))
+            if finding not in plan:
+                plan.append(finding)
 
 for line in plan:
     print("\t".join(line))

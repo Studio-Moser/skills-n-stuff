@@ -204,7 +204,7 @@ EOF
   harness="$BATS_TEST_TMPDIR/harness"
   mkdir -p "$agents" "$claude" "$harness/scripts"
   cp "$REPO/plugins/harness/scripts/mcp-reconcile.sh" "$REPO/plugins/harness/scripts/mcp-manifest.sh" "$harness/scripts/"
-  printf '%s\n' '{"version":1,"servers":{"portable-memory":{"type":"stdio","command":"sh","machines":["other"]},"elsewhere":{"type":"stdio","command":"sh","machines":["other"]}}}' > "$agents/mcp.manifest.json"
+  printf '%s\n' '{"version":1,"servers":{"elsewhere":{"type":"stdio","command":"sh","machines":["other"]},"portable-memory":{"type":"stdio","command":"sh","machines":["other"]}}}' > "$agents/mcp.manifest.json"
   cat > "$claude/.claude.json" <<'EOF'
 {
   "mcpServers": {
