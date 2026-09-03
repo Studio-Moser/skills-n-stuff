@@ -73,7 +73,7 @@ known = set(k for k in os.environ)
 for name, entry in servers.items():
     for key, value in (entry.get("env") or {}).items():
         if value:
-            known.add(key)
+            known.add(ref_name(key))
     for key, value in (entry.get("headers") or {}).items():
         if value:
             known.add(ref_name(name, key))

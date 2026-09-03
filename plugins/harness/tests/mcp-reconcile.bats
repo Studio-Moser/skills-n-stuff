@@ -79,6 +79,19 @@ PY
   [[ "$PLAN" != *"shared-secret"* ]]
 }
 
+@test "a lowercase live env key satisfies its uppercased reference" {
+  python3 - "$REPO/mcp.manifest.json" "$RUNTIME" <<'PY'
+import json, sys
+mp, rp = sys.argv[1:3]
+m = json.load(open(mp)); m["servers"]["installable"]["env"] = {"inst-key": "${INST_KEY}"}; json.dump(m, open(mp, "w"))
+r = json.load(open(rp)); r["mcpServers"]["kept"]["env"] = {"inst-key": "held"}; json.dump(r, open(rp, "w"))
+PY
+  plan
+  [[ "$PLAN" == *$'INSTALL\tinstallable'* ]] || return 1
+  [[ "$PLAN" != *"NEEDS-SECRET"* ]] || return 1
+  [[ "$PLAN" != *"held"* ]]
+}
+
 @test "disabled servers are not findings" {
   printf '%s\n' '{"disabledMcpjsonServers": ["installable", "unresolvable"]}' > "$LOCAL"
   plan
