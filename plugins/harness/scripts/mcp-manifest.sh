@@ -1,86 +1,208 @@
 #!/usr/bin/env bash
-# Write a portable MCP inventory containing server names only, or validate one.
-# Commands, arguments, URLs, headers, environment, credentials, OAuth data, and
-# application state remain machine-local in Claude Code's global .claude.json file.
+# Generate or validate the portable MCP manifest (mcp.manifest.json).
 #
-# The inventory is the union of every machine's user-scope server names: this
-# machine's names are merged into the existing manifest, never substituted for
-# it, so two machines with different servers stop flipping the file on every
-# sync. A name leaves the manifest only when it is deleted by hand on a machine
-# that no longer has it and no other machine still declares it.
-# ponytail: union-only, so a server retired everywhere lingers until hand-removed;
-# add a per-machine tombstone file if retirements need to propagate.
+#   mcp-manifest.sh [--prune-to-local] <claude-user-state.json> <mcp.manifest.json>
+#   mcp-manifest.sh --check <mcp.manifest.json>
+#
+# The manifest carries each user-scope server's portable shape (type, command,
+# args, url, env, headers) with every env and header VALUE replaced by a
+# ${NAME} reference, plus a `machines` list naming the hosts that have it.
+# Secret values, OAuth state, and everything else stay in the live registry.
+#
+# Env: MCP_HOSTNAME overrides `hostname -s`. MCP_ALLOW_EMPTY_MANIFEST=1 lets
+# the generator replace a non-empty manifest with an empty server set.
 set -euo pipefail
 
-validate_manifest() {
-  python3 - "$1" <<'PY'
-from pathlib import Path
-import re
-import sys
+py_common='
+import json, os, re, sys
 
-path = Path(sys.argv[1])
-try:
-    lines = path.read_text().splitlines()
-except OSError as error:
-    print(f"MCP_MANIFEST_STATE=failed: unreadable {path}: {type(error).__name__}", file=sys.stderr)
+PORTABLE = {"type", "command", "args", "url", "env", "headers"}
+NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+REF_RE = re.compile(r"^\$\{[A-Z][A-Z0-9_]*\}$")
+TOKEN_RE = re.compile(
+    r"(?:ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{16,}|"
+    r"xox[abp]-[A-Za-z0-9-]{10,}|AKIA[A-Z0-9]{16}|AIza[A-Za-z0-9_-]{30,}|gsk_[A-Za-z0-9]{20,})"
+)
+FLAG_RE = re.compile(r"^--?[A-Za-z][A-Za-z0-9_-]*=(.{16,})$")
+
+def fail(reason):
+    print(f"MCP_MANIFEST_STATE=failed: {reason}", file=sys.stderr)
     raise SystemExit(1)
 
-valid = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
-for number, line in enumerate(lines, 1):
-    if not valid.fullmatch(line):
-        print(f"MCP_MANIFEST_STATE=failed: invalid portable MCP server name at line {number}", file=sys.stderr)
-        raise SystemExit(1)
-if lines != sorted(set(lines)):
-    print("MCP_MANIFEST_STATE=failed: inventory must be sorted with unique names", file=sys.stderr)
-    raise SystemExit(1)
-PY
-}
+def ref_name(*parts):
+    return "${" + "_".join(re.sub(r"[^A-Za-z0-9]", "_", p).upper() for p in parts) + "}"
+
+def home_prefixes():
+    home = os.environ.get("HOME", "")
+    prefixes = ["/Users/", "/home/"]
+    if home and home not in ("/",):
+        prefixes.append(home.rstrip("/") + "/")
+    return tuple(prefixes)
+
+def is_machine_path(value):
+    return isinstance(value, str) and value.startswith(home_prefixes())
+
+def is_secret_like(value):
+    if not isinstance(value, str):
+        return False
+    if TOKEN_RE.search(value):
+        return True
+    return bool(FLAG_RE.match(value))
+
+def validate_shape(name, entry):
+    if not NAME_RE.fullmatch(name):
+        fail("invalid portable MCP server name")
+    if not isinstance(entry, dict):
+        fail(f"server {name} is not an object")
+    extra = set(entry) - PORTABLE - {"machines"}
+    if extra:
+        fail(f"server {name} has a non-portable key")
+    for key in ("env", "headers"):
+        values = entry.get(key, {})
+        if not isinstance(values, dict):
+            fail(f"server {name} {key} must be an object")
+        for value in values.values():
+            if not isinstance(value, str) or not REF_RE.fullmatch(value):
+                fail(f"server {name} has an unredacted {key} value")
+    args = entry.get("args", [])
+    if not isinstance(args, list) or any(not isinstance(a, str) for a in args):
+        fail(f"server {name} args must be a list of strings")
+    for value in [entry.get("command", "")] + args:
+        if is_secret_like(value):
+            fail(f"server {name} has a secret-like argument")
+        if is_machine_path(value):
+            fail(f"server {name} uses a machine-specific path")
+    machines = entry.get("machines")
+    if not isinstance(machines, list) or any(not isinstance(m, str) for m in machines):
+        fail(f"server {name} machines must be a list of strings")
+    if machines != sorted(set(machines)):
+        fail(f"server {name} machines must be sorted and unique")
+
+def validate_manifest(data):
+    if not isinstance(data, dict) or data.get("version") != 1:
+        fail("manifest version must be 1")
+    servers = data.get("servers")
+    if not isinstance(servers, dict):
+        fail("manifest servers must be an object")
+    if list(servers) != sorted(servers):
+        fail("manifest servers must be sorted by name")
+    for name, entry in servers.items():
+        validate_shape(name, entry)
+'
 
 if [ "${1:-}" = "--check" ]; then
-  [ $# -eq 2 ] || { echo "usage: mcp-manifest.sh --check <mcp.manifest>" >&2; exit 2; }
-  validate_manifest "$2"
+  [ $# -eq 2 ] || { echo "usage: mcp-manifest.sh --check <mcp.manifest.json>" >&2; exit 2; }
+  python3 - "$2" <<PY
+$py_common
+from pathlib import Path
+path = Path(sys.argv[1])
+try:
+    data = json.loads(path.read_text())
+except FileNotFoundError:
+    fail(f"missing {path}")
+except Exception as error:
+    fail(f"manifest is not valid JSON: {type(error).__name__}")
+validate_manifest(data)
+PY
   exit 0
 fi
 
-[ $# -eq 2 ] || { echo "usage: mcp-manifest.sh <claude-user-state.json> <mcp.manifest>" >&2; exit 2; }
+prune=0
+if [ "${1:-}" = "--prune-to-local" ]; then
+  prune=1
+  shift
+fi
+[ $# -eq 2 ] || { echo "usage: mcp-manifest.sh [--prune-to-local] <claude-user-state.json> <mcp.manifest.json>" >&2; exit 2; }
 user_state="$1"
 manifest="$2"
 parent="$(dirname "$manifest")"
 [ -d "$parent" ] || { echo "mcp-manifest: target parent '$parent' is missing" >&2; exit 2; }
-tmp="$(mktemp "$parent/.mcp.manifest.XXXXXX")"
+legacy="$parent/mcp.manifest"
+host="${MCP_HOSTNAME:-$(hostname -s)}"
+
+tmp="$(mktemp "$parent/.mcp.manifest.json.XXXXXX")"
 trap 'rm -f "$tmp"' EXIT HUP INT TERM
 
-[ ! -e "$manifest" ] || validate_manifest "$manifest"
-
-python3 - "$user_state" "$manifest" > "$tmp" <<'PY'
-import json
+state="$(python3 - "$user_state" "$manifest" "$legacy" "$host" "$prune" "$tmp" <<PY
+$py_common
 from pathlib import Path
-import re
-import sys
+
+user_state, manifest_path, legacy_path, host, prune, out = sys.argv[1:7]
+prune = prune == "1"
 
 try:
-    data = json.loads(Path(sys.argv[1]).read_text())
+    live = json.loads(Path(user_state).read_text())
 except Exception as error:
-    print(f"MCP_MANIFEST_STATE=failed: Claude user state is not readable: {type(error).__name__}", file=sys.stderr)
-    raise SystemExit(1)
-
-servers = data.get("mcpServers", {})
+    fail(f"Claude user state is not readable: {type(error).__name__}")
+servers = live.get("mcpServers", {})
 if not isinstance(servers, dict):
-    print("MCP_MANIFEST_STATE=failed: mcpServers must be an object", file=sys.stderr)
-    raise SystemExit(1)
+    fail("mcpServers must be an object")
 
-valid = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
-for name in servers:
-    if not valid.fullmatch(name):
-        print("MCP_MANIFEST_STATE=failed: Claude user state contains an invalid server name", file=sys.stderr)
-        raise SystemExit(1)
+state = "written"
+old = {"version": 1, "servers": {}}
+if Path(manifest_path).exists():
+    try:
+        old = json.loads(Path(manifest_path).read_text())
+    except Exception as error:
+        fail(f"existing manifest is not valid JSON: {type(error).__name__}")
+    validate_manifest(old)
+elif Path(legacy_path).exists():
+    state = "migrated"
+    for line in Path(legacy_path).read_text().splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        if not NAME_RE.fullmatch(line):
+            fail("invalid portable MCP server name in legacy manifest")
+        old["servers"][line] = {"machines": []}
 
-existing = Path(sys.argv[2])
-declared = set(existing.read_text().splitlines()) if existing.exists() else set()
-for name in sorted(declared | set(servers)):
-    print(name)
+result = {}
+for name, entry in old["servers"].items():
+    if name in servers:
+        continue
+    if prune:
+        continue
+    kept = dict(entry)
+    kept["machines"] = sorted(set(kept.get("machines", [])) - {host})
+    result[name] = kept
+
+for name, entry in servers.items():
+    if not NAME_RE.fullmatch(name):
+        fail("invalid portable MCP server name")
+    if not isinstance(entry, dict):
+        fail(f"server {name} is not an object")
+    shape = {}
+    for key in ("type", "command", "url"):
+        if key in entry:
+            shape[key] = entry[key]
+    if "args" in entry:
+        shape["args"] = list(entry["args"])
+    if isinstance(entry.get("env"), dict) and entry["env"]:
+        shape["env"] = {k: ref_name(k) for k in sorted(entry["env"])}
+    if isinstance(entry.get("headers"), dict) and entry["headers"]:
+        shape["headers"] = {k: ref_name(name, k) for k in sorted(entry["headers"])}
+    previous = old["servers"].get(name, {}).get("machines", [])
+    shape["machines"] = sorted(set(previous) | {host})
+    validate_shape(name, shape)
+    result[name] = shape
+
+if old["servers"] and not result and os.environ.get("MCP_ALLOW_EMPTY_MANIFEST") != "1":
+    fail("refusing to write an empty manifest over a non-empty one; set MCP_ALLOW_EMPTY_MANIFEST=1 to confirm")
+
+data = {"version": 1, "servers": {k: result[k] for k in sorted(result)}}
+validate_manifest(data)
+Path(out).write_text(json.dumps(data, indent=2, sort_keys=True) + "\n")
+print(state)
 PY
+)"
 
-validate_manifest "$tmp"
 mv "$tmp" "$manifest"
 trap - EXIT HUP INT TERM
+
+if [ "$state" = "migrated" ]; then
+  if git -C "$parent" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    git -C "$parent" rm --cached --ignore-unmatch -q mcp.manifest
+  fi
+  rm -f "$legacy"
+fi
+echo "MCP_MANIFEST_STATE=$state"
