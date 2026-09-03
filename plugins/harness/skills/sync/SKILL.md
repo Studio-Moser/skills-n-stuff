@@ -39,18 +39,19 @@ Setup's behalf.
 If the user asks what would change, or passes `--dry-run`, run **only the
 read-only pieces** — `link-plan.sh` (Phase 1's command),
 `reconcile_shared_settings.py --check` for the shared settings file,
-`mcp-manifest.sh --check` for the portable MCP inventory, Phase 2.5's MCP
-verification block against the machine-local user registry, Phase 2.6's step 0
+`mcp-manifest.sh --check` for the portable MCP manifest, Phase 2.5's MCP
+reconcile block (table and plan only, no question), Phase 2.6's step 0
 *detection* block (the `git
 ls-files --error-unmatch` tracked-check and the `.gitignore` presence
 check — not the fix block right after it) and step 1 (the
 `skills-reconcile.sh` call, nothing that follows it),
 `portability-lint.sh` (Phase 3's command), and `rubric-audit.sh` (Phase 3.5's
 command — it only reads transcripts) — then print the report from
-Phase 4 and stop. Phase 2.5's MCP block only reads the portable inventory and
-Claude Code's machine-local user registry, then checks whether each declared server is configured
-and resolves; it belongs in a dry run because
-that's exactly the kind of thing someone previewing a sync wants to see.
+Phase 4 and stop. Phase 2.5's MCP block only reads the portable manifest and Claude Code's
+machine-local user registry, then prints the per-host table and plan lines;
+it belongs in a dry run because that's exactly the kind of thing someone
+previewing a sync wants to see. The match / replace / merge question is not
+asked and nothing is installed, removed, or imported.
 Phase 2.6's step 0 detection and step 1 are the same shape: `git ls-files
 --error-unmatch` and `grep` only read, and `skills-reconcile.sh` only
 reads the manifest, `.fleet-local.json`, and `npx skills list -g --json`
@@ -64,7 +65,7 @@ Skip everything else, explicitly:
   shared settings, manifests, the repo, or the remote.
 - **Phase 0.5's remote preflight** — it may fetch and fast-forward the repo.
 - **Phase 2.5's plugin half** (marketplace add / plugin install) — installs
-  software. Run only its MCP verification block, not this one.
+  software. Run only its MCP reconcile block's table and plan, not the question or anything after it.
 - **Phase 2.6's step 0 fix block** (the `.gitignore` write and `git rm
   --cached`) — a write, and a one-time repo migration, not
   something a preview should perform. Only step 0's detection block above
@@ -218,8 +219,8 @@ ready. Normal and cloned repositories skip directly to Phase 1.
 1. Create `skills/`, `claude/`, `config/studio-moser/`, and `codex/` under `$repo`
    as needed. Copy every present managed entry into its Phase 1 repo path except
    machine-local MCP state; copy, do not move, so the originals remain recoverable
-   until verification. Generate the secret-free, names-only `$repo/mcp.manifest`
-   by reading only the top-level `mcpServers` names from Claude Code's global
+   until verification. Generate the secret-free `$repo/mcp.manifest.json`
+   by reading each top-level `mcpServers` entry's secret-free shape from Claude Code's global
    `.claude.json` state. Never copy that state file. Do not adopt Codex `AGENTS.md` as a source:
    preserve any unique instruction in `House Style.md` or `CLAUDE.md`, then let
    Phase 2.2 render the derived file.
@@ -259,8 +260,8 @@ Each line ends in a state:
 
 Claude Code's global `.claude.json` state is deliberately absent from this table.
 Commands, arguments, environment variables, credentials, OAuth data, and application
-state are machine-local. Phase 2.5 compares only its top-level user-scope MCP server
-names to the portable `mcp.manifest`; Sync never copies, links, prints, or tracks the
+state are machine-local. Phase 2.5 compares its top-level user-scope MCP servers
+to the portable `mcp.manifest.json`; Sync never copies, links, prints, or tracks the
 global state file.
 
 **`MISSING-IN-REPO` is checked first and masks the other states.** If the
@@ -459,14 +460,23 @@ case follow the Phase 1 `AGENTS.md` REAL-FILE rule (move it aside, then link).
 
 Claude Code stores user-scope MCP servers in the top-level `mcpServers` object of
 `${CLAUDE_CONFIG_DIR}/.claude.json` when `CLAUDE_CONFIG_DIR` is set, or
-`$HOME/.claude.json` otherwise. Read that file only to generate the sorted,
-names-only `mcp.manifest`; never copy, link, print, stage, or commit the state file.
-The generator merges this machine's names into the existing manifest rather than
-replacing it, so the file is the union of every machine's servers and two machines
-with different servers stop flipping it on each sync. A server retired everywhere
-stays declared until its line is deleted by hand; Phase 2.5 then reports it as
-`not configured on this machine` wherever it is absent, which is the intended
-signal for the removal.
+`$HOME/.claude.json` otherwise. Read that file only to generate
+`mcp.manifest.json`: each server's portable shape (`type`, `command`, `args`,
+`url`, `env`, `headers`) with every env and header value replaced by a `${NAME}`
+reference, plus a `machines` list naming the hosts that have it. The generator
+adds this host to every server present here and removes it from every server
+that is not. Never copy, link, print, stage, or commit the state file.
+
+A names-only `mcp.manifest` from an older sync is migrated once: its names
+become shapeless entries (`{"machines": []}`), the old file is untracked and
+deleted, and the generator prints `MCP_MANIFEST_STATE=migrated`. A shapeless
+entry shows as `NO-CONFIG` in Phase 2.5 until a machine that has the server
+syncs.
+
+The generator fails, naming the server only, when an arg looks like a token or
+a `--flag=value` with a long value, or when `command` or an arg is an absolute
+home path. Fix the server locally (move the secret to `env`, or the binary onto
+`PATH`) and rerun.
 
 `$claude/mcp.json` is a legacy path. If an older repo tracks it or the live legacy
 path is a symlink into the repo, preserve its resolved bytes as a regular live file
@@ -488,7 +498,7 @@ if [ -L "$legacy_runtime" ]; then
   trap - EXIT HUP INT TERM
 fi
 if [ -f "$runtime_mcp" ]; then
-  "$harness/scripts/mcp-manifest.sh" "$runtime_mcp" "$repo/mcp.manifest" || exit $?
+  "$harness/scripts/mcp-manifest.sh" "$runtime_mcp" "$repo/mcp.manifest.json" || exit $?
 else
   echo "MCP_STATE=not configured"
 fi
@@ -498,8 +508,8 @@ git -C "$repo" rm --cached claude/mcp.json --ignore-unmatch -q
 
 If the user registry is missing, report `MCP_STATE=not configured` and do not
 invent a manifest. In dry-run mode, do not run this block; validate an existing
-inventory with `mcp-manifest.sh --check "$repo/mcp.manifest"` and inspect the live
-file read-only in Phase 2.5.
+manifest with `mcp-manifest.sh --check "$repo/mcp.manifest.json"` and run Phase
+2.5's reconcile block read-only.
 
 ---
 
@@ -507,7 +517,8 @@ file read-only in Phase 2.5.
 
 This phase reconciles machine state before the final Git transaction. Plugin
 operations may rewrite shared settings, so they must complete before Phase 3.75
-stages and validates the final result. MCP verification remains read-only.
+stages and validates the final result. MCP comparison is read-only until the user
+chooses how to reconcile the plan.
 
 ### Plugins — install what's missing, automatically
 
@@ -642,76 +653,131 @@ removal also uninstalls that marketplace's plugins — so carry the printed
 `claude plugin marketplace remove <name>` command into the report for the user
 to run.
 
-### MCP servers — verify, report, never auto-install
+### MCP servers — compare, choose, apply
 
-Read the tracked names-only `mcp.manifest` and the machine-local user registry
+Read the tracked `mcp.manifest.json` and the machine-local user registry
 (`${CLAUDE_CONFIG_DIR}/.claude.json` when configured, otherwise
-`$HOME/.claude.json`). Validate the manifest first. For each declared name, confirm
-that this machine has a matching runtime entry and that a local command resolves;
-a URL-style entry is counted separately. **Do not attempt to install anything.**
-Honour `disabledMcpjsonServers` in `settings.local.json`; a server disabled on
-this machine is not a finding. Never print runtime command, args, URL, headers,
-environment, or credentials — findings name the server only.
+`$HOME/.claude.json`). Validate the manifest first. The reconcile script is
+read-only: it prints a table with one column per host that has ever synced plus
+`here`, a blank line, then plan lines. Honour `disabledMcpjsonServers` in
+`settings.local.json`; a server disabled here is not a finding. Never print a
+command, URL, header, env value, or credential; findings name servers and
+variable names only.
 
 ```bash
 repo="${AGENTS_REPO:-$HOME/.agents}"
 claude="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 runtime_mcp="${CLAUDE_CONFIG_DIR:-$HOME}/.claude.json"
 harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
-[ ! -e "$repo/mcp.manifest" ] || "$harness/scripts/mcp-manifest.sh" --check "$repo/mcp.manifest"
-
-mcp_reconcile_script='import json, os, shutil, sys
-
-def load(path):
-    try:
-        with open(path) as f:
-            return json.load(f)
-    except FileNotFoundError:
-        return {}
-
-manifest_path, mcp_path, local_path = sys.argv[1:]
-if not os.path.exists(manifest_path):
-    print("MCP_STATE=not declared")
-    raise SystemExit(0)
-
-declared = {line.strip() for line in open(manifest_path) if line.strip()}
-servers = load(mcp_path).get("mcpServers", {})
-disabled = set(load(local_path).get("disabledMcpjsonServers", []))
-
-active = declared - disabled
-missing = sorted(active - set(servers))
-unresolved = []
-remote = 0
-for name in sorted(active & set(servers)):
-    cfg = servers[name]
-    cmd = cfg.get("command", "")
-    if not cmd:
-        remote += 1
-        continue
-    ok = os.access(cmd, os.X_OK) if cmd.startswith("/") else shutil.which(cmd) is not None
-    if not ok:
-        unresolved.append(name)
-
-ok_count = len(active) - len(missing) - remote - len(unresolved)
-parts = [f"{ok_count} ok"]
-if remote:
-    parts.append(f"{remote} remote (no local command)")
-if missing or unresolved:
-    parts.append(f"{len(missing) + len(unresolved)} unresolved")
-print("MCP_STATE=" + ", ".join(parts))
-for name in missing:
-    print(f"MCP_FINDING={name} not configured on this machine")
-for name in unresolved:
-    print(f"MCP_FINDING={name} command unavailable on this machine")
-for name in sorted(set(servers) - declared):
-    print(f"MCP_LOCAL_ONLY={name}")
-'
-
-printf '%s\n' "$mcp_reconcile_script" | python3 - "$repo/mcp.manifest" "$runtime_mcp" "$claude/settings.local.json"
+[ ! -e "$repo/mcp.manifest.json" ] || "$harness/scripts/mcp-manifest.sh" --check "$repo/mcp.manifest.json" || exit $?
+[ -f "$runtime_mcp" ] || { echo "MCP_STATE=not configured"; runtime_mcp=/dev/null; }
+"$harness/scripts/mcp-reconcile.sh" "$repo" "$runtime_mcp" "$claude/settings.local.json"
 ```
 
-Report unresolved servers by name. `MCP_LOCAL_ONLY` is informational: runtime
-details stay local and a name is shared only after the inventory is merged.
+`/dev/null` as the registry makes the planner treat this machine as empty, so
+every declared server shows as `INSTALL` or `NO-CONFIG`; that is the correct
+picture for a machine that has never added a server.
+
+**Read the plan here; do not carry it in a shell variable** (nothing persists
+between blocks, see Phase 0). The plan line kinds:
+
+| line | meaning |
+|---|---|
+| `INSTALL <name>` | declared with a shape, not here |
+| `NO-CONFIG <name>` | declared without a shape; nothing to install from until a machine that has it syncs |
+| `SKIP <name>` | declared, not here, recorded in `.fleet-local.json` `skipMcp` |
+| `EXTRA <name>` | here, not declared |
+| `KEEP-LOCAL <name>` | here, not declared, recorded in `keepLocalMcp` |
+| `NEEDS-SECRET <name> <VAR>` | declared or installed here, but `VAR` has no value on this machine |
+| `UNRESOLVED <name>` | here, command not on `PATH` |
+
+**In a dry run, stop after the table and plan.** Otherwise, if there is no
+`INSTALL`, `NO-CONFIG`, `EXTRA`, `UNRESOLVED`, or `NEEDS-SECRET` line, print
+`MCP_STATE=up to date` and continue to Phase 2.6. If the only lines are `NEEDS-SECRET`
+or `UNRESOLVED` (or both), skip the question: run the Secrets step for the
+`NEEDS-SECRET` lines, then the unresolved-command follow-up for the `UNRESOLVED`
+lines, both below. Otherwise ask **one** question with exactly these
+three options, listing the affected names under each:
+
+1. **Match this machine to the repo** — install every `INSTALL` server here,
+   then list the `EXTRA` servers and ask a second confirm before removing them
+   from this machine. A declined removal is recorded as `keepLocalMcp`.
+2. **Replace the repo with this machine** — the manifest's server set becomes
+   this machine's set. List, by name, every server only other machines have,
+   and confirm: the next sync on those machines will offer to remove them. On
+   yes, record the choice on disk, then continue. Nothing is installed here:
+
+   ```bash
+   claude="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"; : > "$claude/.mcp-prune-to-local"
+   ```
+3. **Merge** — install every `INSTALL` server here and let Phase 3.75 add every
+   `EXTRA` to the manifest. No removals anywhere.
+
+Never pick for the user. `NO-CONFIG` and `SKIP` lines are reported, never acted
+on.
+
+**Installing** a server uses the manifest entry with its references intact.
+Claude Code expands `${VAR}` from the environment at launch, and the secrets
+flow below replaces the reference with the value in the live registry when the
+user supplies one:
+
+```bash
+repo="${AGENTS_REPO:-$HOME/.agents}"
+name="<name>"
+claude mcp add-json -s user "$name" "$(python3 -c '
+import json, sys
+entry = json.load(open(sys.argv[1]))["servers"][sys.argv[2]]
+print(json.dumps({k: v for k, v in entry.items() if k != "machines"}))
+' "$repo/mcp.manifest.json" "$name")"
+```
+
+If the command exits non-zero, report `install failed: <name>` as an unresolved
+finding and never write it to overrides.
+
+**Removing** a server from this machine (match, after the confirm):
+
+```bash
+claude mcp remove -s user "<name>"
+```
+
+A non-zero exit is `remove failed: <name>`, an unresolved finding.
+
+**Secrets.** For every `NEEDS-SECRET <name> <VAR>` line, whether from an install
+or from a server already here, say once that pasted values pass through this
+session's transcript, then print the command to run on a machine that has the
+values:
+
+```bash
+echo "On the other machine, run its harness copy of mcp-secrets.sh:  \"\$(ls -d \$HOME/.claude/plugins/cache/*/harness/*/ | sort -V | tail -1)scripts/mcp-secrets.sh\" export \"\${AGENTS_REPO:-\$HOME/.agents}/mcp.manifest.json\" \"\${CLAUDE_CONFIG_DIR:-\$HOME}/.claude.json\""
+```
+
+Then ask for the values. The user may paste the whole export block at the first
+prompt; feed everything received to `import`, which skips empty values and
+names it does not find, and then skip the remaining prompts for names it
+covered:
+
+```bash
+runtime_mcp="${CLAUDE_CONFIG_DIR:-$HOME}/.claude.json"
+harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
+"$harness/scripts/mcp-secrets.sh" import "$runtime_mcp" <<'EOF'
+<NAME=value lines>
+EOF
+```
+
+`import` prints counts only. Never echo a value back. A variable the user
+leaves empty stays a `NEEDS-SECRET` finding in the report.
+
+**Unresolved commands.** Whenever `UNRESOLVED <name>` lines exist, rerun the
+reconcile block after installs if there were any, otherwise go directly to this
+follow-up: list them once and ask a single question:
+skip these on this machine? On yes, remove each with `claude mcp remove -s user
+"<name>"` and record it as `skipMcp` (see Overrides in Phase 2.6), so a machine
+without Blender does not keep a blender server. On no, they stay as
+`<name> command unavailable on this machine` findings.
+
+Servers present here but absent from the manifest after a choice, except those
+recorded in `keepLocalMcp`, are picked up by Phase 3.75's regeneration, which
+stamps this host into `machines`.
 
 ---
 
@@ -950,7 +1016,7 @@ decline, already recorded; do not act on it and do not re-ask.
 decline doesn't get re-asked forever:
 
 ```json
-{"skipInstall": ["name", "…"], "keepLocal": ["name", "…"]}
+{"skipInstall": ["name", "…"], "keepLocal": ["name", "…"], "skipMcp": ["name", "…"], "keepLocalMcp": ["name", "…"]}
 ```
 
 - `skipInstall` — declared in the manifest, deliberately not wanted on this
@@ -959,13 +1025,17 @@ decline doesn't get re-asked forever:
   heavy skill only belongs on one machine.
 - `keepLocal` — present on this machine, deliberately left undeclared.
   Reached by declining an extras offer above.
+- `skipMcp` — declared in `mcp.manifest.json`, deliberately not on this
+  machine. Reached by the unresolved-command follow-up in Phase 2.5.
+- `keepLocalMcp` — an MCP server present here, deliberately left undeclared.
+  Reached by declining a removal under "match" in Phase 2.5.
 
-An **install failure** or a **remove failure** is never written to either
-array — those are unresolved findings that should keep surfacing until
+An **install failure** or a **remove failure** is never written to any of the
+four arrays — those are unresolved findings that should keep surfacing until
 fixed, not silenced. Only an explicit decline goes into overrides.
 
 To add a name, load the file (treat absent as `{"skipInstall": [],
-"keepLocal": []}`), append if not already present, keep each array sorted,
+"keepLocal": [], "skipMcp": [], "keepLocalMcp": []}`), append if not already present, keep each array sorted,
 and write it back:
 
 ```bash
@@ -981,6 +1051,8 @@ except FileNotFoundError:
     data = {}
 data.setdefault("skipInstall", [])
 data.setdefault("keepLocal", [])
+data.setdefault("skipMcp", [])
+data.setdefault("keepLocalMcp", [])
 if name not in data[kind]:
     data[kind].append(name)
     data[kind].sort()
@@ -998,12 +1070,13 @@ is machine-local by design — it must never be committed; `skills-manifest.sh`
 of `.gitignore`, outside the generated block.
 
 **Report deviations once per run, always** — with a `none` fallback when
-both arrays are empty, not only when something's there. Otherwise a
+all four arrays are empty, not only when something's there. Otherwise a
 standing decline becomes invisible permanent state the moment it stops
 being new:
 
 ```
 Skills local deviations: skipInstall <name>, … | keepLocal <name>, … | none
+MCP local deviations:    skipMcp <name>, … | keepLocalMcp <name>, … | none
 ```
 
 ### 3. Regenerate — only after step 2 has run
@@ -1135,6 +1208,11 @@ Phase 2.6 is the sole skill-manifest writer because only it retains declined and
 failed-install context; do not regenerate that manifest here. The finalizer is the
 last command; nothing may write the repo after it returns:
 
+This block prunes the manifest to this machine only when Phase 2.5's marker
+exists, and removes the marker afterwards. Otherwise the generator only updates
+this host's `machines` entries.
+The generator skips servers recorded in `.fleet-local.json` `keepLocalMcp` that are not already declared, so a decline recorded in Phase 2.5 survives regeneration.
+
 ```bash
 set -euo pipefail
 repo="${AGENTS_REPO:-$HOME/.agents}"
@@ -1144,7 +1222,9 @@ harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*
 
 [ ! -e "$repo/claude/settings.json" ] || "$harness/scripts/localize-skill-overrides.py" "$repo/claude/settings.json" "$claude/settings.local.json"
 [ ! -e "$repo/claude/settings.json" ] || "$harness/scripts/reconcile_shared_settings.py" "$repo/claude/settings.json"
-[ ! -f "$runtime_mcp" ] || "$harness/scripts/mcp-manifest.sh" "$runtime_mcp" "$repo/mcp.manifest"
+prune=""; [ ! -e "$claude/.mcp-prune-to-local" ] || prune="--prune-to-local"
+[ ! -f "$runtime_mcp" ] || "$harness/scripts/mcp-manifest.sh" ${prune:+"$prune"} "$runtime_mcp" "$repo/mcp.manifest.json"
+rm -f "$claude/.mcp-prune-to-local"
 "$harness/scripts/render-codex-agents.sh" "$repo"
 "$harness/scripts/link-plan.sh" "$repo"
 "$harness/scripts/portability-lint.sh" "$repo"
@@ -1183,7 +1263,9 @@ Harness sync — {repo}
   Plugins:    {up to date | added N marketplace(s), installed M, updated K — restart or
                /reload-plugins to apply | skipped: claude CLI not on PATH | failed: <reason>}
   Orphans:    {none | <name> — remove with: claude plugin marketplace remove <name>}
-  MCP:        {N ok | N ok, M remote (no local command) | N ok, M unresolved: <names>}
+  MCP:        {up to date | N ok, M remote (no local command) | N ok, M skipped here,
+               K need config: <names>, J need secrets: <NAME>, … | not configured}
+  MCP local deviations: skipMcp <name>, … | keepLocalMcp <name>, … | none
   Skills:     {N declared, M installed, K extra | up to date |
                skipped: npx/node not on PATH | skipped: repo is not $HOME/.agents |
                failed: <reason>}
@@ -1210,7 +1292,9 @@ alongside the other
 unresolved findings), and any Phase 2.6 `install failed` or `remove failed`
 line — both are distinct from a recorded decline (`skipInstall`/`keepLocal`,
 reported in the deviations line above, not here) and must stay visible until
-fixed. A server with no `command` (a URL/SSE-style server) is not a finding —
+fixed. That also includes an MCP install failed: <name> or remove failed: <name>,
+a NEEDS-SECRET left empty, and every NO-CONFIG name until a machine with the
+config syncs. A server with no `command` (a URL/SSE-style server) is not a finding —
 it's counted separately as "remote," never folded into "ok." A rubric-audit finding (any UNSET or haiku dispatch) is unresolved in the same sense — list it, do not fold it into a clean summary.
 
 **Never report a sync as complete when the push did not happen.** A diverged pull,

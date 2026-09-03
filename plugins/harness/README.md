@@ -150,7 +150,9 @@ and confirms a remote is private before the first push.
 | `scripts/link-plan.sh [repo]` | read-only drift report; exit 1 if any link needs work |
 | `scripts/sync-preflight.sh <repo>` | query and ingest the remote before any reconciliation writer runs |
 | `scripts/reconcile_shared_settings.py [--check] <settings.json> [...]` | enable Harness and remove the retired Machine setting atomically |
-| `scripts/mcp-manifest.sh <claude-user-state.json> <mcp.manifest>` | merge this machine's top-level user-scope server names into the names-only portable MCP inventory, or validate one |
+| `scripts/mcp-manifest.sh [--prune-to-local] <claude-user-state.json> <mcp.manifest.json>` | generate the portable MCP manifest (shape with `${VAR}` references, per-host `machines`), migrate a names-only file, or `--check` one |
+| `scripts/mcp-reconcile.sh <repo> <claude-user-state.json> <settings.local.json>` | read-only per-host table and plan lines for `harness:sync`'s match / replace / merge step |
+| `scripts/mcp-secrets.sh export [--stdout] <mcp.manifest.json> <claude-user-state.json>` \| `import <claude-user-state.json>` | move `${VAR}` values between machines without the repo seeing them |
 | `scripts/stamp-baseline.sh <target> [body]` | idempotently stamp the Harness project block; defaults to the bundled template |
 | `scripts/portability-lint.sh [repo]` | fail on machine-specific absolute paths |
 | `scripts/rubric-path.sh [--check]` | resolve the rubric path / report `set`\|`unset` |

@@ -197,111 +197,86 @@ EOF
   [ ! -e "$finalizer_marker" ]
 }
 
-@test "the dry-run MCP verifier executes against names-only and the custom Claude user registry" {
+@test "the MCP reconcile block prints the table and plan against the custom Claude user registry" {
   phase="$BATS_TEST_TMPDIR/mcp-phase.sh"
   agents="$BATS_TEST_TMPDIR/agents"
   claude="$BATS_TEST_TMPDIR/claude-config"
   harness="$BATS_TEST_TMPDIR/harness"
   mkdir -p "$agents" "$claude" "$harness/scripts"
-  printf 'portable-memory\n' > "$agents/mcp.manifest"
+  cp "$REPO/plugins/harness/scripts/mcp-reconcile.sh" "$REPO/plugins/harness/scripts/mcp-manifest.sh" "$harness/scripts/"
+  printf '%s\n' '{"version":1,"servers":{"elsewhere":{"type":"stdio","command":"sh","machines":["other"]},"portable-memory":{"type":"stdio","command":"sh","machines":["other"]}}}' > "$agents/mcp.manifest.json"
   cat > "$claude/.claude.json" <<'EOF'
 {
   "mcpServers": {
-    "portable-memory": {
-      "command": "sh",
-      "env": {"TOKEN": "do-not-print"}
-    }
+    "portable-memory": {"command": "sh", "env": {"TOKEN": "do-not-print"}}
   },
-  "projects": {
-    "/tmp/project": {
-      "mcpServers": {
-        "project-only": {
-          "command": "sh"
-        }
-      }
-    }
-  }
+  "projects": {"/tmp/project": {"mcpServers": {"project-only": {"command": "sh"}}}}
 }
 EOF
   printf '{}\n' > "$claude/settings.local.json"
-  cat > "$harness/scripts/mcp-manifest.sh" <<'EOF'
-#!/usr/bin/env bash
-exit 0
-EOF
-  chmod +x "$harness/scripts/mcp-manifest.sh"
 
-  extract_first_bash_block_after \
-    "### MCP servers — verify, report, never auto-install" \
-    "$phase"
+  extract_first_bash_block_after "### MCP servers — compare, choose, apply" "$phase"
 
   run env \
     AGENTS_REPO="$agents" \
     CLAUDE_CONFIG_DIR="$claude" \
     CLAUDE_PLUGIN_ROOT="$harness" \
+    MCP_HOSTNAME="test-host" \
     bash "$phase"
 
   [ "$status" -eq 0 ]
-  [[ "$output" == *"MCP_STATE=1 ok"* ]] || return 1
+  [[ "$output" == *$'INSTALL\telsewhere'* ]] || return 1
   [[ "$output" != *"project-only"* ]] || return 1
   [[ "$output" != *"do-not-print"* ]]
 }
 
-@test "the dry-run MCP verifier uses the default Claude user registry" {
+@test "the MCP reconcile block uses the default Claude user registry" {
   phase="$BATS_TEST_TMPDIR/mcp-default-phase.sh"
   home="$BATS_TEST_TMPDIR/home"
   agents="$BATS_TEST_TMPDIR/agents"
   harness="$BATS_TEST_TMPDIR/harness"
   mkdir -p "$home/.claude" "$agents" "$harness/scripts"
-  printf 'portable-memory\n' > "$agents/mcp.manifest"
+  cp "$REPO/plugins/harness/scripts/mcp-reconcile.sh" "$REPO/plugins/harness/scripts/mcp-manifest.sh" "$harness/scripts/"
+  printf '%s\n' '{"version":1,"servers":{"portable-memory":{"type":"stdio","command":"sh","machines":["other"]}}}' > "$agents/mcp.manifest.json"
   printf '%s\n' '{"mcpServers":{"portable-memory":{"command":"sh"}}}' > "$home/.claude.json"
   printf '{}\n' > "$home/.claude/settings.local.json"
-  cat > "$harness/scripts/mcp-manifest.sh" <<'EOF'
-#!/usr/bin/env bash
-exit 0
-EOF
-  chmod +x "$harness/scripts/mcp-manifest.sh"
 
-  extract_first_bash_block_after \
-    "### MCP servers — verify, report, never auto-install" \
-    "$phase"
+  extract_first_bash_block_after "### MCP servers — compare, choose, apply" "$phase"
 
   run env -u CLAUDE_CONFIG_DIR \
     HOME="$home" \
     AGENTS_REPO="$agents" \
     CLAUDE_PLUGIN_ROOT="$harness" \
+    MCP_HOSTNAME="test-host" \
     bash "$phase"
 
   [ "$status" -eq 0 ]
-  [[ "$output" == *"MCP_STATE=1 ok"* ]] || return 1
+  [[ "$output" == *"portable-memory"* ]] || return 1
+  [[ "$output" != *"INSTALL"* ]] || return 1
 }
 
-@test "the dry-run MCP verifier reports a missing Claude user registry without leaking state" {
+@test "the MCP reconcile block reports a missing Claude user registry as not configured" {
   phase="$BATS_TEST_TMPDIR/mcp-missing-phase.sh"
   agents="$BATS_TEST_TMPDIR/agents"
   claude="$BATS_TEST_TMPDIR/claude-config"
   harness="$BATS_TEST_TMPDIR/harness"
   mkdir -p "$agents" "$claude" "$harness/scripts"
-  printf 'portable-memory\n' > "$agents/mcp.manifest"
+  cp "$REPO/plugins/harness/scripts/mcp-reconcile.sh" "$REPO/plugins/harness/scripts/mcp-manifest.sh" "$harness/scripts/"
+  printf '%s\n' '{"version":1,"servers":{"portable-memory":{"type":"stdio","command":"sh","machines":["other"]}}}' > "$agents/mcp.manifest.json"
   printf '{}\n' > "$claude/settings.local.json"
-  cat > "$harness/scripts/mcp-manifest.sh" <<'EOF'
-#!/usr/bin/env bash
-exit 0
-EOF
-  chmod +x "$harness/scripts/mcp-manifest.sh"
 
-  extract_first_bash_block_after \
-    "### MCP servers — verify, report, never auto-install" \
-    "$phase"
+  extract_first_bash_block_after "### MCP servers — compare, choose, apply" "$phase"
 
   run env \
     AGENTS_REPO="$agents" \
     CLAUDE_CONFIG_DIR="$claude" \
     CLAUDE_PLUGIN_ROOT="$harness" \
+    MCP_HOSTNAME="test-host" \
     bash "$phase"
 
   [ "$status" -eq 0 ]
-  [[ "$output" == *"MCP_STATE=0 ok, 1 unresolved"* ]] || return 1
-  [[ "$output" == *"MCP_FINDING=portable-memory not configured on this machine"* ]]
+  [[ "$output" == *"MCP_STATE=not configured"* ]] || return 1
+  [[ "$output" == *$'INSTALL\tportable-memory'* ]]
 }
 
 @test "MCP inventory generation reads the Claude user registry and only localizes the legacy file" {
@@ -324,7 +299,7 @@ EOF
   cat > "$harness/scripts/mcp-manifest.sh" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$1" > "$MCP_INPUT_MARKER"
-printf 'portable-memory\n' > "$2"
+printf '%s\n' '{"version":1,"servers":{}}' > "$2"
 EOF
   chmod +x "$harness/scripts/mcp-manifest.sh"
 
@@ -341,6 +316,7 @@ EOF
 
   [ "$status" -eq 0 ]
   [ "$(cat "$input_marker")" = "$claude/.claude.json" ]
+  [ -e "$agents/mcp.manifest.json" ]
   [ "$(shasum -a 256 "$claude/.claude.json")" = "$before" ]
   [ -f "$claude/mcp.json" ]
   [ ! -L "$claude/mcp.json" ]
@@ -375,7 +351,7 @@ EOF
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"MCP_STATE=not configured"* ]] || return 1
-  [ ! -e "$agents/mcp.manifest" ]
+  [ ! -e "$agents/mcp.manifest.json" ]
 }
 
 @test "failed MCP inventory generation stops before legacy cleanup" {
@@ -446,6 +422,39 @@ EOF
 
   [ "$status" -eq 0 ]
   [ "$(cat "$input_marker")" = "$claude/.claude.json" ]
+}
+
+@test "final validation passes --prune-to-local only when the replace choice was recorded" {
+  phase="$BATS_TEST_TMPDIR/mcp-prune-phase.sh"
+  agents="$BATS_TEST_TMPDIR/agents"
+  claude="$BATS_TEST_TMPDIR/claude-config"
+  harness="$BATS_TEST_TMPDIR/harness"
+  args_marker="$BATS_TEST_TMPDIR/mcp-args"
+  mkdir -p "$agents" "$claude" "$harness/scripts"
+  printf '%s\n' '{"mcpServers":{"portable-memory":{"command":"sh"}}}' > "$claude/.claude.json"
+
+  extract_first_bash_block_after "## Phase 3.75:" "$phase"
+
+  for name in localize-skill-overrides.py reconcile_shared_settings.py render-codex-agents.sh link-plan.sh portability-lint.sh sync-finalize.sh; do
+    printf '#!/usr/bin/env bash\nexit 0\n' > "$harness/scripts/$name"
+    chmod +x "$harness/scripts/$name"
+  done
+  cat > "$harness/scripts/mcp-manifest.sh" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$*" > "$MCP_ARGS_MARKER"
+exit 0
+EOF
+  chmod +x "$harness/scripts/mcp-manifest.sh"
+
+  run env AGENTS_REPO="$agents" CLAUDE_CONFIG_DIR="$claude" CLAUDE_PLUGIN_ROOT="$harness" MCP_ARGS_MARKER="$args_marker" bash "$phase"
+  [ "$status" -eq 0 ]
+  [[ "$(cat "$args_marker")" != *"--prune-to-local"* ]] || return 1
+
+  touch "$claude/.mcp-prune-to-local"
+  run env AGENTS_REPO="$agents" CLAUDE_CONFIG_DIR="$claude" CLAUDE_PLUGIN_ROOT="$harness" MCP_ARGS_MARKER="$args_marker" bash "$phase"
+  [ "$status" -eq 0 ]
+  [[ "$(cat "$args_marker")" == "--prune-to-local "*"mcp.manifest.json" ]]
+  [ ! -e "$claude/.mcp-prune-to-local" ]
 }
 
 @test "skills reconciliation rejects parseable stdout from a failed npx command" {
