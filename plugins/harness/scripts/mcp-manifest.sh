@@ -186,7 +186,14 @@ for name, entry in old["servers"].items():
     if prune:
         continue
     kept = dict(entry)
-    kept["machines"] = sorted(set(kept.get("machines", [])) - {host})
+    previous = set(kept.get("machines", []))
+    kept["machines"] = sorted(previous - {host})
+    # This host had it and no longer does; with no machine left declaring it,
+    # the entry is a removal, not a declaration other machines should install.
+    # An entry whose list was already empty (a migrated name awaiting a machine
+    # that has it) never had this host, so it is preserved.
+    if host in previous and not kept["machines"]:
+        continue
     result[name] = kept
 
 for name, entry in servers.items():
@@ -215,8 +222,19 @@ for name, entry in servers.items():
     validate_shape(name, shape)
     result[name] = shape
 
-if old["servers"] and not result and os.environ.get("MCP_ALLOW_EMPTY_MANIFEST") != "1":
-    fail("refusing to write an empty manifest over a non-empty one; set MCP_ALLOW_EMPTY_MANIFEST=1 to confirm")
+# Count only entries carrying a shape. Placeholder entries (a migrated name
+# awaiting the machine that has it) are never lost by a bad registry read, so
+# counting them would let a wrong or empty read delete every configured server
+# while the backstop saw a non-empty result.
+def has_shape(entry):
+    return bool(set(entry) & {"command", "url"})
+
+if (
+    any(has_shape(entry) for entry in old["servers"].values())
+    and not any(has_shape(entry) for entry in result.values())
+    and os.environ.get("MCP_ALLOW_EMPTY_MANIFEST") != "1"
+):
+    fail("refusing to write an empty manifest over a non-empty one; no configured server would remain; set MCP_ALLOW_EMPTY_MANIFEST=1 to confirm")
 
 data = {"version": 1, "servers": {k: result[k] for k in sorted(result)}}
 validate_manifest(data)

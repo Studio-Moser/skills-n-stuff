@@ -240,3 +240,38 @@ JSON
   [[ "$output" == *"invalid portable MCP server name"* ]] || return 1
   [[ "$output" != *"/Users/x"* ]]
 }
+
+@test "generator drops an entry when the last machine that had it removes it" {
+  cat > "$MANIFEST" <<'JSON'
+{"version": 1, "servers": {
+  "awaiting-a-machine": {"machines": []},
+  "gone-everywhere": {"type": "stdio", "command": "g", "machines": ["test-host"]},
+  "gone-here-only": {"type": "stdio", "command": "h", "machines": ["other", "test-host"]}
+}}
+JSON
+  printf '%s\n' '{"mcpServers":{}}' > "$RUNTIME"
+
+  "$SCRIPT" "$RUNTIME" "$MANIFEST"
+
+  [ "$(python3 -c 'import json,sys; print(sorted(json.load(open(sys.argv[1]))["servers"]))' "$MANIFEST")" = "['awaiting-a-machine', 'gone-here-only']" ]
+  [ "$(field servers gone-here-only machines)" = '["other"]' ]
+  [ "$(field servers awaiting-a-machine machines)" = '[]' ]
+}
+
+@test "generator refuses when every configured server would go, even beside placeholders" {
+  cat > "$MANIFEST" <<'JSON'
+{"version": 1, "servers": {
+  "placeholder": {"machines": []},
+  "shaped": {"type": "stdio", "command": "s", "machines": ["test-host"]}
+}}
+JSON
+  printf '%s\n' '{"mcpServers":{}}' > "$RUNTIME"
+
+  run "$SCRIPT" "$RUNTIME" "$MANIFEST"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"no configured server would remain"* ]] || return 1
+  [ "$(field servers shaped command)" = '"s"' ]
+
+  MCP_ALLOW_EMPTY_MANIFEST=1 "$SCRIPT" "$RUNTIME" "$MANIFEST"
+  [ "$(python3 -c 'import json,sys; print(sorted(json.load(open(sys.argv[1]))["servers"]))' "$MANIFEST")" = "['placeholder']" ]
+}
