@@ -44,14 +44,20 @@ enforce returns `status: blocked` before dispatch.
 
 For an environment-provided action, use this sequence once:
 
-1. When the task advertises a `describe`, schema, or public-contract command, run
-   it before the first action call.
+1. An advertised `describe`, schema, or public-contract command is mandatory:
+   run it before forming or calling any action, even when request fields look
+   sufficient. Never reuse the whole request as an action payload.
 2. Build the action payload only from the documented fields, then call the action.
 3. Parse the typed response structurally. When it contains `check`, begin the
    `evidence.checks` entry with that value verbatim; append the procedure only as
    provenance. When it contains `reason`, copy that value verbatim to
    `route.fallback_reason` and begin the blocker with `<reason>:` followed by the
    documented recovery action.
+
+For the resulting pre-dispatch block, encode a checked absolute path as
+`path:<absolute-path>` in `evidence.fixed_target`. Keep `artifacts.files` to
+delivered task outputs outside the HarnessResult envelope—normally `[]` on this
+path; the result file itself never counts.
 
 Use Shelby only when callable tool names prove it is available. Resolve one
 canonical project scope first; otherwise follow the repository/temp fallback.
