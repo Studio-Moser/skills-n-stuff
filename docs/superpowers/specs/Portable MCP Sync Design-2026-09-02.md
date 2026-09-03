@@ -109,7 +109,7 @@ Values live only in this machine's registry. The manifest keeps the reference. N
 
 - Phase 2.3 becomes "generate the portable MCP manifest": run `mcp-manifest.sh` against the live registry, which performs the migration. Legacy `claude/mcp.json` cleanup is unchanged.
 - Phase 2.5's MCP half becomes the interactive reconcile: run `mcp-reconcile.sh`, print the table, ask the three-way question when there are differences, apply installs and removals, run the secrets flow, then the unresolved-command follow-up.
-- Phase 3.75 already regenerates the manifest before staging, so the `machines` column reflects the final registry; it passes `--prune-to-local` only after a "replace" choice and does not add an undeclared live server listed in `.fleet-local.json` `keepLocalMcp`.
+- Phase 3.75 already regenerates the manifest before staging, so the `machines` column reflects the final registry; it uses `--prune-to-local` only after a "replace" choice and does not add an undeclared live server listed in `.fleet-local.json` `keepLocalMcp`.
 - Dry run runs `mcp-manifest.sh --check` and `mcp-reconcile.sh` only. Table and plan lines print; no question is asked.
 - `.fleet-local.json` gains `skipMcp` and `keepLocalMcp` arrays. The existing override snippet handles them as new kinds.
 - Phase 4 MCP line: `{N ok | N ok, M remote | N ok, M skipped here, K need config: <names>}` plus one line per unresolved command. `NO-CONFIG` names stay visible every run.

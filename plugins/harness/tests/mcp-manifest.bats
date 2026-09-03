@@ -152,6 +152,35 @@ JSON
   [ ! -e "$MANIFEST" ]
 }
 
+@test "generator fails on an absolute home path inside a flag value" {
+  printf '%s\n' '{"mcpServers":{"local":{"type":"stdio","command":"srv","args":["--config=/Users/someone/cfg.json"]}}}' > "$RUNTIME"
+
+  run "$SCRIPT" "$RUNTIME" "$MANIFEST"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"MCP_MANIFEST_STATE=failed: server local uses a machine-specific path"* ]] || return 1
+  [ ! -e "$MANIFEST" ]
+}
+
+@test "generator rejects a non-list args value without a traceback" {
+  printf '%s\n' '{"mcpServers":{"invalid":{"type":"stdio","command":"srv","args":"single"}}}' > "$RUNTIME"
+
+  run "$SCRIPT" "$RUNTIME" "$MANIFEST"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"MCP_MANIFEST_STATE=failed: server invalid args must be a list of strings"* ]] || return 1
+  [[ "$output" != *"Traceback" ]] || return 1
+  [ ! -e "$MANIFEST" ]
+}
+
+@test "generator rejects env keys that cannot form a reference name without leaking values" {
+  printf '%s\n' '{"mcpServers":{"invalid":{"type":"stdio","command":"srv","env":{"1KEY":"leak-me-not"}}}}' > "$RUNTIME"
+
+  run "$SCRIPT" "$RUNTIME" "$MANIFEST"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"MCP_MANIFEST_STATE=failed: server invalid has an env key or header that cannot form a reference name (must start with a letter)"* ]] || return 1
+  [[ "$output" != *"leak-me-not" ]] || return 1
+  [ ! -e "$MANIFEST" ]
+}
+
 @test "generator refuses to empty a non-empty manifest without the override" {
   printf '%s\n' '{"version":1,"servers":{"only":{"type":"stdio","command":"x","machines":["test-host"]}}}' > "$MANIFEST"
   printf '%s\n' '{"mcpServers":{}}' > "$RUNTIME"

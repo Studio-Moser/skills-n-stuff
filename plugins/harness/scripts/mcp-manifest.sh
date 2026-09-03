@@ -25,13 +25,17 @@ TOKEN_RE = re.compile(
     r"xox[abp]-[A-Za-z0-9-]{10,}|AKIA[A-Z0-9]{16}|AIza[A-Za-z0-9_-]{30,}|gsk_[A-Za-z0-9]{20,})"
 )
 FLAG_RE = re.compile(r"^--?[A-Za-z][A-Za-z0-9_-]*=(.{16,})$")
+FLAG_VALUE_RE = re.compile(r"^--?[A-Za-z][A-Za-z0-9_-]*=(.*)$")
 
 def fail(reason):
     print(f"MCP_MANIFEST_STATE=failed: {reason}", file=sys.stderr)
     raise SystemExit(1)
 
 def ref_name(*parts):
-    return "${" + "_".join(re.sub(r"[^A-Za-z0-9]", "_", p).upper() for p in parts) + "}"
+    name = "_".join(re.sub(r"[^A-Za-z0-9]", "_", p).upper() for p in parts)
+    if not re.fullmatch(r"[A-Z][A-Z0-9_]*", name):
+        return None
+    return "${" + name + "}"
 
 def home_prefixes():
     home = os.environ.get("HOME", "")
@@ -41,7 +45,12 @@ def home_prefixes():
     return tuple(prefixes)
 
 def is_machine_path(value):
-    return isinstance(value, str) and value.startswith(home_prefixes())
+    if not isinstance(value, str):
+        return False
+    if value.startswith(home_prefixes()):
+        return True
+    match = FLAG_VALUE_RE.match(value)
+    return bool(match and match.group(1).startswith(home_prefixes()))
 
 def is_secret_like(value):
     if not isinstance(value, str):
@@ -69,10 +78,10 @@ def validate_shape(name, entry):
     if not isinstance(args, list) or any(not isinstance(a, str) for a in args):
         fail(f"server {name} args must be a list of strings")
     for value in [entry.get("command", "")] + args:
-        if is_secret_like(value):
-            fail(f"server {name} has a secret-like argument")
         if is_machine_path(value):
             fail(f"server {name} uses a machine-specific path")
+        if is_secret_like(value):
+            fail(f"server {name} has a secret-like argument")
     machines = entry.get("machines")
     if not isinstance(machines, list) or any(not isinstance(m, str) for m in machines):
         fail(f"server {name} machines must be a list of strings")
@@ -192,11 +201,15 @@ for name, entry in servers.items():
         if key in entry:
             shape[key] = entry[key]
     if "args" in entry:
+        if not isinstance(entry["args"], list) or any(not isinstance(arg, str) for arg in entry["args"]):
+            fail(f"server {name} args must be a list of strings")
         shape["args"] = list(entry["args"])
     if isinstance(entry.get("env"), dict) and entry["env"]:
         shape["env"] = {k: ref_name(k) for k in sorted(entry["env"])}
     if isinstance(entry.get("headers"), dict) and entry["headers"]:
         shape["headers"] = {k: ref_name(name, k) for k in sorted(entry["headers"])}
+    if any(value is None for key in ("env", "headers") for value in shape.get(key, {}).values()):
+        fail(f"server {name} has an env key or header that cannot form a reference name (must start with a letter)")
     previous = old["servers"].get(name, {}).get("machines", [])
     shape["machines"] = sorted(set(previous) | {host})
     validate_shape(name, shape)

@@ -43,7 +43,7 @@ plan() {
   [[ "$header" == *"other"* ]] || return 1
   [[ "$header" == *"here"* ]] || return 1
   both_row="$(printf '%s\n' "$output" | grep '^both')"
-  [[ "$both_row" == *"x"*"x"*"x"* ]] || return 1
+  [[ "$both_row" =~ ^both[[:space:]]+x[[:space:]]+x[[:space:]]+x[[:space:]]*$ ]] || return 1
   shapeless_row="$(printf '%s\n' "$output" | grep '^shapeless')"
   [[ "$shapeless_row" == *"no config in manifest"* ]]
 }
@@ -142,6 +142,14 @@ PY
   run "$SCRIPT" "$REPO" "$RUNTIME" "$LOCAL"
   [ "$status" -eq 1 ]
   [[ "$output" == *"MCP_RECONCILE_STATE=failed"* ]]
+}
+
+@test "a non-object registry fails without a traceback" {
+  printf '[]\n' > "$RUNTIME"
+  run "$SCRIPT" "$REPO" "$RUNTIME" "$LOCAL"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"MCP_RECONCILE_STATE=failed: input must be a JSON object"* ]] || return 1
+  [[ "$output" != *"Traceback" ]]
 }
 
 @test "an empty registry file is treated as no servers" {

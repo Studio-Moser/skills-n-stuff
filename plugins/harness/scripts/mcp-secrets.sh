@@ -60,14 +60,12 @@ PY
     registry="$1"
     parent="$(dirname "$registry")"
     tmp="$(mktemp "$parent/.claude.json.secrets.XXXXXX")"
-    incoming_file="$(mktemp "$parent/.claude.json.secrets-input.XXXXXX")"
-    trap 'rm -f "$tmp" "$incoming_file"' EXIT HUP INT TERM
-    cat > "$incoming_file"
-    python3 - "$registry" "$tmp" "$incoming_file" <<'PY'
+    trap 'rm -f "$tmp"' EXIT HUP INT TERM
+    read -r -d '' py_import <<'PY' || true
 import json, re, sys
 from pathlib import Path
 
-registry, out, incoming_file = sys.argv[1:4]
+registry, out = sys.argv[1:3]
 try:
     live = json.loads(Path(registry).read_text())
 except Exception as error:
@@ -78,7 +76,8 @@ def ref_name(*parts):
     return "_".join(re.sub(r"[^A-Za-z0-9]", "_", p).upper() for p in parts)
 
 incoming = {}
-for line in Path(incoming_file).read_text().splitlines():
+for line in sys.stdin:
+    line = line.rstrip("\n")
     name, sep, value = line.partition("=")
     name = name.strip()
     if not sep or not re.fullmatch(r"[A-Z][A-Z0-9_]*", name) or not value:
@@ -106,9 +105,8 @@ for name, entry in live.get("mcpServers", {}).items():
 Path(out).write_text(json.dumps(live, indent=2) + "\n")
 print(f"MCP_SECRETS_STATE=imported {written} value(s) into {len(touched)} server(s)")
 PY
+    python3 -c "$py_import" "$registry" "$tmp"
     mv "$tmp" "$registry"
-    trap - EXIT HUP INT TERM
-    rm -f "$incoming_file"
     ;;
   *)
     echo "usage: mcp-secrets.sh export|import ..." >&2

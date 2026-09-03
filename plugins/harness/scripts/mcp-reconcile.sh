@@ -19,20 +19,25 @@ set -euo pipefail
 
 [ $# -eq 3 ] || { echo "usage: mcp-reconcile.sh <repo> <claude-user-state.json> <settings.local.json>" >&2; exit 2; }
 repo="${1%/}"
-host="${MCP_HOSTNAME:-$(hostname -s)}"
 
-python3 - "$repo/mcp.manifest.json" "$2" "$3" "$repo/.fleet-local.json" "$host" <<'PY'
+python3 - "$repo/mcp.manifest.json" "$2" "$3" "$repo/.fleet-local.json" <<'PY'
 import json, os, re, shutil, sys
 from pathlib import Path
 
-manifest_path, live_path, local_path, overrides_path, host = sys.argv[1:6]
+manifest_path, live_path, local_path, overrides_path = sys.argv[1:5]
+
+class InputShapeError(ValueError):
+    pass
 
 def load(path, default):
     try:
         text = Path(path).read_text()
     except FileNotFoundError:
         return default
-    return default if not text.strip() else json.loads(text)
+    value = default if not text.strip() else json.loads(text)
+    if not isinstance(value, dict):
+        raise InputShapeError("input must be a JSON object")
+    return value
 
 def fail(reason):
     print(f"MCP_RECONCILE_STATE=failed: {reason}", file=sys.stderr)
@@ -43,6 +48,8 @@ try:
     live = load(live_path, {})
     local = load(local_path, {})
     overrides = load(overrides_path, {})
+except InputShapeError as error:
+    fail(str(error))
 except Exception as error:
     fail(f"input is not valid JSON: {type(error).__name__}")
 
@@ -50,9 +57,15 @@ declared = manifest.get("servers", {})
 servers = live.get("mcpServers", {})
 if not isinstance(declared, dict) or not isinstance(servers, dict):
     fail("servers must be objects")
-disabled = set(local.get("disabledMcpjsonServers", []))
-skip = set(overrides.get("skipMcp", []))
-keep = set(overrides.get("keepLocalMcp", []))
+def string_list(data, key):
+    values = data.get(key, [])
+    if not isinstance(values, list) or any(not isinstance(value, str) for value in values):
+        fail(f"{key} must be a list of strings")
+    return set(values)
+
+disabled = string_list(local, "disabledMcpjsonServers")
+skip = string_list(overrides, "skipMcp")
+keep = string_list(overrides, "keepLocalMcp")
 
 REF = re.compile(r"^\$\{([A-Z][A-Z0-9_]*)\}$")
 

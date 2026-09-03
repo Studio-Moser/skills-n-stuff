@@ -60,6 +60,7 @@ assert d["missing"]["env"]["MISSING_KEY"] == "${MISSING_KEY}"
 assert d["other"]["env"]["UNRELATED"] == "keep-me"
 PY
   python3 -c 'import json,sys; assert "projects" in json.load(open(sys.argv[1]))' "$RUNTIME"
+  [ -z "$(ls -A "$BATS_TEST_TMPDIR" | grep -v -e '^claude.json$' -e '^mcp.manifest.json$')" ]
 }
 
 @test "export and import map a lowercase env key through its uppercased reference" {
@@ -87,4 +88,5 @@ KIE_AI_API_KEY=x
 EOF
   [ "$status" -eq 1 ]
   [ "$(cat "$RUNTIME")" = "nope" ]
+  [ -z "$(ls -A "$BATS_TEST_TMPDIR" | grep -v -e '^claude.json$' -e '^mcp.manifest.json$')" ]
 }

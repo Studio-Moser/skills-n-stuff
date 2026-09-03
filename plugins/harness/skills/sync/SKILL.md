@@ -705,10 +705,13 @@ three options, listing the affected names under each:
 2. **Replace the repo with this machine** — the manifest's server set becomes
    this machine's set. List, by name, every server only other machines have,
    and confirm: the next sync on those machines will offer to remove them. On
-   yes, remember to run Phase 3.75 with `MCP_PRUNE_TO_LOCAL=1`. Nothing is
-   installed here.
-3. **Merge** — install every `INSTALL` server here and keep every `EXTRA` in the
-   manifest. No removals anywhere.
+   yes, record the choice on disk, then continue. Nothing is installed here:
+
+   ```bash
+   claude="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"; : > "$claude/.mcp-prune-to-local"
+   ```
+3. **Merge** — install every `INSTALL` server here and let Phase 3.75 add every
+   `EXTRA` to the manifest. No removals anywhere.
 
 Never pick for the user. `NO-CONFIG` and `SKIP` lines are reported, never acted
 on.
@@ -745,9 +748,7 @@ session's transcript, then print the command to run on a machine that has the
 values:
 
 ```bash
-repo="${AGENTS_REPO:-$HOME/.agents}"
-harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
-echo "On the other machine, run:  \"$harness/scripts/mcp-secrets.sh\" export \"$repo/mcp.manifest.json\" \"\${CLAUDE_CONFIG_DIR:-\$HOME}/.claude.json\""
+echo "On the other machine, run its harness copy of mcp-secrets.sh:  \"\$(ls -d \$HOME/.claude/plugins/cache/*/harness/*/ | sort -V | tail -1)scripts/mcp-secrets.sh\" export \"\${AGENTS_REPO:-\$HOME/.agents}/mcp.manifest.json\" \"\${CLAUDE_CONFIG_DIR:-\$HOME}/.claude.json\""
 ```
 
 Then ask for the values. The user may paste the whole export block at the first
@@ -1029,12 +1030,12 @@ decline doesn't get re-asked forever:
 - `keepLocalMcp` — an MCP server present here, deliberately left undeclared.
   Reached by declining a removal under "match" in Phase 2.5.
 
-An **install failure** or a **remove failure** is never written to either
-array — those are unresolved findings that should keep surfacing until
+An **install failure** or a **remove failure** is never written to any of the
+four arrays — those are unresolved findings that should keep surfacing until
 fixed, not silenced. Only an explicit decline goes into overrides.
 
 To add a name, load the file (treat absent as `{"skipInstall": [],
-"keepLocal": []}`), append if not already present, keep each array sorted,
+"keepLocal": [], "skipMcp": [], "keepLocalMcp": []}`), append if not already present, keep each array sorted,
 and write it back:
 
 ```bash
@@ -1069,7 +1070,7 @@ is machine-local by design — it must never be committed; `skills-manifest.sh`
 of `.gitignore`, outside the generated block.
 
 **Report deviations once per run, always** — with a `none` fallback when
-both arrays are empty, not only when something's there. Otherwise a
+all four arrays are empty, not only when something's there. Otherwise a
 standing decline becomes invisible permanent state the moment it stops
 being new:
 
@@ -1207,9 +1208,9 @@ Phase 2.6 is the sole skill-manifest writer because only it retains declined and
 failed-install context; do not regenerate that manifest here. The finalizer is the
 last command; nothing may write the repo after it returns:
 
-If the user chose **Replace the repo with this machine** in Phase 2.5, run this
-block with `MCP_PRUNE_TO_LOCAL=1` set in front of the command. Otherwise leave it
-unset; the generator then only updates this host's `machines` entries.
+This block prunes the manifest to this machine only when Phase 2.5's marker
+exists, and removes the marker afterwards. Otherwise the generator only updates
+this host's `machines` entries.
 The generator skips servers recorded in `.fleet-local.json` `keepLocalMcp` that are not already declared, so a decline recorded in Phase 2.5 survives regeneration.
 
 ```bash
@@ -1221,7 +1222,9 @@ harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*
 
 [ ! -e "$repo/claude/settings.json" ] || "$harness/scripts/localize-skill-overrides.py" "$repo/claude/settings.json" "$claude/settings.local.json"
 [ ! -e "$repo/claude/settings.json" ] || "$harness/scripts/reconcile_shared_settings.py" "$repo/claude/settings.json"
-[ ! -f "$runtime_mcp" ] || "$harness/scripts/mcp-manifest.sh" ${MCP_PRUNE_TO_LOCAL:+--prune-to-local} "$runtime_mcp" "$repo/mcp.manifest.json"
+prune=""; [ ! -e "$claude/.mcp-prune-to-local" ] || prune="--prune-to-local"
+[ ! -f "$runtime_mcp" ] || "$harness/scripts/mcp-manifest.sh" ${prune:+"$prune"} "$runtime_mcp" "$repo/mcp.manifest.json"
+rm -f "$claude/.mcp-prune-to-local"
 "$harness/scripts/render-codex-agents.sh" "$repo"
 "$harness/scripts/link-plan.sh" "$repo"
 "$harness/scripts/portability-lint.sh" "$repo"
