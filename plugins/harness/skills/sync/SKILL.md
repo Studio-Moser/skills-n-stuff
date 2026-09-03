@@ -693,7 +693,8 @@ between blocks, see Phase 0). The plan line kinds:
 
 **In a dry run, stop after the table and plan.** Otherwise, if there is no
 `INSTALL`, `NO-CONFIG`, `EXTRA`, or `UNRESOLVED` line, print `MCP_STATE=up to date` and
-continue to Phase 2.6. If there is, ask **one** question with exactly these
+continue to Phase 2.6. If the only lines are `UNRESOLVED`, skip the question and go to the
+unresolved-command follow-up below. Otherwise ask **one** question with exactly these
 three options, listing the affected names under each:
 
 1. **Match this machine to the repo** — install every `INSTALL` server here,

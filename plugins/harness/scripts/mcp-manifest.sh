@@ -159,11 +159,16 @@ elif Path(legacy_path).exists():
 
 try:
     fleet_local = json.loads(Path(os.path.join(os.path.dirname(manifest_path), ".fleet-local.json")).read_text())
-except Exception:
+except FileNotFoundError:
     fleet_local = {}
-keep_local = {
-    name for name in fleet_local.get("keepLocalMcp", []) if isinstance(name, str)
-} if isinstance(fleet_local, dict) else set()
+except Exception as error:
+    fail(f"fleet-local overrides are not readable: {type(error).__name__}")
+if not isinstance(fleet_local, dict):
+    fail("fleet-local overrides must be an object")
+keep_local_raw = fleet_local.get("keepLocalMcp", [])
+if not isinstance(keep_local_raw, list) or not all(isinstance(name, str) for name in keep_local_raw):
+    fail("fleet-local keepLocalMcp must be a list of strings")
+keep_local = set(keep_local_raw)
 
 result = {}
 for name, entry in old["servers"].items():

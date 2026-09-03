@@ -94,6 +94,17 @@ JSON
   [ "$(field servers declared machines)" = '["other", "test-host"]' ]
 }
 
+@test "generator stops on an unreadable fleet-local override file" {
+  printf '%s\n' '{"version":1,"servers":{}}' > "$MANIFEST"
+  printf 'not json\n' > "$DIR/.fleet-local.json"
+  printf '%s\n' '{"mcpServers":{"alpha":{"type":"stdio","command":"a"}}}' > "$RUNTIME"
+
+  run "$SCRIPT" "$RUNTIME" "$MANIFEST"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"MCP_MANIFEST_STATE=failed: fleet-local overrides are not readable"* ]] || return 1
+  [ "$(cat "$MANIFEST")" = '{"version":1,"servers":{}}' ]
+}
+
 @test "generator migrates the names-only manifest into shapeless entries and removes it" {
   printf 'alpha\nlegacy-only\n' > "$DIR/mcp.manifest"
   printf '%s\n' '{"mcpServers":{"alpha":{"type":"http","url":"https://example.invalid/mcp"}}}' > "$RUNTIME"
