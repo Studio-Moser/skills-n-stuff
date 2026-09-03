@@ -330,3 +330,24 @@ EOF
   [ "$(remote_head)" = "$(git -C "$REPO" rev-parse HEAD)" ]
   [ "$(git -C "$REPO" rev-list --count HEAD)" -eq 2 ]
 }
+
+@test "a manifest with variable references passes the staged secret scan" {
+  cat > "$REPO/mcp.manifest.json" <<'JSON'
+{"version": 1, "servers": {"kie": {"type": "stdio", "command": "npx", "args": ["-y", "@acme/kie"], "env": {"KIE_AI_API_KEY": "${KIE_AI_API_KEY}"}, "machines": ["h1"]}}}
+JSON
+  run "$SCRIPT" "$REPO" "harness: manifest refs"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"SYNC_STATE=clean"* ]] || return 1
+}
+
+@test "a manifest with a literal secret value fails validation before commit" {
+  before="$(git -C "$REPO" rev-parse HEAD)"
+  cat > "$REPO/mcp.manifest.json" <<'JSON'
+{"version": 1, "servers": {"kie": {"type": "stdio", "command": "npx", "env": {"KIE_AI_API_KEY": "sk-abcdefghijklmnopqrstuvwxyz0123"}, "machines": ["h1"]}}}
+JSON
+  run "$SCRIPT" "$REPO" "harness: manifest literal"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"unredacted env value"* ]] || return 1
+  [[ "$output" != *"abcdefghijklmnopqrstuvwxyz"* ]] || return 1
+  [ "$(git -C "$REPO" rev-parse HEAD)" = "$before" ]
+}

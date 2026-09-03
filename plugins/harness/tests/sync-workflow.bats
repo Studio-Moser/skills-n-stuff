@@ -80,7 +80,7 @@ EOF
   grep -qF "Remote-only policy." "$REPO/claude/output-styles/House Style.md"
 
   "$SCRIPTS/reconcile_shared_settings.py" "$REPO/claude/settings.json"
-  "$SCRIPTS/mcp-manifest.sh" "$RUNTIME_MCP" "$REPO/mcp.manifest"
+  "$SCRIPTS/mcp-manifest.sh" "$RUNTIME_MCP" "$REPO/mcp.manifest.json"
   "$SCRIPTS/render-codex-agents.sh" "$REPO"
   "$SCRIPTS/portability-lint.sh" "$REPO"
 
@@ -97,9 +97,10 @@ EOF
   [[ "$output" == *'"harness@studio-moser": true'* ]] || return 1
   [[ "$output" != *"machine@studio-moser"* ]] || return 1
 
-  run git --git-dir="$REMOTE" show main:mcp.manifest
+  run git --git-dir="$REMOTE" show main:mcp.manifest.json
   [ "$status" -eq 0 ]
-  [ "$output" = "portable-memory" ]
+  [[ "$output" == *'"portable-memory"'* ]] || return 1
+  [[ "$output" == *'"machines"'* ]] || return 1
 }
 
 @test "remote movement plus local work stops before ingestion or reconciliation" {

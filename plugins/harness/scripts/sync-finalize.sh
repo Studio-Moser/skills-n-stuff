@@ -73,7 +73,7 @@ fi
 git -C "$repo" add -A
 git -C "$repo" diff --cached --check
 "$scripts/portability-lint.sh" "$repo"
-[ ! -e "$repo/mcp.manifest" ] || "$scripts/mcp-manifest.sh" --check "$repo/mcp.manifest"
+[ ! -e "$repo/mcp.manifest.json" ] || "$scripts/mcp-manifest.sh" --check "$repo/mcp.manifest.json"
 
 python3 - "$repo" <<'PY'
 from pathlib import PurePosixPath
