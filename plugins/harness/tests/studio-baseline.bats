@@ -30,6 +30,7 @@ for phrase in ("Harness Request", "Harness Result"):
     assert phrase in text, f"baseline omits {phrase}"
 required = (
     "semantic route",
+    "self-contained summary for ordinary work",
     "do repository work directly",
     "explicitly requests harness delegation",
     "harness resolves the model and executor",
@@ -45,6 +46,7 @@ forbidden = (
     "model-rubric.yml", "via:", "command -v", "routing.bulk",
     "routing.quick", "routing.review", "claude-", "codex-",
     "matching namespaced harness skill before acting", "/harness:execute",
+    "raw.githubusercontent.com/Studio-Moser/skills-n-stuff/main/plugins/harness/references/house-rules.md",
 )
 found = [token for token in forbidden if token in text]
 assert not found, "baseline embeds personal route/provider mechanics: " + ", ".join(found)
