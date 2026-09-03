@@ -48,6 +48,7 @@ Generator rules (`mcp-manifest.sh <live-registry> <manifest>`):
 - An absolute home path in `command` or `args` fails the same way. Portability lint remains the backstop.
 - `machines` is the only field the generator edits per run: `hostname -s` is added when the server is in the live registry and removed when it is not. Other hosts' entries are untouched.
 - `--prune-to-local`: additionally drop every server not in the live registry. Used only after the user chooses "replace the repo with this machine" (section 2).
+- A live server absent from the manifest and listed in `.fleet-local.json` `keepLocalMcp` is not added.
 - Migration: if `mcp.manifest` exists and `mcp.manifest.json` does not, seed the JSON from the names with `machines: []` and no shape, then `git rm --cached` the old file and delete it. A shapeless entry shows as `NO-CONFIG` until a machine that has it syncs.
 - Backstop: if the old manifest had entries and the computed result has none, refuse to write and exit non-zero unless `MCP_ALLOW_EMPTY_MANIFEST=1`.
 - Unparseable registry: leave the manifest untouched, print `MCP_MANIFEST_STATE=failed: ...`, exit non-zero.
@@ -108,7 +109,7 @@ Values live only in this machine's registry. The manifest keeps the reference. N
 
 - Phase 2.3 becomes "generate the portable MCP manifest": run `mcp-manifest.sh` against the live registry, which performs the migration. Legacy `claude/mcp.json` cleanup is unchanged.
 - Phase 2.5's MCP half becomes the interactive reconcile: run `mcp-reconcile.sh`, print the table, ask the three-way question when there are differences, apply installs and removals, run the secrets flow, then the unresolved-command follow-up.
-- Phase 3.75 already regenerates the manifest before staging, so the `machines` column reflects the final registry. It passes `--prune-to-local` only after a "replace" choice.
+- Phase 3.75 already regenerates the manifest before staging, so the `machines` column reflects the final registry; it passes `--prune-to-local` only after a "replace" choice and does not add an undeclared live server listed in `.fleet-local.json` `keepLocalMcp`.
 - Dry run runs `mcp-manifest.sh --check` and `mcp-reconcile.sh` only. Table and plan lines print; no question is asked.
 - `.fleet-local.json` gains `skipMcp` and `keepLocalMcp` arrays. The existing override snippet handles them as new kinds.
 - Phase 4 MCP line: `{N ok | N ok, M remote | N ok, M skipped here, K need config: <names>}` plus one line per unresolved command. `NO-CONFIG` names stay visible every run.

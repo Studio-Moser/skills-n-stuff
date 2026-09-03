@@ -83,6 +83,17 @@ JSON
   [ "$(field servers here machines)" = '["other", "test-host"]' ]
 }
 
+@test "generator leaves a keepLocalMcp server undeclared unless it was already declared" {
+  printf '%s\n' '{"version":1,"servers":{"declared":{"type":"stdio","command":"d","machines":["other"]}}}' > "$MANIFEST"
+  printf '%s\n' '{"keepLocalMcp":["declared","local-only"]}' > "$DIR/.fleet-local.json"
+  printf '%s\n' '{"mcpServers":{"declared":{"type":"stdio","command":"d"},"local-only":{"type":"stdio","command":"l"},"fresh":{"type":"stdio","command":"f"}}}' > "$RUNTIME"
+
+  "$SCRIPT" "$RUNTIME" "$MANIFEST"
+
+  [ "$(python3 -c 'import json,sys; print(sorted(json.load(open(sys.argv[1]))["servers"]))' "$MANIFEST")" = "['declared', 'fresh']" ]
+  [ "$(field servers declared machines)" = '["other", "test-host"]' ]
+}
+
 @test "generator migrates the names-only manifest into shapeless entries and removes it" {
   printf 'alpha\nlegacy-only\n' > "$DIR/mcp.manifest"
   printf '%s\n' '{"mcpServers":{"alpha":{"type":"http","url":"https://example.invalid/mcp"}}}' > "$RUNTIME"

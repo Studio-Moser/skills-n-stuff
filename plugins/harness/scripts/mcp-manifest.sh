@@ -8,6 +8,7 @@
 # args, url, env, headers) with every env and header VALUE replaced by a
 # ${NAME} reference, plus a `machines` list naming the hosts that have it.
 # Secret values, OAuth state, and everything else stay in the live registry.
+# Undeclared live servers in `.fleet-local.json` `keepLocalMcp` stay undeclared.
 #
 # Env: MCP_HOSTNAME overrides `hostname -s`. MCP_ALLOW_EMPTY_MANIFEST=1 lets
 # the generator replace a non-empty manifest with an empty server set.
@@ -156,6 +157,14 @@ elif Path(legacy_path).exists():
             fail("invalid portable MCP server name in legacy manifest")
         old["servers"][line] = {"machines": []}
 
+try:
+    fleet_local = json.loads(Path(os.path.join(os.path.dirname(manifest_path), ".fleet-local.json")).read_text())
+except Exception:
+    fleet_local = {}
+keep_local = {
+    name for name in fleet_local.get("keepLocalMcp", []) if isinstance(name, str)
+} if isinstance(fleet_local, dict) else set()
+
 result = {}
 for name, entry in old["servers"].items():
     if name in servers:
@@ -167,6 +176,8 @@ for name, entry in old["servers"].items():
     result[name] = kept
 
 for name, entry in servers.items():
+    if name not in old["servers"] and name in keep_local:
+        continue
     if not NAME_RE.fullmatch(name):
         fail("invalid portable MCP server name")
     if not isinstance(entry, dict):

@@ -692,7 +692,7 @@ between blocks, see Phase 0). The plan line kinds:
 | `UNRESOLVED <name>` | here, command not on `PATH` |
 
 **In a dry run, stop after the table and plan.** Otherwise, if there is no
-`INSTALL`, `NO-CONFIG`, or `EXTRA` line, print `MCP_STATE=up to date` and
+`INSTALL`, `NO-CONFIG`, `EXTRA`, or `UNRESOLVED` line, print `MCP_STATE=up to date` and
 continue to Phase 2.6. If there is, ask **one** question with exactly these
 three options, listing the affected names under each:
 
@@ -762,15 +762,17 @@ EOF
 `import` prints counts only. Never echo a value back. A variable the user
 leaves empty stays a `NEEDS-SECRET` finding in the report.
 
-**Unresolved commands.** After installs, rerun the reconcile block. If any
-`UNRESOLVED <name>` lines remain, list them once and ask a single follow-up:
+**Unresolved commands.** Whenever `UNRESOLVED <name>` lines exist, rerun the
+reconcile block after installs if there were any, otherwise go directly to this
+follow-up: list them once and ask a single question:
 skip these on this machine? On yes, remove each with `claude mcp remove -s user
 "<name>"` and record it as `skipMcp` (see Overrides in Phase 2.6), so a machine
 without Blender does not keep a blender server. On no, they stay as
 `<name> command unavailable on this machine` findings.
 
-Servers present here but absent from the manifest after a choice are picked up
-by Phase 3.75's regeneration, which stamps this host into `machines`.
+Servers present here but absent from the manifest after a choice, except those
+recorded in `keepLocalMcp`, are picked up by Phase 3.75's regeneration, which
+stamps this host into `machines`.
 
 ---
 
@@ -1204,6 +1206,7 @@ last command; nothing may write the repo after it returns:
 If the user chose **Replace the repo with this machine** in Phase 2.5, run this
 block with `MCP_PRUNE_TO_LOCAL=1` set in front of the command. Otherwise leave it
 unset; the generator then only updates this host's `machines` entries.
+The generator skips servers recorded in `.fleet-local.json` `keepLocalMcp` that are not already declared, so a decline recorded in Phase 2.5 survives regeneration.
 
 ```bash
 set -euo pipefail
