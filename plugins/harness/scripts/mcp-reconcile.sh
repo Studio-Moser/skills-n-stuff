@@ -76,7 +76,7 @@ def has_shape(entry):
     return bool(set(entry) & {"command", "url"})
 
 def resolves(entry):
-    cmd = entry.get("command", "")
+    cmd = os.path.expandvars(entry.get("command", ""))
     if not cmd:
         return True
     return os.access(cmd, os.X_OK) if cmd.startswith("/") else shutil.which(cmd) is not None

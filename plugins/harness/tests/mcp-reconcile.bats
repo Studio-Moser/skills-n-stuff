@@ -158,3 +158,18 @@ PY
   [[ "$PLAN" == *$'INSTALL\tinstallable'* ]] || return 1
   [[ "$PLAN" != *"EXTRA"* ]]
 }
+
+@test "a command written with \${HOME} resolves after expansion" {
+  python3 - "$RUNTIME" <<'PY2'
+import json, sys
+p = sys.argv[1]; d = json.load(open(p))
+d["mcpServers"]["both"]["command"] = "${HOME}/.harness-test-bin/present"
+json.dump(d, open(p, "w"))
+PY2
+  fake_home="$BATS_TEST_TMPDIR/home"
+  mkdir -p "$fake_home/.harness-test-bin"
+  printf '#!/bin/sh\n' > "$fake_home/.harness-test-bin/present"
+  chmod +x "$fake_home/.harness-test-bin/present"
+  HOME="$fake_home" plan
+  [[ "$PLAN" != *$'UNRESOLVED\tboth'* ]]
+}
