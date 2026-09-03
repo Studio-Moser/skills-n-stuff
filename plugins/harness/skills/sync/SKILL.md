@@ -692,9 +692,11 @@ between blocks, see Phase 0). The plan line kinds:
 | `UNRESOLVED <name>` | here, command not on `PATH` |
 
 **In a dry run, stop after the table and plan.** Otherwise, if there is no
-`INSTALL`, `NO-CONFIG`, `EXTRA`, or `UNRESOLVED` line, print `MCP_STATE=up to date` and
-continue to Phase 2.6. If the only lines are `UNRESOLVED`, skip the question and go to the
-unresolved-command follow-up below. Otherwise ask **one** question with exactly these
+`INSTALL`, `NO-CONFIG`, `EXTRA`, `UNRESOLVED`, or `NEEDS-SECRET` line, print
+`MCP_STATE=up to date` and continue to Phase 2.6. If the only lines are `NEEDS-SECRET`
+or `UNRESOLVED` (or both), skip the question: run the Secrets step for the
+`NEEDS-SECRET` lines, then the unresolved-command follow-up for the `UNRESOLVED`
+lines, both below. Otherwise ask **one** question with exactly these
 three options, listing the affected names under each:
 
 1. **Match this machine to the repo** — install every `INSTALL` server here,
