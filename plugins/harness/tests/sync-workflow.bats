@@ -54,6 +54,7 @@ EOF
   git -C "$REPO" commit -q -m base
   git -C "$REPO" remote add origin "$REMOTE"
   git -C "$REPO" push -q -u origin main
+  git --git-dir="$REMOTE" symbolic-ref HEAD refs/heads/main
 
   git clone -q "$REMOTE" "$UPDATER"
   git -C "$UPDATER" config user.email updater@example.com

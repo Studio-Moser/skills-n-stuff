@@ -14,6 +14,7 @@ setup() {
   git -C "$REPO" commit -q -m base
   git -C "$REPO" remote add origin "$REMOTE"
   git -C "$REPO" push -q -u origin main
+  git --git-dir="$REMOTE" symbolic-ref HEAD refs/heads/main
   BASE_SHA="$(git -C "$REPO" rev-parse HEAD)"
   "$PREFLIGHT" "$REPO" >/dev/null
 }
