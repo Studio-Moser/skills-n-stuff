@@ -91,6 +91,13 @@ runtime only when the selected provider is native. Pass the resolved model and
 effort explicitly with the selected context mode and complete HandoffPacket. If
 either cannot be selected explicitly, stop rather than change providers.
 
+When the current native tool inventory advertises `spawn_agent`, dispatch by
+calling `spawn_agent` directly with the selected model, effort, context mode,
+and complete HandoffPacket. `list_agents` reports active agents; an empty result
+does not mean `spawn_agent` is unavailable. Do not report `missing_executor` or
+`blocked` while `spawn_agent` is advertised and has not been called. After the
+call, apply the availability classification below to its typed result.
+
 The only availability reasons are `quota`, `authentication`, `rate_limit`,
 `provider_unavailable`, and preflight `missing_executor`. The resolver owns
 `missing_executor`, open-circuit skips, cooldowns, and the single half-open probe;

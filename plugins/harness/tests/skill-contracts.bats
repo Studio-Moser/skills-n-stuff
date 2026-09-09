@@ -148,6 +148,17 @@ for token in ('command -v codex', 'codex-dispatch.sh', '`approval: never`'):
     if token not in skills["execute"]:
         failures.append(f"execute: Codex adapter omits {token}")
 
+for name in ("execute", "review"):
+    native = " ".join(skills[name].split())
+    for clause in (
+        "When the current native tool inventory advertises `spawn_agent`, dispatch by calling `spawn_agent` directly",
+        "`list_agents` reports active agents; an empty result does not mean `spawn_agent` is unavailable",
+        "Do not report `missing_executor` or `blocked` while `spawn_agent` is advertised and has not been called",
+        "After the call, apply the availability classification below to its typed result",
+    ):
+        if clause not in native:
+            failures.append(f"{name}: missing native dispatch clause: {clause}")
+
 review = " ".join(skills["review"].split())
 for clause in (
     "Require `verification.fixed_target` before dispatch",
