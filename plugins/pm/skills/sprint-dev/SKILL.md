@@ -25,11 +25,11 @@ requests to Harness. PM retains the issue tracker and PR lifecycle.
 - **Never auto-build.** Always present the proposal and wait for user approval.
 - **Work the frontier.** Dispatch only delivery slices on the unblocked frontier.
 - **Schedule collisions.** Apply the scheduling-collision rule in `references/work-readiness.md`; choose isolation or run sequentially for each collision.
-- **Every PR must pass.** Each Harness execution request requires self-review and the
-  full test suite before opening its PR.
-- **Trust the check, not the result summary.** Phase 2C submits a fixed-target Harness
-  review request, reproduces verification, and loops findings back until the check
-  passes. No code merges on an executor's claim alone.
+- **Every PR must pass.** Run one verification pass at the highest stable Testing Seam
+  required by the change class and matched risk.
+- **Review by risk.** Self-review every slice. Phase 2C uses a separate fixed-target
+  Harness review only when the risk gate requires independent review or the user asks
+  for it.
 - **Backlog is sacred.** Only PM edits the backlog, never the Harness executor.
 - **Report live.** Tell the user about each PR as it completes, don't batch results.
 - **Discovered work stays out of scope.** Harness requests require workers to report it
@@ -294,13 +294,19 @@ For worktree-capable projects:
 git worktree add .claude/worktrees/pulse-{cluster}-{date} -b pulse/{cluster}-{YYYY-MM-DD} main
 ```
 
-### 2B. Submit Harness execution requests
+### 2B. Implement approved slices
 
-For each approved delivery slice, invoke `harness:execute` with
+For each approved delivery slice, load `harness:risk-gate`. Record its mode, matched
+triggers, testing seam, delegation decision, and review decision. The current agent
+implements by default.
+
+Delegate only one independently useful substantial track with its own outcome and
+verification seam. When delegation is justified, invoke `harness:execute` with
 `operation: execute`. Use `route: bulk` for clear-spec or mechanical work,
 `route: quick` only for a short latency-sensitive step, and `route: taste` for
 user-facing UI, copy, or public API work. PM chooses only this semantic altitude;
-Harness resolves execution.
+Harness resolves execution. Carry the risk gate's `max_children`, `max_depth`, and
+`token_budget` into the request.
 
 Submit one complete Harness Request per delivery slice:
 
@@ -336,6 +342,10 @@ constraints:
   - Keep the change to the approved slice, run the planned tests, and make atomic conventional commits
   - Commit the approved delivery slice; do not push, open a PR, or edit PM tracker files
   - Report discovered work without implementing it inline
+delegation:
+  max_children: {risk-gate limit}
+  max_depth: {risk-gate limit}
+  token_budget: {bounded amount for this track}
 verification:
   seam: {Testing Seam procedure}
   expected: {Testing Seam expected result plus project test/build success}
@@ -345,7 +355,7 @@ The request must carry the approved `Outcome`, `Blockers`, `Testing Seam`, and
 current `Proof` verbatim. It also carries batch item metadata, the product context,
 memory context when available, and every approved file-ownership constraint.
 
-Submit requests concurrently only when the approved `Parallel Safety` decision says
+Submit delegated requests concurrently only when the approved `Parallel Safety` decision says
 independent and the existing collision rule from `references/work-readiness.md` is
 satisfied. For each scheduling collision, follow the approved isolation decision or
 run the requests sequentially. Parallel requests use separate worktrees, and each
@@ -353,19 +363,26 @@ request's `authority.allowed_paths` states its file ownership ceiling. A newly
 discovered overlap returns as a blocker; PM then orders or re-isolates the affected
 slices instead of widening either request.
 
-Consume each Harness Result without interpreting its concrete route details. A
+For direct execution, inspect the current agent's diff and record the same Outcome,
+Testing Seam, and Proof fields. For delegated execution, consume each Harness Result
+without interpreting its concrete route details. A
 `blocked`, `failed`, or `abandoned` result stays visible with its blockers. For an
 `accepted` result, inspect the changed-file list, report artifact, fixed commit, and
-recorded checks. PM then pushes the approved branch and opens one PR for the delivery
-slice before moving to review.
+recorded checks. After direct proof, commit the slice. After an accepted delegated
+result, verify and reuse the returned commit instead of committing the same slice
+again. Then push the approved branch and open one PR before moving to review.
 
-### 2C. Fixed-target review and fix loop
+### 2C. Conditional fixed-target review and fix loop
 
 Load `references/review-proof.md` in the PM orchestrator and copy its complete review
-axes and completion constraints into the request; do not pass that PM-private path to
-Harness. Invoke `harness:review` with `operation: review` and `route: review`. Keep the
-one-reviewer policy. Use `route: independent` only when the user separately approves
-the cost of a fresh-context adversarial review.
+axes and completion constraints into the self-review. Continue directly to Phase 2D
+when self-review and one verification pass prove an ordinary slice.
+
+Invoke `harness:review` with `operation: review` and `route: review` only when the
+risk gate requires independent review or the user explicitly asks for a separate
+review. Keep the one-reviewer policy. Use `route: independent` only when the user
+separately approves the cost of a provider-separated fresh-context adversarial review.
+The fixed-target procedure below applies only when that separate review is required.
 
 Resolve the approved PR base and head to commits, materialize their exact binary
 full-index diff under a repository-relative review-artifact path, and identify that
@@ -495,16 +512,15 @@ rm -f "$REVIEW_ARTIFACT_ABS" || exit 1
 rmdir "$REVIEW_ARTIFACT_DIR_ABS" 2>/dev/null || true
 ```
 
-If findings clear the bar, run the fix loop for at most two rounds:
+If required review findings clear the bar, run the fix loop for at most two rounds:
 
-1. Submit a new complete Phase 2B `harness:execute` request on the same branch. Its
-   outcome is to resolve the accepted findings without widening the slice; use
-   `route: bulk` for mechanical fixes or `route: taste` when the finding concerns
-   user-facing design, copy, or a public API.
+1. Resolve findings directly in the current agent unless the risk gate still identifies
+   a substantial independent track. Only then submit a new complete Phase 2B
+   `harness:execute` request on the same branch.
 2. Fix each finding or dispute it with concrete evidence when it is false or contradicts
    the approved spec.
-3. Require the full tests/build/lint/typecheck plus the named Testing Seam, with actual
-   output in the returned evidence.
+3. Require one verification pass at the named Testing Seam plus any additional check
+   required by the matched risk, with actual output in the returned evidence.
 4. After Harness returns the normal follow-up commit, PM pushes it to the existing PR;
    never force-push.
 5. Pin the new commit and submit another complete Harness review request. Confirm every
@@ -533,7 +549,8 @@ If nothing clears the threshold on the first pass, note "clean" and proceed.
 
 ### 2D. Report Results
 
-After each Harness execution and review cycle completes, immediately tell the user:
+After each implementation and any required review cycle completes, immediately tell
+the user:
 
 ```
 PR Complete: {cluster}
@@ -583,7 +600,7 @@ clean up the worktree if used. PM does not call a memory provider directly.
 
 ## Error Recovery
 
-- **Harness execution failure**: Preserve any returned commits, otherwise clean up the branch. Report the typed status and blockers, then ask whether to retry or skip.
+- **Implementation failure**: Preserve any returned commits, otherwise clean up the branch. Report the direct failure or delegated typed status and blockers, then ask whether to retry or skip.
 - **Repo failure**: Reset to main, log affected items, continue with next batch.
 - **Never**: force push, modify main directly (except backlog), delete remote branches, skip verification, proceed without user approval.
 

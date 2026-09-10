@@ -101,3 +101,24 @@ PY
   fi
   [ "$status" -eq 0 ]
 }
+
+@test "model rubric captures bounded delegation limits during the interview" {
+  run python3 - "$SEED_PATH" "${BATS_TEST_DIRNAME}/../skills/model-rubric/SKILL.md" <<'PY'
+from pathlib import Path
+import sys
+
+seed = Path(sys.argv[1]).read_text()
+skill = " ".join(Path(sys.argv[2]).read_text().split())
+for field in ("max_children: null", "max_depth: null", "default_token_budget: null"):
+    assert field in seed, f"seed omits interview placeholder: {field}"
+for phrase in (
+    "Delegation limits:",
+    "Recommend one child and one level",
+    "Existing rubrics without `delegation` remain readable for routing compatibility",
+    "they are incomplete for Lite",
+    "When a resolved candidate equals the active `model@effort`",
+):
+    assert phrase in skill, f"model-rubric omits Lite policy: {phrase}"
+PY
+  [ "$status" -eq 0 ]
+}

@@ -66,15 +66,15 @@ Strategic intelligence system for product teams. Weekly strategy briefs, daily m
 
 ### PM
 
-Backend-agnostic project management for AI-native teams. Ingests research reports, triages and specs work items, manages sprint execution with sub-agents, syncs with GitHub Issues.
+Backend-agnostic project management for AI-native teams. Ingests research reports, triages and specs work items, coordinates risk-gated sprint execution, and syncs with GitHub Issues.
 
 **Skills:**
 - `/pm:setup` — Onboard a project (run once)
 - `/pm:ingest` — Read research reports and create tracked issues
 - `/pm:triage` — Spec, score, and promote items to ready-for-agent
 - `/pm:reconcile` — Sync reality with the tracker (completion, stale, blockers)
-- `/pm:sprint-dev` — Pick ready work and execute with sub-agents
-- `/pm:dev-task` — Interactive, guided single-task dev workflow (plan → approve → build → review → verify → PR)
+- `/pm:sprint-dev` — Pick ready work, schedule collisions, and build approved slices
+- `/pm:dev-task` — Explicit managed workflow for one task (plan → approve → build → verify → PR)
 
 [Full documentation](plugins/pm/README.md)
 
@@ -87,6 +87,7 @@ routing, bounded execution, and evidence-bearing results.
 - `/harness:setup` — configure the personal agents repository, links, runtimes, and rubric
 - `/harness:sync` — reconcile your personal agent repository with this machine
 - `/harness:model-rubric` — configure capability-driven orchestration and delegated routing
+- `/harness:risk-gate` — classify when work needs structure, delegation, or independent review
 - `/harness:execute` — run one bounded request through a resolved semantic route
 - `/harness:review` — independently verify a fixed target and return reproducible evidence
 - `/harness:computer-use` — operate a local app or browser with explicit capability and proof

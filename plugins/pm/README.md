@@ -13,15 +13,15 @@ PM is a **seven-skill pipeline** that manages the full lifecycle of work items, 
 | `/pm:setup` | Scaffolder | Once per workspace | Detects the workspace, loads only the selected backend reference, creates PM config and domain files, and stamps the shared agent baseline |
 | `/pm:ingest` | Discoverer | After new research lands | Separates source evidence from proposed outcomes, deduplicates candidates, and files `status/needs-triage` items through the selected backend |
 | `/pm:triage` | Classifier | When items need decisions | Verifies claims before design, prepares independently verifiable delivery slices, splits XL work under goal epics, scores, and promotes |
-| `/pm:sprint-dev` | Builder | When you're ready to ship | Selects the unblocked frontier, treats shared-file overlap as scheduling collisions, and submits approved slices as Harness operations with named proof |
-| `/pm:dev-task` | Pair-programmer | Implementing one focused change | Guides one approved delivery slice through implementation, evidence-backed review, and PR creation; works with or without `/pm:setup` |
+| `/pm:sprint-dev` | Builder | When you're ready to ship | Selects the unblocked frontier, schedules collisions, and builds approved slices directly or through bounded Harness delegation when risk justifies it |
+| `/pm:dev-task` | Pair-programmer | When explicitly requested for one focused change | Guides one approved delivery slice through implementation, risk-gated review, and PR creation; works with or without `/pm:setup` |
 | `/pm:feature-walkthrough` | Demonstrator | When visual proof is explicitly requested | Produces a requested web-feature walkthrough from existing Playwright coverage; supplements, never replaces, test, build, and review proof |
 | `/pm:reconcile` | Janitor | After sprints or merges | Completion tracking, stale detection, blocker classification, CONTEXT.md and ADR proposals |
 
 ### Two build modes
 
-- **`/pm:sprint-dev`** — *work the backlog.* Selects unblocked ready slices, schedules collisions, then submits the approved PR set as Harness operations. Needs `/pm:setup` + a tracker.
-- **`/pm:dev-task`** — *walk me through this one task.* Interactive and foreground, with approval gates around one bounded change. Works in any repo, no setup required.
+- **`/pm:sprint-dev`** — *work the backlog.* Selects unblocked ready slices, schedules collisions, then builds the approved PR set with risk-gated delegation and review. Needs `/pm:setup` + a tracker.
+- **`/pm:dev-task`** — *walk me through this one task.* Explicit, interactive, and foreground, with approval gates around one bounded change. Works in any repo, no setup required.
 - **`/pm:feature-walkthrough`** — *show me the verified result.* Records an explicitly requested visual walkthrough from existing Playwright coverage.
 
 Both defer through `pm:house-rules` to the
@@ -41,8 +41,10 @@ Skills load those references only at the branch where their rules apply. This RE
 ### Harness execution
 
 PM is a workflow consumer of the [Harness contract](../harness/references/harness-contract.md).
-It sends complete provider-neutral requests to `harness:execute` and
-`harness:review`, selecting only the semantic route: `bulk` for clear-spec
+The current agent executes approved slices by default. PM loads `harness:risk-gate`
+to decide whether a substantial independent track should go to `harness:execute` or
+a fixed target needs `harness:review`. Those provider-neutral requests select only
+the semantic route: `bulk` for clear-spec
 mechanical work and scorecards, `quick` only for latency-sensitive steps, `taste`
 for user-facing design/copy/API work, `review` for ordinary fixed-target review, and
 explicitly approved `independent` for an adversarial fresh-context review.
@@ -52,8 +54,10 @@ constraints include readiness, delivery-slice Outcomes, Blockers, Testing Seams,
 tracker and PR boundaries, plus the Quality, Spec Fidelity, and Blast Radius review
 axes. Harness owns dispatch, fixed-target materialization, and evidence mechanics,
 including concrete routing, execution authority, and the returned Harness Result.
-Harness may delegate workers within the request's authority; PM consumes the Result
-and reproduces the named proof before marking a delivery slice complete.
+Harness may delegate workers within the request's authority and explicit limits. PM
+reproduces the worker's named Testing Seam, checks every material review finding, and
+uses that as the one required verification pass before marking a delivery slice
+complete.
 
 ### The Flow
 

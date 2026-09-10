@@ -453,7 +453,7 @@ EOF
   touch "$claude/.mcp-prune-to-local"
   run env AGENTS_REPO="$agents" CLAUDE_CONFIG_DIR="$claude" CLAUDE_PLUGIN_ROOT="$harness" MCP_ARGS_MARKER="$args_marker" bash "$phase"
   [ "$status" -eq 0 ]
-  [[ "$(cat "$args_marker")" == "--prune-to-local "*"mcp.manifest.json" ]]
+  [[ "$(cat "$args_marker")" == "--prune-to-local "*"mcp.manifest.json" ]] || return 1
   [ ! -e "$claude/.mcp-prune-to-local" ]
 }
 

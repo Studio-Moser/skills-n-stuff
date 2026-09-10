@@ -1,0 +1,115 @@
+#!/usr/bin/env bats
+
+setup() { REPO="$(cd "$BATS_TEST_DIRNAME/../../.." && pwd)"; }
+
+@test "risk gate is mechanical and defaults ordinary work to direct execution" {
+  run python3 - "$REPO/plugins/harness/skills/risk-gate/SKILL.md" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+assert path.is_file(), f"missing risk gate: {path}"
+text = " ".join(path.read_text().split()).lower()
+
+required = (
+    "direct",
+    "structured",
+    "independent review",
+    "authentication",
+    "payment",
+    "persisted data",
+    "public api",
+    "multiple repositories",
+    "testing seam",
+    "context window",
+    "explicitly requests",
+    "max_children",
+    "max_depth",
+    "token_budget",
+    "one independently useful substantial track",
+)
+missing = [phrase for phrase in required if phrase not in text]
+assert not missing, "risk gate omits Lite rule: " + ", ".join(missing)
+
+forbidden = ("estimate complexity from vibes", "always delegate", "always review")
+found = [phrase for phrase in forbidden if phrase in text]
+assert not found, "risk gate contains non-mechanical policy: " + ", ".join(found)
+PY
+  [ "$status" -eq 0 ]
+}
+
+@test "managed PM workflows keep delegation and independent review conditional" {
+  run python3 - "$REPO" <<'PY'
+from pathlib import Path
+import sys
+
+repo = Path(sys.argv[1])
+dev = " ".join((repo / "plugins/pm/skills/dev-task/SKILL.md").read_text().split()).lower()
+sprint = " ".join((repo / "plugins/pm/skills/sprint-dev/SKILL.md").read_text().split()).lower()
+
+for phrase in (
+    "manual only",
+    "current agent implements by default",
+    "harness:risk-gate",
+    "delegate only",
+    "independent review",
+    "one verification pass",
+):
+    assert phrase in dev, f"dev-task omits {phrase}"
+
+for phrase in (
+    "harness:risk-gate",
+    "current agent implements by default",
+    "delegate only",
+    "independent review",
+    "one verification pass",
+):
+    assert phrase in sprint, f"sprint-dev omits {phrase}"
+
+for text, label in ((dev, "dev-task"), (sprint, "sprint-dev")):
+    assert "always uses harness:execute" not in text, f"{label} forces delegation"
+    assert "each harness execution request requires self-review and the full test suite" not in text, f"{label} duplicates verification"
+    assert "superpowers:" not in text, f"{label} auto-loads Superpowers"
+PY
+  [ "$status" -eq 0 ]
+}
+
+@test "managed PM workflows are explicit-only for OpenAI runtimes" {
+  run python3 - "$REPO" <<'PY'
+from pathlib import Path
+import sys
+import yaml
+
+repo = Path(sys.argv[1])
+for name in ("dev-task", "sprint-dev"):
+    path = repo / "plugins/pm/skills" / name / "agents/openai.yaml"
+    assert path.is_file(), f"{name} omits OpenAI invocation policy"
+    data = yaml.safe_load(path.read_text())
+    assert data == {"policy": {"allow_implicit_invocation": False}}, data
+PY
+  [ "$status" -eq 0 ]
+}
+
+@test "house rules scale proof and review from risk instead of change size" {
+  run python3 - "$REPO/plugins/harness/references/house-rules.md" <<'PY'
+from pathlib import Path
+import sys
+
+text = " ".join(Path(sys.argv[1]).read_text().split()).lower()
+for phrase in (
+    "ordinary changes stay with the current agent",
+    "one verification pass",
+    "highest stable existing testing seam",
+    "use the risk gate",
+    "independent review only when",
+):
+    assert phrase in text, f"house rules omit {phrase}"
+
+for phrase in (
+    "the full suite before the commit, one reviewer",
+    "brainstorm → plan → guided implementation → review, every gate",
+):
+    assert phrase not in text, f"house rules retain heavyweight default: {phrase}"
+PY
+  [ "$status" -eq 0 ]
+}

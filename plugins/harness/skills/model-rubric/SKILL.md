@@ -41,8 +41,10 @@ harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*
 "$harness/scripts/rubric-path.sh" --check
 ```
 
-- `set` → read the file's `reviewed:` stamp and listed models. For an ordinary
-  invocation, current (≤14 days, no superseded model) means report it and stop.
+- `set` → read the file's `reviewed:` stamp, listed models, and delegation limits.
+  For an ordinary invocation, current (≤14 days, no superseded model, and positive
+  `delegation.max_children`, `delegation.max_depth`, and
+  `delegation.default_token_budget`) means report it and stop.
   When invoked by `harness:setup`, a current rubric does not stop this skill:
   continue through capability reconciliation, then stop only if reconciliation
   and validation prove that no write is needed.
@@ -131,6 +133,9 @@ problems explicitly; do not infer it from benchmark scores:
    least editing.
 6. **Working style:** decide whether latency matters for attended work and whether
    slow, high-quality rows are useful for unattended batches.
+7. **Delegation limits:** choose the default maximum children, maximum nested depth,
+   and bounded token budget for one delegated track. Recommend one child and one level
+   unless the developer has a measured need for wider fan-out.
 
 User-owned trust and preferences govern orchestration, taste, exploration, and
 review; benchmark data is supporting evidence only. Do not treat an absent
@@ -157,8 +162,10 @@ exists. Treat it only as a seed:
    `taste`;
 5. mark cross-provider CLI rows with `via: <cli>`;
 6. derive the scalar `routing` primaries from the reachable rows;
-7. derive and validate the route-specific `fallbacks` chains below;
-8. remove `seed: true`, replace `reviewed:` with today's date, and record the
+7. record positive `delegation.max_children`, `delegation.max_depth`, and
+   `delegation.default_token_budget` from the developer's limits;
+8. derive and validate the route-specific `fallbacks` chains below;
+9. remove `seed: true`, replace `reviewed:` with today's date, and record the
    actual sources used.
 
 For a Setup reconciliation, add/drop affected model rows and derive `routing`
@@ -218,6 +225,13 @@ refresh may derive route-specific chains, and consumers use only the validated
 
 `via` is executor metadata interpreted by Harness. Consumers never branch on it.
 Every eventual dispatch still passes model and effort explicitly.
+When a resolved candidate equals the active `model@effort`, Harness executes in the
+current context instead of delegating back to itself. Rubric routes select capability;
+they do not force a child process.
+
+Existing rubrics without `delegation` remain readable for routing compatibility, but
+they are incomplete for Lite. On the next setup or rubric refresh, ask for the missing
+limits and write them before reporting the rubric current.
 
 The completed file has this shape:
 
@@ -254,6 +268,10 @@ fallbacks:
   default: [backup-model@high]
   quick: [backup-model@high]
   review: [backup-model@high]
+delegation:
+  max_children: 1
+  max_depth: 1
+  default_token_budget: 80000
 ```
 
 Build the complete candidate document at a local temporary path. Before writing
@@ -323,5 +341,6 @@ model row's `efficiency` is an integer from 1 through 10; reject any other value
 Optional unavailable routes are omitted. When present,
 `routing.taste` must name a reachable row at or above `routing.taste_min`. Reject
 an unvalidated fallback chain or a completed rubric that still contains
-`routing.fallback`. A Setup invocation reports `reconciled: true` even when the
+`routing.fallback`. Reject non-positive delegation limits or an unbounded
+`delegation.default_token_budget`. A Setup invocation reports `reconciled: true` even when the
 file did not change.

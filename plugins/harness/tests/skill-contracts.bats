@@ -76,7 +76,7 @@ skills = {name: path.read_text() for name, path in skill_paths.items()}
 
 result_fields = (
     "status", "route.requested", "route.actual_model", "route.effort",
-    "route.provider", "route.executor", "route.resolution", "route.attempted",
+    "route.provider", "route.executor", "route.dispatch", "route.resolution", "route.attempted",
     "route.fallback_reason", "artifacts.files", "artifacts.report",
     "evidence.fixed_target", "evidence.checks", "evidence.outcome",
     "telemetry.attempts", "telemetry.elapsed", "telemetry.verification_failures",
@@ -100,6 +100,7 @@ for name, text in skills.items():
             failures.append(f"{name}: missing contract clause: {clause}")
     for token in (
         "resolve-route.py", "record-failure", "record-success", "--attempted",
+        "--active-candidate \"$HARNESS_ACTIVE_CANDIDATE\"",
         "quota", "authentication", "rate_limit", "provider_unavailable",
         "missing_executor", "codex-app-server.py", "availability_failure",
     ):

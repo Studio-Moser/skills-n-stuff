@@ -67,13 +67,21 @@ only ordered candidates already dispatched by this request and then recorded as
 unavailable. Call the canonical resolver on every iteration:
 
 ```bash
+HARNESS_ACTIVE_CANDIDATE="${HARNESS_ACTIVE_CANDIDATE:-}"
 ROUTE_RESULT="$($harness/scripts/resolve-route.py select \
   --rubric "$RUBRIC_PATH" \
   --route "$HARNESS_ROUTE" \
   --native-provider "$HARNESS_NATIVE_PROVIDER" \
   --executors "$HARNESS_EXECUTORS" \
+  --active-candidate "$HARNESS_ACTIVE_CANDIDATE" \
   --attempted "$HARNESS_ATTEMPTED")"
 ```
+
+When the active model and effort are known, pass
+`--active-candidate "$HARNESS_ACTIVE_CANDIDATE"`. If the resolver returns
+`dispatch: direct`, review in the current context without spawning a duplicate child.
+Record the active candidate as the terminal `route.attempted` entry. This is a
+self-review, so it never satisfies an `independent` request.
 
 For `independent`, that same `select` call must also pass
 `--authoring-providers "$HARNESS_AUTHORING_PROVIDERS"` containing every provider
@@ -86,7 +94,7 @@ explicit and callable. If `via` is absent, use the native runtime only when the
 selected provider is native, with the chosen context mode and complete
 HandoffPacket. Pass the resolved model and effort explicitly on every dispatch.
 
-When the current native tool inventory advertises `spawn_agent`, dispatch by
+Continue only for `dispatch: delegated`. When the current native tool inventory advertises `spawn_agent`, dispatch by
 calling `spawn_agent` directly with the selected model, effort, context mode,
 and complete HandoffPacket. `list_agents` reports active agents; an empty result
 does not mean `spawn_agent` is unavailable. Do not report `missing_executor` or
@@ -188,7 +196,7 @@ outcome exists and current direct proof establishes it.
 
 Return every field in the HarnessResult: `status`, `route.requested`,
 `route.actual_model`, `route.effort`, `route.provider`, `route.executor`,
-`route.resolution`, `route.attempted`, `route.fallback_reason`,
+`route.dispatch`, `route.resolution`, `route.attempted`, `route.fallback_reason`,
 `artifacts.files`, `artifacts.report`, `evidence.fixed_target`,
 `evidence.checks`, `evidence.outcome`, `telemetry.attempts`,
 `telemetry.elapsed`, `telemetry.verification_failures`,

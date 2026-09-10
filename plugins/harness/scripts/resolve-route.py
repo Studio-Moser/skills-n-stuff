@@ -361,6 +361,19 @@ def parse_routes(document: dict, rows: dict[tuple[str, str], dict]) -> dict[str,
     return chains
 
 
+def validate_delegation(document: dict) -> None:
+    delegation = document.get("delegation")
+    if delegation is None:
+        return
+    if not isinstance(delegation, dict):
+        raise Blocked("rubric.delegation must be a mapping")
+    required = ("max_children", "max_depth", "default_token_budget")
+    for field in required:
+        value = delegation.get(field)
+        if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+            raise Blocked(f"delegation.{field} must be a positive integer")
+
+
 def parse_csv(value: str, field: str) -> list[str]:
     if not value:
         return []
@@ -459,9 +472,20 @@ def select(args: argparse.Namespace) -> int:
     document = load_rubric(args.rubric)
     rows = model_rows(document)
     chains = parse_routes(document, rows)
+    validate_delegation(document)
     validate_independent_routes(chains, rows, authoring_providers)
     if args.route not in chains:
         raise Blocked(f"routing.{args.route} is not configured")
+    active_candidate = args.active_candidate or None
+    if active_candidate:
+        try:
+            active_row = rows[split_ref(active_candidate)]
+        except (KeyError, ValueError) as error:
+            raise Blocked(
+                f"active candidate {active_candidate} is not configured"
+            ) from error
+        if active_row["provider"] != args.native_provider:
+            raise Blocked("active candidate provider does not match native provider")
 
     skipped: list[str] = []
     fallback_reason: str | None = None
@@ -478,7 +502,6 @@ def select(args: argparse.Namespace) -> int:
         )
         for index, ref in enumerate(chains[args.route]):
             row = rows[split_ref(ref)]
-            executor, reason = resolve_executor(row, args.native_provider, executors)
             endpoint_executor = configured_executor(row, args.native_provider)
             circuit = (
                 circuits.get(circuit_key(row["provider"], endpoint_executor))
@@ -490,6 +513,24 @@ def select(args: argparse.Namespace) -> int:
                 if circuit:
                     fallback_reason = fallback_reason or circuit["reason"]
                 continue
+            if ref == active_candidate:
+                result: dict[str, object] = {
+                    "status": "resolved" if index == 0 else "fallback",
+                    "resolution": "primary" if index == 0 else "fallback",
+                    "candidate": ref,
+                    "model": row["name"],
+                    "effort": row["effort"],
+                    "provider": row["provider"],
+                    "executor": "current",
+                    "dispatch": "direct",
+                }
+                if index > 0 and fallback_reason:
+                    result["reason"] = fallback_reason
+                if skipped:
+                    result["skipped"] = skipped
+                compact_json(result)
+                return 0
+            executor, reason = resolve_executor(row, args.native_provider, executors)
             if executor is None:
                 skipped.append(ref)
                 fallback_reason = fallback_reason or reason
@@ -519,6 +560,7 @@ def select(args: argparse.Namespace) -> int:
                 "effort": candidate.effort,
                 "provider": candidate.provider,
                 "executor": candidate.executor,
+                "dispatch": "delegated",
             }
             if index > 0 and fallback_reason:
                 result["reason"] = fallback_reason
@@ -601,6 +643,7 @@ def validate(args: argparse.Namespace) -> int:
     document = load_rubric(args.rubric)
     rows = model_rows(document)
     chains = parse_routes(document, rows)
+    validate_delegation(document)
     validate_independent_routes(chains, rows, authoring_providers)
     validate_reachable_routes(chains, rows, args.native_provider, executors)
     compact_json({"status": "valid"})
@@ -620,6 +663,7 @@ def build_parser() -> Arguments:
             command.add_argument("--state")
             command.add_argument("--route", required=True)
             command.add_argument("--attempted", default="")
+            command.add_argument("--active-candidate", default="")
             command.add_argument("--now")
     failure = subcommands.add_parser("record-failure")
     failure.add_argument("--state")
