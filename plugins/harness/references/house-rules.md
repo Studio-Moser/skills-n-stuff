@@ -89,8 +89,8 @@ Applies to docs, notes, specs, and any file you create whose name you control.
 Size the ceremony to the change. Name the class in one line before you start ("Polish: gates at the checkpoint") so the human can override it in one word. When unsure, say the class and take the smaller one. This is the explicit instruction that lets a session skip a skill's workflow (brainstorm, plan) when the class doesn't call for it. A class never skips a gate it requires; it decides which gates apply and when they run.
 
 - **Polish** — styling, spacing, copy; no logic change; one file per edit. No brainstorm; no plan (the class line is the plan); no sub-agent for the edits. Edit, verify the one thing that shows it (a screenshot, a targeted check), keep going. Baseline suite once per batch, not per edit. The suite, the review, and the single commit run **at the checkpoint**.
-- **Small** — one bug or one behavior with a clear spec, roughly three files or fewer. No brainstorm. A bug goes through systematic debugging; new behavior gets a test for that one behavior. Targeted tests as you go, the full suite before the commit, one reviewer.
-- **Feature** — new behavior across files, design choices to make, or anything in a security, auth, payment, or data-model flow. Brainstorm → plan → guided implementation → review, every gate.
+- **Small** — one bug or one behavior with a clear spec, roughly three files or fewer. No brainstorm or separate plan. A bug starts with root-cause diagnosis; new behavior gets one runnable check. Ordinary changes stay with the current agent and use one verification pass at the highest stable existing testing seam.
+- **Feature** — new behavior across files or material design choices. State the intended outcome and use the risk gate. The current agent implements unless the gate identifies an independently useful substantial track. Add a written plan, recovery point, or independent review only when the matched risk requires it.
 
 **Checkpoint (Polish).** Any of: the human says commit / PR / done; the batch needs logic — commit the batch first, then the logic change proceeds as Small; the human starts an unrelated task; the session ends or hands off. Never leave a polish batch uncommitted in a shared checkout.
 
@@ -108,12 +108,12 @@ Size the ceremony to the change. Name the class in one line before you start ("P
 - Establish a baseline first: run the existing suite before you change anything. Once per batch for polish.
 - Add tests for new behavior. Cover the obvious edge cases (empty, error, boundary).
 - For every non-trivial change, name the highest stable existing testing seam, including its procedure and expected result. When direct proof is impractical, test the nearest observable indirect contract.
-- Run the suite before each commit, and at minimum before the PR — once per checkpoint for a polish batch, not after every edit — and **show the output**; never claim "tests pass" without pasting evidence.
+- Run one verification pass before the commit or PR at the highest stable existing testing seam required by the change and matched risk. A pass may contain several distinct commands, but do not rerun equivalent proof without invalidation. **Show the output**; never claim "tests pass" without evidence.
 - If tests fail, fix them before opening the PR.
 
 ## Verification
 
-- Your own self-review is a first draft, not proof. An independent check — a reviewer, or re-running the suite yourself — reproduces the claimed result rather than trusting the summary. A claimed-passing check that actually fails is a blocker.
+- Self-review the fixed diff and verify the observable outcome. Use the risk gate for security, payment, persistence, public-contract, cross-repository, missing-seam, or long-horizon work. Require independent review only when the gate says so or the user explicitly asks for it. A claimed-passing check that actually fails is a blocker.
 - If a review finding is wrong for this codebase, dispute it with a one-line reason. Don't distort correct code to satisfy a bad finding.
 
 ## Pre-commit security check

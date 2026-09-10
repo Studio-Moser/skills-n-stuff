@@ -24,12 +24,12 @@ PY
   [ "$status" -eq 0 ]
 }
 
-@test "Harness docs list all six public skills" {
+@test "Harness docs list all seven public skills" {
   run python3 - "$ROOT_README" "$HARNESS_README" <<'PY'
 from pathlib import Path
 import sys
 
-skills = ("setup", "sync", "model-rubric", "execute", "review", "computer-use")
+skills = ("setup", "sync", "model-rubric", "risk-gate", "execute", "review", "computer-use")
 for name in sys.argv[1:]:
     text = Path(name).read_text()
     missing = [skill for skill in skills if f"/harness:{skill}" not in text]

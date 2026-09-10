@@ -65,6 +65,48 @@ PY
   ) == ("resolved", "primary", "gpt-5.6-sol@high", "native")'
 }
 
+@test "active model route short-circuits dispatch" {
+  run "$SCRIPT" select --rubric "$RUBRIC" --state "$STATE" \
+    --route default --native-provider openai --executors "" \
+    --active-candidate gpt-5.6-sol@high --now 2026-08-25T12:00:00Z
+  [ "$status" -eq 0 ]
+  assert_result '(
+      result["status"], result["resolution"], result["candidate"],
+      result["executor"], result["dispatch"]
+  ) == ("resolved", "primary", "gpt-5.6-sol@high", "current", "direct")'
+}
+
+@test "an attempted active candidate is not dispatched again" {
+  run "$SCRIPT" record-failure --state "$STATE" \
+    --provider openai --executor native --reason rate_limit \
+    --now 2026-08-25T12:00:00Z
+  [ "$status" -eq 0 ]
+
+  run "$SCRIPT" select --rubric "$RUBRIC" --state "$STATE" \
+    --route default --native-provider openai --executors "" \
+    --active-candidate gpt-5.6-sol@high \
+    --attempted gpt-5.6-sol@high --now 2026-08-25T12:00:01Z
+  [ "$status" -eq 4 ]
+  assert_result 'result["status"] == "blocked"'
+}
+
+@test "validate rejects unbounded delegation defaults" {
+  cat >> "$RUBRIC" <<'YAML'
+delegation:
+  max_children: 1
+  max_depth: 1
+  default_token_budget: null
+YAML
+
+  run "$SCRIPT" validate --rubric "$RUBRIC" \
+    --native-provider openai --executors codex
+  [ "$status" -eq 4 ]
+  assert_result '(
+      result["status"] == "blocked"
+      and "delegation.default_token_budget" in result["blockers"][0]
+  )'
+}
+
 @test "native mismatch selects the ordered cross-provider fallback" {
   run "$SCRIPT" select --rubric "$RUBRIC" --state "$STATE" \
     --route taste --native-provider openai --executors codex \

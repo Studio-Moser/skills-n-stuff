@@ -62,8 +62,13 @@ rubric setup, not a runtime route value.
 5. Call `scripts/resolve-route.py select` with the semantic route, native
    provider, callable executors, every authoring provider for `independent`, and
    the ordered unavailable candidates already dispatched by this request in
-   `--attempted`.
-6. Pass the selected model and effort explicitly on every dispatch. Never rely
+   `--attempted`. When the current model and effort are known, also pass their
+   `model@effort` reference in `--active-candidate`.
+6. If the selected candidate equals `--active-candidate`, the resolver returns
+   `dispatch: direct` with `executor: current`. Execute in the current context;
+   do not create a child whose model and effort duplicate the active agent. Record
+   that active candidate as the terminal `route.attempted` entry.
+7. Pass the selected model and effort explicitly on every delegated dispatch. Never rely
    on a runtime default. Record the requested route and concrete dispatch in the
    result.
 

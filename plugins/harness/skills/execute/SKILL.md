@@ -26,6 +26,12 @@ verification seam and expected result, and an authority ceiling. Default
 delegated implementation to `fresh` when `context.mode` is omitted; use another
 mode only under the Context rules.
 
+When the request includes `delegation`, require positive `max_children` and
+`max_depth`. The validated rubric supplies the maximum defaults; a request may lower
+them but cannot widen them. Enforce the effective values before spawning. Pass
+`token_budget` when the selected runtime supports it; if the requested budget cannot
+be enforced, return `blocked`.
+
 Preserve `authority.working_directory` exactly after confirming it exists. Treat
 `authority.allowed_paths`, tools, and approvals as ceilings, not suggestions.
 Canonicalize paths only to validate that they stay inside the ceiling; never
@@ -70,13 +76,21 @@ only ordered candidates already dispatched by this request and then recorded as
 unavailable. Call the canonical resolver on every iteration:
 
 ```bash
+HARNESS_ACTIVE_CANDIDATE="${HARNESS_ACTIVE_CANDIDATE:-}"
 ROUTE_RESULT="$($harness/scripts/resolve-route.py select \
   --rubric "$RUBRIC_PATH" \
   --route "$HARNESS_ROUTE" \
   --native-provider "$HARNESS_NATIVE_PROVIDER" \
   --executors "$HARNESS_EXECUTORS" \
+  --active-candidate "$HARNESS_ACTIVE_CANDIDATE" \
   --attempted "$HARNESS_ATTEMPTED")"
 ```
+
+When the active model and effort are known, pass
+`--active-candidate "$HARNESS_ACTIVE_CANDIDATE"`. If the resolver returns
+`dispatch: direct`, execute the bounded request in the current context and do not
+spawn a child. Record `executor: current`, `dispatch: direct`, and the active
+candidate as the terminal `route.attempted` entry in the result.
 
 For `independent`, that same call also passes
 `--authoring-providers "$HARNESS_AUTHORING_PROVIDERS"` containing every provider
@@ -91,7 +105,7 @@ runtime only when the selected provider is native. Pass the resolved model and
 effort explicitly with the selected context mode and complete HandoffPacket. If
 either cannot be selected explicitly, stop rather than change providers.
 
-When the current native tool inventory advertises `spawn_agent`, dispatch by
+Continue only for `dispatch: delegated`. When the current native tool inventory advertises `spawn_agent`, dispatch by
 calling `spawn_agent` directly with the selected model, effort, context mode,
 and complete HandoffPacket. `list_agents` reports active agents; an empty result
 does not mean `spawn_agent` is unavailable. Do not report `missing_executor` or
@@ -208,7 +222,7 @@ outcome is delivered and fresh direct proof establishes it.
 
 Return every field in the HarnessResult: `status`, `route.requested`,
 `route.actual_model`, `route.effort`, `route.provider`, `route.executor`,
-`route.resolution`, `route.attempted`, `route.fallback_reason`,
+`route.dispatch`, `route.resolution`, `route.attempted`, `route.fallback_reason`,
 `artifacts.files`, `artifacts.report`, `evidence.fixed_target`,
 `evidence.checks`, `evidence.outcome`, `telemetry.attempts`,
 `telemetry.elapsed`, `telemetry.verification_failures`,

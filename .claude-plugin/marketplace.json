@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Claude Code plugins by Studio Moser \u2014 strategy, research, design, and product development tools.",
-    "version": "0.19.3",
+    "version": "0.20.0",
     "pluginRoot": "./plugins"
   },
   "plugins": [
@@ -136,7 +136,7 @@
     {
       "name": "pm",
       "source": "./plugins/pm",
-      "description": "Backend-agnostic project management for AI-native teams. Ingests research, triages and specs work items, manages sprint execution with sub-agents, syncs with GitHub Issues. Also includes an interactive single-task guided dev workflow (/pm:dev-task).",
+      "description": "Backend-agnostic project management for AI-native teams. Ingests research, triages and specs work items, coordinates risk-gated sprint execution, and syncs with GitHub Issues. Also includes an explicit single-task managed workflow (/pm:dev-task).",
       "author": {
         "name": "Studio Moser"
       },
@@ -157,12 +157,12 @@
         "triage",
         "sprint"
       ],
-      "version": "0.19.2"
+      "version": "0.20.0"
     },
     {
       "name": "harness",
       "source": "./plugins/harness",
-      "description": "Provider-neutral control plane for universal agent rules, personal setup and sync, semantic routing, bounded execution, review, computer use, and evidence-bearing results. Keeps private skills, global instructions, shared settings, and the per-developer model rubric portable across machines.",
+      "description": "Lightweight provider-neutral control plane for direct-by-default work, mechanical risk gates, bounded delegation and review, portable personal setup, and evidence-bearing results.",
       "author": {
         "name": "Studio Moser"
       },
@@ -183,7 +183,7 @@
         "sync",
         "agent-config"
       ],
-      "version": "0.9.6"
+      "version": "1.0.0"
     },
     {
       "name": "site-capture",

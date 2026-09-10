@@ -18,12 +18,18 @@ The plugin is public and generic; the data is yours.
   portability, and optionally updates other machines.
 - **`/harness:model-rubric`** — create or refresh your user-global model-routing
   rubric at `${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml`.
+- **`/harness:risk-gate`** — classify repository work from observable risk triggers
+  and decide whether it stays direct, needs structure, or requires independent review.
 - **`/harness:execute`** — resolve a semantic route and run one bounded request
   with explicit authority, context, and verification.
 - **`/harness:review`** — independently review a fixed target, reproduce its
   checks, and return evidence without changing the target.
 - **`/harness:computer-use`** — operate a local app, browser, simulator, or other
   screenshot-capable UI with explicit capability and proof.
+
+Ordinary repository work stays with the top-level orchestrator. Delegation is reserved
+for a substantial independent track, is capped by child/depth/token limits, and
+short-circuits when a route resolves to the active model and effort.
 
 The rubric separates the preferred top-level orchestrator from delegated routes.
 Setup derives both from the models and executors actually available on that

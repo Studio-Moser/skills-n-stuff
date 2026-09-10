@@ -62,13 +62,21 @@ only ordered candidates already dispatched by this request and then recorded as
 unavailable. Call the canonical resolver on every iteration:
 
 ```bash
+HARNESS_ACTIVE_CANDIDATE="${HARNESS_ACTIVE_CANDIDATE:-}"
 ROUTE_RESULT="$($harness/scripts/resolve-route.py select \
   --rubric "$RUBRIC_PATH" \
   --route "$HARNESS_ROUTE" \
   --native-provider "$HARNESS_NATIVE_PROVIDER" \
   --executors "$HARNESS_EXECUTORS" \
+  --active-candidate "$HARNESS_ACTIVE_CANDIDATE" \
   --attempted "$HARNESS_ATTEMPTED")"
 ```
+
+When the active model and effort are known, pass
+`--active-candidate "$HARNESS_ACTIVE_CANDIDATE"`. If the resolver returns
+`dispatch: direct`, perform the bounded computer-use request in the current context
+without spawning a duplicate child. Record the active candidate as the terminal
+`route.attempted` entry.
 
 For `independent`, that same call also passes
 `--authoring-providers "$HARNESS_AUTHORING_PROVIDERS"` containing every provider
@@ -179,7 +187,7 @@ establishes it.
 
 Return every field in the HarnessResult: `status`, `route.requested`,
 `route.actual_model`, `route.effort`, `route.provider`, `route.executor`,
-`route.resolution`, `route.attempted`, `route.fallback_reason`,
+`route.dispatch`, `route.resolution`, `route.attempted`, `route.fallback_reason`,
 `artifacts.files`, `artifacts.report`, `evidence.fixed_target`,
 `evidence.checks`, `evidence.outcome`, `telemetry.attempts`,
 `telemetry.elapsed`, `telemetry.verification_failures`,

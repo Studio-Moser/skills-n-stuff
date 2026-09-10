@@ -35,7 +35,12 @@ required = (
     "invoke a matching skill even when the user did not name it",
     "for a repository implementation or bug fix, name the change class before selecting the development workflow",
     "handle polish directly under the house rules",
-    "use `pm:dev-task` for small and feature changes when installed",
+    "ordinary repository work stays with the current agent",
+    "do not invoke a superpowers skill for ordinary work",
+    "use `harness:risk-gate` only when",
+    "use `pm:dev-task` only when the user explicitly requests",
+    "delegate only an independent, substantial track",
+    "one task-appropriate proof pass",
     "other matching task skills still apply",
     "when no installed workflow matches, do the work directly",
     "harness resolves the model and executor",
@@ -55,6 +60,7 @@ forbidden = (
     "model-rubric.yml", "via:", "command -v", "routing.bulk",
     "routing.quick", "routing.review", "claude-", "codex-",
     "raw.githubusercontent.com/Studio-Moser/skills-n-stuff/main/plugins/harness/references/house-rules.md",
+    "use `pm:dev-task` for small and feature changes when installed",
 )
 found = [token for token in forbidden if token in text]
 assert not found, "baseline embeds personal route/provider mechanics: " + ", ".join(found)

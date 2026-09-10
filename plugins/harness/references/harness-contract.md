@@ -32,6 +32,10 @@ authority:
   approvals: actions that still require the user
 constraints:
   - explicit task constraints
+delegation:
+  max_children: positive integer
+  max_depth: positive integer
+  token_budget: positive bounded amount when the runtime supports it
 verification:
   seam: highest stable observable check
   expected: expected result
@@ -41,6 +45,10 @@ verification:
 `outcome` says what must be observably true, not what activity to perform.
 `authority` is a ceiling: an executor may not widen paths, tools, permissions,
 or approvals. A review request fixes its target before dispatch.
+`delegation` is optional because direct work has no child budget. When present,
+the executor must enforce the child and depth caps and pass a supported token budget
+to the delegated runtime. Unsupported budgets stay visible as a blocker rather than
+silently becoming unlimited.
 
 Workflow-specific data remains owned by the consumer. PM blockers and blast
 radius, for example, and Product Pulse source requirements travel in `context`
@@ -65,7 +73,8 @@ route:
   actual_model: resolved model
   effort: resolved effort
   provider: resolved provider
-  executor: native agent or external CLI
+  executor: current agent, native child, or external CLI
+  dispatch: direct | delegated
   resolution: primary | fallback
   attempted: ordered model-effort dispatches
   fallback_reason: typed availability reason or empty
@@ -94,6 +103,10 @@ not appear there. `route.fallback_reason` is the typed availability reason that
 caused a fallback selection, or empty for a primary resolution. These provenance
 fields describe routing; they do not alter the request's authority or proof
 requirements.
+
+A direct resolution records its active candidate as the terminal
+`route.attempted` entry even though it creates no child. This keeps model usage and
+attempt telemetry comparable between direct and delegated execution.
 
 Use the statuses consistently:
 
