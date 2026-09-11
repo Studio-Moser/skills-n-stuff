@@ -25,7 +25,9 @@ is also invalid. Reopen verification and record fresh results.
 
 Evidence records the command or procedure and its actual, decisive result. Keep
 output bounded and reproducible; do not substitute a worker's interpretation for
-the result.
+the result. Run a command-based verification seam in one dedicated tool call so
+its exit status belongs to that seam. Record inspection and other checks in
+separate calls.
 
 ## Acceptance gate
 
