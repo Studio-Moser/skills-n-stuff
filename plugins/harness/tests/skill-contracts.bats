@@ -142,6 +142,7 @@ for clause in (
     "prose is not a substitute for the result",
     "For a bounded non-code file transformation",
     "Do not add a branch, commit, PR, tracker write, or automated test",
+    "Run a command-based verification seam in one dedicated tool call so its exit status belongs to that seam",
 ):
     if clause not in execute:
         failures.append(f"execute: missing adapter clause: {clause}")

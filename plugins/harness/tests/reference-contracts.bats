@@ -128,6 +128,10 @@ require_clause(
     "`accepted` requires both the delivered outcome and `evidence.outcome: proven`.",
 )
 require_clause(
+    verification,
+    "Run a command-based verification seam in one dedicated tool call so its exit status belongs to that seam.",
+)
+require_clause(
     context,
     "An independent review uses `fresh` so the review is not primed by the implementer's reasoning.",
 )

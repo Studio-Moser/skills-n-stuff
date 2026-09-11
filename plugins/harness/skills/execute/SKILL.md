@@ -217,6 +217,8 @@ resume through a broader ambient configuration.
 
 Treat the worker report and its checks as claims. The parent fixes the returned
 artifact, inspects it, and reproduces the highest stable verification seam.
+Run a command-based verification seam in one dedicated tool call so its exit
+status belongs to that seam. Record inspection and other checks in separate calls.
 Only the parent or accepting workflow may return `status: accepted`, after the
 outcome is delivered and fresh direct proof establishes it.
 
