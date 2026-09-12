@@ -74,6 +74,41 @@ PY
   [ "$status" -eq 0 ]
 }
 
+@test "execute loads branch references progressively and keeps full results internal" {
+  run python3 - "$REPO/plugins/harness/skills/execute/SKILL.md" <<'PY'
+from pathlib import Path
+import sys
+
+text = " ".join(Path(sys.argv[1]).read_text().split())
+for phrase in (
+    "The consumer decides direct versus delegated execution before invoking this skill",
+    "Read [references/context.md](../../references/context.md) only when",
+    "Read [references/shelby-integration.md](../../references/shelby-integration.md) only when",
+    "Keep the complete HarnessResult in the workflow state",
+    "render a concise user update",
+    "Populate `HARNESS_ACTIVE_CANDIDATE` from the host's declared runtime identity",
+):
+    assert phrase in text, f"execute omits Lite boundary: {phrase}"
+PY
+  [ "$status" -eq 0 ]
+}
+
+@test "PM planning uses Superpowers only when explicitly selected" {
+  run python3 - "$REPO/plugins/pm/references/triage-spec-flow.md" <<'PY'
+from pathlib import Path
+import sys
+
+text = " ".join(Path(sys.argv[1]).read_text().split())
+for phrase in (
+    "When the user explicitly requests Superpowers planning",
+    "Otherwise, plan directly",
+    "Do not require Superpowers",
+):
+    assert phrase in text, f"triage planning omits optional boundary: {phrase}"
+PY
+  [ "$status" -eq 0 ]
+}
+
 @test "managed PM workflows are explicit-only for OpenAI runtimes" {
   run python3 - "$REPO" <<'PY'
 from pathlib import Path

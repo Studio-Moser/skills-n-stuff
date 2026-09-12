@@ -8,9 +8,11 @@ reference for all readiness decisions; this flow only requires its output fields
 
 Process one item at a time. For each:
 
-## Step 2a: Brainstorm
+## Step 2a: Choose the planning path
 
-Invoke the brainstorming skill with the item as the problem statement. Pass all relevant context as the `args` parameter so the skill has what it needs:
+When the user explicitly requests Superpowers planning, invoke the brainstorming
+skill with the item as the problem statement. Pass all relevant context as the `args`
+parameter:
 
 ```
 Skill({ skill: "superpowers:brainstorming", args: "{item title}: {item description}\n\nEstablished: {value}\nUnresolved: {value}\nDomain context: {relevant CONTEXT.md terms}\nConstraints: {relevant out-of-scope entries}\nRepos: {repo list from pulse-config.yaml with paths}" })
@@ -19,15 +21,21 @@ Skill({ skill: "superpowers:brainstorming", args: "{item title}: {item descripti
 The brainstorming skill will explore the design space and produce a recommended
 approach. It must not promote an `Unresolved` causal hypothesis into the approach.
 
+Otherwise, plan directly from the verified readiness notes: state the bounded goal,
+constraints, affected code, one delivery slice, testing seam, and acceptance criteria.
+Resolve only decisions that block those fields. Do not require Superpowers or recreate
+its interactive ceremony for a clear item.
+
 ## Step 2b: Write implementation plan
 
-After brainstorming produces a design direction, invoke the writing-plans skill. Pass the brainstorming output as context:
+On the Superpowers path, after brainstorming produces a design direction, invoke the
+writing-plans skill. Pass the brainstorming output as context:
 
 ```
 Skill({ skill: "superpowers:writing-plans", args: "Write a spec for: {item title}\n\nEstablished: {value}\nUnresolved: {value}\nBrainstorming output: {brainstorm result summary}\nTarget repo: {repo path}\nRequired readiness fields: Outcome, Blockers, Testing Seam, Proof\nField meanings: references/work-readiness.md" })
 ```
 
-The writing-plans skill produces a structured implementation plan with tasks, code,
+On either path, produce a structured implementation plan with tasks, code references,
 and acceptance criteria. For M/L work, the resulting agent-ready item must contain one
 delivery slice. If planning reveals independent outcomes, split them into separate
 items rather than hiding them in chunks.
