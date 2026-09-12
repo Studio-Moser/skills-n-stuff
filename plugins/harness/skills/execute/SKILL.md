@@ -11,13 +11,16 @@ description: >-
 Execute one bounded provider-neutral request. The consumer owns the outcome;
 Harness owns routing, dispatch, authority preservation, and proof.
 
-Read the exact request/result schema in
+The consumer decides direct versus delegated execution before invoking this skill;
+ordinary direct work stays in the consumer. Read the exact request/result schema in
 [references/harness-contract.md](../../references/harness-contract.md), route
-resolution in [references/routing.md](../../references/routing.md), the packet
-shape in [references/handoff.md](../../references/handoff.md), evidence rules in
-[references/verification.md](../../references/verification.md), context choice
-in [references/context.md](../../references/context.md), and optional state rules
-in [references/shelby-integration.md](../../references/shelby-integration.md).
+resolution in [references/routing.md](../../references/routing.md), and evidence
+rules in [references/verification.md](../../references/verification.md). Read the
+packet shape in [references/handoff.md](../../references/handoff.md) only before a
+delegated dispatch. Read [references/context.md](../../references/context.md) only when
+choosing or validating a non-default context mode. Read
+[references/shelby-integration.md](../../references/shelby-integration.md) only when
+memory is enabled or Shelby state is available to recover or capture.
 
 ## Validate the request
 
@@ -51,8 +54,11 @@ result has `evidence.outcome: proven`; optional capture failure leaves the execu
 result intact and the unavailable Shelby identifiers empty.
 
 Every terminal path returns the complete HarnessResult, including a block before
-dispatch or a failed attempt; prose is not a substitute for the result. Preserve
-all fields and leave unavailable values empty.
+dispatch or a failed attempt; prose is not a substitute for the result. Keep the
+complete HarnessResult in the workflow state or artifact; preserve all fields and
+leave unavailable values empty. For the user, render
+a concise user update with the outcome, actual route when useful, reproduced check,
+and any blocker. Do not dump the machine contract unless the user asks for it.
 
 For a bounded non-code file transformation, preserve the requested task type and
 scope. When the parent runtime can perform the work inside the authority ceiling,
@@ -70,6 +76,12 @@ harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*
 "$harness/scripts/rubric-path.sh" --check
 RUBRIC_PATH="$("$harness/scripts/rubric-path.sh")"
 ```
+
+Populate `HARNESS_ACTIVE_CANDIDATE` from the host's declared runtime identity when
+the host exposes the current model and effort. Do not rely on an inherited shell
+variable when runtime metadata is available, and do not leave it empty merely because
+the value was not exported to the shell. If the host exposes no trustworthy identity,
+leave it empty and record that direct same-candidate admission was unavailable.
 
 Run one bounded selection loop. `HARNESS_ATTEMPTED` starts as `[]` and contains
 only ordered candidates already dispatched by this request and then recorded as
@@ -222,7 +234,7 @@ status belongs to that seam. Record inspection and other checks in separate call
 Only the parent or accepting workflow may return `status: accepted`, after the
 outcome is delivered and fresh direct proof establishes it.
 
-Return every field in the HarnessResult: `status`, `route.requested`,
+Record every field in the HarnessResult: `status`, `route.requested`,
 `route.actual_model`, `route.effort`, `route.provider`, `route.executor`,
 `route.dispatch`, `route.resolution`, `route.attempted`, `route.fallback_reason`,
 `artifacts.files`, `artifacts.report`, `evidence.fixed_target`,
@@ -230,4 +242,5 @@ Return every field in the HarnessResult: `status`, `route.requested`,
 `telemetry.elapsed`, `telemetry.verification_failures`,
 `telemetry.token_or_quota_usage`, `shelby.project_id`, `shelby.run_id`,
 `shelby.checkpoint_ids`, and `blockers`. Optional or unavailable values stay
-empty; fields are never omitted.
+empty; fields are never omitted. Keep the complete HarnessResult in the workflow
+state, then render the concise user update described above.
