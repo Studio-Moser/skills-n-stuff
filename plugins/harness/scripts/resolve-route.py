@@ -479,12 +479,12 @@ def select(args: argparse.Namespace) -> int:
     active_candidate = args.active_candidate or None
     if active_candidate:
         try:
-            active_row = rows[split_ref(active_candidate)]
-        except (KeyError, ValueError) as error:
+            active_row = rows.get(split_ref(active_candidate))
+        except ValueError as error:
             raise Blocked(
-                f"active candidate {active_candidate} is not configured"
+                f"active candidate {active_candidate} is malformed"
             ) from error
-        if active_row["provider"] != args.native_provider:
+        if active_row is not None and active_row["provider"] != args.native_provider:
             raise Blocked("active candidate provider does not match native provider")
 
     skipped: list[str] = []

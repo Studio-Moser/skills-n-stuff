@@ -671,3 +671,23 @@ JSON
   assert_result 'result["status"] == "blocked" and "state" in result["blockers"][0]'
   cmp "$STATE" "${STATE}.original"
 }
+
+
+@test "unconfigured host identities still allow configured delegation" {
+  for candidate in gpt-5.6-sol@medium unconfigured-model@high; do
+    run "$SCRIPT" select --rubric "$RUBRIC" --state "$STATE" \
+      --route default --native-provider openai --executors "" \
+      --active-candidate "$candidate"
+    [ "$status" -eq 0 ] || return 1
+    assert_result 'result["candidate"] == "gpt-5.6-sol@high" and result["dispatch"] == "delegated"' || return 1
+  done
+}
+
+@test "malformed host identity and configured provider mismatch remain blocked" {
+  for candidate in malformed claude-fable-5@high; do
+    run "$SCRIPT" select --rubric "$RUBRIC" --state "$STATE" \
+      --route default --native-provider openai --executors "" \
+      --active-candidate "$candidate"
+    [ "$status" -eq 4 ] || return 1
+  done
+}
