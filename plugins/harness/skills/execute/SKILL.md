@@ -88,8 +88,9 @@ only ordered candidates already dispatched by this request and then recorded as
 unavailable. Call the canonical resolver on every iteration:
 
 ```bash
+harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
 HARNESS_ACTIVE_CANDIDATE="${HARNESS_ACTIVE_CANDIDATE:-}"
-ROUTE_RESULT="$($harness/scripts/resolve-route.py select \
+ROUTE_RESULT="$("$harness/scripts/resolve-route.py" select \
   --rubric "$RUBRIC_PATH" \
   --route "$HARNESS_ROUTE" \
   --native-provider "$HARNESS_NATIVE_PROVIDER" \
