@@ -41,6 +41,17 @@ Match a trigger when the requested change affects:
   explicit request for independent review. Other structured work uses self-review and
   its testing seam.
 
+Before waiving independent review for a public compatibility change, map each changed
+public contract to a named assertion and its observed result. For stateful behavior,
+cover each required transition (both directions for reversible states) and every
+affected control, including action routing, visible state, and accessibility state
+where applicable. Derive expected
+outcomes from the acceptance contract, not the implementation. Planned tests and a
+green suite alone do not establish complete coverage. Revisit the review decision
+after verification: missing or indirect assertions remain coverage gaps; close them
+with direct proof or require independent review. Keep this mapping in working notes;
+report only gaps that affect the review decision.
+
 Delegation is separate from classification. Delegate only one independently useful
 substantial track with its own outcome and verification seam. Small tool calls,
 mechanical edits, and work that needs the parent context stay with the current agent.

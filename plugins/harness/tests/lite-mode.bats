@@ -148,3 +148,23 @@ for phrase in (
 PY
   [ "$status" -eq 0 ]
 }
+
+@test "self-review requires observed contract coverage including state transitions" {
+  run python3 - "$REPO/plugins/harness/skills/risk-gate/SKILL.md" <<'PY'
+from pathlib import Path
+import sys
+
+text = " ".join(Path(sys.argv[1]).read_text().split()).lower()
+for phrase in (
+    "map each changed public contract to a named assertion and its observed result",
+    "each required transition (both directions for reversible states)",
+    "every affected control",
+    "accessibility state",
+    "planned tests and a green suite alone do not establish complete coverage",
+    "revisit the review decision after verification",
+    "missing or indirect assertions remain coverage gaps",
+):
+    assert phrase in text, f"coverage evidence rule missing: {phrase}"
+PY
+  [ "$status" -eq 0 ]
+}
