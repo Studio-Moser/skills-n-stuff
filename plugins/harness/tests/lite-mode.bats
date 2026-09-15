@@ -148,3 +148,42 @@ for phrase in (
 PY
   [ "$status" -eq 0 ]
 }
+
+@test "self-review requires observed contract coverage including state transitions" {
+  run python3 - "$REPO/plugins/harness/skills/risk-gate/SKILL.md" <<'PY'
+from pathlib import Path
+import sys
+
+text = " ".join(Path(sys.argv[1]).read_text().split()).lower()
+for phrase in (
+    "map each changed public contract to a named assertion and its observed result",
+    "each required transition (both directions for reversible states)",
+    "every affected control",
+    "accessibility state",
+    "planned tests and a green suite alone do not establish complete coverage",
+    "revisit the review decision after verification",
+    "missing or indirect assertions remain coverage gaps",
+):
+    assert phrase in text, f"coverage evidence rule missing: {phrase}"
+PY
+  [ "$status" -eq 0 ]
+}
+
+@test "verification selection avoids unavailable optional checklist tools" {
+  run python3 - "$REPO/plugins/harness/references/house-rules.md" "$REPO/plugins/harness/templates/AGENTS_Baseline.md" <<'PY'
+from pathlib import Path
+import sys
+for source in sys.argv[1:]:
+    text = " ".join(Path(source).read_text().split()).lower()
+    for phrase in (
+        "select checks from repository instructions, configured scripts, and the changed behavior",
+        "do not add a generic build/format/lint checklist",
+        "confirm availability before scheduling",
+        "report an unavailable required check as an unmet gate",
+        "run the remaining independent checks",
+        "do not install optional tooling solely to complete a checklist",
+    ):
+        assert phrase in text, f"{source}: verification selection rule missing: {phrase}"
+PY
+  [ "$status" -eq 0 ]
+}

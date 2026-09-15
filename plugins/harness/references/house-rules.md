@@ -106,6 +106,7 @@ Size the ceremony to the change. Name the class in one line before you start ("P
 ## Testing
 
 - Establish a baseline first: run the existing suite before you change anything. Once per batch for polish.
+- Select checks from repository instructions, configured scripts, and the changed behavior. Do not add a generic build/format/lint checklist. For an additional tool justified by the change, confirm availability before scheduling it; report an unavailable required check as an unmet gate, and run the remaining independent checks. Do not install optional tooling solely to complete a checklist.
 - Add tests for new behavior. Cover the obvious edge cases (empty, error, boundary).
 - For every non-trivial change, name the highest stable existing testing seam, including its procedure and expected result. When direct proof is impractical, test the nearest observable indirect contract.
 - Run one verification pass before the commit or PR at the highest stable existing testing seam required by the change and matched risk. A pass may contain several distinct commands, but do not rerun equivalent proof without invalidation. **Show the output**; never claim "tests pass" without evidence.
