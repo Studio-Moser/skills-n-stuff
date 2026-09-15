@@ -149,7 +149,7 @@ Find the most recent `*-recommendations.md` in `{research_dir}/` (search recursi
 
 ### 1.3 Freshness Check
 
-**For each `ready` item that has a spec** in `{primary_repo_root}/planning/specs/`:
+**For each `ready` item that has a spec** in any of `{specs_dirs}` (colon-separated, from the pre-resolved config; default `{primary_repo_root}/planning/specs`):
 
 1. Read the spec's Code References table
 2. For each file listed, diff against the Base SHA:
@@ -244,7 +244,7 @@ Branch: pulse/{cluster}-{YYYY-MM-DD}
   Schedule: {parallel | isolated from PR N | sequential after PR N}
   #{n} {item description}
      Source: GitHub Issue #{n} | Local .pm/items/{n}-{slug}.yml
-     Spec: planning/specs/{n}-{slug}.md (if exists)
+     Spec: {specs_dir}/{n}-{slug}.md (if exists)
      Freshness: {Green|Yellow} {notes if Yellow}
      Size: {S|M|L|XL} | Priority: {priority}
      Files likely touched: {file hints}

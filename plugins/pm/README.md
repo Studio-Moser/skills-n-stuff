@@ -204,6 +204,7 @@ triage:
   stale_threshold_days: 30      # Days before a status/in-progress item is flagged stale
 context_md: CONTEXT.md          # Path to domain glossary (relative to repo root)
 adr_dir: docs/adr               # Path to ADR directory
+specs_dir: planning/specs       # Spec directory, or a list; first entry receives new specs, all are searched
 out_of_scope_dir: .pm/out-of-scope  # Rejection knowledge base
 ```
 
