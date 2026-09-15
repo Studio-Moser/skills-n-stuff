@@ -51,6 +51,18 @@ adr_dir="$(yq '.adr_dir // "docs/adr"' "$pm_config" 2>/dev/null || echo "docs/ad
 oos_dir="$(yq '.out_of_scope_dir // ".pm/out-of-scope"' "$pm_config" 2>/dev/null || echo ".pm/out-of-scope")"
 stale_threshold="$(yq '.triage.stale_threshold_days // 30' "$pm_config" 2>/dev/null || echo "30")"
 
+# Spec directories: `specs_dir` may be a string or a list. The first entry is
+# where new specs are written; every entry is searched for freshness checks.
+specs_raw="$(yq '.specs_dir // "planning/specs" | (.. | select(tag == "!!str"))' "$pm_config" 2>/dev/null || echo "planning/specs")"
+[ -z "$specs_raw" ] && specs_raw="planning/specs"
+specs_dirs=""
+while IFS= read -r sd; do
+  [ -z "$sd" ] && continue
+  if [[ "$sd" = /* ]]; then abs="$sd"; else abs="$primary_repo_root/$sd"; fi
+  specs_dirs="${specs_dirs:+$specs_dirs:}$abs"
+done <<< "$specs_raw"
+specs_dir="${specs_dirs%%:*}"
+
 # ── Backend-specific extraction ─────────────────────────────────────
 gh_owner=""
 gh_repo=""
@@ -128,6 +140,8 @@ backend=$backend
 context_md=$primary_repo_root/$context_md
 adr_dir=$primary_repo_root/$adr_dir
 oos_dir=$primary_repo_root/$oos_dir
+specs_dir=$specs_dir
+specs_dirs=$specs_dirs
 stale_threshold_days=$stale_threshold
 gh_owner=$gh_owner
 gh_repo=$gh_repo

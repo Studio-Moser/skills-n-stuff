@@ -175,6 +175,7 @@ backend's example or reference.
 
 context_md: CONTEXT.md
 adr_dir: docs/adr
+specs_dir: planning/specs
 out_of_scope_dir: .pm/out-of-scope
 
 research_dirs:
@@ -413,7 +414,7 @@ Read the template from `templates/workflow-md.md`. Write to `{planning_dir}/WORK
 
 #### Generate planning/specs/_TEMPLATE.md
 
-Read the template from `templates/spec-template.md`. Write to `{planning_dir}/specs/_TEMPLATE.md` (no placeholder substitution — agents copy this file and fill in placeholders when creating new specs).
+Read the template from `templates/spec-template.md`. Write to `{specs_dir}/_TEMPLATE.md` (`specs_dir` from `.pm/config.yml`, default `planning/specs`) (no placeholder substitution — agents copy this file and fill in placeholders when creating new specs).
 
 #### Create planning/archive/
 

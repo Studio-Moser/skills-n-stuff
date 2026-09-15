@@ -7,6 +7,7 @@ backend: github
 
 context_md: CONTEXT.md
 adr_dir: docs/adr
+specs_dir: planning/specs        # or a list; the first entry receives new specs
 out_of_scope_dir: .pm/out-of-scope
 
 research_dirs:

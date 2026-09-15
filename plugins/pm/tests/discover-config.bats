@@ -2,7 +2,7 @@
 
 setup() {
   SCRIPT="$BATS_TEST_DIRNAME/../scripts/discover-config.sh"
-  TMP="$(mktemp -d)"
+  TMP="$(cd "$(mktemp -d)" && pwd -P)"
 
   # Build a fake repo with .pm/config.yml + pulse-config.yaml so the
   # walk-up loop terminates inside the fixture, not in the user's tree.
@@ -64,4 +64,30 @@ teardown() { rm -rf "$TMP"; }
   [ "$status" -eq 0 ]
   # The fixture has no webhook_url field, so the emitted line is "trello_webhook_url="
   [[ "$output" == *$'\ntrello_webhook_url=\n'* ]]
+}
+
+@test "specs_dir defaults to planning/specs" {
+  cp "$BATS_TEST_DIRNAME/fixtures/github/config.yml" "$TMP/.pm/config.yml"
+  run bash -c "cd '$TMP' && '$SCRIPT'"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"specs_dir=$TMP/planning/specs"* ]] || return 1
+  [[ "$output" == *"specs_dirs=$TMP/planning/specs"* ]]
+}
+
+@test "specs_dir accepts a string" {
+  cp "$BATS_TEST_DIRNAME/fixtures/github/config.yml" "$TMP/.pm/config.yml"
+  printf 'specs_dir: docs/specs\n' >> "$TMP/.pm/config.yml"
+  run bash -c "cd '$TMP' && '$SCRIPT'"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"specs_dir=$TMP/docs/specs"* ]] || return 1
+  [[ "$output" == *"specs_dirs=$TMP/docs/specs"* ]]
+}
+
+@test "specs_dir accepts a list; first entry is the write target" {
+  cp "$BATS_TEST_DIRNAME/fixtures/github/config.yml" "$TMP/.pm/config.yml"
+  printf 'specs_dir:\n  - Engineering/Rust App/Specs\n  - Engineering/Memory Server/Specs\n' >> "$TMP/.pm/config.yml"
+  run bash -c "cd '$TMP' && '$SCRIPT'"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"specs_dir=$TMP/Engineering/Rust App/Specs"* ]] || return 1
+  [[ "$output" == *"specs_dirs=$TMP/Engineering/Rust App/Specs:$TMP/Engineering/Memory Server/Specs"* ]]
 }

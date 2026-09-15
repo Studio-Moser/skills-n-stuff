@@ -90,10 +90,10 @@ array is the Phase 3 carry-forward collection; the epic item is absent.
 
 ## Phase 2, Step 2c: Write spec to backend — Local
 
-Write the spec to `planning/specs/{number}-{slug}.md`:
+Write the spec to `{specs_dir}/{number}-{slug}.md` (`specs_dir` from the pre-resolved config):
 
 ```bash
-specs_dir="$primary_repo_root/planning/specs"
+specs_dir="${specs_dir:-$primary_repo_root/planning/specs}"
 mkdir -p "$specs_dir"
 
 slug=$(echo "{title}" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/^-//;s/-$//' | cut -c1-60)
@@ -101,14 +101,14 @@ spec_file="$specs_dir/${number}-${slug}.md"
 ```
 
 Use the canonical spec content from `references/triage-spec-flow.md` (§ Step 2c), but
-wrap it in a spec header (matching `planning/specs/_TEMPLATE.md`): add `# Spec: {title}`
+wrap it in a spec header (matching `{specs_dir}/_TEMPLATE.md`): add `# Spec: {title}`
 plus frontmatter fields (Backlog #, Size, Priority, Created, Status: draft) before the
 `## Goal` section.
 
 Also update the local item's YAML to reference the spec:
 
 ```bash
-yq -i ".spec = \"planning/specs/${number}-${slug}.md\"" "$item_file"
+yq -i ".spec = \"${specs_dir#$primary_repo_root/}/${number}-${slug}.md\"" "$item_file"
 ```
 
 ## Phase 4.2: Update backend (promote) — Local
