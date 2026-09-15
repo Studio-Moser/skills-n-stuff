@@ -170,17 +170,20 @@ PY
 }
 
 @test "verification selection avoids unavailable optional checklist tools" {
-  run python3 - "$REPO/plugins/harness/references/house-rules.md" <<'PY'
+  run python3 - "$REPO/plugins/harness/references/house-rules.md" "$REPO/plugins/harness/templates/AGENTS_Baseline.md" <<'PY'
 from pathlib import Path
 import sys
-text = " ".join(Path(sys.argv[1]).read_text().split()).lower()
-for phrase in (
-    "select checks from repository instructions, configured scripts, and the changed behavior",
-    "do not add a generic build/format/lint checklist",
-    "report an unavailable required check as an unmet gate",
-    "run the remaining independent checks",
-):
-    assert phrase in text, f"verification selection rule missing: {phrase}"
+for source in sys.argv[1:]:
+    text = " ".join(Path(source).read_text().split()).lower()
+    for phrase in (
+        "select checks from repository instructions, configured scripts, and the changed behavior",
+        "do not add a generic build/format/lint checklist",
+        "confirm availability before scheduling",
+        "report an unavailable required check as an unmet gate",
+        "run the remaining independent checks",
+        "do not install optional tooling solely to complete a checklist",
+    ):
+        assert phrase in text, f"{source}: verification selection rule missing: {phrase}"
 PY
   [ "$status" -eq 0 ]
 }
