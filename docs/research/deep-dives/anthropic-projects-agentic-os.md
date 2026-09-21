@@ -1,17 +1,17 @@
 ---
-title: "Anthropic Projects Is a Host, Not a Replacement for skills-n-stuff"
+title: "Planning Lessons from Anthropic Projects"
 resources:
   - url: https://www.youtube.com/watch?v=afVpjeoQF2I
     type: video
     title: "Anthropic Just Built It’s Own Agentic OS"
     published: 2026-09-18
-tags: [anthropic-projects, claude-code, agent-orchestration, memory, portability, harness, pm]
+tags: [anthropic-projects, claude-code, agent-orchestration, memory, product-planning, workflow-design]
 related_reports: [agent-native-harness-and-pm, evidence-gated-agent-completion, model-harness-unbundling]
 ---
 
-# Anthropic Projects Is a Host, Not a Replacement for skills-n-stuff
+# Planning Lessons from Anthropic Projects
 
-Anthropic’s new Projects beta commoditizes Claude-only cloud coordination and the need to wait on individual coding sessions. It does not replace skills-n-stuff’s differentiated layers: provider-neutral portability, enforced authority, independent proof, local capabilities, research and product-management decision ownership, or shared team tracking.
+Anthropic’s Projects beta offers a useful model for planning agentic work: one durable coordinating conversation, isolated execution threads, persistent context, and supervision focused on exceptions rather than constant polling. Its current boundaries also show what future specifications should make explicit.
 
 ## Research Coverage
 
@@ -26,178 +26,167 @@ Coverage is degraded: **4 branches expected; 1 accepted/proven; 1 failed; 0 bloc
 
 The ecosystem-comparison branch never produced a result. Accordingly, the Ecosystem Context section is limited to facts established by the accepted branch’s official Anthropic citations. It does not claim broader market coverage.
 
-The video is fresh relative to the launch: Anthropic’s announcement is dated 2026-09-17 and the video 2026-09-18. Its creator nevertheless states, “I don't even have access myself yet to test this.” The video is therefore a timely secondary explanation, not hands-on validation. It also promotes the creator’s paid community and gives an unsourced “67% of our community” statistic, which weakens confidence in its market and replacement framing without changing independently verified product facts.
+The video is fresh relative to the launch: Anthropic’s announcement is dated 2026-09-17 and the video 2026-09-18. Its creator nevertheless states, “I don't even have access myself yet to test this.” The video is therefore a timely secondary explanation, not hands-on validation. It also promotes the creator’s paid community and gives an unsourced “67% of our community” statistic, which weakens confidence in its market framing without changing independently verified product facts.
 
 **Confidence: High** in the corrected product and project findings; **Low** in ecosystem completeness because the dedicated ecosystem branch produced no result.
 
 ## Resource Summary
 
-The video describes the new Projects beta as one long-running conversation in which Claude coordinates work while delegated threads execute it. Official documentation supports the core model: a project is an ongoing coordinating conversation, and each thread is a Claude Code cloud session working on its own branch and repository copy. Threads can further split work through subagents, loops, and workflows. This is a **video claim confirmed by official product facts**. **Confidence: High.**
+The new Projects beta centers on one ongoing coordinating conversation. Delegated threads run as Claude Code cloud sessions, each with its own branch and repository copy, while the main conversation remains available. Threads can further divide work through subagents, loops, and workflows. **Confidence: High.**
 
-Each thread starts with the project’s repositories, instructions, and memory. Threads load `CLAUDE.md`, skills, and plugins from every repository, and read the `MEMORY.md` index at startup. A Library tab collects files added to the project and files produced by threads. Permission rules, hooks, and environment configuration apply only when the project contains one repository. Plugins may also be selected in Project settings. These are **official product facts**, correcting the captioned “memory.mmd file” wording and the video’s simplified account of repository configuration. **Confidence: High.**
+Each thread starts with the project’s repositories, instructions, and memory. Threads load `CLAUDE.md`, skills, and plugins from every repository and read the `MEMORY.md` index at startup. A Library tab collects files added to the project and files produced by threads. Permission rules, hooks, and environment configuration apply only when the project contains one repository. Plugins may also be selected in Project settings. **Confidence: High.**
 
 The current beta is Claude Code-only, cloud-hosted, gradually rolling out on Pro and Max plans, and not yet available on Team or Enterprise. Projects are absent from the terminal CLI, Amazon Bedrock, Google Cloud’s Agent Platform, and Microsoft Foundry. Anthropic says chat, Cowork, Team, and Enterprise expansion is planned, while local execution behind a user’s network is “coming very soon.” Timing and final behavior remain unknown. **Confidence: High on current availability; Low on delivery timing.**
 
-The project conversation itself has no connectors. Work requiring a connector must be sent to a thread. A local session cannot join a Project, and cloud threads do not inherit the Claude Code setup on the user’s machine. Threads can pause for permission prompts, use plan limits faster, and lose uncommitted changes if a paused sandbox cannot resume and the task continues from a fresh clone. A project that works on code needs it on `github.com` with the Claude GitHub App installed; a project without a repository can still research and write documents. These are **official product facts**, not conclusions drawn from the video. **Confidence: High.**
+The coordinating conversation has no connectors; connector-dependent work must be delegated to a thread. Local sessions cannot join a Project, and cloud threads do not inherit the user’s machine-local Claude Code setup. Threads can pause for permission prompts, consume plan limits faster, and lose uncommitted changes if a paused sandbox cannot resume and work continues from a fresh clone. Code projects require `github.com` and the Claude GitHub App; projects without a repository can still research and write documents. **Confidence: High.**
 
-Two video claims conflate the new beta with legacy chat/Cowork Projects:
+The current new Projects beta is single-user, cannot be shared, and has no organization-level controls. It does **not** inherit the legacy chat/Cowork Projects behavior documented for automatic RAG or Team/Enterprise sharing. The beta instead documents automatic thread compaction and context from recent messages, recent threads, and project memory. Whether the two product surfaces will converge is undocumented. **Confidence: High.**
 
-- Automatic RAG through a “project knowledge search tool” is documented for legacy Projects. The current Claude Code Projects documentation instead describes automatic thread compaction and context drawn from recent messages, recent threads, and project memory.
-- View/edit permissions and email or organization-wide sharing are documented for legacy Team/Enterprise Projects. The current beta belongs to one user, cannot be shared, and has no organization-level controls.
-
-Whether legacy RAG or sharing will reach the new Projects beta is undocumented. **Confidence: High.**
-
-The creator’s description of Projects as an MVP “team OS,” the claim that custom frameworks will eventually be replaced, and the reported 67% community demand are not evidenced by the official sources. The creator’s lack of beta access and commercial incentive further limit those judgments. The claim that nobody had access is contradicted by the beta being live for some Pro and Max users. **Confidence: High that these claims remain opinion or unsupported.**
+The creator’s “team OS” framing and reported 67% community demand are not evidenced by the official sources. The creator’s lack of beta access and promotion of a paid community further limit those judgments. **Confidence: High that these claims remain opinion or unsupported.**
 
 ## Ecosystem Context
 
-### E1 — Hosted Claude coordination is becoming a product feature
+### E1 — Coordination is becoming a provider-native product capability
 
-Anthropic now supplies a first-party coordinator that can dispatch multiple cloud Claude Code threads, place each on its own branch, retain project memory, load repository instructions and plugins, and continue the main conversation while delegated work runs. The coordination and waiting layer is therefore becoming part of the Claude product rather than something every Claude-only workflow must construct itself.
+Anthropic now supplies a first-party coordinator that can dispatch multiple cloud Claude Code threads, place each on its own branch, retain project memory, load repository instructions and plugins, and continue the main conversation while work runs.
 
-This is an **inference from official product facts**. It applies to Claude-only cloud execution, not agent orchestration generally. **Confidence: High.**
+This is an **inference from official product facts** and applies specifically to Claude-only cloud execution. **Confidence: High.**
 
-### E2 — The current beta is a personal host, not a team operating system
+### E2 — The current surface is personal and cloud-bound
 
-Official limitations state that a Project belongs to one user, cannot be shared, and has no organization-level controls during the beta. Claude Tag in Team and Enterprise Slack is the documented shared-team surface; it is distinct from the new Projects beta.
+A beta Project belongs to one user, cannot be shared, and has no organization-level controls. Its threads use Anthropic as the model provider, cannot include local sessions, and are unavailable through the terminal CLI or the named third-party cloud platforms. **Confidence: High.**
 
-The video’s “team OS” language is therefore **opinion**, not the present product contract. **Confidence: High.**
+### E3 — Legacy and new Projects are separate product surfaces
 
-### E3 — Legacy Projects and the new Projects beta are separate surfaces
+Legacy chat/Cowork Projects provide the cited RAG and Team/Enterprise sharing behavior. The new beta provides coordinating conversations, cloud execution threads, repository loading, automatic compaction, and project memory, but currently lacks sharing. Anthropic’s help page explicitly separates the beta from “the current version of projects.” **Confidence: High.**
 
-Legacy chat/Cowork Projects provide the cited RAG and Team/Enterprise sharing behavior. The new Claude Code Projects beta provides coordinating conversations, cloud execution threads, repository loading, automatic compaction, and project memory, but currently lacks sharing. Anthropic’s help page explicitly separates its beta discussion from “the current version of projects.”
+### E4 — Ecosystem conclusions remain intentionally narrow
 
-Treating these capabilities as one released surface would overstate the beta. **Confidence: High.**
+The failed and missing branches provide no admissible comparison evidence. This report therefore makes no claim about competing orchestration products, adoption, pricing advantage, or comparative productivity. **Confidence: High in this boundary; Low in broader ecosystem coverage.**
 
-### E4 — Cloud convenience currently narrows execution choice
+## Planning Lessons
 
-New Project threads use Anthropic as the model provider and cannot include local sessions. They are unavailable through the terminal CLI or the named third-party cloud platforms. The main conversation has no connectors, and cloud threads do not inherit machine-local setup.
+### L1 — Use one durable coordinator conversation as the intake surface
 
-The beta reduces coordination friction by constraining the environment. It does not establish a provider-neutral or local-capability standard. **Confidence: High.**
+**Observed pattern —** A Project is an ongoing coordinating conversation that can delegate work to cloud threads while the main conversation continues.
 
-### E5 — Ecosystem conclusions remain intentionally narrow
+**Planning principle —** Give users one stable place to ask questions, provide context, delegate work, and synthesize results.
 
-The failed and missing branches provide no admissible comparison evidence. This report therefore makes no claim about competing orchestration products, adoption, pricing advantage, or comparative productivity. It establishes only what Anthropic’s verified product surfaces imply for skills-n-stuff.
+**How it could affect planning —** Future workflow specifications could identify a durable coordinator as the default intake surface instead of making users choose an execution mechanism before expressing the outcome they want.
 
-**Confidence: High in the boundary; Low in broader ecosystem coverage.**
+**Confidence —** High.
 
-## Project Comparison
+**Unverified —** The accepted research did not test how reliably the coordinator preserves intent across long-running, high-volume work.
 
-### P1 — Projects overlaps with orchestration mechanics, not Harness governance
+### L2 — Treat threads as isolated execution units with explicit states
 
-**Project observation.** Harness routes explicit delegated work through semantic routes, preserves authority and constraints, dispatches bounded execution, and requires an evidence-bearing Harness Result that the parent reproduces before acceptance (`AGENTS.md:9`). Its public interface is one bounded request with explicit authority, context, and verification (`plugins/harness/README.md:23-26`).
+**Observed pattern —** Each thread works from its own repository copy and branch. Threads may pause for permission, finish independently, or require recovery from a fresh clone.
 
-**Official product fact.** Projects provides a hosted coordinating conversation and parallel Claude Code cloud threads on separate branches.
+**Planning principle —** A delegated unit should have a clear identity, isolated workspace, lifecycle state, and recoverable output.
 
-**Inference.** Projects can host or initiate work that uses skills-n-stuff, but it does not replace the Harness contract. Routing the same work independently through both systems would create a duplicate control plane. The useful boundary is Projects as the Claude cloud host and Harness as the authority, routing, and proof contract where those guarantees are required.
+**How it could affect planning —** Specifications could define thread states such as running, waiting on you, ready for review, failed, and complete, along with what evidence or committed artifact allows each transition.
 
-**Confidence: High.**
+**Confidence —** High in the isolation and recovery facts; Medium in the proposed state model.
 
-### P2 — Claude-only coordination is commoditized; provider-neutral routing is not
+**Unverified —** The accepted evidence does not establish that Projects exposes this explicit state taxonomy or provides a complete recovery protocol.
 
-**Project observation.** Harness supports Claude plus Codex cross-provider delegation while remaining valid with either provider alone (`plugins/harness/README.md:34-38`). Personal provider mechanics stay outside project instructions (`plugins/harness/README.md:81-91`). Non-Claude agents can install portable `SKILL.md` prompts directly (`README.md:34-40`), although subagents, hooks, and bundled scripts remain Claude Code-only (`README.md:42`).
+### L3 — Make shared memory and the Library first-class artifacts
 
-**Official product fact.** Projects threads use Anthropic as the model provider and are unavailable through the terminal CLI or the named external cloud platforms.
+**Observed pattern —** Threads start with repository instructions and project memory, read the `MEMORY.md` index, and contribute files to a Library alongside files added directly to the Project.
 
-**Inference.** Projects replaces part of the convenience case for a Claude-only coordinator. It does not replace cross-agent skill portability, semantic provider routing, or provider-resilient execution.
+**Planning principle —** Durable context and produced artifacts should be visible parts of the workflow, not hidden inside transient conversations.
 
-**Confidence: High.**
+**How it could affect planning —** Roadmap and feature specifications could distinguish durable memory, repository instructions, working conversation context, and produced artifacts, including which one is authoritative for each decision.
 
-### P3 — Project memory overlaps with standing context, but not decision ownership
+**Confidence —** High.
 
-**Project observation.** PM maintains domain knowledge through `CONTEXT.md`, architecture decision records, and out-of-scope rejections (`plugins/pm/README.md:364-385`). Product Pulse optionally requests memory enrichment through Harness while retaining file-based research when the provider is absent (`plugins/product-pulse/README.md:252-258`).
+**Unverified —** Project memory preferences are instructions rather than enforced settings, and the research did not test Library organization, conflict handling, or multi-thread update behavior.
 
-**Official product fact.** Each Project thread starts with repository instructions and memory and reads the project’s `MEMORY.md` index.
+### L4 — Design supervision around exceptions
 
-**Inference.** Projects may reduce the need to manually reconstruct Claude-specific standing context. It does not replace the project’s durable decision artifacts, rejection history, or optional provider-independent file path. Preferences stored in Project memory are instructions rather than enforced settings, so memory is not an authority boundary.
+**Observed pattern —** The coordinator can remain active while threads run, but permission prompts, sandbox recovery, and completed work still require attention.
 
-**Confidence: High.**
+**Planning principle —** Human attention should concentrate on exceptions and decisions rather than continuous polling.
 
-### P4 — Existing plugins are compatible with Projects, subject to beta constraints
+**How it could affect planning —** Workflow designs could foreground waiting-on-you, ready-for-review, failure, recovery, and approval events, with ordinary progress remaining background state.
 
-**Official product fact.** Threads load `CLAUDE.md`, skills, and plugins from project repositories; plugins can also be selected in Project settings. Repository permission rules, hooks, and environment settings apply only to one-repository Projects.
+**Confidence —** High in the documented interruption and recovery conditions; Medium in this supervision model.
 
-**Project observation.** skills-n-stuff is distributed as Claude Code plugins and as portable skills for other agents (`README.md:5`, `README.md:34-42`).
+**Unverified —** The accepted evidence does not document a unified exception queue, notification model, or approval dashboard.
 
-**Inference.** The current product evidence supports treating Projects as another Claude Code host for the existing plugins, not as a reason to rewrite them. Actual end-to-end compatibility remains untested in this research because the video creator lacked access and no accepted branch ran the beta.
+### L5 — Answer quick questions in place and delegate expensive work selectively
 
-**Confidence: High on documented compatibility; Medium on operational compatibility until tested.**
+**Observed pattern —** The main surface remains a conversation while threads provide isolated cloud execution. Parallel thread use can consume plan limits faster.
 
-### P5 — Projects does not replace Product Pulse’s research ownership
+**Planning principle —** Delegation should have a threshold: keep lightweight clarification and synthesis in the coordinator, and create a thread when work benefits from isolation, tools, parallelism, or a durable branch.
 
-**Project observation.** Product Pulse owns research questions, source selection, credibility checks, citations, project comparison, synthesis, and publication. It delegates provider-neutral routing and evidence mechanics to Harness (`plugins/product-pulse/README.md:45-50`). Its workflow covers weekly strategy, daily intelligence, and on-demand deep dives (`plugins/product-pulse/README.md:16-22`).
+**How it could affect planning —** Future specifications could state when work stays conversational and when it becomes a delegated execution unit, reducing unnecessary thread creation and its resource cost.
 
-**Inference.** Projects can coordinate Claude threads that perform parts of this work, but coordination does not decide which sources matter, distinguish evidence from inference, preserve citations, or own the resulting recommendation. Those remain differentiated workflow responsibilities.
+**Confidence —** High in the underlying product behavior; Medium in the delegation threshold.
 
-**Confidence: High.**
+**Unverified —** The accepted evidence provides no measured cost boundary or documented rule for deciding when delegation is worthwhile.
 
-### P6 — Projects does not replace PM’s lifecycle or shared tracking
+### L6 — Expose usage and bound concurrency
 
-**Project observation.** PM is a seven-skill lifecycle from ingestion and triage through execution and reconciliation (`plugins/pm/README.md:7-19`). PM defines development constraints and submits bounded Harness operations, then reproduces the worker’s Testing Seam before completion (`plugins/pm/README.md:41-60`). Its `owner/ai`, `owner/human`, and `owner/operator` labels identify intended workers (`plugins/pm/README.md:223-232`); they are workflow metadata, not access control.
+**Observed pattern —** Projects can run multiple threads in parallel, and Anthropic warns that this can consume plan limits faster.
 
-**Official product fact.** A beta Project belongs to one user and cannot be shared.
+**Planning principle —** Parallelism should be paired with visible resource consumption and deliberate concurrency bounds.
 
-**Inference.** A personal Project may coordinate work on PM-approved tasks, but it cannot replace a team-shared tracker, readiness decisions, status transitions, backlog ownership, or reconciliation against merged work.
+**How it could affect planning —** Planning discussions could require any concurrent workflow proposal to explain how users will see usage, limit active work, prioritize threads, and avoid starting more work than they can supervise.
 
-**Confidence: High.**
+**Confidence —** High in the parallelism and usage facts; Low in any specific control design.
 
-### P7 — Independent proof and enforced authority remain differentiated
+**Unverified —** The accepted evidence does not establish built-in usage visibility, user-configurable concurrency controls, or the optimal concurrency limit.
 
-**Project observation.** Harness resolves concrete execution without widening authority, returns evidence, and requires the parent to reproduce proof (`AGENTS.md:9`). PM’s constraints include Outcomes, Blockers, Testing Seams, tracker boundaries, PR boundaries, and review axes (`plugins/pm/README.md:52-60`).
+### L7 — State cloud, local, connector, repository, and sharing boundaries explicitly
 
-**Official product fact.** Project preferences are instructions rather than enforced settings. Permission prompts can wait inside a thread, and a sandbox restart can lose uncommitted changes.
+**Observed pattern —** The beta is cloud-hosted and Claude Code-only; local sessions cannot join; cloud threads do not inherit local setup; the coordinating conversation has no connectors; code work requires `github.com` and the Claude GitHub App; multi-repository Projects have configuration limitations; and Projects are single-user with no organization-level controls.
 
-**Inference.** Projects improves dispatch and continuity but does not establish an equivalent enforced authority ceiling or independent acceptance mechanism. A completed thread remains a work result to verify, not self-validating proof.
+**Planning principle —** Execution location, connector access, repository assumptions, credential boundaries, and sharing scope are product contracts, not implementation details.
 
-**Confidence: High.**
+**How it could affect planning —** Future specifications could include a boundary table covering cloud versus local execution, coordinator versus worker connector access, supported repository hosts, multi-repository behavior, sharing, and organization controls.
 
-### P8 — Local capabilities remain outside the beta
+**Confidence —** High.
 
-**Project observation.** Harness includes explicit operation of local apps, browsers, simulators, and other screenshot-capable interfaces (`plugins/harness/README.md:27-28`). skills-n-stuff also includes local or capability-specific plugins and scripts; the portable skills path explicitly excludes Claude-Code-only hooks and bundled scripts (`README.md:42`).
+**Unverified —** Final behavior and timing for local execution, additional product surfaces, sharing, and organization support remain undocumented.
 
-**Official product fact.** Local sessions cannot join Projects, cloud threads do not inherit local setup, and the coordinating conversation has no connectors.
+### L8 — Keep the outcome layer separable from provider-native coordination
 
-**Inference.** Projects does not replace workflows that require local files, machine tools, native applications, local secrets, or direct connector access from the coordinator.
+**Observed pattern —** Projects bundles Anthropic’s model, coordinator, cloud threads, memory, and Library while loading repository instructions, skills, and plugins. Existing project evidence separates bounded outcomes, authority, verification, and portable skills from personal provider mechanics (`AGENTS.md:9`, `README.md:34-42`, `plugins/harness/README.md:23-26`, `plugins/harness/README.md:81-91`).
 
-**Confidence: High.**
+**Planning principle —** Specify outcomes, authority, durable artifacts, and acceptance independently from the scheduling surface that executes them.
+
+**How it could affect planning —** This separation could allow future plans to adopt provider-native capabilities when they are useful, change hosts as contracts evolve, and retire obsolete coordination plumbing without rewriting the intended workflow outcome.
+
+**Confidence —** High in the documented product and project boundaries; Medium in the future-planning effect.
+
+**Unverified —** This research did not run an end-to-end compatibility test or establish which existing mechanics would become obsolete under real usage.
 
 ## Risks & Gaps
 
-- **R1 — Duplicate control planes.** Routing the same work through independent Projects and Harness orchestration would create competing ownership of dispatch, authority, state, and acceptance. Treat Projects as a host, not a second Harness contract. **Confidence: High.**
+- **R1 — Capability conflation.** Planning against legacy RAG or sharing behavior would overstate the new beta. Whether these product surfaces converge is undocumented. **Confidence: High.**
 
-- **R2 — Legacy-feature overstatement.** Advertising RAG or sharing as capabilities of the new beta would merge legacy chat/Cowork documentation with the Claude Code Projects surface. Whether these features will converge is undocumented. **Confidence: High.**
+- **R2 — Memory treated as enforcement.** Project memory carries preferences and context, but Anthropic documents preferences as instructions rather than hard settings. Plans should not assume memory alone supplies deterministic authority or validation. **Confidence: High.**
 
-- **R3 — Memory mistaken for enforcement.** Project memory can carry preferences and context, but Anthropic documents those preferences as instructions rather than hard settings. It cannot substitute for authority ceilings or deterministic validation. **Confidence: High.**
+- **R3 — Hidden execution boundaries.** Local tools, machine configuration, connector access, non-GitHub repositories, sharing, and multi-repository configuration differ from the coordinator’s apparent single surface. **Confidence: High.**
 
-- **R4 — Single-user coordination mistaken for team tracking.** A Project currently belongs to one user. It cannot replace a shared issue tracker, ownership taxonomy, lifecycle state, or organization policy. **Confidence: High.**
+- **R4 — Work-loss and attention risk.** A paused sandbox may restart from a fresh clone and lose uncommitted changes. Permission prompts still require attention, while parallel work can consume plan limits faster. **Confidence: High.**
 
-- **R5 — Cloud-host assumptions.** Code work in Projects requires `github.com` hosting and the Claude GitHub App; Projects also excludes local sessions and does not inherit local Claude Code setup. Workflows depending on local tools or non-GitHub repositories remain outside the verified surface. **Confidence: High.**
+- **R5 — Untested operational fit.** Documentation says repository plugins load, but this research did not exercise skills-n-stuff inside the beta. Multi-repository behavior remains especially uncertain. **Confidence: Medium.**
 
-- **R6 — Work-loss and attention risk.** A paused sandbox may resume from a fresh clone and lose uncommitted changes. Permission prompts still wait inside threads, while Project use consumes plan limits faster. Hosted coordination reduces polling but does not eliminate supervision or recovery needs. **Confidence: High.**
+- **R6 — Roadmap dependence.** Anthropic has announced planned expansion and near-term local execution, but no verified dates or final contracts establish when sharing, RAG, chat/Cowork integration, Team/Enterprise support, or local execution will arrive. **Confidence: High that the details remain unknown.**
 
-- **R7 — Untested compatibility.** Documentation says repository plugins load, but this research did not exercise skills-n-stuff inside the beta. Multi-repository behavior is especially uncertain because hooks, permission rules, and environment settings apply only to one-repository Projects. **Confidence: Medium.**
+- **R7 — Secondary-source incentives.** The video creator had no beta access, promotes a paid community, and supplies an unsupported demand statistic. Those judgments should not set planning priorities. **Confidence: High.**
 
-- **R8 — Product-roadmap dependence.** Anthropic has announced planned expansion and near-term local execution, but no verified dates or final contracts establish when sharing, RAG, chat/Cowork integration, Team/Enterprise support, or local execution will arrive. **Confidence: High that the details remain unknown.**
-
-- **R9 — Commercial and secondary-source framing.** The video creator had no beta access, promotes a paid community, and supplies an unsupported demand statistic. Its “agentic OS” and framework-replacement conclusions should not drive architecture decisions. **Confidence: High.**
-
-- **R10 — Degraded research coverage.** Only one of four expected branches was accepted and proven. No independent ecosystem-comparison result exists, so competitive conclusions beyond the verified Anthropic surface would be unsupported. **Confidence: High.**
+- **R8 — Degraded research coverage.** Only one of four expected branches was accepted and proven. No independent ecosystem-comparison result exists, so broader competitive conclusions would be unsupported. **Confidence: High.**
 
 ## Prior Research
 
-`agent-native-harness-and-pm.md` established the governing split: automate waiting and proof transport while preserving product decisions. Projects reinforces the first half by productizing a coordinating conversation and cloud worker threads. It does not alter the second half: PM still owns scope, priority, readiness, and lifecycle decisions, while Harness preserves authority and proof.
+- [`agent-native-harness-and-pm.md`](agent-native-harness-and-pm.md) concluded that waiting and proof transport can be automated while product decisions remain explicit. That supports planning for exception-based supervision without hiding decision ownership.
 
-`evidence-gated-agent-completion.md` established that worker output and successful execution are claims until the accepting parent reruns the stable verification seam against a fixed target. Projects makes cloud dispatch easier but supplies no contrary evidence. Its thread results should enter the same evidence-gated acceptance path.
+- [`evidence-gated-agent-completion.md`](evidence-gated-agent-completion.md) concluded that worker output remains a claim until the accepting parent reruns a stable verification seam against a fixed target. That informs the proposed ready-for-review and acceptance states.
 
-`model-harness-unbundling.md` separated the model, harness, durable project context, and transient conversation. Projects bundles Anthropic’s model, cloud harness, memory, and coordinating conversation into one hosted surface. That strengthens the value of the remaining unbundled layer: portable skills, provider-neutral requests, explicit authority, and accepted-task evidence.
-
-Three conclusions are reinforced:
-
-1. **Hosted coordination is infrastructure, not product ownership.** Projects can dispatch and remember; Product Pulse and PM still decide what matters.
-2. **Convenience does not replace proof.** Cloud threads still require fixed-target verification before acceptance.
-3. **Portability becomes more valuable as hosts bundle vertically.** A Claude-only Project is useful, but the durable differentiator is behavior that survives outside that host.
-
-The new conclusion is narrower: skills-n-stuff should explicitly support Projects as a compatible Claude host while declining to build a competing project-level coordinator.
+- [`model-harness-unbundling.md`](model-harness-unbundling.md) separated the model, harness, durable project context, and transient conversation. Projects demonstrates how a provider can bundle those layers, reinforcing the planning value of expressing outcomes independently from host-specific coordination.
 
 ## Sources
 
@@ -228,40 +217,23 @@ The new conclusion is narrower: skills-n-stuff should explicitly support Project
 - `plugins/pm/README.md:223-232` — intended-worker labels.
 - `plugins/pm/README.md:364-385` — durable domain knowledge and rejection history.
 
-## Action Items
+## Recommendations
 
-### A1 — Clarify the product boundary
+These recommendations are planning inputs, not approved implementation work or backlog commitments.
 
-- **Why:** Projects commoditizes Claude-only cloud coordination and waiting, not the governance and workflow layers that define skills-n-stuff.
-- **Effort:** Quick documentation change.
-- **Confidence:** High.
-- **Tradeoffs:** The wording must remain explicitly tied to the beta and may require revision as the product matures.
-- **Evidence:** Projects supplies the hosted coordinator and cloud threads (E1); it remains Anthropic-only and single-user (E2, E4); Harness, Product Pulse, and PM retain distinct ownership (P1-P8).
+### Adopt now
 
-### A2 — Verify compatibility without creating a new system
+- Require planning discussions to distinguish the coordinator, execution threads, durable memory, Library artifacts, exception states, and acceptance evidence. **Confidence: High.**
+- Include explicit cloud/local, connector, repository, multi-repository, sharing, and organization boundaries in relevant specifications. **Confidence: High.**
+- Keep outcomes and acceptance criteria separate from provider-specific scheduling so native capabilities can be adopted or retired without preserving obsolete plumbing. **Confidence: Medium-high.**
 
-- **Why:** Official documentation says repository plugins load, but this research contains no hands-on beta run.
-- **Effort:** Small and conditional on access.
-- **Confidence:** Medium-high.
-- **Tradeoffs:** A successful one-repository check will not prove multi-repository parity. Plan usage, connector limitations, permission waits, and sandbox recovery should be recorded as constraints rather than hidden.
-- **Evidence:** P4, R6, R7, and the [Claude Code Projects documentation](https://code.claude.com/docs/en/claude-projects).
-- **Minimum check:** Confirm that a Project thread loads the repository’s `CLAUDE.md`, skills, and plugins; honors the documented one-repository hooks, permissions, and environment behavior; returns a result that can enter the existing Harness/PM verification path; and preserves committed work across the tested lifecycle.
-- **Unverified dependency:** Beta access and the account’s current rollout state.
+### Validate
 
-### A3 — Preserve one control plane
+- When beta access permits, test whether a one-repository Project loads `CLAUDE.md`, skills, plugins, hooks, permission rules, and environment configuration as documented; preserves committed work; exposes useful artifacts through the Library; and produces results that can enter the existing verification path. **Confidence: Medium-high.**
+- Test multi-repository behavior separately because hooks, permission rules, and environment settings are documented only for one-repository Projects. **Confidence: Medium.**
+- Evaluate proposed delegation thresholds, exception states, usage visibility, and concurrency bounds with real workflows before treating them as product requirements. **Confidence: Medium.**
 
-- **Why:** A second coordinator or memory layer would duplicate product behavior while weakening ownership of authority and acceptance.
-- **Effort:** None unless a future incompatibility is demonstrated.
-- **Confidence:** High.
-- **Tradeoffs:** This intentionally leaves Anthropic’s hosted experience in charge of its own scheduling and interface. skills-n-stuff does not gain a bespoke Projects dashboard or synchronization layer.
-- **Evidence:** P1, P3, P5-P7 and R1-R4.
-- **Non-goals:** No duplicate thread scheduler, Project-state mirror, custom RAG implementation, sharing proxy, or replacement for Harness Results and PM state.
+### Monitor
 
-### A4 — Track released contracts, not roadmap implications
-
-- **Why:** Current evidence separates legacy RAG and sharing from the new beta, while local execution and additional surfaces are only planned.
-- **Effort:** Quick review when Anthropic materially updates Projects.
-- **Confidence:** High.
-- **Tradeoffs:** Compatibility documentation may lag a rollout until official sources can be rechecked; that is preferable to claiming unreleased behavior.
-- **Evidence:** E2-E5 and R2, R5, R8.
-- **Unverified dependencies:** Whether or when sharing, RAG, chat/Cowork integration, Team/Enterprise support, or local execution will reach the new Projects model.
+- Track official changes to local execution, chat and Cowork integration, Team and Enterprise availability, sharing, organization controls, and RAG. Do not infer convergence from the legacy Projects documentation. **Confidence: High.**
+- Revisit usage and concurrency planning when official documentation exposes clearer limits, controls, or operational behavior. **Confidence: High that the current evidence is incomplete.**
