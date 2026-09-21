@@ -118,11 +118,36 @@ USED_TIER=""
 CAPTION_TEXT=""
 CAPTION_KIND=""  # "manual" or "auto" when tier 0 succeeds
 
+# Download one caption track into its own directory. Prints the .vtt path on
+# success, returns 1 when nothing lands.
+#
+# One track per call is deliberate. yt-dlp treats --sub-lang as a single batch:
+# if the first matching track fails, it abandons the whole subtitle download
+# instead of trying the rest. A 429 on YouTube's machine-translated "en" track
+# used to kill the request before it ever reached "en-orig", which downloads
+# fine on its own. yt-dlp also exits 0 in that case, so the only trustworthy
+# signal is whether a file actually landed.
+fetch_caption_track() {
+  local sub_flag="$1" lang="$2"
+  local dir="$TMPDIR_WORK/caps-${sub_flag//-/}-${lang//[^a-zA-Z0-9]/_}"
+  rm -rf "$dir"
+  mkdir -p "$dir"
+
+  "${YTDLP[@]}" --skip-download "$sub_flag" \
+         --sub-lang "$lang" \
+         --sub-format vtt \
+         -o "$dir/caps.%(ext)s" \
+         "$URL" >/dev/null 2>&1 || true
+
+  local vtt
+  vtt="$(find "$dir" -name '*.vtt' -type f 2>/dev/null | head -1)"
+  [[ -n "$vtt" ]] || return 1
+  printf '%s\n' "$vtt"
+}
+
 tier0_youtube_captions() {
   echo "→ Tier 0: YouTube captions" >&2
 
-  # Fetch title + duration and attempt caption download in one pass.
-  # Prefer manual subs; fall back to auto-generated.
   local meta
   meta="$("${YTDLP[@]}" --print "%(title)s|||%(duration)s" "$URL" 2>/dev/null || true)"
   if [[ -n "$meta" ]]; then
@@ -131,23 +156,24 @@ tier0_youtube_captions() {
     [[ "$DURATION_SECONDS" == "NA" || -z "$DURATION_SECONDS" ]] && DURATION_SECONDS=0
   fi
 
-  "${YTDLP[@]}" --skip-download \
-         --write-sub --write-auto-sub \
-         --sub-lang "en.*,en-orig" \
-         --sub-format vtt \
-         -o "$TMPDIR_WORK/caps.%(ext)s" \
-         "$URL" >/dev/null 2>&1 || return 1
-
-  # Prefer manual subs (caps.en.vtt) over auto (caps.en-*.vtt, caps.en-orig.vtt).
-  local vtt
-  vtt="$(ls "$TMPDIR_WORK"/caps.en.vtt 2>/dev/null | head -1)"
-  if [[ -n "$vtt" ]]; then
-    CAPTION_KIND="manual"
-  else
-    vtt="$(ls "$TMPDIR_WORK"/caps.en*.vtt 2>/dev/null | head -1)"
-    [[ -n "$vtt" ]] && CAPTION_KIND="auto"
+  # Manual captions first, then auto-generated. Within auto, "en-orig" is the
+  # original-language track; plain "en" is often a machine translation of it.
+  local vtt="" lang
+  for lang in en "en.*"; do
+    if vtt="$(fetch_caption_track --write-sub "$lang")"; then
+      CAPTION_KIND="manual"
+      break
+    fi
+  done
+  if [[ -z "$vtt" ]]; then
+    for lang in en-orig en "en.*"; do
+      if vtt="$(fetch_caption_track --write-auto-sub "$lang")"; then
+        CAPTION_KIND="auto"
+        break
+      fi
+    done
   fi
-  [[ -z "$vtt" ]] && return 1
+  [[ -n "$vtt" ]] || return 1
 
   # Parse VTT → plain text. Strips cue timestamps, WEBVTT header, cue ids,
   # inline <c> tags, and collapses YouTube's rolling-window duplication.
@@ -195,6 +221,15 @@ tier1_ytdlp() {
 
 tier2_playwright() {
   echo "→ Tier 2: Playwright" >&2
+
+  # verify-deps.sh reports this without failing, so tier 2 owns the hard check.
+  # node_modules is per-plugin-copy; another copy having run install.sh does
+  # nothing for this one.
+  if [[ ! -d "$PLUGIN_ROOT/node_modules/playwright" ]]; then
+    echo "ERROR: the 'playwright' package is not installed in $PLUGIN_ROOT" >&2
+    echo "Run: bash $PLUGIN_ROOT/scripts/install.sh" >&2
+    return 1
+  fi
   local meta
   meta="$(node "$PLUGIN_ROOT/scripts/extract-via-playwright.mjs" "$URL" "$TMPDIR_WORK" 2>&2)" || return 1
   [[ -z "$meta" ]] && return 1
