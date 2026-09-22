@@ -130,6 +130,8 @@ admin-console action and must target only those resources.
   acceptance file, and the image is pinned by digest to prevent tag drift.
 - The OAuth secret is mounted from a mode-600 file and appears in container metadata
   only as a file path.
+- The outbound Tailscale proxy binds only to the control-network address. Preview
+  containers cannot use the router identity for outbound tailnet access.
 - The router never configures Tailscale Funnel.
 - Automatic deletion of unused Service definitions remains disabled.
 - Docker Desktop must be running for previews. Enable its login item separately if

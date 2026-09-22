@@ -5,7 +5,7 @@ SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)"
 SKILL_DIR="$(dirname -- "$SCRIPT_DIR")"
 CONFIG_ROOT="${PREVIEW_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/agent-previews}"
 SECRETS_DIR="$CONFIG_ROOT/secrets"
-RUNTIME_BUNDLE_VERSION="0.1.0"
+RUNTIME_BUNDLE_VERSION="0.1.1"
 RUNTIME_BUNDLE="$CONFIG_ROOT/runtime/$RUNTIME_BUNDLE_VERSION"
 ROUTER_COMPOSE="$RUNTIME_BUNDLE/DockTail.compose.yaml"
 STATIC_TEMPLATE="$RUNTIME_BUNDLE/Static_Preview.conf.template"
@@ -133,6 +133,21 @@ ensure_control_network() {
   fi
 }
 
+control_proxy_ip() {
+  local existing gateway a b c d
+  existing="$(docker inspect --format "{{with index .NetworkSettings.Networks \"$CONTROL_NETWORK_NAME\"}}{{.IPAddress}}{{end}}" agent-preview-tailscale 2>/dev/null || true)"
+  if [[ -n "$existing" ]]; then
+    printf '%s\n' "$existing"
+    return
+  fi
+
+  gateway="$(docker network inspect --format '{{(index .IPAM.Config 0).Gateway}}' "$CONTROL_NETWORK_NAME" 2>/dev/null || true)"
+  IFS=. read -r a b c d <<<"$gateway"
+  [[ "$a" =~ ^[0-9]+$ && "$b" =~ ^[0-9]+$ && "$c" =~ ^[0-9]+$ && "$d" =~ ^[0-9]+$ && "$d" -lt 254 ]] ||
+    fail "could not derive a private control-network address from gateway: ${gateway:-missing}"
+  printf '%s.%s.%s.%s\n' "$a" "$b" "$c" "$((d + 1))"
+}
+
 ensure_preview_network() {
   local name="$1"
   local network
@@ -161,11 +176,14 @@ connect_router_network() {
 }
 
 router_ready() {
-  local tailscale_health docktail_health
+  local tailscale_health docktail_health expected_proxy
   tailscale_health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' agent-preview-tailscale 2>/dev/null || true)"
   docktail_health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' agent-preview-docktail 2>/dev/null || true)"
   [[ "$tailscale_health" == "healthy" && "$docktail_health" == "healthy" ]] ||
     fail "preview router is not healthy (tailscale=${tailscale_health:-missing}, docktail=${docktail_health:-missing})"
+  expected_proxy="TS_OUTBOUND_HTTP_PROXY_LISTEN=$(control_proxy_ip):1055"
+  docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' agent-preview-tailscale |
+    grep -Fxq "$expected_proxy" || fail "preview router proxy is not bound only to the control network"
 }
 
 credential_path() {
@@ -282,6 +300,7 @@ preview_url() {
 router_compose() {
   stage_runtime_bundle
   PREVIEW_CONFIG_DIR="$CONFIG_ROOT" \
+    PREVIEW_ROUTER_CONTROL_IP="$(control_proxy_ip)" \
     PREVIEW_ROUTER_HOSTNAME="$(router_hostname)" \
     TAILSCALE_OAUTH_CLIENT_ID="${TAILSCALE_OAUTH_CLIENT_ID:-}" \
     docker compose --project-name "$ROUTER_PROJECT" -f "$ROUTER_COMPOSE" "$@"
@@ -293,6 +312,7 @@ router_compose_authenticated() {
   client_id="$(oauth_client_id)"
   check_credential_file "$(credential_path tailscale_oauth_client_secret)"
   PREVIEW_CONFIG_DIR="$CONFIG_ROOT" \
+    PREVIEW_ROUTER_CONTROL_IP="$(control_proxy_ip)" \
     PREVIEW_ROUTER_HOSTNAME="$(router_hostname)" \
     TAILSCALE_OAUTH_CLIENT_ID="$client_id" \
     docker compose --project-name "$ROUTER_PROJECT" -f "$ROUTER_COMPOSE" "$@"
@@ -316,7 +336,7 @@ router_up() {
       docker network connect "$network" agent-preview-tailscale
     fi
   done < <(docker network ls --filter label=dev.studiomoser.agent-preview=true --format '{{.Name}}' |
-    rg '^agent-preview-' | rg -v '^agent-preview-control$' || true)
+    grep '^agent-preview-' | grep -v '^agent-preview-control$' || true)
   local attempt
   for attempt in {1..30}; do
     local tailscale_health docktail_health
@@ -370,13 +390,29 @@ container_id_by_name() {
   docker ps -aq --filter "name=^/$1$" | head -n 1
 }
 
-assert_replacement_names_available() {
+recover_container_replacement() {
   local canonical="$1"
-  local candidate
-  for candidate in "${canonical}-next" "${canonical}-previous"; do
-    [[ -z "$(container_id_by_name "$candidate")" ]] ||
-      fail "stale replacement container requires recovery before continuing: $candidate"
-  done
+  local next="${canonical}-next"
+  local previous="${canonical}-previous"
+  local canonical_id next_id previous_id
+  canonical_id="$(container_id_by_name "$canonical")"
+  next_id="$(container_id_by_name "$next")"
+  previous_id="$(container_id_by_name "$previous")"
+
+  [[ -z "$canonical_id" ]] || assert_managed "$canonical_id"
+  [[ -z "$next_id" ]] || assert_managed "$next_id"
+  [[ -z "$previous_id" ]] || assert_managed "$previous_id"
+
+  if [[ -n "$canonical_id" ]]; then
+    [[ -z "$next_id" ]] || docker rm -f "$next_id" >/dev/null
+    [[ -z "$previous_id" ]] || docker rm -f "$previous_id" >/dev/null
+  elif [[ -n "$previous_id" ]]; then
+    docker rename "$previous" "$canonical"
+    docker start "$canonical" >/dev/null
+    [[ -z "$next_id" ]] || docker rm -f "$next_id" >/dev/null
+  elif [[ -n "$next_id" ]]; then
+    docker rm -f "$next_id" >/dev/null
+  fi
 }
 
 rollback_container_replacement() {
@@ -389,6 +425,27 @@ rollback_container_replacement() {
   fi
 }
 
+CUTOVER_CANONICAL=""
+
+recover_failed_cutover() {
+  local status=$?
+  trap - ERR INT TERM
+  [[ -z "$CUTOVER_CANONICAL" ]] || recover_container_replacement "$CUTOVER_CANONICAL"
+  CUTOVER_CANONICAL=""
+  (( status != 0 )) || status=1
+  exit "$status"
+}
+
+begin_container_cutover() {
+  CUTOVER_CANONICAL="$1"
+  trap recover_failed_cutover ERR INT TERM
+}
+
+end_container_cutover() {
+  trap - ERR INT TERM
+  CUTOVER_CANONICAL=""
+}
+
 wait_for_static_container() {
   local id="$1"
   local network="$2"
@@ -399,7 +456,7 @@ wait_for_static_container() {
     if [[ -n "$container_ip" ]] &&
        headers="$(docker exec agent-preview-tailscale sh -c \
          'wget -qSO- --timeout=5 "$1" >/dev/null' sh "http://$container_ip:80/" 2>&1)" &&
-       rg -i -q "^[[:space:]]*X-Agent-Preview-Name: ${expected_service}\\r?$" <<<"$headers"; then
+       grep -Eiq "^[[:space:]]*X-Agent-Preview-Name: ${expected_service}[[:space:]]*$" <<<"$headers"; then
       return 0
     fi
     sleep 1
@@ -445,7 +502,7 @@ up_static() {
   canonical="$(container_name "$name")"
   next="${canonical}-next"
   previous="${canonical}-previous"
-  assert_replacement_names_available "$canonical"
+  recover_container_replacement "$canonical"
   old_id="$(managed_container_id "$name")"
   [[ -z "$old_id" ]] || assert_managed "$old_id"
 
@@ -478,11 +535,13 @@ up_static() {
     fail "replacement preview failed its direct health check; existing preview was preserved"
   fi
 
+  begin_container_cutover "$canonical"
   if [[ -n "$old_id" ]]; then
     docker rename "$canonical" "$previous"
     docker stop "$previous" >/dev/null
   fi
   docker rename "$next" "$canonical"
+  end_container_cutover
 
   if ! wait_for_preview "$name" "$id"; then
     rollback_container_replacement "$canonical"
@@ -543,7 +602,9 @@ verify_contract() {
   [[ "$restart" == "unless-stopped" ]] || fail "preview restart policy is not unless-stopped"
   network="$(preview_network_name "$name")"
   docker inspect --format '{{json .NetworkSettings.Networks}}' "$id" |
-    jq -e --arg network "$network" 'has($network)' >/dev/null || fail "preview is not on its isolated network"
+    jq -e --arg network "$network" --arg control "$CONTROL_NETWORK_NAME" \
+      'has($network) and (has($control) | not)' >/dev/null ||
+    fail "preview is not isolated from the control network"
   published="$(docker inspect --format '{{json .HostConfig.PortBindings}}' "$id")"
   [[ "$published" == "null" || "$published" == "{}" ]] || fail "preview unexpectedly publishes a host port"
   [[ "$(docker inspect --format '{{ index .Config.Labels "docktail.service.name" }}' "$id")" == "$expected_service" ]] ||
@@ -570,7 +631,7 @@ wait_for_preview() {
     code="$(curl --silent --show-error --max-time 5 --max-redirs 0 \
       --dump-header "$headers" --output /dev/null --write-out '%{http_code}' "$url" || true)"
     if [[ "$code" =~ ^2[0-9][0-9]$ ]] &&
-       { [[ "$kind" == "app" ]] || rg -i -q "^x-agent-preview-name: ${expected_service}\\r?$" "$headers"; }; then
+       { [[ "$kind" == "app" ]] || grep -Eiq "^x-agent-preview-name: ${expected_service}[[:space:]]*$" "$headers"; }; then
       rm -f "$headers"
       return 0
     fi
@@ -654,16 +715,17 @@ hub_up() {
   check_hub_credentials
   assert_service_owned_or_absent hub
 
-  local existing_id description host_uid host_gid canonical next previous next_id
+  local existing_id description host_uid host_gid proxy_ip canonical next previous next_id
   canonical=agent-preview-hub
   next="${canonical}-next"
   previous="${canonical}-previous"
-  assert_replacement_names_available "$canonical"
+  recover_container_replacement "$canonical"
   existing_id="$(hub_container_id)"
   [[ -z "$existing_id" ]] || assert_managed "$existing_id"
   description="$(service_comment hub "Preview Hub")"
   host_uid="$(id -u)"
   host_gid="$(id -g)"
+  proxy_ip="$(control_proxy_ip)"
 
   if ! docker run -d \
     --name "$next" \
@@ -677,7 +739,7 @@ hub_up() {
     --env PYTHONDONTWRITEBYTECODE=1 \
     --env PYTHONUNBUFFERED=1 \
     --env "PREVIEW_HUB_TAILNET_SUFFIX=$(tailnet_suffix)" \
-    --env PREVIEW_HUB_TAILNET_PROXY=http://agent-preview-tailscale:1055 \
+    --env "PREVIEW_HUB_TAILNET_PROXY=http://$proxy_ip:1055" \
     --label "$OWNERSHIP_LABEL" \
     --label dev.studiomoser.agent-preview.kind=hub \
     --label 'dev.studiomoser.agent-preview.project=Preview Hub' \
@@ -706,11 +768,13 @@ hub_up() {
     fail "replacement Preview Hub failed its direct health check; existing hub was preserved"
   fi
 
+  begin_container_cutover "$canonical"
   if [[ -n "$existing_id" ]]; then
     docker rename "$canonical" "$previous"
     docker stop "$previous" >/dev/null
   fi
   docker rename "$next" "$canonical"
+  end_container_cutover
 
   if ! wait_for_hub; then
     rollback_container_replacement "$canonical"
@@ -869,4 +933,6 @@ main() {
   esac
 }
 
-main "$@"
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main "$@"
+fi

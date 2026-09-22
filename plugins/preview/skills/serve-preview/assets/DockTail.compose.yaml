@@ -11,7 +11,7 @@ services:
       TS_CLIENT_SECRET: file:/run/secrets/docktail/tailscale_oauth_client_secret
       TS_EXTRA_ARGS: --advertise-tags=tag:server
       TS_HOSTNAME: ${PREVIEW_ROUTER_HOSTNAME:?Set by Preview.sh}
-      TS_OUTBOUND_HTTP_PROXY_LISTEN: :1055
+      TS_OUTBOUND_HTTP_PROXY_LISTEN: ${PREVIEW_ROUTER_CONTROL_IP:?Set by Preview.sh}:1055
       TS_SOCKET: /var/run/tailscale/tailscaled.sock
       TS_STATE_DIR: /var/lib/tailscale
       TS_USERSPACE: "false"
@@ -24,7 +24,8 @@ services:
       - NET_ADMIN
       - SYS_MODULE
     networks:
-      - preview-edge
+      preview-edge:
+        ipv4_address: ${PREVIEW_ROUTER_CONTROL_IP:?Set by Preview.sh}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "tailscale", "--socket=/var/run/tailscale/tailscaled.sock", "status", "--json"]

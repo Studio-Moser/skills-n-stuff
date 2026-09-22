@@ -121,7 +121,9 @@ grouped by their advertising router:
 The hub lists only `preview-*` Services tagged `tag:agent-preview` with this
 workflow's ownership marker. It reads the Tailscale inventory using separate,
 read-only OAuth credentials and probes preview URLs through the router's private
-HTTP proxy. It never receives the Docker socket or the router's write credential.
+HTTP proxy. The proxy listens only on the control-network address, not on any
+preview network. The hub never receives the Docker socket or the router's write
+credential.
 
 Read [DockTail Setup](references/DockTail_Setup.md) before configuring the hub's
 OAuth credentials. Run one hub for the tailnet; additional preview routers appear
