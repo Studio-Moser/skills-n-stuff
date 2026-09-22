@@ -94,6 +94,18 @@ routing, bounded execution, and evidence-bearing results.
 
 [Full documentation](plugins/harness/README.md)
 
+### Preview
+
+Create durable private preview sites that survive agent sessions, use stable
+Tailscale Service URLs, and appear in a tailnet-wide hub grouped by machine and
+project.
+
+**Skills:**
+- `/preview:serve-preview` — Create, expose, inspect, verify, and stop durable
+  static or application previews
+
+[Full documentation](plugins/preview/README.md)
+
 ### Site Capture
 
 Capture full-page screenshots of websites with scroll-triggered animation support. Handles bot-protected sites, cookie banners, and lazy-loaded content.

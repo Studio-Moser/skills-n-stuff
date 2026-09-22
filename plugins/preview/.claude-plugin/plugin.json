@@ -1,0 +1,19 @@
+{
+  "name": "preview",
+  "version": "0.1.0",
+  "description": "Create durable private preview sites, expose them through Tailscale Services, and browse them from a tailnet-wide Preview Hub.",
+  "author": {
+    "name": "Studio Moser",
+    "url": "https://github.com/Studio-Moser"
+  },
+  "repository": "https://github.com/Studio-Moser/skills-n-stuff",
+  "license": "MIT",
+  "keywords": [
+    "preview",
+    "local-development",
+    "tailscale",
+    "docker",
+    "docktail",
+    "localhost"
+  ]
+}
