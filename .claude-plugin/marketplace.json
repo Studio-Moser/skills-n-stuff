@@ -285,6 +285,31 @@
         "transcript",
         "video"
       ]
+    },
+    {
+      "name": "preview",
+      "source": "./plugins/preview",
+      "description": "Create durable private local previews with stable Tailscale Service URLs and a tailnet-wide Preview Hub.",
+      "version": "0.1.1",
+      "author": {
+        "name": "Studio Moser"
+      },
+      "license": "MIT",
+      "keywords": [
+        "preview",
+        "local-development",
+        "tailscale",
+        "docker",
+        "docktail",
+        "localhost"
+      ],
+      "category": "productivity",
+      "tags": [
+        "preview",
+        "local-development",
+        "tailscale",
+        "docker"
+      ]
     }
   ]
 }

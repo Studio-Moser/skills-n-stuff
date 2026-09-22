@@ -1,0 +1,36 @@
+{
+  "name": "preview",
+  "version": "0.1.1",
+  "description": "Create durable private preview sites, expose them through Tailscale Services, and browse them from a tailnet-wide Preview Hub.",
+  "author": {
+    "name": "Studio Moser",
+    "url": "https://github.com/Studio-Moser"
+  },
+  "repository": "https://github.com/Studio-Moser/skills-n-stuff",
+  "license": "MIT",
+  "skills": "./skills/",
+  "keywords": [
+    "preview",
+    "local-development",
+    "tailscale",
+    "docker",
+    "docktail",
+    "localhost"
+  ],
+  "interface": {
+    "displayName": "Preview",
+    "shortDescription": "Durable private previews over Tailscale",
+    "longDescription": "Create durable local website previews, give them stable private Tailscale URLs, and browse active projects in a shared Preview Hub.",
+    "developerName": "Studio Moser",
+    "category": "Productivity",
+    "capabilities": [
+      "Local automation",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Serve this project as a durable private preview.",
+      "Show me every preview running across my machines.",
+      "Verify and repair my local preview router."
+    ]
+  }
+}
