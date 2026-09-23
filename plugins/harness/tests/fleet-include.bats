@@ -4,6 +4,8 @@ setup() {
   SCRIPT="${BATS_TEST_DIRNAME}/../scripts/fleet-include.sh"
   REPO="${BATS_TEST_TMPDIR}/my repo"
   CONFIG="${BATS_TEST_TMPDIR}/home/.ssh/config"
+  mkdir -p "$REPO/ssh" "${BATS_TEST_TMPDIR}/repo/ssh"
+  : > "$REPO/ssh/config"; : > "${BATS_TEST_TMPDIR}/repo/ssh/config"
   LINE="Include \"$REPO/ssh/config\""
 }
 
@@ -70,7 +72,24 @@ setup() {
   [ "$status" -eq 1 ]
   [ -z "$(ls -A "$CONFIG")" ]
   rmdir "$CONFIG"
+  mkdir -p "${BATS_TEST_TMPDIR}/re\"po/ssh"; : > "${BATS_TEST_TMPDIR}/re\"po/ssh/config"
   run "$SCRIPT" "${BATS_TEST_TMPDIR}/re\"po" "$CONFIG"
+  [ "$status" -eq 1 ]
+  [ ! -e "$CONFIG" ]
+}
+
+@test "a relative repo path is written as an absolute Include" {
+  cd "${BATS_TEST_TMPDIR}/repo"
+  run "$SCRIPT" . "$CONFIG"
+  [ "$status" -eq 0 ]
+  [ "$(head -1 "$CONFIG")" = "Include \"$(pwd)/ssh/config\"" ]
+}
+
+@test "a missing inventory or a glob in the path is refused" {
+  run "$SCRIPT" "${BATS_TEST_TMPDIR}/nowhere" "$CONFIG"
+  [ "$status" -eq 2 ]
+  mkdir -p "${BATS_TEST_TMPDIR}/re*po/ssh"; : > "${BATS_TEST_TMPDIR}/re*po/ssh/config"
+  run "$SCRIPT" "${BATS_TEST_TMPDIR}/re*po" "$CONFIG"
   [ "$status" -eq 1 ]
   [ ! -e "$CONFIG" ]
 }

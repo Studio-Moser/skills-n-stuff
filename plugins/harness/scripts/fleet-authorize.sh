@@ -20,9 +20,10 @@ end='# harness:fleet end'
 
 [ -d "$keys" ] || { echo "no key directory: $keys" >&2; exit 2; }
 
-plain_key='^(ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp(256|384|521)|sk-ssh-ed25519@openssh\.com|sk-ecdsa-sha2-nistp256@openssh\.com) [A-Za-z0-9+/=]+( [^[:cntrl:]]*)?$'
+key_type='^(ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp(256|384|521)|sk-ssh-ed25519@openssh\.com|sk-ecdsa-sha2-nistp256@openssh\.com)$'
+plain_key="${key_type%\$}"' [A-Za-z0-9+/=]+( [^[:cntrl:]]*)?$'
 block=""
-blobs=""
+pairs=""
 count=0
 for f in "$keys"/*.pub; do
   [ -e "$f" ] || continue
@@ -34,7 +35,7 @@ for f in "$keys"/*.pub; do
     echo "rejected $f: not a plain public key line" >&2; exit 1
   fi
   block+="$line"$'\n'
-  blobs+="$(printf '%s' "$line" | awk '{print $2}') "
+  pairs+="$(printf '%s' "$line" | awk '{print $1 " " $2}')|"
   count=$((count + 1))
 done
 
@@ -53,14 +54,16 @@ trap 'rm -f "$tmp"' EXIT
 # rename, because guessing would either delete keys this script does not own or
 # keep revoked ones. Markers match with surrounding whitespace and a CRLF ending
 # trimmed. Pass 1 validates markers and learns the old block's keys; pass 2 writes.
-if ! awk -v s="$start" -v e="$end" -v cur="$blobs" '
-  BEGIN { n = split(cur, c, " "); for (i = 1; i <= n; i++) fleet[c[i]] = 1 }
+# A fleet key is its "type blob" pair, learned only from real key lines, so a
+# comment that quotes a blob cannot mark an unrelated key for removal.
+if ! awk -v s="$start" -v e="$end" -v cur="$pairs" -v types="$key_type" '
+  BEGIN { n = split(cur, c, "|"); for (i = 1; i <= n; i++) if (c[i] != "") fleet[c[i]] = 1 }
   { l = $0; sub(/^[ \t]+/, "", l); sub(/[ \t\r]+$/, "", l) }
   NR == FNR {
     if (l == s) { if (seen) bad = 1; seen = inblock = 1; next }
     if (l == e) { if (!inblock) bad = 1; inblock = 0; next }
     if (index(tolower(l), "harness:fleet")) bad = 1
-    if (inblock) { split(l, f, /[ \t]+/); if (f[2] != "") fleet[f[2]] = 1 }
+    if (inblock) { split(l, f, /[ \t]+/); if (f[1] ~ types && f[2] != "") fleet[f[1] " " f[2]] = 1 }
     next
   }
   FNR == 1 && (bad || inblock) { exit }
@@ -69,8 +72,8 @@ if ! awk -v s="$start" -v e="$end" -v cur="$blobs" '
   skip { next }
   {
     m = split(l, f, /[ \t]+/)
-    for (i = 1; i <= m; i++)
-      if (f[i] in fleet) { if (i == 2 && f[1] ~ /^(ssh-|ecdsa-|sk-)/) next; opt = 1 }
+    for (i = 2; i <= m; i++)
+      if ((f[i - 1] " " f[i]) in fleet) { if (i == 2) next; opt = 1 }
     print
   }
   END { exit (bad || inblock || opt) }

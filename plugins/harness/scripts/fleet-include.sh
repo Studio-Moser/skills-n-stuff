@@ -11,13 +11,16 @@ set -euo pipefail
 
 repo="${1:-${AGENTS_REPO:-$HOME/.agents}}"
 config="${2:-$HOME/.ssh/config}"
+# OpenSSH resolves a relative Include under ~/.ssh, not the caller's directory.
+repo="$(cd "$repo" 2>/dev/null && pwd)" || { echo "no repository: ${1:-${AGENTS_REPO:-$HOME/.agents}}" >&2; exit 2; }
 path="$repo/ssh/config"
+[ -f "$path" ] || { echo "no inventory: $path" >&2; exit 2; }
 
 [ ! -L "$config" ] || { echo "refusing symlinked $config; add 'Include \"$path\"' at the top of its target" >&2; exit 1; }
 [ ! -e "$config" ] || [ -f "$config" ] || { echo "refusing non-regular $config" >&2; exit 1; }
 # The path is written as one double-quoted OpenSSH argument; a quote, backslash, or
-# control character would split or corrupt it.
-case "$path" in *[\"\\]* | *[[:cntrl:]]*) echo "unsupported characters in $path" >&2; exit 1 ;; esac
+# control character would split it, and OpenSSH still expands globs and ~ in quotes.
+case "$path" in *[\"\\*?[~]* | *[[:cntrl:]]*) echo "unsupported characters in $path" >&2; exit 1 ;; esac
 dir="$(dirname "$config")"
 mkdir -p "$dir" && chmod 700 "$dir"
 

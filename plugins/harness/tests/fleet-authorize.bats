@@ -142,6 +142,17 @@ setup() {
   grep -qxF "$OWN" "$AK"
 }
 
+@test "a comment quoting a blob inside the block cannot remove an unmanaged key" {
+  mkdir -p "$(dirname "$AK")"
+  blob="$(printf '%s' "$KEY_B" | awk '{print $2}')"
+  printf '%s\n# %s note\n%s\n%s\n' \
+    '# harness:fleet start — managed by fleet-authorize.sh; edits inside are overwritten' \
+    "$blob" '# harness:fleet end' "$KEY_B" > "$AK"
+  run "$SCRIPT" "$REPO" "$AK"
+  [ "$status" -eq 0 ]
+  grep -qxF "$KEY_B" "$AK"
+}
+
 @test "a fleet key with options outside the block aborts" {
   mkdir -p "$(dirname "$AK")"
   printf 'restrict,command="uptime" %s\n' "$KEY_B" > "$AK"
