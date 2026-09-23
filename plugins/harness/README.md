@@ -171,6 +171,8 @@ and confirms a remote is private before the first push.
 | `scripts/skills-reconcile.sh <repo>` | read-only diff of `skills.manifest` vs. reality (reads `npx skills list -g --json` on stdin) |
 | `scripts/skills-manifest.sh <repo>` | regenerate `skills.manifest` and the `.gitignore` block from reality (same stdin) |
 | `scripts/fleet-authorize.sh [repo] [authorized_keys]` | rewrite the `# harness:fleet` block in `authorized_keys` from `<repo>/ssh/keys/*.pub`; rejects option-bearing keys |
+| `scripts/fleet-hosts.sh [repo]` | print the concrete `Host` aliases in `<repo>/ssh/config`; exit 1 on none or an unsafe alias |
+| `scripts/fleet-include.sh [repo] [ssh_config]` | prepend a global `Include` of the fleet inventory unless one already precedes the first `Host`/`Match` |
 | `scripts/sync-finalize.sh <repo> <message>` | stage, scan, commit, exact-lease push, and prove a clean actual remote SHA once |
 
 ## Tests

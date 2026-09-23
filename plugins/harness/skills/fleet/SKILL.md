@@ -31,8 +31,8 @@ already holds through tracked `settings.json` hooks; keep the repo private.
 ## Run a command on a machine
 
 ```bash
-repo="${AGENTS_REPO:-$HOME/.agents}"
-awk 'tolower($1)=="host"{for(i=2;i<=NF;i++){if($i ~ /^#/) break; if($i !~ /[*?!]/) print $i}}' "$repo/ssh/config"
+harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
+"$harness/scripts/fleet-hosts.sh"
 ```
 
 Pick the alias from that list, then:
@@ -99,23 +99,17 @@ network path to the others (for example, Tailscale MagicDNS names).
    mkdir -p "$repo/ssh/keys" && cp ~/.ssh/id_ed25519_fleet.pub "$repo/ssh/keys/$alias.pub"
    ```
 
-3. **Include.** Prepend the include line once; `Include` must come before any
-   `Host` block to apply globally.
+3. **Include** the inventory from `~/.ssh/config`:
 
    ```bash
-   repo="${AGENTS_REPO:-$HOME/.agents}"; line="Include $repo/ssh/config"
-   mkdir -p ~/.ssh && chmod 700 ~/.ssh
-   if [ -L ~/.ssh/config ]; then
-     echo "~/.ssh/config is a symlink; add '$line' at the top of its target by hand" >&2
-   elif ! { [ -f ~/.ssh/config ] && grep -qxF "$line" ~/.ssh/config; }; then
-     tmp="$(mktemp ~/.ssh/.config.XXXXXX)"
-     { printf '%s\n\n' "$line"; [ ! -f ~/.ssh/config ] || cat ~/.ssh/config; } > "$tmp" && chmod 600 "$tmp" && mv "$tmp" ~/.ssh/config || rm -f "$tmp"
-   fi
+   harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
+   "$harness/scripts/fleet-include.sh"
    ```
 
-   The `~/.ssh/config` file is machine-local, so the resolved absolute path is
-   correct there. A symlinked config is left alone because the rename would
-   replace the link with a regular file.
+   OpenSSH applies an `Include` placed after a `Host` or `Match` line only to that
+   block, so the script prepends the line unless it already precedes the first one.
+   It refuses a symlinked config, because the rename would replace the link. In
+   that case, tell the user to add the line to the top of the link's target.
 
 4. **Authorize** every key in the repo, including the one just added:
 
@@ -144,19 +138,22 @@ re-run authorize there. The script is streamed over stdin, so the target does no
 need this plugin installed.
 
 ```bash
-repo="${AGENTS_REPO:-$HOME/.agents}"
 harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
-hosts="$(awk 'tolower($1)=="host"{for(i=2;i<=NF;i++){if($i ~ /^#/) break; if($i !~ /[*?!]/) print $i}}' "$repo/ssh/config")"
-[ -n "$hosts" ] || { echo "no Host aliases parsed from $repo/ssh/config" >&2; exit 1; }
+hosts="$("$harness/scripts/fleet-hosts.sh")" || exit 1
+failed=0
 for h in $hosts; do
-  printf '== %s: ' "$h"
-  ssh -o BatchMode=yes "$h" 'git -C "${AGENTS_REPO:-$HOME/.agents}" pull -q --ff-only && bash -s' \
-    < "$harness/scripts/fleet-authorize.sh" 2>&1 | tail -1
+  out="$(ssh -o BatchMode=yes "$h" 'git -C "${AGENTS_REPO:-$HOME/.agents}" pull -q --ff-only && bash -s' \
+    < "$harness/scripts/fleet-authorize.sh" 2>&1)" && rc=0 || rc=$?
+  case "$rc" in 0) r=ok ;; 255) r="unreachable or refused" ;; *) r=FAILED; failed=1 ;; esac
+  printf '== %s: %s (exit %s) %s\n' "$h" "$r" "$rc" "$(printf '%s\n' "$out" | tail -1)"
 done
+exit "$failed"
 ```
 
-Report each host's last line verbatim. An unreachable host is not a failure of the
-run; it picks up the change the next time propagate reaches it or it is enrolled.
+Report each host's line verbatim. `unreachable or refused` (ssh exit 255) means
+that host was not updated; it picks up the change the next time propagate
+reaches it. `FAILED` means the pull or authorize failed on a reachable host,
+which may still hold a revoked key. Treat it as a failure of the run.
 
 ## Remove a machine
 

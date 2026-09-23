@@ -75,6 +75,22 @@ setup() {
     [ "$status" -eq 1 ] || { echo "accepted: $layout"; return 1; }
     [ "$(cat "$AK")" = "$before" ]
   done
+  printf '%s\r%s\r%s\r' "$START" "$KEY_B" "$END" > "$AK"
+  run "$SCRIPT" "$REPO" "$AK"
+  [ "$status" -eq 1 ]
+}
+
+@test "an indented managed block is recognized and its revoked key removed" {
+  mkdir -p "$(dirname "$AK")"
+  printf '%s\n  %s\n%s\n\t%s\n' "$OWN" \
+    '# harness:fleet start — managed by fleet-authorize.sh; edits inside are overwritten' \
+    "$KEY_B" '# harness:fleet end' > "$AK"
+  printf '%s\n' "$KEY_A" > "$REPO/ssh/keys/studio.pub"
+  run "$SCRIPT" "$REPO" "$AK"
+  [ "$status" -eq 0 ]
+  ! grep -qF "$KEY_B" "$AK"
+  grep -qxF "$OWN" "$AK"
+  [ "$(grep -c 'harness:fleet start' "$AK")" -eq 1 ]
 }
 
 @test "a CRLF managed block is recognized and its revoked key removed" {

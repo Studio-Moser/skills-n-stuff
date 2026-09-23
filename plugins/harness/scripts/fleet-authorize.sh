@@ -46,12 +46,13 @@ trap 'rm -f "$tmp"' EXIT
 # Drop at most one well-formed block. Anything else that looks like a marker — out
 # of order, repeated, unterminated, or edited — aborts before the rename, because
 # guessing would either delete keys this script does not own or keep revoked ones.
-# Markers match with a trailing CR stripped so a CRLF file is still recognized.
+# Markers match with surrounding whitespace and a CRLF ending trimmed; any other line
+# mentioning harness:fleet (indented, bare-CR joined, edited) is malformed.
 if ! awk -v s="$start" -v e="$end" '
-  { l = $0; sub(/\r$/, "", l) }
+  { l = $0; sub(/^[ \t]+/, "", l); sub(/[ \t\r]+$/, "", l) }
   l == s { if (seen) bad = 1; seen = skip = 1; next }
   l == e { if (!skip) bad = 1; skip = 0; next }
-  index(l, "# harness:fleet") == 1 { bad = 1 }
+  index(l, "harness:fleet") { bad = 1 }
   !skip
   END { exit (bad || skip) }
 ' "$target" > "$tmp"; then
