@@ -13,7 +13,11 @@ repo="${1:-${AGENTS_REPO:-$HOME/.agents}}"
 config="${2:-$HOME/.ssh/config}"
 path="$repo/ssh/config"
 
-[ ! -L "$config" ] || { echo "refusing symlinked $config; add 'Include $path' at the top of its target" >&2; exit 1; }
+[ ! -L "$config" ] || { echo "refusing symlinked $config; add 'Include \"$path\"' at the top of its target" >&2; exit 1; }
+[ ! -e "$config" ] || [ -f "$config" ] || { echo "refusing non-regular $config" >&2; exit 1; }
+# The path is written as one double-quoted OpenSSH argument; a quote, backslash, or
+# control character would split or corrupt it.
+case "$path" in *[\"\\]* | *[[:cntrl:]]*) echo "unsupported characters in $path" >&2; exit 1 ;; esac
 dir="$(dirname "$config")"
 mkdir -p "$dir" && chmod 700 "$dir"
 
@@ -21,8 +25,8 @@ if [ -f "$config" ] && awk -v p="$path" '
   { l = $0; sub(/\r$/, "", l); sub(/^[ \t]+/, "", l); k = tolower(l) }
   k ~ /^(host|match)([ \t]*=|[ \t]|$)/ { exit }
   k ~ /^include([ \t]*=|[ \t])/ {
-    sub(/^[^ \t=]+[ \t]*=?[ \t]*/, "", l); sub(/[ \t]+$/, "", l); gsub(/"/, "", l)
-    if (l == p) { found = 1; exit }
+    sub(/^[^ \t=]+[ \t]*=?[ \t]*/, "", l); sub(/[ \t]+$/, "", l)
+    if (l == "\"" p "\"" || (l == p && p !~ /[ \t]/)) { found = 1; exit }
   }
   END { exit !found }
 ' "$config"; then

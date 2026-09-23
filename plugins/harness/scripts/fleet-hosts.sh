@@ -18,10 +18,11 @@ hosts="$(awk '
   { l = $0; sub(/\r$/, "", l); sub(/^[ \t]+/, "", l) }
   tolower(l) ~ /^host([ \t]*=|[ \t])/ {
     sub(/^[^ \t=]+[ \t]*=?[ \t]*/, "", l)
-    sub(/#.*/, "", l)
     n = split(l, f, /[ \t]+/)
-    for (i = 1; i <= n; i++)
+    for (i = 1; i <= n; i++) {
+      if (f[i] ~ /^#/) break
       if (f[i] != "" && f[i] !~ /[*?!]/ && !(f[i] in seen)) { seen[f[i]] = 1; print f[i] }
+    }
   }
 ' "$config")"
 

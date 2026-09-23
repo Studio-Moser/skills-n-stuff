@@ -144,16 +144,18 @@ failed=0
 for h in $hosts; do
   out="$(ssh -o BatchMode=yes "$h" 'git -C "${AGENTS_REPO:-$HOME/.agents}" pull -q --ff-only && bash -s' \
     < "$harness/scripts/fleet-authorize.sh" 2>&1)" && rc=0 || rc=$?
-  case "$rc" in 0) r=ok ;; 255) r="unreachable or refused" ;; *) r=FAILED; failed=1 ;; esac
+  case "$rc" in 0) r=ok ;; 255) r="unreachable or refused" ;; *) r=FAILED ;; esac
+  [ "$rc" -eq 0 ] || failed=1
   printf '== %s: %s (exit %s) %s\n' "$h" "$r" "$rc" "$(printf '%s\n' "$out" | tail -1)"
 done
 exit "$failed"
 ```
 
-Report each host's line verbatim. `unreachable or refused` (ssh exit 255) means
-that host was not updated; it picks up the change the next time propagate
-reaches it. `FAILED` means the pull or authorize failed on a reachable host,
-which may still hold a revoked key. Treat it as a failure of the run.
+Report each host's line verbatim. The run exits 1 unless every host succeeded,
+because any host not updated may still hold a revoked key. `unreachable or
+refused` (ssh exit 255) means the connection failed; that host picks up the change
+the next time propagate reaches it. `FAILED` means the pull or authorize failed on
+a reachable host and needs attention there.
 
 ## Remove a machine
 

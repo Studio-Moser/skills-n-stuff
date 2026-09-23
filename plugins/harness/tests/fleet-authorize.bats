@@ -68,7 +68,8 @@ setup() {
     "$START|$OWN" \
     "$END|$OWN|$START|$KEY_B" \
     "$START|$END|$START|$END|$OWN" \
-    "# harness:fleet start (edited)|$OWN|$END"; do
+    "# harness:fleet start (edited)|$OWN|$END" \
+    "# Harness:Fleet start|$KEY_B|# Harness:Fleet end"; do
     printf '%s\n' "$layout" | tr '|' '\n' > "$AK"
     before="$(cat "$AK")"
     run "$SCRIPT" "$REPO" "$AK"
@@ -126,6 +127,37 @@ setup() {
   [ "$status" -eq 1 ]
   [ -L "$AK" ]
   [ "$(cat "${BATS_TEST_TMPDIR}/managed_keys")" = "$OWN" ]
+}
+
+@test "a plain duplicate outside the block cannot outlive revocation" {
+  mkdir -p "$(dirname "$AK")"
+  printf '%s\n%s\n' "$OWN" "$KEY_B" > "$AK"
+  printf '%s\n' "$KEY_B" > "$REPO/ssh/keys/laptop.pub"
+  "$SCRIPT" "$REPO" "$AK"
+  [ "$(grep -cF "$KEY_B" "$AK")" -eq 1 ]
+  rm "$REPO/ssh/keys/laptop.pub"
+  run "$SCRIPT" "$REPO" "$AK"
+  [ "$status" -eq 0 ]
+  ! grep -qF "${KEY_B#* }" "$AK"
+  grep -qxF "$OWN" "$AK"
+}
+
+@test "a fleet key with options outside the block aborts" {
+  mkdir -p "$(dirname "$AK")"
+  printf 'restrict,command="uptime" %s\n' "$KEY_B" > "$AK"
+  before="$(cat "$AK")"
+  printf '%s\n' "$KEY_B" > "$REPO/ssh/keys/laptop.pub"
+  run "$SCRIPT" "$REPO" "$AK"
+  [ "$status" -eq 1 ]
+  [ "$(cat "$AK")" = "$before" ]
+}
+
+@test "a non-regular authorized_keys is refused" {
+  mkdir -p "$AK"
+  printf '%s\n' "$KEY_A" > "$REPO/ssh/keys/studio.pub"
+  run "$SCRIPT" "$REPO" "$AK"
+  [ "$status" -eq 1 ]
+  [ -d "$AK" ] && [ -z "$(ls -A "$AK")" ]
 }
 
 @test "missing key directory exits 2" {

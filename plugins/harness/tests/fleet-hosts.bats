@@ -27,6 +27,12 @@ setup() {
   [[ "$output" == *"-oProxyCommand"* ]]
 }
 
+@test "a # inside an alias is not a comment and fails validation" {
+  printf 'Host foo#bar\n' > "$REPO/ssh/config"
+  run "$SCRIPT" "$REPO"
+  [ "$status" -eq 1 ]
+}
+
 @test "missing inventory exits 2" {
   run "$SCRIPT" "${BATS_TEST_TMPDIR}/nowhere"
   [ "$status" -eq 2 ]
