@@ -97,6 +97,14 @@ setup() {
   [ ! -e "$CONFIG" ]
 }
 
+@test "a repo path ending in a newline is refused, not trimmed to a sibling" {
+  nl="${BATS_TEST_TMPDIR}/repo"$'\n'
+  mkdir -p "$nl/ssh"; : > "$nl/ssh/config"
+  run "$SCRIPT" "$nl" "$CONFIG"
+  [ "$status" -eq 1 ]
+  [ ! -e "$CONFIG" ]
+}
+
 @test "a failure to prepare the config exits nonzero" {
   printf 'not a directory\n' > "${BATS_TEST_TMPDIR}/blocker"
   run "$SCRIPT" "$REPO" "${BATS_TEST_TMPDIR}/blocker/config"

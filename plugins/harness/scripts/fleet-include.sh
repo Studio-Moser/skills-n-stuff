@@ -12,6 +12,8 @@ set -euo pipefail
 repo="${1:-${AGENTS_REPO:-$HOME/.agents}}"
 config="${2:-$HOME/.ssh/config}"
 # OpenSSH resolves a relative Include under ~/.ssh, not the caller's directory.
+# Command substitution strips trailing newlines, so check the raw path first.
+case "$repo" in *[[:cntrl:]]*) echo "unsupported characters in repository path" >&2; exit 1 ;; esac
 repo="$(cd "$repo" 2>/dev/null && pwd)" || { echo "no repository: ${1:-${AGENTS_REPO:-$HOME/.agents}}" >&2; exit 2; }
 path="$repo/ssh/config"
 [ -f "$path" ] || { echo "no inventory: $path" >&2; exit 2; }
