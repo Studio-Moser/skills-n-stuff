@@ -20,7 +20,7 @@ end='# harness:fleet end'
 
 [ -d "$keys" ] || { echo "no key directory: $keys" >&2; exit 2; }
 
-key_type='^(ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp(256|384|521)|sk-ssh-ed25519@openssh\.com|sk-ecdsa-sha2-nistp256@openssh\.com)$'
+key_type='^(ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp(256|384|521)|sk-ssh-ed25519@openssh[.]com|sk-ecdsa-sha2-nistp256@openssh[.]com)$'
 plain_key="${key_type%\$}"' [A-Za-z0-9+/=]+( [^[:cntrl:]]*)?$'
 block=""
 pairs=""

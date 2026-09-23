@@ -19,8 +19,9 @@ path="$repo/ssh/config"
 [ ! -L "$config" ] || { echo "refusing symlinked $config; add 'Include \"$path\"' at the top of its target" >&2; exit 1; }
 [ ! -e "$config" ] || [ -f "$config" ] || { echo "refusing non-regular $config" >&2; exit 1; }
 # The path is written as one double-quoted OpenSSH argument; a quote, backslash, or
-# control character would split it, and OpenSSH still expands globs and ~ in quotes.
-case "$path" in *[\"\\*?[~]* | *[[:cntrl:]]*) echo "unsupported characters in $path" >&2; exit 1 ;; esac
+# control character would split it, and OpenSSH still expands globs, ~, and % tokens
+# in quotes.
+case "$path" in *[\"\\*?[~%]* | *[[:cntrl:]]*) echo "unsupported characters in $path" >&2; exit 1 ;; esac
 dir="$(dirname "$config")"
 mkdir -p "$dir" && chmod 700 "$dir"
 

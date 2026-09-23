@@ -153,6 +153,17 @@ setup() {
   grep -qxF "$KEY_B" "$AK"
 }
 
+@test "an unsupported key type in the block is not learned as a fleet key" {
+  mkdir -p "$(dirname "$AK")"
+  odd='sk-ssh-ed25519@opensshXcom AAAAC3NzaC1lZDI1NTE5AAAAIQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQ x'
+  printf '%s\n%s\n%s\n%s\n' \
+    '# harness:fleet start — managed by fleet-authorize.sh; edits inside are overwritten' \
+    "$odd" '# harness:fleet end' "$odd" > "$AK"
+  run "$SCRIPT" "$REPO" "$AK"
+  [ "$status" -eq 0 ]
+  [ "$(grep -cxF "$odd" "$AK")" -eq 1 ]
+}
+
 @test "a fleet key with options outside the block aborts" {
   mkdir -p "$(dirname "$AK")"
   printf 'restrict,command="uptime" %s\n' "$KEY_B" > "$AK"

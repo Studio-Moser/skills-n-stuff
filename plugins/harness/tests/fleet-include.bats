@@ -91,6 +91,9 @@ setup() {
   mkdir -p "${BATS_TEST_TMPDIR}/re*po/ssh"; : > "${BATS_TEST_TMPDIR}/re*po/ssh/config"
   run "$SCRIPT" "${BATS_TEST_TMPDIR}/re*po" "$CONFIG"
   [ "$status" -eq 1 ]
+  mkdir -p "${BATS_TEST_TMPDIR}/re%dpo/ssh"; : > "${BATS_TEST_TMPDIR}/re%dpo/ssh/config"
+  run "$SCRIPT" "${BATS_TEST_TMPDIR}/re%dpo" "$CONFIG"
+  [ "$status" -eq 1 ]
   [ ! -e "$CONFIG" ]
 }
 
