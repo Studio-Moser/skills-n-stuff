@@ -28,6 +28,8 @@ as `preview` in the examples below.
 - Treat Service names as tailnet-wide. Refuse an existing name associated with a
   different preview router instead of silently creating a load-balanced Service.
 - Give every preview `restart: unless-stopped` behavior.
+- Put the application process itself in the managed container. A host process behind
+  a proxy container or LaunchAgent is a migration bridge, not a finished preview.
 - Give every preview its own managed Docker network. Connect only the DockTail
   Tailscale sidecar to that network; do not put unrelated previews together.
 - Do not publish host ports unless the user specifically needs a localhost URL.
@@ -98,9 +100,12 @@ networks:
 
 Make sure the application listens on `0.0.0.0` inside its container. Keep source
 mounts and framework-specific commands in the project's Compose configuration; do
-not duplicate package installation or build logic in this skill. Before starting the
-project, run `"$preview" prepare project-name`; this creates its isolated network and
-connects the Tailscale sidecar.
+not duplicate package installation or build logic in this skill. Development
+containers may bind-mount source, but keep container-native dependencies and build
+output in Docker volumes so Linux artifacts never overwrite host dependencies. Do not
+publish a host port just to bridge an existing dev server. Before starting the project,
+run `"$preview" prepare project-name`; this creates its isolated network and connects
+the Tailscale sidecar.
 
 After `docker compose up -d`, run `"$preview" verify project-name`. For custom
 applications this proves the ownership marker, isolated network, labels, lack of
