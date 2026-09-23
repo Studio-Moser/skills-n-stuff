@@ -20,7 +20,9 @@ chmod +x "$test_root/bin/docker"
 PATH="$test_root/bin:$PATH" PREVIEW_CONFIG_DIR="$test_root/config" PREVIEW_TEST_LOG="$test_root/docker-env" \
   "$controller" router-status >/dev/null
 
-bundle="$test_root/config/runtime/0.1.1"
+version="$(sed -nE 's/^RUNTIME_BUNDLE_VERSION="([^"]+)"$/\1/p' "$controller")"
+test -n "$version"
+bundle="$test_root/config/runtime/$version"
 test -f "$bundle/.complete"
 test -f "$bundle/DockTail.compose.yaml"
 test -f "$bundle/Static_Preview.conf.template"
