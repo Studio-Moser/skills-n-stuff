@@ -4,44 +4,90 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light">
-    <title>Preview switchboard</title>
+    <title>Preview Hub</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.5.1/dist/css/tabler.min.css" integrity="sha384-tLWyEXulonaekaXL6+fCZQJv/MujuGIpVTBzuVEpwSqFDEfLkPA/PAYGTSBBJO2X" crossorigin="anonymous">
     <link rel="stylesheet" href="/App.css">
     <script src="/App.js" defer></script>
   </head>
   <body>
-    <main class="shell">
-      <header class="masthead">
-        <div>
-          <p class="identity">Studio Moser</p>
-          <h1>Preview switchboard</h1>
-          <p class="intro">Open the work currently running across your tailnet.</p>
-        </div>
-        <div class="sync" aria-live="polite">
-          <span class="sync-light" aria-hidden="true"></span>
-          <span id="sync-label">Connecting…</span>
+    <div class="page">
+      <header class="navbar navbar-expand-md navbar-light d-print-none" aria-label="Primary">
+        <div class="container-xl">
+          <a class="navbar-brand" href="/">
+            Studio Moser <span class="text-secondary fw-normal ms-2">Preview Hub</span>
+          </a>
+          <div class="sync text-secondary" aria-live="polite">
+            <span id="sync-dot" class="status-dot status-dot-animated bg-green" aria-hidden="true"></span>
+            <span id="sync-label">Connecting…</span>
+          </div>
         </div>
       </header>
 
-      <section class="controls" aria-label="Preview filters">
-        <label class="search">
-          <span>Find a project</span>
-          <input id="search" type="search" autocomplete="off" placeholder="Search previews or machines">
-        </label>
-        <div class="filters" role="group" aria-label="Availability">
-          <button class="filter is-active" type="button" data-filter="all" aria-pressed="true">All</button>
-          <button class="filter" type="button" data-filter="live" aria-pressed="false">Live</button>
-          <button class="filter" type="button" data-filter="saved" aria-pressed="false">Not live</button>
+      <div class="page-wrapper">
+        <div class="page-header d-print-none">
+          <div class="container-xl">
+            <h1 class="page-title">Preview Hub</h1>
+            <p class="text-secondary mt-1 mb-0">Open the work currently running across your tailnet.</p>
+          </div>
         </div>
-      </section>
 
-      <section class="summary" aria-label="Inventory summary">
-        <p><strong id="live-count">—</strong> live</p>
-        <p><strong id="service-count">—</strong> previews</p>
-        <p><strong id="machine-count">—</strong> machines</p>
-      </section>
+        <main class="page-body">
+          <div class="container-xl">
+            <section class="row row-deck row-cards mb-4" aria-label="Inventory summary">
+              <div class="col-sm-4">
+                <div class="card">
+                  <div class="card-body">
+                    <div class="subheader">Live now</div>
+                    <div class="h1 mb-0 metric-value" id="live-count">—</div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-sm-4">
+                <div class="card">
+                  <div class="card-body">
+                    <div class="subheader">Previews</div>
+                    <div class="h1 mb-0 metric-value" id="service-count">—</div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-sm-4">
+                <div class="card">
+                  <div class="card-body">
+                    <div class="subheader">Machines</div>
+                    <div class="h1 mb-0 metric-value" id="machine-count">—</div>
+                  </div>
+                </div>
+              </div>
+            </section>
 
-      <div id="message" class="message" role="status">Loading preview inventory…</div>
-      <div id="machines" class="machines" aria-live="polite"></div>
-    </main>
+            <section class="card mb-4" aria-label="Preview filters">
+              <div class="card-body">
+                <div class="row g-3 align-items-end">
+                  <label class="col-md">
+                    <span class="form-label">Find a project</span>
+                    <input class="form-control" id="search" type="search" autocomplete="off" placeholder="Search previews or machines">
+                  </label>
+                  <div class="col-md-auto">
+                    <span class="form-label">Availability</span>
+                    <div class="filters nav nav-pills" role="group" aria-label="Availability">
+                      <button class="filter nav-link active" type="button" data-filter="all" aria-pressed="true">All</button>
+                      <button class="filter nav-link" type="button" data-filter="live" aria-pressed="false">Live</button>
+                      <button class="filter nav-link" type="button" data-filter="saved" aria-pressed="false">Not live</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <div id="message" class="alert alert-info" role="status">Loading preview inventory…</div>
+            <div id="machines" class="machines" aria-live="polite"></div>
+          </div>
+        </main>
+
+        <footer class="footer footer-transparent d-print-none">
+          <div class="container-xl">Studio Moser Preview Hub · private tailnet workspace</div>
+        </footer>
+      </div>
+    </div>
   </body>
 </html>

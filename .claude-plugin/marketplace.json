@@ -290,7 +290,7 @@
       "name": "preview",
       "source": "./plugins/preview",
       "description": "Create durable private local previews with stable Tailscale Service URLs and a tailnet-wide Preview Hub.",
-      "version": "0.1.2",
+      "version": "0.1.5",
       "author": {
         "name": "Studio Moser"
       },

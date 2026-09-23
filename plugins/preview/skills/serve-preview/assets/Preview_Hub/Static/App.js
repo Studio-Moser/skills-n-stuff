@@ -2,6 +2,7 @@ const machinesRoot = document.querySelector("#machines");
 const message = document.querySelector("#message");
 const search = document.querySelector("#search");
 const sync = document.querySelector(".sync");
+const syncDot = document.querySelector("#sync-dot");
 const syncLabel = document.querySelector("#sync-label");
 const filters = [...document.querySelectorAll(".filter")];
 
@@ -19,6 +20,11 @@ function stateLabel(state) {
   if (state === "live") return "Live";
   if (state === "saved") return "Saved";
   return "Unavailable";
+}
+
+function setMessage(value, tone = "info") {
+  message.textContent = value;
+  message.className = value ? `message alert alert-${tone}` : "message";
 }
 
 function previewMatches(preview, machineName, query) {
@@ -46,44 +52,53 @@ function render() {
     shown += previews.length;
 
     const section = document.createElement("section");
-    section.className = `machine${machine.connected ? "" : " is-offline"}`;
+    section.className = "machine card";
     const heading = document.createElement("div");
-    heading.className = "machine-heading";
+    heading.className = "card-header";
     heading.append(
-      textNode("h2", "", machine.name),
-      textNode("span", "machine-state", machine.connected ? "Connected" : "Offline"),
+      textNode("h2", "card-title", machine.name),
+      textNode(
+        "span",
+        `machine-state badge bg-${machine.connected ? "green" : "yellow"}-lt`,
+        machine.connected ? "Connected" : "Offline",
+      ),
     );
     section.append(heading);
 
     const list = document.createElement("div");
-    list.className = "preview-list";
+    list.className = "list-group list-group-flush";
     for (const preview of previews) {
       const row = document.createElement("article");
-      row.className = "preview";
+      row.className = "preview list-group-item";
 
       const project = document.createElement("div");
       project.className = "project";
       project.append(
-        textNode("strong", "", preview.project),
+        textNode("strong", "fw-semibold", preview.project),
         textNode(
           "small",
-          "",
+          "text-secondary",
           preview.sharedHosts > 1
             ? `${preview.service} · ${preview.sharedHosts} hosts`
             : preview.service,
         ),
       );
-      row.append(project, textNode("span", "kind", preview.kind));
+      row.append(project, textNode("span", "kind badge bg-secondary-lt", preview.kind));
 
-      const state = textNode("span", `state${preview.state === "live" ? " is-live" : ""}`, stateLabel(preview.state));
+      const state = textNode(
+        "span",
+        `state badge bg-${preview.state === "live" ? "green" : "yellow"}-lt`,
+        stateLabel(preview.state),
+      );
       row.append(state);
 
       const open = document.createElement("a");
-      open.className = "open-preview";
+      open.className = "open-preview btn btn-primary btn-sm";
       open.textContent = preview.state === "live" ? "Open" : "Not available";
       if (preview.state === "live" && preview.url.startsWith("https://preview-")) {
         open.href = preview.url;
       } else {
+        open.className = "open-preview btn btn-secondary btn-sm disabled";
         open.setAttribute("aria-disabled", "true");
       }
       row.append(open);
@@ -93,7 +108,7 @@ function render() {
     machinesRoot.append(section);
   }
 
-  message.textContent = shown ? "" : "No previews match this view.";
+  setMessage(shown ? "" : "No previews match this view.", "secondary");
 }
 
 function updateSummary(data) {
@@ -102,7 +117,10 @@ function updateSummary(data) {
   document.querySelector("#machine-count").textContent = data.counts.machines;
   const updated = new Date(data.updatedAt);
   syncLabel.textContent = `Updated ${updated.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
-  sync.classList.remove("is-error");
+  sync.classList.remove("text-yellow");
+  sync.classList.add("text-secondary");
+  syncDot.classList.remove("bg-yellow");
+  syncDot.classList.add("bg-green");
 }
 
 async function refresh() {
@@ -118,9 +136,12 @@ async function refresh() {
     updateSummary(inventory);
     render();
   } catch {
-    sync.classList.add("is-error");
+    sync.classList.remove("text-secondary");
+    sync.classList.add("text-yellow");
+    syncDot.classList.remove("bg-green");
+    syncDot.classList.add("bg-yellow");
     syncLabel.textContent = "Inventory unavailable";
-    if (!inventory) message.textContent = "The preview inventory could not be loaded. It will retry automatically.";
+    if (!inventory) setMessage("The preview inventory could not be loaded. It will retry automatically.", "danger");
   } finally {
     window.clearTimeout(timeout);
   }
@@ -132,7 +153,7 @@ for (const filter of filters) {
     activeFilter = filter.dataset.filter;
     for (const candidate of filters) {
       const selected = candidate === filter;
-      candidate.classList.toggle("is-active", selected);
+      candidate.classList.toggle("active", selected);
       candidate.setAttribute("aria-pressed", String(selected));
     }
     render();
