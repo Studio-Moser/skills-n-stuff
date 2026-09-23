@@ -1191,10 +1191,13 @@ harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*
 "$harness/scripts/rubric-audit.sh" --days 7 || true
 ```
 
-Read-only. Reports how sub-agents were actually routed over the last week: dispatches
-by `model` param, `UNSET` count, haiku count, and codex handoffs. Exit `1` means a
-finding — an omitted `model` (routing by inheritance) or a haiku dispatch — carry it
-into the report. Exit `3` means python3 is missing; report `skipped: python3 not on
+Read-only. Reports how sub-agents were actually routed over the last week, for
+every provider: Claude Code Agent dispatches by `model` param, Codex `spawn_agent`
+calls by model and effort (from `${CODEX_HOME:-$HOME/.codex}/sessions`), each
+provider's `UNSET` count with the session model it inherited, haiku count, and
+Claude-to-Codex handoffs (`codex exec`/`review`, `codex-dispatch.sh`, `pm:codex-*`).
+Exit `1` means a finding — an omitted `model` in either provider (routing by
+inheritance) or a haiku dispatch — carry it into the report. Exit `3` means python3 is missing; report `skipped: python3 not on
 PATH`. Do not try to fix past dispatches; the point is to see drift, and to notice
 when bulk work is landing on native sub-agents instead of the codex handoff.
 
@@ -1271,8 +1274,9 @@ Harness sync — {repo}
                failed: <reason>}
   Skills local deviations: skipInstall <name>, … | keepLocal <name>, … | none
   Lint:       {clean | N finding(s), M fixed}
-  Rubric:     {N dispatches, all explicit, 0 haiku, K codex handoffs |
-               N dispatches: U unset, H haiku — see below | skipped: python3 not on PATH}
+  Rubric:     {Claude N dispatches, Codex M spawns, all explicit, 0 haiku, K codex handoffs |
+               Claude N: U unset, H haiku; Codex M: V unset — see below |
+               skipped: python3 not on PATH}
 
 {any unresolved finding, one per line}
 ```
