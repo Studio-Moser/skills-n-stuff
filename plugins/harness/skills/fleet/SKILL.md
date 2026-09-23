@@ -32,7 +32,7 @@ already holds through tracked `settings.json` hooks; keep the repo private.
 
 ```bash
 repo="${AGENTS_REPO:-$HOME/.agents}"
-awk '$1=="Host"{for(i=2;i<=NF;i++) if($i !~ /[*?!]/) print $i}' "$repo/ssh/config"
+awk 'tolower($1)=="host"{for(i=2;i<=NF;i++){if($i ~ /^#/) break; if($i !~ /[*?!]/) print $i}}' "$repo/ssh/config"
 ```
 
 Pick the alias from that list, then:
@@ -104,12 +104,18 @@ network path to the others (for example, Tailscale MagicDNS names).
 
    ```bash
    repo="${AGENTS_REPO:-$HOME/.agents}"; line="Include $repo/ssh/config"
-   mkdir -p ~/.ssh && chmod 700 ~/.ssh && touch ~/.ssh/config
-   grep -qxF "$line" ~/.ssh/config || { printf '%s\n\n' "$line"; cat ~/.ssh/config; } > ~/.ssh/config.tmp && mv ~/.ssh/config.tmp ~/.ssh/config
+   mkdir -p ~/.ssh && chmod 700 ~/.ssh
+   if [ -L ~/.ssh/config ]; then
+     echo "~/.ssh/config is a symlink; add '$line' at the top of its target by hand" >&2
+   elif ! { [ -f ~/.ssh/config ] && grep -qxF "$line" ~/.ssh/config; }; then
+     tmp="$(mktemp ~/.ssh/.config.XXXXXX)"
+     { printf '%s\n\n' "$line"; [ ! -f ~/.ssh/config ] || cat ~/.ssh/config; } > "$tmp" && chmod 600 "$tmp" && mv "$tmp" ~/.ssh/config || rm -f "$tmp"
+   fi
    ```
 
    The `~/.ssh/config` file is machine-local, so the resolved absolute path is
-   correct there.
+   correct there. A symlinked config is left alone because the rename would
+   replace the link with a regular file.
 
 4. **Authorize** every key in the repo, including the one just added:
 
@@ -140,7 +146,9 @@ need this plugin installed.
 ```bash
 repo="${AGENTS_REPO:-$HOME/.agents}"
 harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
-for h in $(awk '$1=="Host"{for(i=2;i<=NF;i++) if($i !~ /[*?!]/) print $i}' "$repo/ssh/config"); do
+hosts="$(awk 'tolower($1)=="host"{for(i=2;i<=NF;i++){if($i ~ /^#/) break; if($i !~ /[*?!]/) print $i}}' "$repo/ssh/config")"
+[ -n "$hosts" ] || { echo "no Host aliases parsed from $repo/ssh/config" >&2; exit 1; }
+for h in $hosts; do
   printf '== %s: ' "$h"
   ssh -o BatchMode=yes "$h" 'git -C "${AGENTS_REPO:-$HOME/.agents}" pull -q --ff-only && bash -s' \
     < "$harness/scripts/fleet-authorize.sh" 2>&1 | tail -1

@@ -59,14 +59,57 @@ setup() {
   [ "$(cat "$AK")" = "$OWN" ]
 }
 
-@test "unpaired marker aborts instead of dropping later keys" {
+@test "malformed markers abort without touching authorized_keys" {
   mkdir -p "$(dirname "$AK")"
-  printf '%s\n%s\n' '# harness:fleet start — managed by fleet-authorize.sh; edits inside are overwritten' "$OWN" > "$AK"
-  before="$(cat "$AK")"
+  START='# harness:fleet start — managed by fleet-authorize.sh; edits inside are overwritten'
+  END='# harness:fleet end'
+  printf '%s\n' "$KEY_A" > "$REPO/ssh/keys/studio.pub"
+  for layout in \
+    "$START|$OWN" \
+    "$END|$OWN|$START|$KEY_B" \
+    "$START|$END|$START|$END|$OWN" \
+    "# harness:fleet start (edited)|$OWN|$END"; do
+    printf '%s\n' "$layout" | tr '|' '\n' > "$AK"
+    before="$(cat "$AK")"
+    run "$SCRIPT" "$REPO" "$AK"
+    [ "$status" -eq 1 ] || { echo "accepted: $layout"; return 1; }
+    [ "$(cat "$AK")" = "$before" ]
+  done
+}
+
+@test "a CRLF managed block is recognized and its revoked key removed" {
+  mkdir -p "$(dirname "$AK")"
+  printf '%s\r\n%s\r\n%s\r\n%s\r\n' "$OWN" \
+    '# harness:fleet start — managed by fleet-authorize.sh; edits inside are overwritten' \
+    "$KEY_B" '# harness:fleet end' > "$AK"
   printf '%s\n' "$KEY_A" > "$REPO/ssh/keys/studio.pub"
   run "$SCRIPT" "$REPO" "$AK"
+  [ "$status" -eq 0 ]
+  ! grep -qF "$KEY_B" "$AK"
+  grep -qxF "$KEY_A" "$AK"
+  grep -qF "$OWN" "$AK"
+  [ "$(grep -c 'harness:fleet start' "$AK")" -eq 1 ]
+}
+
+@test "blank lines around a key and symlinks are rejected" {
+  printf '\n%s\n\n' "$KEY_A" > "$REPO/ssh/keys/studio.pub"
+  run "$SCRIPT" "$REPO" "$AK"
   [ "$status" -eq 1 ]
-  [ "$(cat "$AK")" = "$before" ]
+  [ ! -e "$AK" ]
+
+  printf '%s\n' "$KEY_A" > "${BATS_TEST_TMPDIR}/elsewhere.pub"
+  ln -sf "${BATS_TEST_TMPDIR}/elsewhere.pub" "$REPO/ssh/keys/studio.pub"
+  run "$SCRIPT" "$REPO" "$AK"
+  [ "$status" -eq 1 ]
+
+  printf '%s\n' "$KEY_A" > "$REPO/ssh/keys/studio.pub"
+  mkdir -p "$(dirname "$AK")"
+  printf '%s\n' "$OWN" > "${BATS_TEST_TMPDIR}/managed_keys"
+  ln -s "${BATS_TEST_TMPDIR}/managed_keys" "$AK"
+  run "$SCRIPT" "$REPO" "$AK"
+  [ "$status" -eq 1 ]
+  [ -L "$AK" ]
+  [ "$(cat "${BATS_TEST_TMPDIR}/managed_keys")" = "$OWN" ]
 }
 
 @test "missing key directory exits 2" {
