@@ -1,6 +1,6 @@
 {
   "name": "preview",
-  "version": "0.1.2",
+  "version": "0.1.5",
   "description": "Create durable private preview sites, expose them through Tailscale Services, and browse them from a tailnet-wide Preview Hub.",
   "author": {
     "name": "Studio Moser",

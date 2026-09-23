@@ -296,7 +296,8 @@ def make_handler(catalog: PreviewCatalog) -> type[BaseHTTPRequestHandler]:
             self.send_header(
                 "Content-Security-Policy",
                 "default-src 'self'; connect-src 'self'; img-src 'self' data:; "
-                "script-src 'self'; style-src 'self'; base-uri 'none'; "
+                "script-src 'self'; style-src 'self' https://cdn.jsdelivr.net; "
+                "font-src 'self' https://cdn.jsdelivr.net; base-uri 'none'; "
                 "frame-ancestors 'none'; form-action 'none'",
             )
             self.send_header("Referrer-Policy", "no-referrer")
