@@ -26,6 +26,9 @@ The plugin is public and generic; the data is yours.
   checks, and return evidence without changing the target.
 - **`/harness:computer-use`** — operate a local app, browser, simulator, or other
   screenshot-capable UI with explicit capability and proof.
+- **`/harness:fleet`** — run commands on your other machines over SSH. The host
+  inventory (`ssh/config`) and one public key per machine live in your private
+  repo; each machine includes the inventory and authorizes those keys.
 
 Ordinary repository work stays with the top-level orchestrator. Delegation is reserved
 for a substantial independent track, is capped by child/depth/token limits, and
@@ -167,6 +170,7 @@ and confirms a remote is private before the first push.
 | `scripts/fetch-model-data.sh` | current model cost + intelligence as TSV (exit 3 = no API key) |
 | `scripts/skills-reconcile.sh <repo>` | read-only diff of `skills.manifest` vs. reality (reads `npx skills list -g --json` on stdin) |
 | `scripts/skills-manifest.sh <repo>` | regenerate `skills.manifest` and the `.gitignore` block from reality (same stdin) |
+| `scripts/fleet-authorize.sh [repo] [authorized_keys]` | rewrite the `# harness:fleet` block in `authorized_keys` from `<repo>/ssh/keys/*.pub`; rejects option-bearing keys |
 | `scripts/sync-finalize.sh <repo> <message>` | stage, scan, commit, exact-lease push, and prove a clean actual remote SHA once |
 
 ## Tests
