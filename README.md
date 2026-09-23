@@ -91,6 +91,7 @@ routing, bounded execution, and evidence-bearing results.
 - `/harness:execute` — run one bounded request through a resolved semantic route
 - `/harness:review` — independently verify a fixed target and return reproducible evidence
 - `/harness:computer-use` — operate a local app or browser with explicit capability and proof
+- `/harness:fleet` — run commands on your other machines over SSH from a private host inventory
 
 [Full documentation](plugins/harness/README.md)
 
