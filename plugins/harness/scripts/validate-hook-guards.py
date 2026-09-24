@@ -10,7 +10,9 @@ import shlex
 import sys
 
 
-SAFE_COMMANDS = {":", "echo", "exit", "printf", "true"}
+# Standard commands present on every supported machine; anything else is optional
+# and must be guarded before it runs.
+SYSTEM_COMMANDS = {":", "[", "cat", "date", "echo", "exit", "false", "mkdir", "printf", "test", "touch", "true"}
 CONTROL_TOKENS = {";", "&", "&&", "|", "||"}
 
 
@@ -39,47 +41,74 @@ def command_hooks(settings: object) -> list[tuple[str, str]]:
     return found
 
 
-def guarded(command: str) -> bool:
-    if "$(" in command or "`" in command or "\n" in command:
-        return False
+_SUBSTITUTION = re.compile(r"\$\(([^()`]*)\)")
+
+
+def _tokens(command: str) -> list[str] | None:
     lexer = shlex.shlex(command, posix=True, punctuation_chars=";&|<>")
     lexer.whitespace_split = True
     lexer.commenters = ""
     try:
-        tokens = list(lexer)
+        return list(lexer)
     except ValueError:
+        return None
+
+
+def _chains(tokens: list[str]) -> list[list[list[str]]]:
+    """Split into `;`/`&`/`|`/`||`-separated chains of `&&`-joined simple commands."""
+    chains: list[list[list[str]]] = [[[]]]
+    for token in tokens:
+        if token == "&&":
+            chains[-1].append([])
+        elif token in CONTROL_TOKENS:
+            chains.append([[]])
+        else:
+            chains[-1][-1].append(token)
+    return chains
+
+
+def _guard(simple: list[str]) -> str | None:
+    """The program a guard command proves runnable, if it is one."""
+    if len(simple) == 4 and simple[:2] == ["[", "-x"] and simple[3] == "]":
+        return simple[2]
+    if len(simple) == 3 and simple[:2] == ["test", "-x"]:
+        return simple[2]
+    if simple[:2] == ["command", "-v"] and len(simple) >= 3 and re.fullmatch(r"[A-Za-z0-9_.+-]+", simple[2]):
+        return simple[2]
+    return None
+
+
+def guarded(command: str) -> bool:
+    """Every program outside SYSTEM_COMMANDS runs only after a matching guard earlier
+    in the same `&&` chain: `[ -x P ]`, `test -x P`, or `command -v NAME`."""
+    if "`" in command or "\n" in command:
         return False
+    substitutions = _SUBSTITUTION.findall(command)
+    if any(not guarded(inner) for inner in substitutions):
+        return False
+    outer = _SUBSTITUTION.sub("SUBSTITUTED", command)
+    if "$(" in outer:
+        return False
+    tokens = _tokens(outer)
     if not tokens:
         return False
-    if tokens[0] in SAFE_COMMANDS:
-        return not any(token in CONTROL_TOKENS for token in tokens[1:])
-
     if tokens[-2:] == ["||", "true"]:
         tokens = tokens[:-2]
-    if any(token in CONTROL_TOKENS for token in tokens if token != "&&"):
-        return False
-
-    invoked_at: int
-    guarded_name: str
-    if len(tokens) >= 6 and tokens[:2] == ["[", "-x"] and tokens[3:5] == ["]", "&&"]:
-        guarded_name = tokens[2]
-        invoked_at = 5
-    elif len(tokens) >= 5 and tokens[:2] == ["test", "-x"] and tokens[3] == "&&":
-        guarded_name = tokens[2]
-        invoked_at = 4
-    elif (
-        len(tokens) >= 10
-        and tokens[:2] == ["command", "-v"]
-        and tokens[3:9] == [">", "/dev/null", "2", ">&", "1", "&&"]
-        and re.fullmatch(r"[A-Za-z0-9_.+-]+", tokens[2])
-    ):
-        guarded_name = tokens[2]
-        invoked_at = 9
-    else:
-        return False
-    return tokens[invoked_at] == guarded_name and not any(
-        token in CONTROL_TOKENS for token in tokens[invoked_at + 1 :]
-    )
+    for chain in _chains(tokens):
+        proven: set[str] = set()
+        for simple in chain:
+            words = [word for word in simple if word not in {"<", ">", ">>", ">&", "2", "1"}]
+            if not words:
+                return False
+            program = words[0]
+            if program in SYSTEM_COMMANDS or program == "command":
+                guard = _guard(simple)
+                if guard is not None:
+                    proven.add(guard)
+                continue
+            if program not in proven:
+                return False
+    return True
 
 
 def main(argv: list[str]) -> int:

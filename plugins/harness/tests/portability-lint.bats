@@ -155,3 +155,17 @@ EOF
   [[ "$output" == *"unguarded command hook"* ]]
   [[ "$output" == *"hooks.PreToolUse[0].hooks[0]"* ]]
 }
+
+@test "guard chains with a variable check, a fallback, or standard commands pass" {
+  mkdir -p claude
+  cat > claude/settings.json <<'JSON'
+{"hooks":{"Stop":[{"hooks":[
+  {"type":"command","command":"[ -n \"$SUPERSET_HOME_DIR\" ] && [ -x \"$SUPERSET_HOME_DIR/hooks/notify.sh\" ] && \"$SUPERSET_HOME_DIR/hooks/notify.sh\" || true"},
+  {"type":"command","command":"touch /tmp/claude-compaction-$(date +%s).marker; true"},
+  {"type":"command","command":"command -v notify >/dev/null 2>&1 && notify done"}
+]}]}}
+JSON
+  commit_all
+  run "$SCRIPT" "$REPO"
+  [[ "$output" != *"unguarded command hook"* ]] || return 1
+}
