@@ -11,11 +11,10 @@ The plugin is public and generic; the data is yours.
 - **`/harness:setup`** — create or connect the personal agents repository,
   reconcile portable links and runtime capabilities, and establish the personal
   model rubric.
-- **`/harness:sync`** — make this machine match your personal agent repo. Clones on
-  first run or safely adopts existing loose configuration. Preflight ingests the
-  remote before reconciliation; the finalizer commits once and pushes once with
-  an exact compare-and-swap lease. Sync also re-links drifted paths, lints
-  portability, and optionally updates other machines.
+- **`/harness:sync`** — run `scripts/sync` to make this machine match your personal
+  agent repo. The script previews safely with `--dry-run`, stops with typed exit
+  codes for choices and destructive conflicts, ingests the remote before
+  reconciliation, and commits once and pushes once through the guarded finalizer.
 - **`/harness:model-rubric`** — create or refresh your user-global model-routing
   rubric at `${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml`.
 - **`/harness:risk-gate`** — classify repository work from observable risk triggers
@@ -156,6 +155,7 @@ and confirms a remote is private before the first push.
 
 | | |
 |---|---|
+| `scripts/sync [--dry-run] [decision flags]` | deterministic sync entry point; orchestrates the helpers, refuses unresolved judgment, and prints the structured result |
 | `scripts/link-plan.sh [repo]` | read-only drift report; exit 1 if any link needs work |
 | `scripts/sync-preflight.sh <repo>` | query and ingest the remote before any reconciliation writer runs |
 | `scripts/reconcile_shared_settings.py [--check] <settings.json> [...]` | enable Harness and remove the retired Machine setting atomically |
