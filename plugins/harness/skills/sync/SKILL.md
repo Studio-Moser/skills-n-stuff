@@ -50,8 +50,9 @@ rerun with explicit flags:
   `--keep-unresolved-mcp`, or `--mcp-secrets-file` flag;
 - third-party skills: choose each named `--install-skill`, `--skip-skill`,
   `--add-skill`, `--remove-skill`, or `--keep-local-skill` action;
-- optional fleet pull: inspect `machine.yml`, then use `--push-machines`; renaming
-  legacy `fleet.yml` needs `--rename-fleet-config`.
+- optional fleet push: `--push-machines` reaches every other host in the fleet's
+  `ssh/config`, updates Harness there, and runs that machine's own sync (a machine
+  without the sync script only pulls). Inspect the fleet hosts before passing it.
 
 Never put a secret value in a command-line flag. `--mcp-secrets-file` accepts a
 local `NAME=value` file and the script passes its contents only to
