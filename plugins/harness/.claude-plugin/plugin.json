@@ -1,6 +1,6 @@
 {
   "name": "harness",
-  "version": "1.1.1",
+  "version": "2.0.0",
   "description": "A lightweight provider-neutral agent control plane. Keeps ordinary work direct, applies mechanical risk gates, bounds delegation and review, and syncs personal skills, instructions, settings, and model routing across machines.",
   "author": {
     "name": "Studio Moser",

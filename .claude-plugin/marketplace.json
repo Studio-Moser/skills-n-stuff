@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Claude Code plugins by Studio Moser — strategy, research, design, and product development tools.",
-    "version": "0.21.0",
+    "version": "0.22.0",
     "pluginRoot": "./plugins"
   },
   "plugins": [
@@ -36,7 +36,7 @@
         "growth",
         "deep-dive"
       ],
-      "version": "0.5.0"
+      "version": "0.6.0"
     },
     {
       "name": "pm",
@@ -62,7 +62,7 @@
         "triage",
         "sprint"
       ],
-      "version": "0.21.0"
+      "version": "0.22.0"
     },
     {
       "name": "harness",
@@ -88,13 +88,13 @@
         "sync",
         "agent-config"
       ],
-      "version": "1.1.1"
+      "version": "2.0.0"
     },
     {
       "name": "generate",
       "source": "./plugins/generate",
       "description": "Governed image, video, and audio generation over the Kie.ai MCP. The models are the easy part — this adds the discipline around them: prices a batch and stops for confirmation before spending, downloads every result locally before URLs expire, and logs the prompt that produced each file.",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "author": {
         "name": "Studio Moser"
       },
@@ -148,7 +148,7 @@
       "name": "preview",
       "source": "./plugins/preview",
       "description": "Create durable private local previews with stable Tailscale Service URLs and a tailnet-wide Preview Hub.",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "author": {
         "name": "Studio Moser"
       },
