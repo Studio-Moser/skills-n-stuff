@@ -39,7 +39,7 @@ for role in (
     if role not in text:
         failures.append(f"missing embedded role: {role}")
 for clause in (
-    "Invoke `harness:execute` five times",
+    "Invoke `harness:delegate` five times",
     "route: bulk",
     "full context package",
     "do not modify files",

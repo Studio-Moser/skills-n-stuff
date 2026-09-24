@@ -85,6 +85,32 @@ assert turn["sandboxPolicy"]["type"] == "workspaceWrite"
 PY
 }
 
+@test "worker caches are writable and isolated inside the dispatch artifact directory" {
+  local env_capture="$FIXTURE/worker-environment.json"
+  export HARNESS_CODEX_ENV_CAPTURE="$env_capture"
+
+  run_dispatch
+
+  [ "$status" -eq 0 ]
+  ENV_CAPTURE="$env_capture" ARTIFACT_DIR="$FIXTURE" python3 - <<'PY'
+import json
+import os
+from pathlib import Path
+
+values = json.loads(Path(os.environ["ENV_CAPTURE"]).read_text())
+artifact = Path(os.environ["ARTIFACT_DIR"]).resolve()
+assert set(values) == {
+    "UV_CACHE_DIR", "npm_config_cache", "PIP_CACHE_DIR", "XDG_CACHE_HOME", "UV_NO_SYNC",
+}
+assert values.pop("UV_NO_SYNC") == "1"
+for name, value in values.items():
+    path = Path(value).resolve()
+    assert path.is_dir(), (name, value)
+    assert path.is_relative_to(artifact), (name, value)
+    assert os.access(path, os.W_OK), (name, value)
+PY
+}
+
 @test "computer-use preserves an explicitly authorized full-machine sandbox" {
   run "$SCRIPT" \
     --operation computer-use \

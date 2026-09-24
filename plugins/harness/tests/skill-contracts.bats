@@ -14,15 +14,7 @@ import sys
 root = Path(sys.argv[1])
 expected_references = {
     "setup": {"harness-contract.md", "shelby-integration.md"},
-    "execute": {
-        "context.md", "handoff.md", "harness-contract.md", "routing.md",
-        "shelby-integration.md", "verification.md",
-    },
-    "review": {
-        "context.md", "handoff.md", "harness-contract.md", "routing.md",
-        "shelby-integration.md", "verification.md",
-    },
-    "computer-use": {
+    "delegate": {
         "context.md", "handoff.md", "harness-contract.md", "routing.md",
         "shelby-integration.md", "verification.md",
     },
@@ -49,6 +41,8 @@ for name, expected in expected_references.items():
     value = " ".join((description.group("folded") if description and description.group("folded") else description.group("plain") if description else "").split())
     if len(value) < 40 or "Harness" not in value:
         failures.append(f"{name}: description must identify its Harness trigger and boundary")
+    if name == "delegate" and len(value) > 200:
+        failures.append("delegate: description exceeds 200 characters")
     actual = set(re.findall(r"references/([a-z-]+\.md)", text))
     if actual != expected:
         failures.append(
@@ -63,30 +57,29 @@ PY
   [ "$status" -eq 0 ]
 }
 
-@test "execution skills preserve request authority and return the complete result contract" {
+@test "delegate preserves request authority and returns the complete result contract" {
   run python3 - "$SKILLS_ROOT" <<'PY'
 from pathlib import Path
 import sys
 
 root = Path(sys.argv[1])
-skill_paths = {name: root / name / "SKILL.md" for name in ("execute", "review", "computer-use")}
+skill_paths = {name: root / name / "SKILL.md" for name in ("delegate",)}
 missing = [name for name, path in skill_paths.items() if not path.is_file()]
 assert not missing, f"missing Harness skills: {', '.join(missing)}"
+for retired in ("execute", "review", "computer-use"):
+    assert not (root / retired).exists(), f"retired Harness skill remains: {retired}"
 skills = {name: path.read_text() for name, path in skill_paths.items()}
 
 result_fields = (
-    "status", "route.requested", "route.actual_model", "route.effort",
-    "route.provider", "route.executor", "route.dispatch", "route.resolution", "route.attempted",
-    "route.fallback_reason", "artifacts.files", "artifacts.report",
-    "evidence.fixed_target", "evidence.checks", "evidence.outcome",
-    "telemetry.attempts", "telemetry.elapsed", "telemetry.verification_failures",
-    "telemetry.token_or_quota_usage", "shelby.project_id", "shelby.run_id",
-    "shelby.checkpoint_ids", "blockers",
+    "status", "route.requested", "route.model", "route.effort",
+    "route.provider", "route.executor", "route.dispatch", "artifacts.files",
+    "artifacts.report", "evidence.fixed_target", "evidence.checks",
+    "evidence.outcome", "blockers",
 )
 failures = []
 for name, text in skills.items():
     normalized = " ".join(text.split())
-    if f"`operation` must be `{name}`." not in normalized:
+    if "`operation` must be `execute`, `review`, or `computer-use`." not in normalized:
         failures.append(f"{name}: does not accept its HarnessRequest operation")
     missing_fields = [field for field in result_fields if f"`{field}`" not in text]
     if missing_fields:
@@ -131,7 +124,7 @@ for name, text in skills.items():
         if clause not in adapter:
             failures.append(f"{name}: missing typed Codex adapter boundary: {clause}")
 
-execute = " ".join(skills["execute"].split())
+execute = " ".join(skills["delegate"].split())
 for clause in (
     "Default delegated implementation to `fresh`",
     "If `via` is absent, dispatch through the native runtime",
@@ -147,10 +140,10 @@ for clause in (
     if clause not in execute:
         failures.append(f"execute: missing adapter clause: {clause}")
 for token in ('command -v codex', 'codex-dispatch.sh', '`approval: never`'):
-    if token not in skills["execute"]:
+    if token not in skills["delegate"]:
         failures.append(f"execute: Codex adapter omits {token}")
 
-for name in ("execute", "review"):
+for name in ("delegate",):
     native = " ".join(skills[name].split())
     for clause in (
         "When the current native tool inventory advertises `spawn_agent`, dispatch by calling `spawn_agent` directly",
@@ -161,7 +154,7 @@ for name in ("execute", "review"):
         if clause not in native:
             failures.append(f"{name}: missing native dispatch clause: {clause}")
 
-review = " ".join(skills["review"].split())
+review = " ".join(skills["delegate"].split())
 for clause in (
     "Require `verification.fixed_target` before dispatch",
     "Only `review` and `independent` are valid review routes",
@@ -172,7 +165,7 @@ for clause in (
     if clause not in review:
         failures.append(f"review: missing fixed-target clause: {clause}")
 
-computer = " ".join(skills["computer-use"].split())
+computer = " ".join(skills["delegate"].split())
 for clause in (
     "Confirm every required computer-use capability",
     "Preserve the runtime confirmation policy",

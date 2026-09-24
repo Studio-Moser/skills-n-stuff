@@ -20,12 +20,8 @@ The plugin is public and generic; the data is yours.
   rubric at `${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml`.
 - **`/harness:risk-gate`** — classify repository work from observable risk triggers
   and decide whether it stays direct, needs structure, or requires independent review.
-- **`/harness:execute`** — resolve a semantic route and run one bounded request
-  with explicit authority, context, and verification.
-- **`/harness:review`** — independently review a fixed target, reproduce its
-  checks, and return evidence without changing the target.
-- **`/harness:computer-use`** — operate a local app, browser, simulator, or other
-  screenshot-capable UI with explicit capability and proof.
+- **`/harness:delegate`** — route one bounded execution, fixed-target review, or
+  computer-use request with explicit authority, context, and proof.
 - **`/harness:fleet`** — run commands on your other machines over SSH. The host
   inventory (`ssh/config`) and one public key per machine live in your private
   repo; each machine includes the inventory and authorizes those keys.

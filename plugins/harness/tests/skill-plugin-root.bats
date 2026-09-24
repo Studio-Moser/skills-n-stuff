@@ -95,7 +95,7 @@ import sys
 
 repo = Path(sys.argv[1])
 failures = []
-for name in ("execute", "review", "computer-use"):
+for name in ("delegate",):
     path = repo / "plugins" / "harness" / "skills" / name / "SKILL.md"
     if not path.is_file():
         failures.append(f"{name}: missing skill")

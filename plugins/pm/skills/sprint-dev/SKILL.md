@@ -301,7 +301,7 @@ triggers, testing seam, delegation decision, and review decision. The current ag
 implements by default.
 
 Delegate only one independently useful substantial track with its own outcome and
-verification seam. When delegation is justified, invoke `harness:execute` with
+verification seam. When delegation is justified, invoke `harness:delegate` with
 `operation: execute`. Use `route: bulk` for clear-spec or mechanical work,
 `route: quick` only for a short latency-sensitive step, and `route: taste` for
 user-facing UI, copy, or public API work. PM chooses only this semantic altitude;
@@ -378,7 +378,7 @@ Load `references/review-proof.md` in the PM orchestrator and copy its complete r
 axes and completion constraints into the self-review. Continue directly to Phase 2D
 when self-review and one verification pass prove an ordinary slice.
 
-Invoke `harness:review` with `operation: review` and `route: review` only when the
+Invoke `harness:delegate` with `operation: review` and `route: review` only when the
 risk gate requires independent review or the user explicitly asks for a separate
 review. Keep the one-reviewer policy. Use `route: independent` only when the user
 separately approves the cost of a provider-separated fresh-context adversarial review.
@@ -516,7 +516,7 @@ If required review findings clear the bar, run the fix loop for at most two roun
 
 1. Resolve findings directly in the current agent unless the risk gate still identifies
    a substantial independent track. Only then submit a new complete Phase 2B
-   `harness:execute` request on the same branch.
+   `harness:delegate` request on the same branch.
 2. Fix each finding or dispute it with concrete evidence when it is false or contradicts
    the approved spec.
 3. Require one verification pass at the named Testing Seam plus any additional check

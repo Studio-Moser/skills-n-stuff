@@ -123,7 +123,7 @@ Compile a ~1000-word context package summarizing product status, market context,
 
 ## Phase 2: Request Five Analyst Briefs
 
-Invoke `harness:execute` five times with `operation: execute` and `route: bulk`, once
+Invoke `harness:delegate` five times with `operation: execute` and `route: bulk`, once
 for each named analyst role. Submit independent requests concurrently. Product Pulse
 chooses the questions, source standards, and analyst constraints; Harness owns concrete
 routing and execution.
@@ -203,7 +203,7 @@ corroborate any claim that could drive a top-three priority.
 When accepted sources remain contradictory or a high-impact claim is not adequately
 corroborated, materialize the disputed claim, full citations, credibility assessments,
 and source excerpts as one immutable snapshot digest before requesting a strategy draft.
-Invoke `harness:review` with `operation: review` and `route: review`; do not silently
+Invoke `harness:delegate` with `operation: review` and `route: review`; do not silently
 pick a winner or let contested evidence reach synthesis first.
 
 ```yaml
@@ -248,7 +248,7 @@ accepted/proven branches whose verification seam Product Pulse reproduced may co
 content. Keep every other expected branch in the manifest and exclude its claims.
 
 After every required adjudication is accepted or explicitly excluded, invoke
-`harness:execute` with `operation: execute` and `route: taste` for the strategy draft.
+`harness:delegate` with `operation: execute` and `route: taste` for the strategy draft.
 Product Pulse remains the accepting workflow and writes the files only after validating
 the returned Harness Result.
 

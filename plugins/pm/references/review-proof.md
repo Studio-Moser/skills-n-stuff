@@ -11,7 +11,7 @@ review execution, and universal evidence semantics.
 | `agents/code-reviewer.md` | Building any PM review request. |
 | `skills/dev-task/SKILL.md` | Entering the review gate. |
 | `skills/sprint-dev/SKILL.md` | Beginning the fixed-target check for a PR. |
-| `harness:review` | Executing the provider-neutral review request against its fixed target. |
+| `harness:delegate` | Executing the provider-neutral review request against its fixed target. |
 
 ## Harness boundary
 
@@ -19,7 +19,7 @@ PM supplies the exact review target, approved requirements, relevant files, Test
 Seam proof, and the Quality, Spec Fidelity, and Blast Radius constraints in a complete
 Harness Request. Use the
 [Harness contract](../../harness/references/harness-contract.md) for request/result and
-authority fields, [Harness review](../../harness/skills/review/SKILL.md) for fixed-target
+authority fields, [Harness delegate](../../harness/skills/delegate/SKILL.md) for fixed-target
 execution, and [Harness verification](../../harness/references/verification.md) for
 evidence levels, invalidation, and parent reverification.
 
