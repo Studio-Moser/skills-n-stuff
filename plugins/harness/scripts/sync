@@ -894,7 +894,9 @@ def push_machines(args: argparse.Namespace, repo: Path, scripts: Path) -> str:
     if listed.returncode or not hosts:
         return "not configured: no fleet hosts in ssh/config"
     script = REMOTE_SYNC.format(self=socket.gethostname().split(".")[0])
-    outcomes: dict[str, list[str]] = {"synced": [], "pulled only": [], "failed": [], "unreachable": []}
+    outcomes: dict[str, list[str]] = {
+        "synced": [], "synced with findings": [], "pulled only": [], "failed": [], "unreachable": [],
+    }
     for host in hosts:
         result = run(
             ["ssh", "-F", str(repo / "ssh/config"), "-o", "BatchMode=yes", "-o", "ConnectTimeout=8",
@@ -907,7 +909,10 @@ def push_machines(args: argparse.Namespace, repo: Path, scripts: Path) -> str:
         if state == "self":
             continue
         if state == "synced":
-            outcomes["synced" if result.returncode == 0 else "failed"].append(host)
+            # Sync exits 1 for unresolved findings too; a completed run is still a sync.
+            completed = "Harness sync completed" in result.stdout
+            label = "synced" if result.returncode == 0 else "synced with findings" if completed else "failed"
+            outcomes[label].append(host)
         elif state == "pulled":
             outcomes["pulled only"].append(host)
         elif result.returncode == 255 or state is None:
