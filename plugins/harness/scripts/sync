@@ -680,7 +680,9 @@ def apply_mcp(args: argparse.Namespace, plan: list[tuple[str, ...]], repo: Path,
     needs_secret = [
         (line[1], line[2])
         for line in plan
-        if line[0] == "NEEDS-SECRET" and line[1] in live_servers
+        if line[0] == "NEEDS-SECRET"
+        and line[1] in live_servers
+        and not environment_provides(live_servers[line[1]], line[2])
     ]
     if needs_secret:
         if not args.mcp_secrets_file:
@@ -704,6 +706,20 @@ def apply_mcp(args: argparse.Namespace, plan: list[tuple[str, ...]], repo: Path,
                 raise Stop(EXIT_DECISION, f"SYNC_DECISION_REQUIRED=unresolved MCP {name}; pass --skip-mcp {name} or --keep-unresolved-mcp {name}")
     findings.extend(f"MCP {name} has no portable config" for name in no_config)
     return findings, prune_to_local
+
+
+def environment_provides(server: object, variable: str) -> bool:
+    """A live server that references ${NAME} gets the value from the environment on each
+    machine (shell or launchctl), so the value itself never needs importing."""
+    env = server.get("env", {}) if isinstance(server, dict) else {}
+    if not isinstance(env, dict) or env.get(variable) != f"${{{variable}}}":
+        return False
+    if os.environ.get(variable):
+        return True
+    if shutil.which("launchctl") is None:
+        return False
+    result = run(["launchctl", "getenv", variable], check=False)
+    return result.returncode == 0 and bool(result.stdout.strip())
 
 
 def skill_listing(*, installed_only: bool = False) -> str:

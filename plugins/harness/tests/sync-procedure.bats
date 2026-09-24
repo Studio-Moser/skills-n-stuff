@@ -746,3 +746,20 @@ PY
   [ ! -e "$HOME_DIR/.claude/.mcp-prune-to-local" ]
   [ "$(git -C "$AGENTS" rev-parse HEAD)" = "$(git --git-dir="$remote" rev-parse refs/heads/main)" ]
 }
+
+@test "an MCP secret referenced as \${NAME} and set in the environment needs no import" {
+  run env HARNESS_SYNC_TEST_SECRET=value python3 - "$REPO/plugins/harness/scripts/sync" <<'PY'
+import importlib.machinery, importlib.util, sys
+loader = importlib.machinery.SourceFileLoader("sync_script", sys.argv[1])
+spec = importlib.util.spec_from_loader("sync_script", loader)
+sync = importlib.util.module_from_spec(spec)
+loader.exec_module(sync)
+placeholder = {"env": {"HARNESS_SYNC_TEST_SECRET": "${HARNESS_SYNC_TEST_SECRET}"}}
+assert sync.environment_provides(placeholder, "HARNESS_SYNC_TEST_SECRET")
+missing = {"env": {"HARNESS_SYNC_UNSET_SECRET_7Q": "${HARNESS_SYNC_UNSET_SECRET_7Q}"}}
+assert not sync.environment_provides(missing, "HARNESS_SYNC_UNSET_SECRET_7Q")
+literal = {"env": {"HARNESS_SYNC_TEST_SECRET": "literal"}}
+assert not sync.environment_provides(literal, "HARNESS_SYNC_TEST_SECRET")
+PY
+  [ "$status" -eq 0 ]
+}
