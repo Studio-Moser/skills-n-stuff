@@ -93,18 +93,14 @@ PY
   [ "$status" -eq 0 ]
 }
 
-@test "PM planning uses Superpowers only when explicitly selected" {
+@test "PM planning plans directly without Superpowers" {
   run python3 - "$REPO/plugins/pm/references/triage-spec-flow.md" <<'PY'
 from pathlib import Path
 import sys
 
 text = " ".join(Path(sys.argv[1]).read_text().split())
-for phrase in (
-    "When the user explicitly requests Superpowers planning",
-    "Otherwise, plan directly",
-    "Do not require Superpowers",
-):
-    assert phrase in text, f"triage planning omits optional boundary: {phrase}"
+assert "Plan directly from the verified readiness notes" in text
+assert "superpowers" not in text.lower(), "triage planning still routes through Superpowers"
 PY
   [ "$status" -eq 0 ]
 }
