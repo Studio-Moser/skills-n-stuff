@@ -117,11 +117,11 @@ non-blocking, as in Ordered setup.
    pull, push, and conflict mechanics publish that version-controlled change. A
    blocked validation never authorizes Sync.
 6. Inspect the runtime's callable tool names for Shelby only after the portable
-   setup is usable. When Shelby tool names are present, continue setup and return
-   only identifiers from successful Shelby calls. Resolve canonical project
-   scope, log this multi-phase setup run, and save only useful recovery
-   checkpoints before returning those identifiers. When Shelby tool names are
-   absent, continue setup and leave all optional `shelby` identifiers empty.
+   setup is usable. When Shelby tool names are present, retain identifiers only
+   from successful Shelby calls for optional memory work, not HarnessResult.
+   Resolve canonical project scope, log this multi-phase setup run, and save only
+   useful recovery checkpoints. When Shelby tool names are absent, continue setup without memory
+   enrichment.
    Shelby failure never changes route or authority and blocks only enrichment,
    not correct setup.
 7. Print the storage boundary:
@@ -172,12 +172,10 @@ parent or accepting workflow may return `status: accepted`, after reproducing
 those checks; it alone may pass `--proof proven`. A subordinate skill's success
 report is a claim.
 
-Populate every field: `status`, `route.requested`, `route.actual_model`,
-`route.effort`, `route.provider`, `route.executor`, `artifacts.files`,
+Populate every field: `status`, `route.requested`, `route.model`,
+`route.effort`, `route.provider`, `route.executor`, `route.dispatch`, `artifacts.files`,
 `artifacts.report`, `evidence.fixed_target`, `evidence.checks`,
-`evidence.outcome`, `telemetry.attempts`, `telemetry.elapsed`,
-`telemetry.verification_failures`, `telemetry.token_or_quota_usage`,
-`shelby.project_id`, `shelby.run_id`, `shelby.checkpoint_ids`, and `blockers`.
+`evidence.outcome`, and `blockers`.
 For Setup, use `route.requested: default` and record the current session's model,
 effort, provider, and runtime executor. Leave unavailable optional values empty
 rather than omitting fields.

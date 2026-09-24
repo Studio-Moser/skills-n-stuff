@@ -66,8 +66,7 @@ rubric setup, not a runtime route value.
    `model@effort` reference in `--active-candidate`.
 6. If the selected candidate equals `--active-candidate`, the resolver returns
    `dispatch: direct` with `executor: current`. Execute in the current context;
-   do not create a child whose model and effort duplicate the active agent. Record
-   that active candidate as the terminal `route.attempted` entry.
+   do not create a child whose model and effort duplicate the active agent.
 7. Pass the selected model and effort explicitly on every delegated dispatch. Never rely
    on a runtime default. Record the requested route and concrete dispatch in the
    result.
@@ -114,12 +113,9 @@ stop without changing providers. A malformed route, unavailable state, missing
 authorization, failed taste or independence gate, or exhausted chain returns
 `blocked`.
 
-The final HarnessResult records `route.resolution` as `primary` or `fallback`,
-`route.attempted` as the ordered candidates actually dispatched, and
-`route.fallback_reason` as the typed availability reason that caused fallback or
-empty. A matching native provider is still a primary or fallback candidate by
-its position in the authorized chain; executor choice does not change that
-provenance.
+Attempted candidates, circuit skips, and fallback reasons remain internal to the
+bounded resolver loop. The final HarnessResult records the requested semantic
+route and terminal model, effort, provider, executor, and dispatch.
 
 ## Provider health circuits
 

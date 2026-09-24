@@ -200,6 +200,21 @@ def main() -> int:
         write_schema(output, compatible=mode != "incompatible")
         return 0
     if sys.argv[1:] == ["app-server", "--stdio"]:
+        env_capture = os.environ.get("HARNESS_CODEX_ENV_CAPTURE")
+        if env_capture:
+            Path(env_capture).write_text(
+                json.dumps(
+                    {
+                        name: os.environ.get(name)
+                        for name in (
+                            "UV_CACHE_DIR", "npm_config_cache", "PIP_CACHE_DIR",
+                            "XDG_CACHE_HOME",
+                            "UV_NO_SYNC",
+                        )
+                    }
+                ),
+                encoding="utf-8",
+            )
         return serve(mode)
     return 2
 

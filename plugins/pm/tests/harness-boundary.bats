@@ -48,28 +48,28 @@ root = Path(sys.argv[1]) / "plugins" / "pm"
 contracts = {
     "dev-task": (
         root / "skills/dev-task/SKILL.md",
-        ("harness:execute", "operation: execute", "harness:review", "operation: review",
+        ("harness:delegate", "operation: execute", "operation: review",
          "Outcome", "Blockers", "Testing Seam", "Proof", "Spec Fidelity", "Blast Radius"),
     ),
     "sprint-dev": (
         root / "skills/sprint-dev/SKILL.md",
-        ("harness:execute", "operation: execute", "harness:review", "operation: review",
+        ("harness:delegate", "operation: execute", "operation: review",
          "unblocked frontier", "delivery slice", "Blockers", "Testing Seam",
          "Spec Fidelity", "Blast Radius"),
     ),
     "ingest": (
         root / "skills/ingest/SKILL.md",
-        ("harness:execute", "operation: execute", "route: bulk", "source claims",
+        ("harness:delegate", "operation: execute", "route: bulk", "source claims",
          "status/needs-triage"),
     ),
     "triage-scorecard": (
         root / "references/triage-scorecard.md",
-        ("harness:execute", "operation: execute", "route: bulk", "work-readiness.md",
+        ("harness:delegate", "operation: execute", "route: bulk", "work-readiness.md",
          "one delivery slice", "Blockers", "Testing Seam"),
     ),
     "code-reviewer": (
         root / "agents/code-reviewer.md",
-        ("harness:review", "operation: review", "route: review", "fixed target",
+        ("harness:delegate", "operation: review", "route: review", "fixed target",
          "Quality", "Spec Fidelity", "Blast Radius"),
     ),
 }

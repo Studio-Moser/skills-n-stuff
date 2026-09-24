@@ -65,7 +65,7 @@ editing another machine's config. `sudo` needs a password that BatchMode cannot
 supply. Hand that command to the user. Never configure passwordless `sudo`.
 
 SSH gives a shell, not the screen. To prove behavior visually on another machine,
-use `harness:computer-use` or ask the user.
+use `harness:delegate` or ask the user.
 
 ## Enroll this machine
 

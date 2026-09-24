@@ -165,7 +165,7 @@ required = {
     "triage route": "skills/triage/SKILL.md",
     "sprint route": "skills/sprint-dev/SKILL.md",
     "worker route": "skills/dev-task/SKILL.md",
-    "Harness execution route": "harness:execute",
+    "Harness execution route": "harness:delegate",
     "Harness contract": "../../harness/references/harness-contract.md",
     "Harness handoff": "../../harness/references/handoff.md",
     "Harness verification": "../../harness/references/verification.md",
@@ -548,7 +548,7 @@ for label, text in (("sprint-dev", sprint), ("dev-task", dev_task)):
         if field not in text:
             failures.append(f"{label} omits {field}")
     normalized = " ".join(text.split())
-    for clause in ("harness:execute", "operation: execute", "authority:",
+    for clause in ("harness:delegate", "operation: execute", "authority:",
                    "working_directory:", "allowed_paths:", "verification:",
                    "seam:", "expected:"):
         if clause not in normalized:
@@ -651,7 +651,7 @@ required_reference = {
     "security trigger": "Authentication, authorization, permissions, or another security boundary",
     "shared-runtime trigger": "Shared runtime, dependency, build, deployment, or configuration behavior",
     "Harness request/result": "../../harness/references/harness-contract.md",
-    "Harness execution": "../../harness/skills/review/SKILL.md",
+    "Harness execution": "../../harness/skills/delegate/SKILL.md",
     "Harness evidence": "../../harness/references/verification.md",
     "central assumption": "central safety assumption",
     "reviewer input set": "Reviewer Input Set",
@@ -669,7 +669,7 @@ for label, text in consumers.items():
     if "references/review-proof.md" not in text:
         failures.append(f"{label} does not load review-proof")
     normalized = " ".join(text.split())
-    for clause in ("harness:review", "operation: review", "route: review",
+    for clause in ("harness:delegate", "operation: review", "route: review",
                    "verification:", "fixed_target:"):
         if clause not in normalized:
             failures.append(f"{label} omits Harness review request field: {clause}")
@@ -815,8 +815,7 @@ for phrase in (
     "references/setup-${backend}.md",
     "load exactly one",
     "do not load another setup backend reference",
-    "harness:execute",
-    "harness:review",
+    "harness:delegate",
     "run /harness:setup, then rerun /pm:setup",
     "pm must not inspect or create harness routing configuration",
 ):
@@ -898,8 +897,7 @@ for phrase in (
     "unblocked frontier",
     "scheduling collisions",
     "harness contract",
-    "harness:execute",
-    "harness:review",
+    "harness:delegate",
     "spec fidelity",
     "blast radius",
     "selected backend reference",

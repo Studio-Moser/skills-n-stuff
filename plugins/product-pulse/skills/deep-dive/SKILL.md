@@ -150,7 +150,7 @@ Go beyond the resources themselves. For every significant concept, tool, library
 - Check for recent developments — has the landscape changed since the resource was published?
 
 Request independent extraction, ecosystem research, and project comparison through
-Harness. For each resource or bounded concept bundle, invoke `harness:execute` with
+Harness. For each resource or bounded concept bundle, invoke `harness:delegate` with
 `operation: execute` and `route: bulk`. Submit independent requests concurrently.
 
 ```yaml
@@ -231,7 +231,7 @@ If a resource is stale or its advice has been superseded, flag that prominently.
 When accepted sources are contradictory or a high-impact recommendation depends on a
 contested claim, materialize the disputed claim, full citations, credibility
 assessments, excerpts, and project impact as one immutable snapshot digest. Invoke
-`harness:review` with `operation: review` and `route: review` before synthesis.
+`harness:delegate` with `operation: review` and `route: review` before synthesis.
 
 ```yaml
 operation: review
@@ -274,7 +274,7 @@ status; record evidence outcome `unproven`, blocker `missing Harness Result`, an
 accepted/proven branches whose verification seam Product Pulse reproduced may contribute
 content. Keep every other expected branch in the manifest and exclude its claims.
 
-Invoke `harness:execute` with `operation: execute` and `route: taste` for the final
+Invoke `harness:delegate` with `operation: execute` and `route: taste` for the final
 analysis draft. Product Pulse remains the accepting workflow and publishes the report
 only after checking the returned Harness Result.
 

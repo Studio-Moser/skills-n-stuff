@@ -704,13 +704,14 @@ import sys
 plugin, temporary, rubric = map(Path, sys.argv[1:])
 linked = temporary / "Harness Plugin"
 linked.symlink_to(plugin.resolve(), target_is_directory=True)
-for skill in ("execute", "review"):
+for skill in ("delegate",):
     text = (plugin / "skills" / skill / "SKILL.md").read_text()
     block = next(block for block in re.findall(r"```bash\n(.*?)```", text, re.S)
                  if "ROUTE_RESULT=" in block)
     result = subprocess.run(
         ["bash", "-ec", block + '\nprintf "%s" "$ROUTE_RESULT"'],
         env={**os.environ, "CLAUDE_PLUGIN_ROOT": str(linked), "RUBRIC_PATH": str(rubric),
+             "XDG_STATE_HOME": str(temporary / "state"),
              "HARNESS_ROUTE": "default", "HARNESS_NATIVE_PROVIDER": "openai",
              "HARNESS_EXECUTORS": "[]", "HARNESS_ACTIVE_CANDIDATE": "gpt-5.6-sol@high",
              "HARNESS_ATTEMPTED": "[]"},

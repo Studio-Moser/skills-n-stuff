@@ -30,25 +30,20 @@ assert_complete_result() {
   RESULT_JSON="$output" python3 - <<'PY'
 import json, os
 r = json.loads(os.environ["RESULT_JSON"])
-assert list(r) == ["status", "route", "artifacts", "evidence", "telemetry", "shelby", "blockers"]
+assert list(r) == ["status", "route", "artifacts", "evidence", "blockers"]
 assert list(r["route"]) == [
-    "requested", "actual_model", "effort", "provider", "executor",
-    "resolution", "attempted", "fallback_reason",
+    "requested", "model", "effort", "provider", "executor", "dispatch",
 ]
 assert list(r["artifacts"]) == ["files", "report"]
 assert list(r["evidence"]) == ["fixed_target", "checks", "outcome"]
-assert list(r["telemetry"]) == ["attempts", "elapsed", "verification_failures", "token_or_quota_usage"]
-assert list(r["shelby"]) == ["project_id", "run_id", "checkpoint_ids"]
 assert r["route"] == {
-    "requested": "default", "actual_model": "setup-model", "effort": "medium",
-    "provider": "native", "executor": "current-runtime",
-    "resolution": "primary", "attempted": ["setup-model@medium"],
-    "fallback_reason": None,
+    "requested": "default", "model": "setup-model", "effort": "medium",
+    "provider": "native", "executor": "current-runtime", "dispatch": "direct",
 }
 PY
 }
 
-@test "Shelby-present fixture returns successful Shelby identifiers in a complete result" {
+@test "Shelby-present fixture contributes checks without adding result fields" {
   printf '%s\n' '["mcp__shelby_memory__get_brief","mcp__shelby_memory__log_run"]' > "$TOOLS"
   printf '%s\n' '{"status":"accepted","project_id":"project-id","run_id":"run-id","checkpoint_ids":["checkpoint-id"],"checks":["Shelby run logged"]}' > "$SHELBY"
 
@@ -61,12 +56,12 @@ import json, os
 r = json.loads(os.environ["RESULT_JSON"])
 assert r["status"] == "accepted"
 assert r["evidence"]["outcome"] == "proven"
-assert r["shelby"] == {"project_id":"project-id", "run_id":"run-id", "checkpoint_ids":["checkpoint-id"]}
+assert any("Shelby run logged" in check for check in r["evidence"]["checks"])
 assert r["blockers"] == []
 PY
 }
 
-@test "Shelby-absent fixture completes with empty optional identifiers" {
+@test "Shelby-absent fixture completes without result metadata" {
   printf '%s\n' '["bash","read","edit"]' > "$TOOLS"
 
   run_setup_result
@@ -77,12 +72,11 @@ PY
 import json, os
 r = json.loads(os.environ["RESULT_JSON"])
 assert r["status"] == "accepted"
-assert r["shelby"] == {"project_id":None, "run_id":None, "checkpoint_ids":[]}
 assert r["blockers"] == []
 PY
 }
 
-@test "Shelby failure remains non-blocking and cannot invent identifiers" {
+@test "Shelby failure remains non-blocking and cannot add result fields" {
   printf '%s\n' '["mcp__shelby_memory__get_brief"]' > "$TOOLS"
   printf '%s\n' '{"status":"failed","error":"Shelby unavailable","project_id":"invented","run_id":"invented","checkpoint_ids":["invented"]}' > "$SHELBY"
 
@@ -94,7 +88,6 @@ PY
 import json, os
 r = json.loads(os.environ["RESULT_JSON"])
 assert r["status"] == "accepted"
-assert r["shelby"] == {"project_id":None, "run_id":None, "checkpoint_ids":[]}
 assert any("Shelby enrichment failed" in check for check in r["evidence"]["checks"])
 assert r["blockers"] == []
 PY

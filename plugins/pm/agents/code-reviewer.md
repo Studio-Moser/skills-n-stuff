@@ -10,7 +10,7 @@ and completion constraints into the request; never pass that PM-private path to
 Harness. PM owns its Quality, Spec Fidelity, and Blast Radius constraints, while
 Harness owns the fixed-target execution and evidence semantics.
 
-Invoke `harness:review` with `operation: review` and `route: review`. Use
+Invoke `harness:delegate` with `operation: review` and `route: review`. Use
 `route: independent` only after the user explicitly approves the cost of a
 fresh-context adversarial review.
 

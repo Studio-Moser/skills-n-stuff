@@ -70,14 +70,11 @@ Every result has these top-level fields:
 status: accepted | failed | blocked | abandoned
 route:
   requested: semantic route
-  actual_model: resolved model
+  model: resolved model
   effort: resolved effort
   provider: resolved provider
   executor: current agent, native child, or external CLI
   dispatch: direct | delegated
-  resolution: primary | fallback
-  attempted: ordered model-effort dispatches
-  fallback_reason: typed availability reason or empty
 artifacts:
   files: changed or created paths
   report: optional report path
@@ -85,28 +82,14 @@ evidence:
   fixed_target: commit or immutable snapshot
   checks: commands or procedures with actual results
   outcome: proven | unproven
-telemetry:
-  attempts: count
-  elapsed: duration when available
-  verification_failures: count
-  token_or_quota_usage: value when available
-shelby:
-  project_id: optional
-  run_id: optional
-  checkpoint_ids: optional
 blockers: explicit unresolved items
 ```
 
-`route.attempted` contains only candidates actually dispatched, in dispatch
-order, including the terminal successful or failed attempt. Preflight skips do
-not appear there. `route.fallback_reason` is the typed availability reason that
-caused a fallback selection, or empty for a primary resolution. These provenance
-fields describe routing; they do not alter the request's authority or proof
-requirements.
-
-A direct resolution records its active candidate as the terminal
-`route.attempted` entry even though it creates no child. This keeps model usage and
-attempt telemetry comparable between direct and delegated execution.
+The resolver may track attempted candidates and fallback reasons internally while
+selecting an authorized route. Those loop details are not part of HarnessResult;
+the result records only the requested route and terminal concrete dispatch.
+Optional Shelby recall and capture remain provider-owned side effects and are not
+HarnessResult fields.
 
 Use the statuses consistently:
 
@@ -125,5 +108,5 @@ The evidence gate and invalidation rules live in
 
 Never put credentials, tokens, secret-bearing profiles, or other secrets in a
 request or result. Record decisive, bounded check output; do not copy unbounded
-logs into evidence or telemetry. Artifacts identify outputs by path rather than
-embedding their full contents.
+logs into evidence. Artifacts identify outputs by path rather than embedding
+their full contents.

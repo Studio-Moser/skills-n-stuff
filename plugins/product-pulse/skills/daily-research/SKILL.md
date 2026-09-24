@@ -135,7 +135,7 @@ Read `{research_dir}/research-sources.yaml`. For each domain, rank sources by `q
 
 ## Phase 2: Request Domain Scans
 
-For each configured domain, invoke `harness:execute` with `operation: execute` and
+For each configured domain, invoke `harness:delegate` with `operation: execute` and
 `route: bulk`. Submit independent requests concurrently. Product Pulse chooses the
 research question, sources, and acceptance rules; Harness owns concrete routing and
 execution.
@@ -211,7 +211,7 @@ expected branch in the manifest and exclude its claims.
 
 ## Phase 3: Synthesize
 
-Invoke `harness:execute` with `operation: execute` and `route: taste` for one bounded
+Invoke `harness:delegate` with `operation: execute` and `route: taste` for one bounded
 draft. Product Pulse remains the accepting workflow and writes the report only after
 checking the returned Harness Result.
 

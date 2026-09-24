@@ -67,8 +67,8 @@ Step 1d's unconfigured stop message.
 
 ### Step 1d: Check Harness
 
-Confirm the installed skill surface exposes `harness:execute`, `harness:review`, and
-`harness:setup`. This is only an availability check;
+Confirm the installed skill surface exposes `harness:delegate` and `harness:setup`.
+This is only an availability check;
 available skill names do not establish configuration.
 
 Invoke `harness:setup` with `mode: status`. This is Harness's read-only configured-
