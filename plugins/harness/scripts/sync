@@ -866,39 +866,56 @@ def final_mcp(repo: Path, runtime_mcp: Path, scripts: Path, *, prune_to_local: b
     run(command)
 
 
-def prepare_machine_push(args: argparse.Namespace, repo: Path) -> None:
-    if not args.push_machines:
-        return
-    machine = repo / "machine.yml"
-    legacy = repo / "fleet.yml"
-    if not machine.exists() and legacy.exists():
-        if not args.rename_fleet_config:
-            raise Stop(EXIT_DECISION, "SYNC_DECISION_REQUIRED=fleet.yml is legacy; pass --rename-fleet-config to rename it")
-        legacy.rename(machine)
-    if not machine.exists():
-        return
+# Runs on each other fleet machine in its login shell (so `claude` is on PATH): update
+# Harness first, then run that machine's own sync; an older machine only pulls.
+REMOTE_SYNC = r"""
+[ "$(hostname -s)" = "{self}" ] && {{ echo "REMOTE_STATE=self"; exit 0; }}
+latest_harness() {{ ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1; }}
+if command -v claude >/dev/null 2>&1; then
+  claude plugin marketplace update >/dev/null 2>&1
+  claude plugin update harness@studio-moser >/dev/null 2>&1
+fi
+h="$(latest_harness)"; h="${{h%/}}"
+if [ -n "$h" ] && [ -x "$h/scripts/sync" ]; then
+  out="$("$h/scripts/sync" 2>&1)"; rc=$?
+  printf '%s\n' "$out" | grep -E '^(Harness sync|  [A-Z]|SYNC_|UNRESOLVED)' | sed 's/^/  /'
+  echo "REMOTE_STATE=synced exit=$rc"; exit "$rc"
+fi
+cd "${{AGENTS_REPO:-$HOME/.agents}}" && git pull --ff-only >/dev/null 2>&1 && {{ echo "REMOTE_STATE=pulled"; exit 0; }}
+echo "REMOTE_STATE=failed"; exit 1
+"""
 
 
-def push_machines(args: argparse.Namespace, repo: Path) -> str:
+def push_machines(args: argparse.Namespace, repo: Path, scripts: Path) -> str:
     if not args.push_machines:
         return "skipped: not requested"
-    machine = repo / "machine.yml"
-    if not machine.exists():
-        return "not configured"
-    if shutil.which("yq") is None:
-        raise Stop(EXIT_FAILED, "SYNC_STATE=failed: yq not found; install it to use machine push")
-    result = run(["yq", "-r", ".machines[].host", str(machine)])
-    hosts = [line for line in result.stdout.splitlines() if line]
-    reached = []
-    unreachable = []
+    listed = run([helper(scripts, "fleet-hosts.sh"), str(repo)], check=False)
+    hosts = [line for line in listed.stdout.splitlines() if line]
+    if listed.returncode or not hosts:
+        return "not configured: no fleet hosts in ssh/config"
+    script = REMOTE_SYNC.format(self=socket.gethostname().split(".")[0])
+    outcomes: dict[str, list[str]] = {"synced": [], "pulled only": [], "failed": [], "unreachable": []}
     for host in hosts:
-        pulled = run(
-            ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=8", host, 'cd "${AGENTS_REPO:-$HOME/.agents}" && git pull --ff-only'],
+        result = run(
+            ["ssh", "-F", str(repo / "ssh/config"), "-o", "BatchMode=yes", "-o", "ConnectTimeout=8",
+             host, 'exec "${SHELL:-/bin/zsh}" -l -s'],
             check=False,
+            input_text=script,
         )
-        (reached if pulled.returncode == 0 else unreachable).append(host)
-    suffix = f"; unreachable: {', '.join(unreachable)}" if unreachable else ""
-    return f"pulled {len(reached)}/{len(hosts)} machine(s){suffix}; a pull is not a relink"
+        states = re.findall(r"^REMOTE_STATE=(\w+)", result.stdout, re.MULTILINE)
+        state = states[-1] if states else None
+        if state == "self":
+            continue
+        if state == "synced":
+            outcomes["synced" if result.returncode == 0 else "failed"].append(host)
+        elif state == "pulled":
+            outcomes["pulled only"].append(host)
+        elif result.returncode == 255 or state is None:
+            outcomes["unreachable"].append(host)
+        else:
+            outcomes["failed"].append(host)
+    parts = [f"{label}: {', '.join(names)}" for label, names in outcomes.items() if names]
+    return "; ".join(parts) if parts else "no other machines"
 
 
 def parser() -> argparse.ArgumentParser:
@@ -925,7 +942,6 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--add-skill", action="append", default=[], metavar="NAME")
     result.add_argument("--remove-skill", action="append", default=[], metavar="NAME")
     result.add_argument("--keep-local-skill", action="append", default=[], metavar="NAME")
-    result.add_argument("--rename-fleet-config", action="store_true")
     result.add_argument("--push-machines", action="store_true")
     return result
 
@@ -971,7 +987,6 @@ def sync(
         return dry_run(args, configured_repo, repo, roots, runtime_mcp, scripts)
     preflight = run([helper(scripts, "sync-preflight.sh"), str(repo)])
     ingest = next((line.partition("state=")[2].split()[0] for line in preflight.stdout.splitlines() if "state=" in line), "ready")
-    prepare_machine_push(args, repo)
     if adopted:
         adopt_loose(repo, roots, runtime_mcp, scripts)
     ok, relinked, attention = reconcile_links(args, repo, roots, scripts)
@@ -1010,7 +1025,7 @@ def sync(
     message = f"harness: sync from {socket.gethostname().split('.')[0]} — reconciled portable agent config"
     finalized = run([helper(scripts, "sync-finalize.sh"), str(repo), message])
     final_state = next((line.partition("=")[2] for line in finalized.stdout.splitlines() if line.startswith("SYNC_STATE=")), "failed: no final proof")
-    machine_state = push_machines(args, repo)
+    machine_state = push_machines(args, repo, scripts)
     status = "complete" if not findings else f"completed with {len(findings)} unresolved finding(s)"
     print(f"Harness sync {status} — {repo}")
     print(f"  Links:      {ok} ok, {relinked} relinked, {len(attention)} need attention")

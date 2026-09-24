@@ -214,7 +214,6 @@ EOF
   printf 'portable\n' > "$AGENTS/config/studio-moser/config"
   printf 'keep\n' > "$AGENTS/skills/.keep"
   printf 'placeholder\n' > "$AGENTS/codex/AGENTS.md"
-  printf 'machines: []\n' > "$AGENTS/machine.yml"
   git -C "$AGENTS" add .
   git -C "$AGENTS" commit -q -m base
   git -C "$AGENTS" remote add origin "$remote"
@@ -778,4 +777,38 @@ assert sync.environment_provides(server, "HARNESS_SYNC_LAUNCHCTL_ONLY_9Z")
 PY
   [ "$status" -eq 0 ]
   [[ "$output" != *"launchctl-secret-value"* ]] || return 1
+}
+
+@test "fleet push runs each other machine's own sync through the fleet ssh config" {
+  stub="$BATS_TEST_TMPDIR/bin"; mkdir -p "$stub"
+  cat > "$stub/ssh" <<'SH'
+#!/bin/sh
+printf '%s\n' "$*" >> "$SSH_LOG"
+cat > "$SSH_LOG.stdin.$7"
+case "$*" in
+  *" laptop "*) echo "  Harness sync completed"; echo "REMOTE_STATE=synced exit=0"; exit 0 ;;
+  *" oldmac "*) echo "REMOTE_STATE=pulled"; exit 0 ;;
+  *) echo "ssh: connect to host: Operation timed out" >&2; exit 255 ;;
+esac
+SH
+  chmod +x "$stub/ssh"
+  repo="$BATS_TEST_TMPDIR/agents"; mkdir -p "$repo/ssh"
+  printf 'Host laptop\n  HostName laptop.example\nHost oldmac\n  HostName oldmac.example\nHost gone\n  HostName gone.example\n' > "$repo/ssh/config"
+  export SSH_LOG="$BATS_TEST_TMPDIR/ssh.log"
+  run env PATH="$stub:$PATH" SSH_LOG="$SSH_LOG" python3 - "$REPO/plugins/harness/scripts/sync" "$repo" <<'PY'
+import argparse, importlib.machinery, importlib.util, sys
+from pathlib import Path
+loader = importlib.machinery.SourceFileLoader("sync_script", sys.argv[1])
+spec = importlib.util.spec_from_loader("sync_script", loader)
+sync = importlib.util.module_from_spec(spec)
+loader.exec_module(sync)
+state = sync.push_machines(argparse.Namespace(push_machines=True), Path(sys.argv[2]), Path(sys.argv[1]).parent)
+print("STATE=" + state)
+PY
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"STATE=synced: laptop; pulled only: oldmac; unreachable: gone"* ]] || return 1
+  grep -q -- "-F $repo/ssh/config -o BatchMode=yes" "$SSH_LOG" || return 1
+  grep -q -- '-l -s' "$SSH_LOG" || return 1
+  grep -q 'claude plugin update harness@studio-moser' "$SSH_LOG.stdin.laptop" || return 1
+  grep -q 'scripts/sync' "$SSH_LOG.stdin.laptop" || return 1
 }
