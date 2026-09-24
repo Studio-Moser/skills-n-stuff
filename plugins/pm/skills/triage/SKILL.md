@@ -415,7 +415,6 @@ Left as needs-info (status/needs-triage): {C}
 - **CONTEXT.md missing**: Warn, continue without domain context. Recommend running `/pm:setup`.
 - **out-of-scope directory missing**: Warn, continue without rejection checking. Create the directory.
 - **gh CLI unavailable or unauthenticated**: Stop for GitHub backend — install `gh` and run `gh auth login`.
-- **Explicitly requested Superpowers planning skill unavailable**: Warn the user. Offer to write a minimal spec manually instead of invoking the skill. The triage pipeline should not hard-fail because a superpowers skill is missing.
 - **Scorecard evaluator failure**: Fall back to manual scoring — present the 6-point checklist and ask the user to score each criterion.
 - **GitHub sub-issue API unavailable**: Fall back to comment-based linking.
 - **planning/todos.md missing**: Skip the backlog update step. Warn: `"planning/todos.md not found — skipping backlog row insertion. Run /pm:setup to create the backlog."`.

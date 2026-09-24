@@ -36,7 +36,6 @@ required = (
     "for a repository implementation or bug fix, name the change class before selecting the development workflow",
     "handle polish directly under the house rules",
     "ordinary repository work stays with the current agent",
-    "do not invoke a superpowers skill for ordinary work",
     "use `harness:risk-gate` only when",
     "use `pm:dev-task` only when the user explicitly requests",
     "delegate only an independent, substantial track",
