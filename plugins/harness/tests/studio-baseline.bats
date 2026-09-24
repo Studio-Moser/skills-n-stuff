@@ -40,6 +40,7 @@ required = (
     "use `pm:dev-task` for one large, multi-file feature-class change or when the user asks",
     "never for polish or small work",
     "ask once before implementing",
+    "a progress update never ends the task",
     "for polish and small work the final report is five lines or fewer",
     "never delegate polish or small work",
     "delegate only an independent, substantial track",

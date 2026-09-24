@@ -109,6 +109,15 @@ TMPDIR_WORK="$(mktemp -d)"
 trap 'rm -rf "$TMPDIR_WORK"' EXIT
 AUDIO_WAV="$TMPDIR_WORK/audio_16k.wav"
 
+# yt-dlp output is quiet on success; on failure show its last error line, such as
+# an HTTP 429 rate limit, instead of failing without a reason.
+report_ytdlp_error() {
+  local line
+  line="$(grep -E 'ERROR|error' "$TMPDIR_WORK/ytdlp.err" 2>/dev/null | tail -1)"
+  [[ -n "$line" ]] && echo "  yt-dlp: $line" >&2
+  return 0
+}
+
 # ── Tier 0: YouTube captions (YouTube only) ──────────────────────────────────
 
 WHISPER_MODEL="${WHISPER_MODEL:-mlx-community/whisper-large-v3-mlx}"
@@ -136,7 +145,7 @@ tier0_youtube_captions() {
          --sub-lang "en.*,en-orig" \
          --sub-format vtt \
          -o "$TMPDIR_WORK/caps.%(ext)s" \
-         "$URL" >/dev/null 2>&1 || return 1
+         "$URL" >/dev/null 2>"$TMPDIR_WORK/ytdlp.err" || { report_ytdlp_error; return 1; }
 
   # Prefer manual subs (caps.en.vtt) over auto (caps.en-*.vtt, caps.en-orig.vtt).
   local vtt
@@ -177,7 +186,8 @@ tier1_ytdlp() {
   # Download + extract audio
   if ! "${YTDLP[@]}" -x --audio-format wav \
         -o "$TMPDIR_WORK/audio_raw.%(ext)s" \
-        "$URL" >/dev/null 2>&1; then
+        "$URL" >/dev/null 2>"$TMPDIR_WORK/ytdlp.err"; then
+    report_ytdlp_error
     return 1
   fi
 
@@ -195,6 +205,12 @@ tier1_ytdlp() {
 
 tier2_playwright() {
   echo "→ Tier 2: Playwright" >&2
+  # Each plugin version installs into a fresh cache folder without node_modules;
+  # install the locked npm dependencies there the first time this tier needs them.
+  if ! (cd "$PLUGIN_ROOT" && node -e "import('playwright').then(() => process.exit(0), () => process.exit(1))") >/dev/null 2>&1; then
+    echo "→ installing the plugin's npm dependencies (first Playwright use)" >&2
+    npm install --prefix "$PLUGIN_ROOT" --no-audit --no-fund --silent >&2 || return 1
+  fi
   local meta
   meta="$(node "$PLUGIN_ROOT/scripts/extract-via-playwright.mjs" "$URL" "$TMPDIR_WORK" 2>&2)" || return 1
   [[ -z "$meta" ]] && return 1
