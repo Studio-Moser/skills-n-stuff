@@ -145,19 +145,17 @@ def read_link_plan(scripts: Path, repo: Path) -> tuple[list[tuple[str, str, str]
 
 def backup_live(home: Path, claude: Path, config: Path, codex: Path, repo: Path) -> Path:
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    archive = home / f"agents-config-backup-{timestamp}.tar.gz"
-    suffix = 1
-    while archive.exists():
-        archive = home / f"agents-config-backup-{timestamp}-{suffix}.tar.gz"
-        suffix += 1
+    basename = f"agents-config-backup-{timestamp}"
     roots = {"claude": claude, "config": config, "codex": codex}
-    fd, temporary_name = tempfile.mkstemp(prefix=f".{archive.name}.", dir=archive.parent)
+    fd, temporary_name = tempfile.mkstemp(prefix=f".{basename}.tar.gz.", dir=home)
     temporary = Path(temporary_name)
+    archive: Path | None = None
     try:
         os.fchmod(fd, stat.S_IRUSR | stat.S_IWUSR)
         with os.fdopen(fd, "wb") as handle:
             fd = -1
-            with tarfile.open(fileobj=handle, mode="w:gz", dereference=True) as bundle:
+            with tarfile.open(fileobj=handle, mode="w:gz", dereference=False) as bundle:
+                bundle.dereference = True
                 for name, _rel, root in LINKS:
                     live = path_for(root, name, roots)
                     if live.exists() or live.is_symlink():
@@ -165,16 +163,29 @@ def backup_live(home: Path, claude: Path, config: Path, codex: Path, repo: Path)
                 legacy = claude / "mcp.json"
                 if legacy.exists() or legacy.is_symlink():
                     bundle.add(legacy, arcname="claude/mcp.json")
+                bundle.dereference = False
                 if repo.exists():
                     bundle.add(repo, arcname="agents-repo")
             handle.flush()
             os.fsync(handle.fileno())
-        os.replace(temporary, archive)
+        suffix = 0
+        while True:
+            suffix_text = "" if suffix == 0 else f"-{suffix}"
+            candidate = home / f"{basename}{suffix_text}.tar.gz"
+            try:
+                os.link(temporary, candidate)
+            except FileExistsError:
+                suffix += 1
+                continue
+            archive = candidate
+            temporary.unlink()
+            break
     except Exception as error:
         if fd >= 0:
             os.close(fd)
         temporary.unlink(missing_ok=True)
         raise Stop(EXIT_FAILED, "SYNC_STATE=failed: backup creation failed; nothing was replaced") from error
+    assert archive is not None
     print(f"BACKUP_STATE=created {archive}")
     return archive
 
@@ -183,13 +194,49 @@ def paths_overlap(first: Path, second: Path) -> bool:
     return first == second or first in second.parents or second in first.parents
 
 
-def is_git_repository(path: Path) -> bool:
+def git_repository_root(path: Path) -> Path | None:
     result = subprocess.run(
-        ["git", "-C", str(path), "rev-parse", "--is-inside-work-tree"],
+        ["git", "-C", str(path), "rev-parse", "--show-toplevel"],
         text=True,
         capture_output=True,
     )
-    return result.returncode == 0 and result.stdout.strip() == "true"
+    if result.returncode or not result.stdout.strip():
+        return None
+    return Path(result.stdout.strip()).resolve()
+
+
+def is_git_repository(path: Path) -> bool:
+    root = git_repository_root(path)
+    return root is not None and root == path.resolve()
+
+
+def refuse_nested_repository(repo: Path) -> None:
+    root = git_repository_root(repo)
+    if root is not None and root != repo.resolve():
+        raise Stop(
+            EXIT_REFUSED,
+            f"SYNC_REFUSED=agents repository path is nested inside another Git worktree: {repo} (top-level: {root})",
+        )
+
+
+def refuse_incomplete_swaps(repo: Path, roots: dict[str, Path]) -> None:
+    artifacts: list[tuple[Path, Path]] = []
+    if repo.parent.is_dir():
+        for pattern in (f".{repo.name}.previous-*", f".{repo.name}.clone.*"):
+            artifacts.extend((path, repo) for path in repo.parent.glob(pattern))
+    for name, _rel, root in LINKS:
+        live = path_for(root, name, roots)
+        if not live.parent.is_dir():
+            continue
+        for pattern in (f".{live.name}.old.*", f".{live.name}.link.*"):
+            artifacts.extend((path, live) for path in live.parent.glob(pattern))
+    if not artifacts:
+        return
+    details = []
+    for artifact, canonical in sorted(artifacts, key=lambda item: str(item[0])):
+        state = "present" if canonical.exists() or canonical.is_symlink() else "missing"
+        details.append(f"{artifact} (canonical {state}: {canonical})")
+    raise Stop(EXIT_CONFLICT, "SYNC_CONFLICT=incomplete swap artifacts: " + "; ".join(details))
 
 
 def validate_repo_replacement(repo: Path, home: Path, roots: dict[str, Path]) -> None:
@@ -233,6 +280,8 @@ def clone_and_replace(repo_url: str, repo: Path) -> None:
         if result.returncode or not (staged / ".git").is_dir():
             raise Stop(EXIT_FAILED, "SYNC_STATE=failed: clone failed; existing repository was left unchanged")
         if repo.exists() or repo.is_symlink():
+            # ponytail: this is a non-atomic two-rename swap; upgrade to macOS
+            # renameatx_np(RENAME_SWAP) or a recovery journal for automatic repair.
             os.replace(repo, previous)
             moved_previous = True
         try:
@@ -378,6 +427,8 @@ def replace_with_symlink(live: Path, want: Path, *, retain: Path | None = None) 
     moved = False
     try:
         if live.exists() or live.is_symlink():
+            # ponytail: this is a non-atomic two-rename swap; upgrade to macOS
+            # renameatx_np(RENAME_SWAP) or a recovery journal for automatic repair.
             os.replace(live, displaced)
             moved = True
         try:
@@ -874,6 +925,8 @@ def main(argv: list[str]) -> int:
     runtime_mcp = (claude / ".claude.json") if "CLAUDE_CONFIG_DIR" in os.environ else (home / ".claude.json")
     scripts = Path(__file__).resolve().parent
     legacy_mcp_marker = claude / ".mcp-prune-to-local"
+    refuse_incomplete_swaps(repo, roots)
+    refuse_nested_repository(repo)
     if not args.dry_run:
         legacy_mcp_marker.unlink(missing_ok=True)
     try:

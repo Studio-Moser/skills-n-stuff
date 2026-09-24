@@ -6,10 +6,12 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import re
+import shlex
 import sys
 
 
 SAFE_COMMANDS = {":", "echo", "exit", "printf", "true"}
+CONTROL_TOKENS = {";", "&", "&&", "|", "||"}
 
 
 def command_hooks(settings: object) -> list[tuple[str, str]]:
@@ -38,12 +40,46 @@ def command_hooks(settings: object) -> list[tuple[str, str]]:
 
 
 def guarded(command: str) -> bool:
-    first = command.lstrip().split(None, 1)[0]
-    if first in SAFE_COMMANDS and "$(" not in command and "`" not in command:
-        return True
-    availability = re.search(r"(?:command\s+-v\s+|(?:\[|test)\s+-x\s+)", command)
-    conditional = bool(re.search(r"\bif\b.*\bthen\b.*\bfi\b", command, re.DOTALL))
-    return bool(availability and (conditional or ("&&" in command and "|| true" in command)))
+    if "$(" in command or "`" in command or "\n" in command:
+        return False
+    lexer = shlex.shlex(command, posix=True, punctuation_chars=";&|<>")
+    lexer.whitespace_split = True
+    lexer.commenters = ""
+    try:
+        tokens = list(lexer)
+    except ValueError:
+        return False
+    if not tokens:
+        return False
+    if tokens[0] in SAFE_COMMANDS:
+        return not any(token in CONTROL_TOKENS for token in tokens[1:])
+
+    if tokens[-2:] == ["||", "true"]:
+        tokens = tokens[:-2]
+    if any(token in CONTROL_TOKENS for token in tokens if token != "&&"):
+        return False
+
+    invoked_at: int
+    guarded_name: str
+    if len(tokens) >= 6 and tokens[:2] == ["[", "-x"] and tokens[3:5] == ["]", "&&"]:
+        guarded_name = tokens[2]
+        invoked_at = 5
+    elif len(tokens) >= 5 and tokens[:2] == ["test", "-x"] and tokens[3] == "&&":
+        guarded_name = tokens[2]
+        invoked_at = 4
+    elif (
+        len(tokens) >= 10
+        and tokens[:2] == ["command", "-v"]
+        and tokens[3:9] == [">", "/dev/null", "2", ">&", "1", "&&"]
+        and re.fullmatch(r"[A-Za-z0-9_.+-]+", tokens[2])
+    ):
+        guarded_name = tokens[2]
+        invoked_at = 9
+    else:
+        return False
+    return tokens[invoked_at] == guarded_name and not any(
+        token in CONTROL_TOKENS for token in tokens[invoked_at + 1 :]
+    )
 
 
 def main(argv: list[str]) -> int:

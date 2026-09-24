@@ -256,6 +256,38 @@ EOF
   [[ "$output" == *"Machines:   skipped: not requested"* ]] || return 1
 }
 
+@test "nested agents path is refused without changing the outer index or remote" {
+  outer="$BATS_TEST_TMPDIR/private-project"
+  seed="$BATS_TEST_TMPDIR/seed"
+  remote="$BATS_TEST_TMPDIR/outer.git"
+  make_sync_repo "$outer" "$remote"
+  make_sync_repo "$seed" "$BATS_TEST_TMPDIR/seed.git"
+  nested="$outer/config/agents"
+  mkdir -p "$nested/config"
+  cp -R "$seed/claude" "$seed/codex" "$seed/skills" "$nested/"
+  cp -R "$seed/config/studio-moser" "$nested/config/"
+  printf 'staged and unrelated\n' > "$outer/staged.txt"
+  printf 'untracked and unrelated\n' > "$outer/untracked.txt"
+  git -C "$outer" add staged.txt
+  before_index="$(git -C "$outer" diff --cached --binary)"
+  before_remote="$(git --git-dir="$remote" rev-parse refs/heads/main)"
+
+  run env \
+    HOME="$HOME_DIR" \
+    AGENTS_REPO="$nested" \
+    CLAUDE_CONFIG_DIR="$HOME_DIR/.claude" \
+    XDG_CONFIG_HOME="$HOME_DIR/.config" \
+    CODEX_HOME="$HOME_DIR/.codex" \
+    PATH="/usr/bin:/bin" \
+    "$SCRIPT"
+
+  [ "$status" -eq 22 ]
+  [[ "$output" == *"SYNC_REFUSED=agents repository path is nested inside another Git worktree"* ]] || return 1
+  [ "$(git -C "$outer" diff --cached --binary)" = "$before_index" ]
+  [ "$(git --git-dir="$remote" rev-parse refs/heads/main)" = "$before_remote" ]
+  [ -f "$outer/untracked.txt" ]
+}
+
 @test "occupied first-run repository is refused without explicit replacement" {
   mkdir -p "$AGENTS"
   printf 'keep me\n' > "$AGENTS/local.txt"
@@ -352,6 +384,82 @@ else:
 finally:
     sync.tarfile.open = original
 assert not list(home.glob(".agents-config-backup-*.tar.gz.*"))
+PY
+  [ "$status" -eq 0 ]
+}
+
+@test "repository backup preserves an external directory symlink without archiving its contents" {
+  outside="$BATS_TEST_TMPDIR/outside"
+  mkdir -p "$AGENTS" "$outside"
+  printf 'must stay outside\n' > "$outside/private-key"
+  ln -s "$outside" "$AGENTS/secrets"
+
+  run env HOME="$HOME_DIR" python3 - "$SCRIPT" "$HOME_DIR" "$AGENTS" <<'PY'
+from importlib.machinery import SourceFileLoader
+from pathlib import Path
+import sys, tarfile
+
+sync = SourceFileLoader("harness_sync", sys.argv[1]).load_module()
+home, repo = map(Path, sys.argv[2:])
+archive = sync.backup_live(home, home / ".claude", home / ".config", home / ".codex", repo)
+with tarfile.open(archive) as bundle:
+    member = bundle.getmember("agents-repo/secrets")
+    assert member.issym()
+    assert "agents-repo/secrets/private-key" not in bundle.getnames()
+PY
+  [ "$status" -eq 0 ]
+}
+
+@test "concurrent backup publication never overwrites a colliding final name" {
+  mkdir -p "$AGENTS"
+  printf 'repo data\n' > "$AGENTS/work.txt"
+
+  run env HOME="$HOME_DIR" python3 - "$SCRIPT" "$HOME_DIR" "$AGENTS" <<'PY'
+from importlib.machinery import SourceFileLoader
+from pathlib import Path
+import sys, threading
+
+sync = SourceFileLoader("harness_sync", sys.argv[1]).load_module()
+home, repo = map(Path, sys.argv[2:])
+barrier = threading.Barrier(2)
+original_mkstemp = sync.tempfile.mkstemp
+
+class FixedDatetime:
+    @classmethod
+    def now(cls):
+        return cls()
+
+    def strftime(self, _format):
+        return "20260102-030405"
+
+def synchronized_mkstemp(*args, **kwargs):
+    result = original_mkstemp(*args, **kwargs)
+    barrier.wait(timeout=5)
+    return result
+
+sync.datetime = FixedDatetime
+sync.tempfile.mkstemp = synchronized_mkstemp
+existing = home / "agents-config-backup-20260102-030405.tar.gz"
+existing.write_bytes(b"pre-existing backup")
+archives = []
+errors = []
+
+def create_backup():
+    try:
+        archives.append(sync.backup_live(home, home / ".claude", home / ".config", home / ".codex", repo))
+    except BaseException as error:
+        errors.append(error)
+
+threads = [threading.Thread(target=create_backup) for _ in range(2)]
+for thread in threads:
+    thread.start()
+for thread in threads:
+    thread.join(timeout=10)
+assert all(not thread.is_alive() for thread in threads)
+assert not errors, errors
+assert len(set(archives)) == 2, archives
+assert existing.read_bytes() == b"pre-existing backup"
+assert len(list(home.glob("agents-config-backup-20260102-030405*.tar.gz"))) == 3
 PY
   [ "$status" -eq 0 ]
 }
@@ -456,6 +564,38 @@ assert not list(live.parent.glob(".settings.json.link.*"))
 assert not list(live.parent.glob(".settings.json.old.*"))
 PY
   [ "$status" -eq 0 ]
+}
+
+@test "startup refuses crash-left swap artifacts and preserves every artifact" {
+  physical_home="$(cd "$HOME_DIR" && pwd -P)"
+  canonical_agents="$physical_home/.agents"
+  previous="$physical_home/..agents.previous-4242"
+  clone="$physical_home/..agents.clone.crashed"
+  old_live="$physical_home/.claude/.settings.json.old.crashed"
+  mkdir -p "$previous" "$clone" "$(dirname "$old_live")"
+  printf 'old repository\n' > "$previous/kept.txt"
+  printf 'staged clone\n' > "$clone/kept.txt"
+  printf 'old live settings\n' > "$old_live"
+
+  run env \
+    HOME="$HOME_DIR" \
+    AGENTS_REPO="$canonical_agents" \
+    CLAUDE_CONFIG_DIR="$HOME_DIR/.claude" \
+    XDG_CONFIG_HOME="$HOME_DIR/.config" \
+    CODEX_HOME="$HOME_DIR/.codex" \
+    PATH="/usr/bin:/bin" \
+    "$SCRIPT" --dry-run
+
+  [ "$status" -eq 21 ]
+  [[ "$output" == *"SYNC_CONFLICT=incomplete swap artifacts"* ]] || return 1
+  [[ "$output" == *"$previous (canonical missing: $canonical_agents)"* ]] || return 1
+  [[ "$output" == *"$clone (canonical missing: $canonical_agents)"* ]] || return 1
+  [[ "$output" == *"$old_live (canonical missing: $physical_home/.claude/settings.json)"* ]] || return 1
+  [ "$(cat "$previous/kept.txt")" = "old repository" ]
+  [ "$(cat "$clone/kept.txt")" = "staged clone" ]
+  [ "$(cat "$old_live")" = "old live settings" ]
+  [ ! -e "$canonical_agents" ]
+  [ ! -e "$physical_home/.claude/settings.json" ]
 }
 
 @test "replacement refuses dirty and unpushed git repositories" {
