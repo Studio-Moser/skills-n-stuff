@@ -1,8 +1,6 @@
 ---
 name: deep-dive
-description: >-
-  Use when the user explicitly asks to research, analyze, or compare external
-  videos, articles, repositories, documentation, or code against the current project.
+description: "Use when the user asks to research or compare an external video, article, repository, or document against the current project."
 allowed-tools: "Bash Read Write Edit Skill"
 ---
 
@@ -98,7 +96,7 @@ If the output directory is empty or doesn't exist yet, skip this phase.
 
 For each link the user provides, extract as much substance as possible:
 
-- **YouTube / Shorts / Instagram / TikTok / Threads videos**: Fetch the full transcript via `Skill({ skill: "transcribe:transcribe", args: "<url>" })` and pass the transcript as source content. If transcribe fails, surface the stderr message to the user and stop; do not analyze the video without its transcript.
+- **YouTube / Shorts / Instagram / TikTok / Threads videos**: Fetch the full transcript by running `transcribe "<url>"` (the command the transcribe plugin installs) and pass the transcript as source content. If transcribe fails, surface the stderr message to the user and stop; do not analyze the video without its transcript.
 - **Articles / blog posts / docs**: Fetch the full readable content plus canonical URL, title, author or publisher, and publication or update date.
 - **GitHub repos**: Collect the README, project structure, key source files, dependencies, release state, and canonical repository URL needed for the research question.
 - **Other links**: Adapt collection to the resource while preserving the full accessible content and metadata needed to verify later claims.
@@ -152,7 +150,7 @@ Go beyond the resources themselves. For every significant concept, tool, library
 - Check for recent developments — has the landscape changed since the resource was published?
 
 Request independent extraction, ecosystem research, and project comparison through
-Harness. For each resource or bounded concept bundle, invoke `harness:execute` with
+Harness. For each resource or bounded concept bundle, invoke `harness:delegate` with
 `operation: execute` and `route: bulk`. Submit independent requests concurrently.
 
 ```yaml
@@ -233,7 +231,7 @@ If a resource is stale or its advice has been superseded, flag that prominently.
 When accepted sources are contradictory or a high-impact recommendation depends on a
 contested claim, materialize the disputed claim, full citations, credibility
 assessments, excerpts, and project impact as one immutable snapshot digest. Invoke
-`harness:review` with `operation: review` and `route: review` before synthesis.
+`harness:delegate` with `operation: review` and `route: review` before synthesis.
 
 ```yaml
 operation: review
@@ -276,7 +274,7 @@ status; record evidence outcome `unproven`, blocker `missing Harness Result`, an
 accepted/proven branches whose verification seam Product Pulse reproduced may contribute
 content. Keep every other expected branch in the manifest and exclude its claims.
 
-Invoke `harness:execute` with `operation: execute` and `route: taste` for the final
+Invoke `harness:delegate` with `operation: execute` and `route: taste` for the final
 analysis draft. Product Pulse remains the accepting workflow and publishes the report
 only after checking the returned Harness Result.
 

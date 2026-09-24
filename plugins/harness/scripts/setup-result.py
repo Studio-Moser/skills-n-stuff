@@ -42,7 +42,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--fixed-target", required=True)
     parser.add_argument("--proof", required=True, choices=("proven", "unproven"))
     parser.add_argument("--report-path")
-    parser.add_argument("--elapsed")
     return parser.parse_args()
 
 
@@ -74,18 +73,10 @@ def main() -> int:
         if not isinstance(final_sync, dict) or final_sync.get("status") != "accepted":
             blockers.append("final Sync did not publish the changed rubric")
 
-    shelby = {"project_id": None, "run_id": None, "checkpoint_ids": []}
     shelby_available = any("shelby" in name.lower() for name in tool_names)
     if shelby_available:
         shelby_result = load_json(args.shelby_result) if args.shelby_result else {}
         if isinstance(shelby_result, dict) and shelby_result.get("status") == "accepted":
-            shelby = {
-                "project_id": shelby_result.get("project_id"),
-                "run_id": shelby_result.get("run_id"),
-                "checkpoint_ids": shelby_result.get("checkpoint_ids", []),
-            }
-            if not isinstance(shelby["checkpoint_ids"], list):
-                shelby["checkpoint_ids"] = []
             checks.extend(checks_from(shelby_result))
         else:
             checks.append("Shelby enrichment failed; setup continued without optional state")
@@ -93,19 +84,15 @@ def main() -> int:
     proven = args.proof == "proven" and not blockers
     status = "accepted" if proven else "blocked" if blockers else "failed"
     files = list(dict.fromkeys([*files_from(sync), *files_from(rubric)]))
-    attempts = 2 + int(rubric_changed) + int(shelby_available)
-
     result = {
         "status": status,
         "route": {
             "requested": "default",
-            "actual_model": args.model,
+            "model": args.model,
             "effort": args.effort,
             "provider": args.provider,
             "executor": args.executor,
-            "resolution": "primary",
-            "attempted": [f"{args.model}@{args.effort}"],
-            "fallback_reason": None,
+            "dispatch": "direct",
         },
         "artifacts": {"files": files, "report": args.report_path},
         "evidence": {
@@ -113,13 +100,6 @@ def main() -> int:
             "checks": checks,
             "outcome": "proven" if proven else "unproven",
         },
-        "telemetry": {
-            "attempts": attempts,
-            "elapsed": args.elapsed,
-            "verification_failures": len(blockers) + int(args.proof == "unproven"),
-            "token_or_quota_usage": None,
-        },
-        "shelby": shelby,
         "blockers": blockers,
     }
     json.dump(result, fp=sys.stdout, separators=(",", ":"))

@@ -5,7 +5,7 @@ setup() {
   LIVE_SETTINGS="${BATS_TEST_TMPDIR}/settings.json"
   LOCAL_SETTINGS="${BATS_TEST_TMPDIR}/settings.local.json"
   REPO_SETTINGS="${BATS_TEST_TMPDIR}/repo-settings.json"
-  SYNC_SKILL="${BATS_TEST_DIRNAME}/../skills/sync/SKILL.md"
+  SYNC_SCRIPT="${BATS_TEST_DIRNAME}/../scripts/sync"
 }
 
 assert_localized() {
@@ -59,21 +59,18 @@ PY
 }
 
 @test "sync invokes localization for adoption, keep-file, and pre-stage flows" {
-  run python3 - "$SYNC_SKILL" <<'PY'
+  run python3 - "$SYNC_SCRIPT" <<'PY'
 from pathlib import Path
 import sys
 
 text = Path(sys.argv[1]).read_text(encoding="utf-8")
-call = '"$harness/scripts/localize-skill-overrides.py"'
-loose = text.index("For loose configuration:")
-phase_one = text.index("## Phase 1: Link check")
-real_file = text.index("**On `REAL-FILE`", phase_one)
-phase_two = text.index("## Phase 2: Reconcile shared and derived state")
-phase_two_one = text.index("### 2.1 Reconcile shared settings", phase_two)
-status = text.index('git -C "$repo" status --short', phase_two_one)
-assert call in text[loose:phase_one]
-assert call in text[real_file:phase_two]
-assert call in text[phase_two_one:status]
+call = 'helper(scripts, "localize-skill-overrides.py")'
+adoption = text.split("def adopt_loose", 1)[1].split("def compare_paths", 1)[0]
+links = text.split("def reconcile_links", 1)[1].split("def reconcile_settings", 1)[0]
+settings = text.split("def reconcile_settings", 1)[1].split("def render", 1)[0]
+assert call in adoption
+assert call in links
+assert call in settings
 PY
   [ "$status" -eq 0 ]
 }

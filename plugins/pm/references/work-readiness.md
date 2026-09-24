@@ -11,7 +11,7 @@ fields without redefining them.
 | `skills/triage/SKILL.md` | Verifying a bug claim and creating an M/L/XL spec. |
 | `skills/sprint-dev/SKILL.md` | Selecting ready work and proposing execution batches. |
 | `skills/dev-task/SKILL.md` | Turning an approved item into an implementation assignment. |
-| `harness:execute` | Receiving an assignable PM delivery slice as a Harness Request. |
+| `harness:delegate` | Receiving an assignable PM delivery slice as a Harness Request. |
 
 ## Harness boundary
 

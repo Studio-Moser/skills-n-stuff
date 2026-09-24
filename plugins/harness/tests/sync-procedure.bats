@@ -2,546 +2,747 @@
 
 setup() {
   REPO="$(cd "${BATS_TEST_DIRNAME}/../../.." && pwd)"
+  SCRIPT="$REPO/plugins/harness/scripts/sync"
   SKILL="$REPO/plugins/harness/skills/sync/SKILL.md"
+  HOME_DIR="$BATS_TEST_TMPDIR/home"
+  AGENTS="$HOME_DIR/.agents"
+  BIN="$BATS_TEST_TMPDIR/bin"
+  mkdir -p "$HOME_DIR" "$BIN"
 }
 
-extract_first_bash_block_after() {
-  local marker="$1"
-  local target="$2"
-  python3 - "$SKILL" "$marker" "$target" <<'PY'
-from pathlib import Path
-import re
-import sys
+make_sync_repo() {
+  local target="$1" remote="$2"
+  mkdir -p "$target/claude/output-styles" "$target/config/studio-moser" "$target/codex" "$target/skills"
+  git init -q --bare "$remote"
+  git init -q -b main "$target"
+  git -C "$target" config user.email test@example.com
+  git -C "$target" config user.name "Harness Test"
+  cat > "$target/claude/output-styles/House Style.md" <<'EOF'
+---
+name: House Style
+---
 
-text = Path(sys.argv[1]).read_text().split(sys.argv[2], 1)[1]
-match = re.search(r"```bash\n(.*?)\n```", text, re.DOTALL)
-assert match, f"bash block is missing after {sys.argv[2]}"
-Path(sys.argv[3]).write_text(match.group(1) + "\n")
-PY
+# Local policy
+EOF
+  cat > "$target/claude/CLAUDE.md" <<'EOF'
+# Rules
+
+1. **No hallucination** — If you don't know, say so.
+2. **File naming** — Use Title Case.
+
+## Engineering discipline
+
+Keep the change small.
+
+<!-- shelby:bootstrap start -->
+## Shelby memory
+Use optional memory.
+<!-- shelby:bootstrap end -->
+EOF
+  printf '%s\n' '{"enabledPlugins":{"harness@studio-moser":true}}' > "$target/claude/settings.json"
+  printf 'exit 0\n' > "$target/claude/statusline-command.sh"
+  printf 'portable\n' > "$target/config/studio-moser/config"
+  printf 'keep\n' > "$target/skills/.keep"
+  printf 'placeholder\n' > "$target/codex/AGENTS.md"
+  git -C "$target" add .
+  git -C "$target" commit -q -m base
+  git -C "$target" remote add origin "$remote"
+  git -C "$target" push -q -u origin main
 }
 
-@test "sync performs every reconciliation before one guarded final transaction" {
-  run python3 - "$SKILL" <<'PY'
-from pathlib import Path
-import sys
-
-text = Path(sys.argv[1]).read_text()
-failures = []
-required = (
-    "sync-preflight.sh",
-    "reconcile_shared_settings.py",
-    "mcp-manifest.sh",
-    "skills-manifest.sh",
-    "render-codex-agents.sh",
-    "portability-lint.sh",
-    "sync-finalize.sh",
-)
-for value in required:
-    if value not in text:
-        failures.append(f"missing sync operation: {value}")
-
-preflight = text.find('"$harness/scripts/sync-preflight.sh"')
-first_writer = text.find("## Phase 1: Link check")
-if preflight < 0 or first_writer < 0 or preflight > first_writer:
-    failures.append("remote preflight does not precede write-producing reconciliation")
-
-finalizer = text.find('"$harness/scripts/sync-finalize.sh"')
-for value in required[1:-1]:
-    position = text.rfind(value)
-    if position < 0 or position > finalizer:
-        failures.append(f"{value} is not completed before finalization")
-
-for direct in ('git -C "$repo" commit', 'git -C "$repo" push'):
-    if direct in text:
-        failures.append(f"direct transaction bypass remains: {direct}")
-for phrase in (
-    "at most one commit",
-    "exactly one push",
-    "never pulls",
-    "final clean worktree",
-    "remote SHA",
-    "staged secret",
-    "machine-local state",
-):
-    if phrase.lower() not in text.lower():
-        failures.append(f"missing final gate: {phrase}")
-
-assert not failures, "\n".join(failures)
-PY
-  if [ "$status" -ne 0 ]; then
-    printf '%s\n' "$output" >&2
-  fi
-  [ "$status" -eq 0 ]
-}
-
-@test "every shell block resolves the repo it uses" {
-  run python3 - "$SKILL" <<'PY'
-from pathlib import Path
-import re
-import sys
-
-text = Path(sys.argv[1]).read_text()
-blocks = re.findall(r"```(?:bash|sh)\n(.*?)\n```", text, re.DOTALL)
-failures = []
-assignment = re.compile(r'^repo="\$\{AGENTS_REPO:-\$HOME/\.agents\}"', re.MULTILINE)
-for number, block in enumerate(blocks, 1):
-    if "$repo" in block and not assignment.search(block):
-        first = block.strip().splitlines()[0] if block.strip() else "<empty>"
-        failures.append(f"block {number} uses stale repo: {first}")
-assert not failures, "\n".join(failures)
-PY
-  if [ "$status" -ne 0 ]; then
-    printf '%s\n' "$output" >&2
-  fi
-  [ "$status" -eq 0 ]
-}
-
-@test "final validation preserves Phase 2.6 skill state when Node is unavailable" {
-  phase="$BATS_TEST_TMPDIR/phase.sh"
-  agents="$BATS_TEST_TMPDIR/agents"
-  harness="$BATS_TEST_TMPDIR/harness"
-  bin="$BATS_TEST_TMPDIR/bin"
-  manifest_marker="$BATS_TEST_TMPDIR/manifest-ran"
-  finalizer_marker="$BATS_TEST_TMPDIR/finalizer-ran"
-  mkdir -p "$agents" "$harness/scripts" "$bin"
-
-  python3 - "$SKILL" "$phase" <<'PY'
-from pathlib import Path
-import re
-import sys
-
-text = Path(sys.argv[1]).read_text().split("## Phase 3.75:", 1)[1]
-match = re.search(r"```bash\n(.*?)\n```", text, re.DOTALL)
-assert match, "Phase 3.75 bash block is missing"
-Path(sys.argv[2]).write_text(match.group(1) + "\n")
-PY
-
-  for name in localize-skill-overrides.py reconcile_shared_settings.py mcp-manifest.sh render-codex-agents.sh link-plan.sh portability-lint.sh; do
-    cat > "$harness/scripts/$name" <<'EOF'
+install_sync_stubs() {
+  cat > "$BIN/claude" <<'EOF'
 #!/usr/bin/env bash
+if [ "$1 $2 $3" = "plugin marketplace list" ]; then
+  printf '❯ claude-plugins-official\n'
+fi
 exit 0
 EOF
-    chmod +x "$harness/scripts/$name"
-  done
-  cat > "$harness/scripts/skills-manifest.sh" <<'EOF'
-#!/usr/bin/env bash
-touch "$MANIFEST_MARKER"
-exit 86
-EOF
-  chmod +x "$harness/scripts/skills-manifest.sh"
-  cat > "$harness/scripts/sync-finalize.sh" <<'EOF'
-#!/usr/bin/env bash
-touch "$FINALIZER_MARKER"
-exit 0
-EOF
-  chmod +x "$harness/scripts/sync-finalize.sh"
-
-  run env \
-    AGENTS_REPO="$agents" \
-    CLAUDE_CONFIG_DIR="$BATS_TEST_TMPDIR/claude" \
-    CLAUDE_PLUGIN_ROOT="$harness" \
-    MANIFEST_MARKER="$manifest_marker" \
-    FINALIZER_MARKER="$finalizer_marker" \
-    PATH="$bin:/usr/bin:/bin" \
-    /bin/bash "$phase"
-
-  [ "$status" -eq 0 ]
-  [ ! -e "$manifest_marker" ]
-  [ -e "$finalizer_marker" ]
-}
-
-@test "a final validation generator failure stops before the transaction" {
-  phase="$BATS_TEST_TMPDIR/phase.sh"
-  agents="$BATS_TEST_TMPDIR/agents"
-  harness="$BATS_TEST_TMPDIR/harness"
-  finalizer_marker="$BATS_TEST_TMPDIR/finalizer-ran"
-  mkdir -p "$agents" "$harness/scripts"
-
-  python3 - "$SKILL" "$phase" <<'PY'
-from pathlib import Path
-import re
-import sys
-
-text = Path(sys.argv[1]).read_text().split("## Phase 3.75:", 1)[1]
-match = re.search(r"```bash\n(.*?)\n```", text, re.DOTALL)
-assert match, "Phase 3.75 bash block is missing"
-Path(sys.argv[2]).write_text(match.group(1) + "\n")
-PY
-
-  for name in localize-skill-overrides.py reconcile_shared_settings.py mcp-manifest.sh link-plan.sh portability-lint.sh; do
-    cat > "$harness/scripts/$name" <<'EOF'
-#!/usr/bin/env bash
-exit 0
-EOF
-    chmod +x "$harness/scripts/$name"
-  done
-  cat > "$harness/scripts/render-codex-agents.sh" <<'EOF'
-#!/usr/bin/env bash
-exit 23
-EOF
-  chmod +x "$harness/scripts/render-codex-agents.sh"
-  cat > "$harness/scripts/sync-finalize.sh" <<'EOF'
-#!/usr/bin/env bash
-touch "$FINALIZER_MARKER"
-exit 0
-EOF
-  chmod +x "$harness/scripts/sync-finalize.sh"
-  run env \
-    AGENTS_REPO="$agents" \
-    CLAUDE_CONFIG_DIR="$BATS_TEST_TMPDIR/claude" \
-    CLAUDE_PLUGIN_ROOT="$harness" \
-    FINALIZER_MARKER="$finalizer_marker" \
-    bash "$phase"
-
-  [ "$status" -eq 23 ]
-  [ ! -e "$finalizer_marker" ]
-}
-
-@test "the MCP reconcile block prints the table and plan against the custom Claude user registry" {
-  phase="$BATS_TEST_TMPDIR/mcp-phase.sh"
-  agents="$BATS_TEST_TMPDIR/agents"
-  claude="$BATS_TEST_TMPDIR/claude-config"
-  harness="$BATS_TEST_TMPDIR/harness"
-  mkdir -p "$agents" "$claude" "$harness/scripts"
-  cp "$REPO/plugins/harness/scripts/mcp-reconcile.sh" "$REPO/plugins/harness/scripts/mcp-manifest.sh" "$harness/scripts/"
-  printf '%s\n' '{"version":1,"servers":{"elsewhere":{"type":"stdio","command":"sh","machines":["other"]},"portable-memory":{"type":"stdio","command":"sh","machines":["other"]}}}' > "$agents/mcp.manifest.json"
-  cat > "$claude/.claude.json" <<'EOF'
-{
-  "mcpServers": {
-    "portable-memory": {"command": "sh", "env": {"TOKEN": "do-not-print"}}
-  },
-  "projects": {"/tmp/project": {"mcpServers": {"project-only": {"command": "sh"}}}}
-}
-EOF
-  printf '{}\n' > "$claude/settings.local.json"
-
-  extract_first_bash_block_after "### MCP servers — compare, choose, apply" "$phase"
-
-  run env \
-    AGENTS_REPO="$agents" \
-    CLAUDE_CONFIG_DIR="$claude" \
-    CLAUDE_PLUGIN_ROOT="$harness" \
-    MCP_HOSTNAME="test-host" \
-    bash "$phase"
-
-  [ "$status" -eq 0 ]
-  [[ "$output" == *$'INSTALL\telsewhere'* ]] || return 1
-  [[ "$output" != *"project-only"* ]] || return 1
-  [[ "$output" != *"do-not-print"* ]]
-}
-
-@test "the MCP reconcile block uses the default Claude user registry" {
-  phase="$BATS_TEST_TMPDIR/mcp-default-phase.sh"
-  home="$BATS_TEST_TMPDIR/home"
-  agents="$BATS_TEST_TMPDIR/agents"
-  harness="$BATS_TEST_TMPDIR/harness"
-  mkdir -p "$home/.claude" "$agents" "$harness/scripts"
-  cp "$REPO/plugins/harness/scripts/mcp-reconcile.sh" "$REPO/plugins/harness/scripts/mcp-manifest.sh" "$harness/scripts/"
-  printf '%s\n' '{"version":1,"servers":{"portable-memory":{"type":"stdio","command":"sh","machines":["other"]}}}' > "$agents/mcp.manifest.json"
-  printf '%s\n' '{"mcpServers":{"portable-memory":{"command":"sh"}}}' > "$home/.claude.json"
-  printf '{}\n' > "$home/.claude/settings.local.json"
-
-  extract_first_bash_block_after "### MCP servers — compare, choose, apply" "$phase"
-
-  run env -u CLAUDE_CONFIG_DIR \
-    HOME="$home" \
-    AGENTS_REPO="$agents" \
-    CLAUDE_PLUGIN_ROOT="$harness" \
-    MCP_HOSTNAME="test-host" \
-    bash "$phase"
-
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"portable-memory"* ]] || return 1
-  [[ "$output" != *"INSTALL"* ]] || return 1
-}
-
-@test "the MCP reconcile block reports a missing Claude user registry as not configured" {
-  phase="$BATS_TEST_TMPDIR/mcp-missing-phase.sh"
-  agents="$BATS_TEST_TMPDIR/agents"
-  claude="$BATS_TEST_TMPDIR/claude-config"
-  harness="$BATS_TEST_TMPDIR/harness"
-  mkdir -p "$agents" "$claude" "$harness/scripts"
-  cp "$REPO/plugins/harness/scripts/mcp-reconcile.sh" "$REPO/plugins/harness/scripts/mcp-manifest.sh" "$harness/scripts/"
-  printf '%s\n' '{"version":1,"servers":{"portable-memory":{"type":"stdio","command":"sh","machines":["other"]}}}' > "$agents/mcp.manifest.json"
-  printf '{}\n' > "$claude/settings.local.json"
-
-  extract_first_bash_block_after "### MCP servers — compare, choose, apply" "$phase"
-
-  run env \
-    AGENTS_REPO="$agents" \
-    CLAUDE_CONFIG_DIR="$claude" \
-    CLAUDE_PLUGIN_ROOT="$harness" \
-    MCP_HOSTNAME="test-host" \
-    bash "$phase"
-
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"MCP_STATE=not configured"* ]] || return 1
-  [[ "$output" == *$'INSTALL\tportable-memory'* ]]
-}
-
-@test "MCP inventory generation reads the Claude user registry and only localizes the legacy file" {
-  phase="$BATS_TEST_TMPDIR/mcp-generation-phase.sh"
-  agents="$BATS_TEST_TMPDIR/agents"
-  claude="$BATS_TEST_TMPDIR/claude-config"
-  harness="$BATS_TEST_TMPDIR/harness"
-  input_marker="$BATS_TEST_TMPDIR/mcp-input"
-  mkdir -p "$agents/claude" "$claude" "$harness/scripts"
-  git init -q -b main "$agents"
-  git -C "$agents" config user.email test@example.com
-  git -C "$agents" config user.name "Harness Test"
-  printf '%s\n' '{"mcpServers":{"legacy":{"command":"sh","env":{"TOKEN":"legacy-secret"}}}}' > "$agents/claude/mcp.json"
-  printf '\n' > "$agents/.gitignore"
-  git -C "$agents" add .gitignore claude/mcp.json
-  git -C "$agents" commit -q -m base
-  ln -s "$agents/claude/mcp.json" "$claude/mcp.json"
-  printf '%s\n' '{"mcpServers":{"portable-memory":{"command":"sh","env":{"TOKEN":"user-secret"}}}}' > "$claude/.claude.json"
-  before="$(shasum -a 256 "$claude/.claude.json")"
-  cat > "$harness/scripts/mcp-manifest.sh" <<'EOF'
-#!/usr/bin/env bash
-printf '%s\n' "$1" > "$MCP_INPUT_MARKER"
-printf '%s\n' '{"version":1,"servers":{}}' > "$2"
-EOF
-  chmod +x "$harness/scripts/mcp-manifest.sh"
-
-  extract_first_bash_block_after \
-    "### 2.3 Generate the portable MCP inventory and clean up the legacy tracked file" \
-    "$phase"
-
-  run env \
-    AGENTS_REPO="$agents" \
-    CLAUDE_CONFIG_DIR="$claude" \
-    CLAUDE_PLUGIN_ROOT="$harness" \
-    MCP_INPUT_MARKER="$input_marker" \
-    bash "$phase"
-
-  [ "$status" -eq 0 ]
-  [ "$(cat "$input_marker")" = "$claude/.claude.json" ]
-  [ -e "$agents/mcp.manifest.json" ]
-  [ "$(shasum -a 256 "$claude/.claude.json")" = "$before" ]
-  [ -f "$claude/mcp.json" ]
-  [ ! -L "$claude/mcp.json" ]
-  ! git -C "$agents" ls-files --error-unmatch claude/mcp.json >/dev/null 2>&1
-  grep -qxF 'claude/mcp.json' "$agents/.gitignore"
-  [[ "$output" != *"legacy-secret"* ]] || return 1
-  [[ "$output" != *"user-secret"* ]]
-}
-
-@test "MCP inventory generation reports a missing Claude user registry" {
-  phase="$BATS_TEST_TMPDIR/mcp-generation-missing-phase.sh"
-  agents="$BATS_TEST_TMPDIR/agents"
-  claude="$BATS_TEST_TMPDIR/claude-config"
-  harness="$BATS_TEST_TMPDIR/harness"
-  mkdir -p "$agents" "$claude" "$harness/scripts"
-  git init -q -b main "$agents"
-  printf '\n' > "$agents/.gitignore"
-  cat > "$harness/scripts/mcp-manifest.sh" <<'EOF'
-#!/usr/bin/env bash
-exit 99
-EOF
-  chmod +x "$harness/scripts/mcp-manifest.sh"
-  extract_first_bash_block_after \
-    "### 2.3 Generate the portable MCP inventory and clean up the legacy tracked file" \
-    "$phase"
-
-  run env \
-    AGENTS_REPO="$agents" \
-    CLAUDE_CONFIG_DIR="$claude" \
-    CLAUDE_PLUGIN_ROOT="$harness" \
-    bash "$phase"
-
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"MCP_STATE=not configured"* ]] || return 1
-  [ ! -e "$agents/mcp.manifest.json" ]
-}
-
-@test "failed MCP inventory generation stops before legacy cleanup" {
-  phase="$BATS_TEST_TMPDIR/mcp-generation-failure-phase.sh"
-  agents="$BATS_TEST_TMPDIR/agents"
-  claude="$BATS_TEST_TMPDIR/claude-config"
-  harness="$BATS_TEST_TMPDIR/harness"
-  mkdir -p "$agents/claude" "$claude" "$harness/scripts"
-  git init -q -b main "$agents"
-  git -C "$agents" config user.email test@example.com
-  git -C "$agents" config user.name "Harness Test"
-  printf 'legacy\n' > "$agents/claude/mcp.json"
-  printf '\n' > "$agents/.gitignore"
-  git -C "$agents" add .gitignore claude/mcp.json
-  git -C "$agents" commit -q -m base
-  printf '%s\n' '{"mcpServers":{"portable-memory":{"command":"sh"}}}' > "$claude/.claude.json"
-  cat > "$harness/scripts/mcp-manifest.sh" <<'EOF'
-#!/usr/bin/env bash
-exit 23
-EOF
-  chmod +x "$harness/scripts/mcp-manifest.sh"
-  extract_first_bash_block_after \
-    "### 2.3 Generate the portable MCP inventory and clean up the legacy tracked file" \
-    "$phase"
-
-  run env \
-    AGENTS_REPO="$agents" \
-    CLAUDE_CONFIG_DIR="$claude" \
-    CLAUDE_PLUGIN_ROOT="$harness" \
-    bash "$phase"
-
-  [ "$status" -eq 23 ]
-  git -C "$agents" ls-files --error-unmatch claude/mcp.json >/dev/null
-  ! grep -qxF 'claude/mcp.json' "$agents/.gitignore"
-}
-
-@test "final validation regenerates MCP inventory from the custom Claude user registry" {
-  phase="$BATS_TEST_TMPDIR/mcp-final-phase.sh"
-  agents="$BATS_TEST_TMPDIR/agents"
-  claude="$BATS_TEST_TMPDIR/claude-config"
-  harness="$BATS_TEST_TMPDIR/harness"
-  input_marker="$BATS_TEST_TMPDIR/mcp-input"
-  mkdir -p "$agents" "$claude" "$harness/scripts"
-  printf '%s\n' '{"mcpServers":{"portable-memory":{"command":"sh"}}}' > "$claude/.claude.json"
-
-  extract_first_bash_block_after "## Phase 3.75:" "$phase"
-
-  for name in localize-skill-overrides.py reconcile_shared_settings.py render-codex-agents.sh link-plan.sh portability-lint.sh sync-finalize.sh; do
-    cat > "$harness/scripts/$name" <<'EOF'
-#!/usr/bin/env bash
-exit 0
-EOF
-    chmod +x "$harness/scripts/$name"
-  done
-  cat > "$harness/scripts/mcp-manifest.sh" <<'EOF'
-#!/usr/bin/env bash
-printf '%s\n' "$1" > "$MCP_INPUT_MARKER"
-exit 0
-EOF
-  chmod +x "$harness/scripts/mcp-manifest.sh"
-
-  run env \
-    AGENTS_REPO="$agents" \
-    CLAUDE_CONFIG_DIR="$claude" \
-    CLAUDE_PLUGIN_ROOT="$harness" \
-    MCP_INPUT_MARKER="$input_marker" \
-    bash "$phase"
-
-  [ "$status" -eq 0 ]
-  [ "$(cat "$input_marker")" = "$claude/.claude.json" ]
-}
-
-@test "final validation passes --prune-to-local only when the replace choice was recorded" {
-  phase="$BATS_TEST_TMPDIR/mcp-prune-phase.sh"
-  agents="$BATS_TEST_TMPDIR/agents"
-  claude="$BATS_TEST_TMPDIR/claude-config"
-  harness="$BATS_TEST_TMPDIR/harness"
-  args_marker="$BATS_TEST_TMPDIR/mcp-args"
-  mkdir -p "$agents" "$claude" "$harness/scripts"
-  printf '%s\n' '{"mcpServers":{"portable-memory":{"command":"sh"}}}' > "$claude/.claude.json"
-
-  extract_first_bash_block_after "## Phase 3.75:" "$phase"
-
-  for name in localize-skill-overrides.py reconcile_shared_settings.py render-codex-agents.sh link-plan.sh portability-lint.sh sync-finalize.sh; do
-    printf '#!/usr/bin/env bash\nexit 0\n' > "$harness/scripts/$name"
-    chmod +x "$harness/scripts/$name"
-  done
-  cat > "$harness/scripts/mcp-manifest.sh" <<'EOF'
-#!/usr/bin/env bash
-printf '%s\n' "$*" > "$MCP_ARGS_MARKER"
-exit 0
-EOF
-  chmod +x "$harness/scripts/mcp-manifest.sh"
-
-  run env AGENTS_REPO="$agents" CLAUDE_CONFIG_DIR="$claude" CLAUDE_PLUGIN_ROOT="$harness" MCP_ARGS_MARKER="$args_marker" bash "$phase"
-  [ "$status" -eq 0 ]
-  [[ "$(cat "$args_marker")" != *"--prune-to-local"* ]] || return 1
-
-  touch "$claude/.mcp-prune-to-local"
-  run env AGENTS_REPO="$agents" CLAUDE_CONFIG_DIR="$claude" CLAUDE_PLUGIN_ROOT="$harness" MCP_ARGS_MARKER="$args_marker" bash "$phase"
-  [ "$status" -eq 0 ]
-  [[ "$(cat "$args_marker")" == "--prune-to-local "*"mcp.manifest.json" ]] || return 1
-  [ ! -e "$claude/.mcp-prune-to-local" ]
-}
-
-@test "skills reconciliation rejects parseable stdout from a failed npx command" {
-  phase="$BATS_TEST_TMPDIR/skills-reconcile-phase.sh"
-  agents="$BATS_TEST_TMPDIR/agents"
-  harness="$BATS_TEST_TMPDIR/harness"
-  bin="$BATS_TEST_TMPDIR/bin"
-  reconcile_marker="$BATS_TEST_TMPDIR/reconcile-ran"
-  mkdir -p "$agents" "$harness/scripts" "$bin"
-
-  python3 - "$SKILL" "$phase" <<'PY'
-from pathlib import Path
-import re
-import sys
-
-text = Path(sys.argv[1]).read_text().split(
-    "### 1. Read the manifest, compare to reality", 1
-)[1]
-match = re.search(r"```bash\n(.*?)\n```", text, re.DOTALL)
-assert match, "Phase 2.6 reconciliation bash block is missing"
-Path(sys.argv[2]).write_text(match.group(1) + "\n")
-PY
-
-  cat > "$bin/npx" <<'EOF'
+  cat > "$BIN/npx" <<'EOF'
 #!/usr/bin/env bash
 printf '[]\n'
-exit 23
 EOF
-  chmod +x "$bin/npx"
-  cat > "$harness/scripts/skills-reconcile.sh" <<'EOF'
+  cat > "$BIN/node" <<'EOF'
 #!/usr/bin/env bash
-touch "$RECONCILE_MARKER"
+exit 0
 EOF
-  chmod +x "$harness/scripts/skills-reconcile.sh"
-
-  run env \
-    HOME="$BATS_TEST_TMPDIR/home" \
-    AGENTS_REPO="$agents" \
-    CLAUDE_PLUGIN_ROOT="$harness" \
-    RECONCILE_MARKER="$reconcile_marker" \
-    PATH="$bin:/usr/bin:/bin" \
-    /bin/bash "$phase"
-
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"SKILLS_STATE=failed"* ]] || return 1
-  [[ "$output" == *"exited non-zero"* ]] || return 1
-  [ ! -e "$reconcile_marker" ]
+  chmod +x "$BIN/claude" "$BIN/npx" "$BIN/node"
 }
 
-@test "manifest regeneration preserves the manifest when npx fails with parseable stdout" {
-  phase="$BATS_TEST_TMPDIR/skills-manifest-phase.sh"
-  agents="$BATS_TEST_TMPDIR/home/.agents"
-  bin="$BATS_TEST_TMPDIR/bin"
-  mkdir -p "$agents/skills/replacement" "$bin"
-  printf 'existing\tacme/existing\n' > "$agents/skills.manifest"
-  before="$(cat "$agents/skills.manifest")"
-
-  python3 - "$SKILL" "$phase" <<'PY'
+@test "sync skill is a short slash-only wrapper around the entry script" {
+  run python3 - "$SKILL" <<'PY'
 from pathlib import Path
 import re
 import sys
 
-text = Path(sys.argv[1]).read_text().split(
-    "### 3. Regenerate — only after step 2 has run", 1
-)[1]
-match = re.search(r"```bash\n(.*?)\n```", text, re.DOTALL)
-assert match, "Phase 2.6 manifest bash block is missing"
-block = match.group(1).replace(" <failed-name> <failed-name> ...", "")
-Path(sys.argv[2]).write_text(block + "\n")
+path = Path(sys.argv[1])
+text = path.read_text(encoding="utf-8")
+frontmatter = text.split("---\n", 2)[1]
+description = re.search(r"(?m)^description:\s*(.+)$", frontmatter).group(1).strip()
+assert len(text.splitlines()) < 150
+assert len(description) < 200
+assert re.search(r"(?m)^name:\s*sync$", frontmatter)
+assert re.search(r"(?m)^disable-model-invocation:\s*true$", frontmatter)
+assert '"$harness/scripts/sync" --dry-run' in text
+assert "SYNC_DECISION_REQUIRED" in text
 PY
+  [ "$status" -eq 0 ]
 
-  cat > "$bin/npx" <<EOF
+  run python3 - "$REPO/plugins/harness/skills/sync/agents/openai.yaml" <<'PY'
+from pathlib import Path
+import sys
+
+assert Path(sys.argv[1]).read_text() == "policy:\n  allow_implicit_invocation: false\n"
+PY
+  [ "$status" -eq 0 ]
+}
+
+@test "entry script preserves helper ordering and the single final transaction" {
+  run python3 - "$SCRIPT" <<'PY'
+from pathlib import Path
+import sys
+
+text = Path(sys.argv[1]).read_text(encoding="utf-8")
+required = (
+    "sync-preflight.sh",
+    "link-plan.sh",
+    "localize-skill-overrides.py",
+    "reconcile_shared_settings.py",
+    "render-codex-agents.sh",
+    "mcp-manifest.sh",
+    "mcp-reconcile.sh",
+    "mcp-secrets.sh",
+    "skills-reconcile.sh",
+    "skills-manifest.sh",
+    "portability-lint.sh",
+    "rubric-audit.sh",
+    "sync-finalize.sh",
+)
+for name in required:
+    assert name in text, name
+main = text.split("def main", 1)[1]
+assert main.index('"sync-preflight.sh"') < main.index("reconcile_links(")
+assert main.index('"sync-finalize.sh"') > main.index("final_mcp(")
+assert main.count('"sync-finalize.sh"') == 1
+assert "git\", \"commit" not in text
+assert "git\", \"push" not in text
+PY
+  [ "$status" -eq 0 ]
+}
+
+@test "dry run uses only temporary HOME and leaves repo and live roots unchanged" {
+  mkdir -p "$AGENTS/claude/output-styles" "$AGENTS/config/studio-moser" "$AGENTS/codex" "$AGENTS/skills"
+  git init -q -b main "$AGENTS"
+  git -C "$AGENTS" config user.email test@example.com
+  git -C "$AGENTS" config user.name "Harness Test"
+  printf '%s\n' '{"enabledPlugins":{"harness@studio-moser":true}}' > "$AGENTS/claude/settings.json"
+  printf '%s\n' '{"version":1,"servers":{}}' > "$AGENTS/mcp.manifest.json"
+  printf '%s\n' '.fleet-local.json' '.skill-lock.json' > "$AGENTS/.gitignore"
+  printf 'x\n' > "$AGENTS/claude/CLAUDE.md"
+  printf 'x\n' > "$AGENTS/claude/statusline-command.sh"
+  printf 'x\n' > "$AGENTS/claude/output-styles/style.md"
+  printf 'x\n' > "$AGENTS/config/studio-moser/config"
+  printf 'x\n' > "$AGENTS/codex/AGENTS.md"
+  git -C "$AGENTS" add .
+  git -C "$AGENTS" commit -q -m base
+
+  cat > "$BIN/npx" <<'EOF'
 #!/usr/bin/env bash
-printf '%s\n' '[{"name":"replacement","source":"acme/replacement","path":"$agents/skills/replacement"}]'
-exit 23
+printf '[]\n'
 EOF
-  chmod +x "$bin/npx"
+  cat > "$BIN/node" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+  chmod +x "$BIN/npx" "$BIN/node"
+
+  before_tree="$(git -C "$AGENTS" status --porcelain=v1 --untracked-files=all)"
+  before_head="$(git -C "$AGENTS" rev-parse HEAD)"
 
   run env \
-    HOME="$BATS_TEST_TMPDIR/home" \
-    AGENTS_REPO="$agents" \
-    CLAUDE_PLUGIN_ROOT="$REPO/plugins/harness" \
-    PATH="$bin:/usr/bin:/bin" \
-    /bin/bash "$phase"
+    HOME="$HOME_DIR" \
+    AGENTS_REPO="$AGENTS" \
+    CLAUDE_CONFIG_DIR="$HOME_DIR/.claude" \
+    XDG_CONFIG_HOME="$HOME_DIR/.config" \
+    CODEX_HOME="$HOME_DIR/.codex" \
+    PATH="$BIN:/usr/bin:/bin" \
+    "$SCRIPT" --dry-run
 
   [ "$status" -eq 0 ]
-  [[ "$output" == *"SKILLS_STATE=failed"* ]] || return 1
-  [[ "$output" == *"manifest not regenerated"* ]] || return 1
-  [ "$(cat "$agents/skills.manifest")" = "$before" ]
+  [[ "$output" == *"Harness sync dry run"* ]] || return 1
+  [[ "$output" == *"Ingest:     skipped in dry run"* ]] || return 1
+  [[ "$output" == *"Committed:  skipped in dry run"* ]] || return 1
+  [ "$(git -C "$AGENTS" rev-parse HEAD)" = "$before_head" ]
+  [ "$(git -C "$AGENTS" status --porcelain=v1 --untracked-files=all)" = "$before_tree" ]
+  [ ! -e "$HOME_DIR/.claude" ]
+  [ ! -e "$HOME_DIR/.codex" ]
+  [ ! -e "$HOME_DIR/.config" ]
+  [ ! -e "$HOME_DIR/npx-called" ]
+}
+
+@test "full entry point reconciles then performs one guarded commit and push in temporary HOME" {
+  remote="$BATS_TEST_TMPDIR/remote.git"
+  mkdir -p "$AGENTS/claude/output-styles" "$AGENTS/config/studio-moser" "$AGENTS/codex" "$AGENTS/skills"
+  git init -q --bare "$remote"
+  git init -q -b main "$AGENTS"
+  git -C "$AGENTS" config user.email test@example.com
+  git -C "$AGENTS" config user.name "Harness Test"
+  cat > "$AGENTS/claude/output-styles/House Style.md" <<'EOF'
+---
+name: House Style
+---
+
+# Local policy
+EOF
+  cat > "$AGENTS/claude/CLAUDE.md" <<'EOF'
+# Rules
+
+1. **No hallucination** — If you don't know, say so.
+2. **File naming** — Use Title Case.
+
+## Engineering discipline
+
+Keep the change small.
+
+<!-- shelby:bootstrap start -->
+## Shelby memory
+Use optional memory.
+<!-- shelby:bootstrap end -->
+EOF
+  printf '%s\n' '{"enabledPlugins":{"harness@studio-moser":true}}' > "$AGENTS/claude/settings.json"
+  printf 'exit 0\n' > "$AGENTS/claude/statusline-command.sh"
+  printf 'portable\n' > "$AGENTS/config/studio-moser/config"
+  printf 'keep\n' > "$AGENTS/skills/.keep"
+  printf 'placeholder\n' > "$AGENTS/codex/AGENTS.md"
+  printf 'machines: []\n' > "$AGENTS/machine.yml"
+  git -C "$AGENTS" add .
+  git -C "$AGENTS" commit -q -m base
+  git -C "$AGENTS" remote add origin "$remote"
+  git -C "$AGENTS" push -q -u origin main
+
+  cat > "$BIN/claude" <<'EOF'
+#!/usr/bin/env bash
+if [ "$1 $2 $3" = "plugin marketplace list" ]; then
+  printf '❯ claude-plugins-official\n'
+fi
+exit 0
+EOF
+  cat > "$BIN/npx" <<'EOF'
+#!/usr/bin/env bash
+printf '[]\n'
+EOF
+  cat > "$BIN/node" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+  chmod +x "$BIN/claude" "$BIN/npx" "$BIN/node"
+
+  run env \
+    HOME="$HOME_DIR" \
+    AGENTS_REPO="$AGENTS" \
+    CLAUDE_CONFIG_DIR="$HOME_DIR/.claude" \
+    XDG_CONFIG_HOME="$HOME_DIR/.config" \
+    CODEX_HOME="$HOME_DIR/.codex" \
+    PATH="$BIN:/usr/bin:/bin" \
+    "$SCRIPT"
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Harness sync complete"* ]] || return 1
+  [[ "$output" == *"SYNC_STATE=clean remote="* ]] || return 1
+  [ -z "$(git -C "$AGENTS" status --porcelain=v1 --untracked-files=all)" ]
+  [ "$(git -C "$AGENTS" rev-parse HEAD)" = "$(git --git-dir="$remote" rev-parse refs/heads/main)" ]
+  [ -L "$HOME_DIR/.claude/skills" ]
+  [ -L "$HOME_DIR/.codex/AGENTS.md" ]
+  [[ "$output" == *"Machines:   skipped: not requested"* ]] || return 1
+}
+
+@test "nested agents path is refused without changing the outer index or remote" {
+  outer="$BATS_TEST_TMPDIR/private-project"
+  seed="$BATS_TEST_TMPDIR/seed"
+  remote="$BATS_TEST_TMPDIR/outer.git"
+  make_sync_repo "$outer" "$remote"
+  make_sync_repo "$seed" "$BATS_TEST_TMPDIR/seed.git"
+  nested="$outer/config/agents"
+  mkdir -p "$nested/config"
+  cp -R "$seed/claude" "$seed/codex" "$seed/skills" "$nested/"
+  cp -R "$seed/config/studio-moser" "$nested/config/"
+  printf 'staged and unrelated\n' > "$outer/staged.txt"
+  printf 'untracked and unrelated\n' > "$outer/untracked.txt"
+  git -C "$outer" add staged.txt
+  before_index="$(git -C "$outer" diff --cached --binary)"
+  before_remote="$(git --git-dir="$remote" rev-parse refs/heads/main)"
+
+  run env \
+    HOME="$HOME_DIR" \
+    AGENTS_REPO="$nested" \
+    CLAUDE_CONFIG_DIR="$HOME_DIR/.claude" \
+    XDG_CONFIG_HOME="$HOME_DIR/.config" \
+    CODEX_HOME="$HOME_DIR/.codex" \
+    PATH="/usr/bin:/bin" \
+    "$SCRIPT"
+
+  [ "$status" -eq 22 ]
+  [[ "$output" == *"SYNC_REFUSED=agents repository path is nested inside another Git worktree"* ]] || return 1
+  [ "$(git -C "$outer" diff --cached --binary)" = "$before_index" ]
+  [ "$(git --git-dir="$remote" rev-parse refs/heads/main)" = "$before_remote" ]
+  [ -f "$outer/untracked.txt" ]
+}
+
+@test "occupied first-run repository is refused without explicit replacement" {
+  mkdir -p "$AGENTS"
+  printf 'keep me\n' > "$AGENTS/local.txt"
+
+  run env \
+    HOME="$HOME_DIR" \
+    AGENTS_REPO="$AGENTS" \
+    CLAUDE_CONFIG_DIR="$HOME_DIR/.claude" \
+    XDG_CONFIG_HOME="$HOME_DIR/.config" \
+    CODEX_HOME="$HOME_DIR/.codex" \
+    PATH="/usr/bin:/bin" \
+    "$SCRIPT" --source existing --repo-url "$BATS_TEST_TMPDIR/private.git"
+
+  [ "$status" -eq 22 ]
+  [[ "$output" == *"SYNC_REFUSED=repository path is occupied"* ]] || return 1
+  [ "$(cat "$AGENTS/local.txt")" = "keep me" ]
+  [ -z "$(find "$HOME_DIR" -maxdepth 1 -name 'agents-config-backup-*.tar.gz' -print -quit)" ]
+}
+
+@test "missing first-run source exits with the typed decision code and writes nothing" {
+  run env \
+    HOME="$HOME_DIR" \
+    AGENTS_REPO="$AGENTS" \
+    CLAUDE_CONFIG_DIR="$HOME_DIR/.claude" \
+    XDG_CONFIG_HOME="$HOME_DIR/.config" \
+    CODEX_HOME="$HOME_DIR/.codex" \
+    PATH="/usr/bin:/bin" \
+    "$SCRIPT"
+
+  [ "$status" -eq 20 ]
+  [[ "$output" == *"SYNC_DECISION_REQUIRED=first-run source of truth"* ]] || return 1
+  [ ! -e "$AGENTS" ]
+}
+
+@test "replacement refuses root home live roots and every overlap before backup" {
+  run python3 - "$SCRIPT" "$HOME_DIR" <<'PY'
+from importlib.machinery import SourceFileLoader
+from pathlib import Path
+import sys
+
+sync = SourceFileLoader("harness_sync", sys.argv[1]).load_module()
+home = Path(sys.argv[2])
+roots = {"claude": home / ".claude", "config": home / ".config", "codex": home / ".codex"}
+targets = [
+    Path("/"), home, home.parent,
+    roots["claude"], roots["claude"] / "nested",
+    roots["config"], roots["config"] / "nested",
+    roots["codex"], roots["codex"] / "nested",
+    home / ".config-parent",
+]
+for target in targets[:-1]:
+    try:
+        sync.validate_repo_replacement(target, home, roots)
+    except sync.Stop as error:
+        assert error.code == 22, (target, error.code)
+    else:
+        raise AssertionError(f"accepted dangerous target {target}")
+sync.validate_repo_replacement(targets[-1], home, roots)
+PY
+  [ "$status" -eq 0 ]
+  [ -z "$(find "$HOME_DIR" -maxdepth 1 -name 'agents-config-backup-*.tar.gz' -print -quit)" ]
+}
+
+@test "secure backup is mode 0600 includes git repo and legacy MCP and removes a failed partial" {
+  mkdir -p "$AGENTS/.git" "$HOME_DIR/.claude"
+  printf 'repo data\n' > "$AGENTS/work.txt"
+  printf 'secret\n' > "$HOME_DIR/.claude/mcp.json"
+  run env HOME="$HOME_DIR" python3 - "$SCRIPT" "$HOME_DIR" "$AGENTS" <<'PY'
+from importlib.machinery import SourceFileLoader
+from pathlib import Path
+import os, stat, sys, tarfile
+
+sync = SourceFileLoader("harness_sync", sys.argv[1]).load_module()
+home, repo = map(Path, sys.argv[2:])
+archive = sync.backup_live(home, home / ".claude", home / ".config", home / ".codex", repo)
+assert stat.S_IMODE(archive.stat().st_mode) == 0o600
+with tarfile.open(archive) as bundle:
+    names = bundle.getnames()
+assert "claude/mcp.json" in names
+assert "agents-repo/work.txt" in names
+
+original = sync.tarfile.open
+def fail_open(*args, **kwargs):
+    fileobj = kwargs["fileobj"]
+    assert stat.S_IMODE(os.fstat(fileobj.fileno()).st_mode) == 0o600
+    raise OSError("injected archive failure")
+sync.tarfile.open = fail_open
+try:
+    sync.backup_live(home, home / ".claude", home / ".config", home / ".codex", repo)
+except sync.Stop as error:
+    assert error.code == 1
+else:
+    raise AssertionError("injected failure did not propagate")
+finally:
+    sync.tarfile.open = original
+assert not list(home.glob(".agents-config-backup-*.tar.gz.*"))
+PY
+  [ "$status" -eq 0 ]
+}
+
+@test "repository backup preserves an external directory symlink without archiving its contents" {
+  outside="$BATS_TEST_TMPDIR/outside"
+  mkdir -p "$AGENTS" "$outside"
+  printf 'must stay outside\n' > "$outside/private-key"
+  ln -s "$outside" "$AGENTS/secrets"
+
+  run env HOME="$HOME_DIR" python3 - "$SCRIPT" "$HOME_DIR" "$AGENTS" <<'PY'
+from importlib.machinery import SourceFileLoader
+from pathlib import Path
+import sys, tarfile
+
+sync = SourceFileLoader("harness_sync", sys.argv[1]).load_module()
+home, repo = map(Path, sys.argv[2:])
+archive = sync.backup_live(home, home / ".claude", home / ".config", home / ".codex", repo)
+with tarfile.open(archive) as bundle:
+    member = bundle.getmember("agents-repo/secrets")
+    assert member.issym()
+    assert "agents-repo/secrets/private-key" not in bundle.getnames()
+PY
+  [ "$status" -eq 0 ]
+}
+
+@test "concurrent backup publication never overwrites a colliding final name" {
+  mkdir -p "$AGENTS"
+  printf 'repo data\n' > "$AGENTS/work.txt"
+
+  run env HOME="$HOME_DIR" python3 - "$SCRIPT" "$HOME_DIR" "$AGENTS" <<'PY'
+from importlib.machinery import SourceFileLoader
+from pathlib import Path
+import sys, threading
+
+sync = SourceFileLoader("harness_sync", sys.argv[1]).load_module()
+home, repo = map(Path, sys.argv[2:])
+barrier = threading.Barrier(2)
+original_mkstemp = sync.tempfile.mkstemp
+
+class FixedDatetime:
+    @classmethod
+    def now(cls):
+        return cls()
+
+    def strftime(self, _format):
+        return "20260102-030405"
+
+def synchronized_mkstemp(*args, **kwargs):
+    result = original_mkstemp(*args, **kwargs)
+    barrier.wait(timeout=5)
+    return result
+
+sync.datetime = FixedDatetime
+sync.tempfile.mkstemp = synchronized_mkstemp
+existing = home / "agents-config-backup-20260102-030405.tar.gz"
+existing.write_bytes(b"pre-existing backup")
+archives = []
+errors = []
+
+def create_backup():
+    try:
+        archives.append(sync.backup_live(home, home / ".claude", home / ".config", home / ".codex", repo))
+    except BaseException as error:
+        errors.append(error)
+
+threads = [threading.Thread(target=create_backup) for _ in range(2)]
+for thread in threads:
+    thread.start()
+for thread in threads:
+    thread.join(timeout=10)
+assert all(not thread.is_alive() for thread in threads)
+assert not errors, errors
+assert len(set(archives)) == 2, archives
+assert existing.read_bytes() == b"pre-existing backup"
+assert len(list(home.glob("agents-config-backup-20260102-030405*.tar.gz"))) == 3
+PY
+  [ "$status" -eq 0 ]
+}
+
+@test "clone failure preserves clean occupied repo live link and remote SHA" {
+  old_remote="$BATS_TEST_TMPDIR/old.git"
+  git init -q --bare "$old_remote"
+  git init -q -b main "$AGENTS"
+  git -C "$AGENTS" config user.email test@example.com
+  git -C "$AGENTS" config user.name "Harness Test"
+  printf 'old\n' > "$AGENTS/kept.txt"
+  git -C "$AGENTS" add kept.txt
+  git -C "$AGENTS" commit -q -m old
+  git -C "$AGENTS" remote add origin "$old_remote"
+  git -C "$AGENTS" push -q -u origin main
+  old_sha="$(git -C "$AGENTS" rev-parse HEAD)"
+  mkdir -p "$HOME_DIR/.claude"
+  ln -s "$AGENTS/kept.txt" "$HOME_DIR/.claude/CLAUDE.md"
+
+  run env HOME="$HOME_DIR" AGENTS_REPO="$AGENTS" CLAUDE_CONFIG_DIR="$HOME_DIR/.claude" XDG_CONFIG_HOME="$HOME_DIR/.config" CODEX_HOME="$HOME_DIR/.codex" PATH="/usr/bin:/bin" \
+    "$SCRIPT" --source existing --repo-url "$BATS_TEST_TMPDIR/missing.git" --replace-repo-path
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"existing repository was left unchanged"* ]] || return 1
+  [ "$(git -C "$AGENTS" rev-parse HEAD)" = "$old_sha" ]
+  [ "$(git --git-dir="$old_remote" rev-parse refs/heads/main)" = "$old_sha" ]
+  [ "$(cat "$HOME_DIR/.claude/CLAUDE.md")" = old ]
+}
+
+@test "injected staged-swap failure restores the occupied repository" {
+  new_remote="$BATS_TEST_TMPDIR/new.git"
+  seed="$BATS_TEST_TMPDIR/seed"
+  git init -q --bare "$new_remote"
+  git init -q -b main "$seed"
+  git -C "$seed" config user.email test@example.com
+  git -C "$seed" config user.name "Harness Test"
+  printf 'new\n' > "$seed/new.txt"
+  git -C "$seed" add new.txt
+  git -C "$seed" commit -q -m new
+  git -C "$seed" remote add origin "$new_remote"
+  git -C "$seed" push -q origin main
+  mkdir -p "$AGENTS"
+  printf 'old\n' > "$AGENTS/old.txt"
+
+  run python3 - "$SCRIPT" "$new_remote" "$AGENTS" <<'PY'
+from importlib.machinery import SourceFileLoader
+from pathlib import Path
+import sys
+
+sync = SourceFileLoader("harness_sync", sys.argv[1]).load_module()
+remote, repo = sys.argv[2], Path(sys.argv[3])
+original = sync.os.replace
+def injected(source, target):
+    source, target = Path(source), Path(target)
+    if target == repo and ".clone." in source.name:
+        raise OSError("injected swap failure")
+    return original(source, target)
+sync.os.replace = injected
+try:
+    sync.clone_and_replace(remote, repo)
+except sync.Stop as error:
+    assert error.code == 1
+else:
+    raise AssertionError("injected swap failure did not propagate")
+assert (repo / "old.txt").read_text() == "old\n"
+assert not (repo / "new.txt").exists()
+assert not list(repo.parent.glob(f".{repo.name}.clone.*"))
+PY
+  [ "$status" -eq 0 ]
+}
+
+@test "injected live-link swap failure restores the original path" {
+  live="$HOME_DIR/.claude/settings.json"
+  want="$AGENTS/claude/settings.json"
+  mkdir -p "$(dirname "$live")" "$(dirname "$want")"
+  printf 'live\n' > "$live"
+  printf 'repo\n' > "$want"
+
+  run python3 - "$SCRIPT" "$live" "$want" <<'PY'
+from importlib.machinery import SourceFileLoader
+from pathlib import Path
+import sys
+
+sync = SourceFileLoader("harness_sync", sys.argv[1]).load_module()
+live, want = map(Path, sys.argv[2:])
+original = sync.os.replace
+def injected(source, target):
+    source, target = Path(source), Path(target)
+    if target == live and ".link." in source.name:
+        raise OSError("injected link failure")
+    return original(source, target)
+sync.os.replace = injected
+try:
+    sync.replace_with_symlink(live, want)
+except sync.Stop as error:
+    assert error.code == 1
+else:
+    raise AssertionError("injected link failure did not propagate")
+assert not live.is_symlink()
+assert live.read_text() == "live\n"
+assert not list(live.parent.glob(".settings.json.link.*"))
+assert not list(live.parent.glob(".settings.json.old.*"))
+PY
+  [ "$status" -eq 0 ]
+}
+
+@test "startup refuses crash-left swap artifacts and preserves every artifact" {
+  physical_home="$(cd "$HOME_DIR" && pwd -P)"
+  canonical_agents="$physical_home/.agents"
+  previous="$physical_home/..agents.previous-4242"
+  clone="$physical_home/..agents.clone.crashed"
+  old_live="$physical_home/.claude/.settings.json.old.crashed"
+  mkdir -p "$previous" "$clone" "$(dirname "$old_live")"
+  printf 'old repository\n' > "$previous/kept.txt"
+  printf 'staged clone\n' > "$clone/kept.txt"
+  printf 'old live settings\n' > "$old_live"
+
+  run env \
+    HOME="$HOME_DIR" \
+    AGENTS_REPO="$canonical_agents" \
+    CLAUDE_CONFIG_DIR="$HOME_DIR/.claude" \
+    XDG_CONFIG_HOME="$HOME_DIR/.config" \
+    CODEX_HOME="$HOME_DIR/.codex" \
+    PATH="/usr/bin:/bin" \
+    "$SCRIPT" --dry-run
+
+  [ "$status" -eq 21 ]
+  [[ "$output" == *"SYNC_CONFLICT=incomplete swap artifacts"* ]] || return 1
+  [[ "$output" == *"$previous (canonical missing: $canonical_agents)"* ]] || return 1
+  [[ "$output" == *"$clone (canonical missing: $canonical_agents)"* ]] || return 1
+  [[ "$output" == *"$old_live (canonical missing: $physical_home/.claude/settings.json)"* ]] || return 1
+  [ "$(cat "$previous/kept.txt")" = "old repository" ]
+  [ "$(cat "$clone/kept.txt")" = "staged clone" ]
+  [ "$(cat "$old_live")" = "old live settings" ]
+  [ ! -e "$canonical_agents" ]
+  [ ! -e "$physical_home/.claude/settings.json" ]
+}
+
+@test "replacement refuses dirty and unpushed git repositories" {
+  old_remote="$BATS_TEST_TMPDIR/old.git"
+  git init -q --bare "$old_remote"
+  git init -q -b main "$AGENTS"
+  git -C "$AGENTS" config user.email test@example.com
+  git -C "$AGENTS" config user.name "Harness Test"
+  printf 'base\n' > "$AGENTS/work.txt"
+  git -C "$AGENTS" add work.txt
+  git -C "$AGENTS" commit -q -m base
+  git -C "$AGENTS" remote add origin "$old_remote"
+  git -C "$AGENTS" push -q -u origin main
+  printf 'dirty\n' >> "$AGENTS/work.txt"
+
+  run env HOME="$HOME_DIR" AGENTS_REPO="$AGENTS" CLAUDE_CONFIG_DIR="$HOME_DIR/.claude" XDG_CONFIG_HOME="$HOME_DIR/.config" CODEX_HOME="$HOME_DIR/.codex" PATH="/usr/bin:/bin" \
+    "$SCRIPT" --source existing --repo-url "$BATS_TEST_TMPDIR/new.git" --replace-repo-path
+  [ "$status" -eq 22 ]
+  [[ "$output" == *"uncommitted work"* ]] || return 1
+
+  git -C "$AGENTS" add work.txt
+  git -C "$AGENTS" commit -q -m local
+  run env HOME="$HOME_DIR" AGENTS_REPO="$AGENTS" CLAUDE_CONFIG_DIR="$HOME_DIR/.claude" XDG_CONFIG_HOME="$HOME_DIR/.config" CODEX_HOME="$HOME_DIR/.codex" PATH="/usr/bin:/bin" \
+    "$SCRIPT" --source existing --repo-url "$BATS_TEST_TMPDIR/new.git" --replace-repo-path
+  [ "$status" -eq 22 ]
+  [[ "$output" == *"unpushed commits"* ]] || return 1
+  [ "$(cat "$AGENTS/work.txt")" = $'base\ndirty' ]
+}
+
+@test "dry run never invokes npx and returns failed for invalid shared settings" {
+  remote="$BATS_TEST_TMPDIR/remote.git"
+  make_sync_repo "$AGENTS" "$remote"
+  printf '{invalid\n' > "$AGENTS/claude/settings.json"
+  cat > "$BIN/npx" <<EOF
+#!/usr/bin/env bash
+touch "$HOME_DIR/npx-called"
+exit 99
+EOF
+  chmod +x "$BIN/npx"
+  before="$(git -C "$AGENTS" status --porcelain=v1 --untracked-files=all)"
+
+  run env HOME="$HOME_DIR" AGENTS_REPO="$AGENTS" CLAUDE_CONFIG_DIR="$HOME_DIR/.claude" XDG_CONFIG_HOME="$HOME_DIR/.config" CODEX_HOME="$HOME_DIR/.codex" PATH="$BIN:/usr/bin:/bin" "$SCRIPT" --dry-run
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"SETTINGS_STATE=failed"* ]] || return 1
+  [ ! -e "$HOME_DIR/npx-called" ]
+  [ "$(git -C "$AGENTS" status --porcelain=v1 --untracked-files=all)" = "$before" ]
+}
+
+@test "symlinked default agents store still runs installed-only skill inventory" {
+  actual="$BATS_TEST_TMPDIR/actual-agents"
+  remote="$BATS_TEST_TMPDIR/remote.git"
+  make_sync_repo "$actual" "$remote"
+  ln -s "$actual" "$AGENTS"
+  cat > "$BIN/skills" <<EOF
+#!/usr/bin/env bash
+touch "$HOME_DIR/skills-called"
+printf '[]\n'
+EOF
+  chmod +x "$BIN/skills"
+
+  run env HOME="$HOME_DIR" AGENTS_REPO="$AGENTS" CLAUDE_CONFIG_DIR="$HOME_DIR/.claude" XDG_CONFIG_HOME="$HOME_DIR/.config" CODEX_HOME="$HOME_DIR/.codex" PATH="$BIN:/usr/bin:/bin" "$SCRIPT" --dry-run
+
+  [ "$status" -eq 0 ]
+  [ -e "$HOME_DIR/skills-called" ]
+  [[ "$output" == *"Skills:     0 plan item(s)"* ]] || return 1
+}
+
+@test "skill decision after local mutation leaves remote unchanged and is recoverable" {
+  remote="$BATS_TEST_TMPDIR/remote.git"
+  make_sync_repo "$AGENTS" "$remote"
+  install_sync_stubs
+  cat > "$BIN/npx" <<EOF
+#!/usr/bin/env bash
+printf '[{"name":"extra","source":"owner/repo","path":"$AGENTS/skills/extra"}]\n'
+EOF
+  chmod +x "$BIN/npx"
+  initial_remote="$(git --git-dir="$remote" rev-parse refs/heads/main)"
+
+  run env HOME="$HOME_DIR" AGENTS_REPO="$AGENTS" CLAUDE_CONFIG_DIR="$HOME_DIR/.claude" XDG_CONFIG_HOME="$HOME_DIR/.config" CODEX_HOME="$HOME_DIR/.codex" PATH="$BIN:/usr/bin:/bin" "$SCRIPT"
+
+  [ "$status" -eq 20 ]
+  [[ "$output" == *"extra: --add-skill, --remove-skill, or --keep-local-skill"* ]] || return 1
+  [ "$(git --git-dir="$remote" rev-parse refs/heads/main)" = "$initial_remote" ]
+  [ -L "$HOME_DIR/.claude/skills" ]
+
+  run env HOME="$HOME_DIR" AGENTS_REPO="$AGENTS" CLAUDE_CONFIG_DIR="$HOME_DIR/.claude" XDG_CONFIG_HOME="$HOME_DIR/.config" CODEX_HOME="$HOME_DIR/.codex" PATH="$BIN:/usr/bin:/bin" "$SCRIPT" --keep-local-skill extra
+
+  [ "$status" -eq 0 ]
+  [ "$(git -C "$AGENTS" rev-parse HEAD)" = "$(git --git-dir="$remote" rev-parse refs/heads/main)" ]
+}
+
+@test "MCP replace without a runtime registry fails explicitly" {
+  mkdir -p "$AGENTS"
+  run python3 - "$SCRIPT" "$AGENTS" <<'PY'
+from importlib.machinery import SourceFileLoader
+from pathlib import Path
+import sys
+
+sync = SourceFileLoader("harness_sync", sys.argv[1]).load_module()
+try:
+    sync.final_mcp(Path(sys.argv[2]), Path(sys.argv[2]) / "missing.json", Path(sys.argv[1]).parent, prune_to_local=True)
+except sync.Stop as error:
+    assert error.code == 1
+    assert "without a runtime registry" in error.message
+else:
+    raise AssertionError("replace silently ignored a missing registry")
+PY
+  [ "$status" -eq 0 ]
+}
+
+@test "failed MCP replace leaves no marker and later merge preserves other-machine servers" {
+  remote="$BATS_TEST_TMPDIR/remote.git"
+  make_sync_repo "$AGENTS" "$remote"
+  install_sync_stubs
+  cat > "$AGENTS/mcp.manifest.json" <<'EOF'
+{"version":1,"servers":{"shared":{"command":"true","machines":["other"]}}}
+EOF
+  printf '%s\n' '{"skipInstall":[],"keepLocal":[],"skipMcp":[],"keepLocalMcp":["extra"]}' > "$AGENTS/.fleet-local.json"
+  printf 'path: /Users/alice/private\n' > "$AGENTS/bad.md"
+  git -C "$AGENTS" add mcp.manifest.json bad.md
+  git -C "$AGENTS" commit -q -m mcp
+  git -C "$AGENTS" push -q
+  initial_remote="$(git --git-dir="$remote" rev-parse refs/heads/main)"
+  mkdir -p "$HOME_DIR/.claude"
+  touch "$HOME_DIR/.claude/.mcp-prune-to-local"
+  cat > "$HOME_DIR/.claude/.claude.json" <<'EOF'
+{"mcpServers":{"extra":{"command":"true"}}}
+EOF
+
+  run env HOME="$HOME_DIR" AGENTS_REPO="$AGENTS" CLAUDE_CONFIG_DIR="$HOME_DIR/.claude" XDG_CONFIG_HOME="$HOME_DIR/.config" CODEX_HOME="$HOME_DIR/.codex" PATH="$BIN:/usr/bin:/bin" \
+    "$SCRIPT" --mcp-mode replace --confirm-mcp-replace
+  [ "$status" -eq 20 ]
+  [[ "$output" == *"portability lint findings"* ]] || return 1
+  [ ! -e "$HOME_DIR/.claude/.mcp-prune-to-local" ]
+  [ "$(git --git-dir="$remote" rev-parse refs/heads/main)" = "$initial_remote" ]
+
+  rm "$AGENTS/bad.md"
+  run env HOME="$HOME_DIR" AGENTS_REPO="$AGENTS" CLAUDE_CONFIG_DIR="$HOME_DIR/.claude" XDG_CONFIG_HOME="$HOME_DIR/.config" CODEX_HOME="$HOME_DIR/.codex" PATH="$BIN:/usr/bin:/bin" \
+    "$SCRIPT" --mcp-mode merge
+  [ "$status" -eq 0 ]
+  run python3 - "$AGENTS/mcp.manifest.json" <<'PY'
+import json, sys
+servers = json.load(open(sys.argv[1]))["servers"]
+assert "shared" in servers
+PY
+  [ "$status" -eq 0 ]
+  [ ! -e "$HOME_DIR/.claude/.mcp-prune-to-local" ]
+  [ "$(git -C "$AGENTS" rev-parse HEAD)" = "$(git --git-dir="$remote" rev-parse refs/heads/main)" ]
 }

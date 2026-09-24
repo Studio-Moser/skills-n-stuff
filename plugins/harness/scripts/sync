@@ -1,0 +1,1027 @@
+#!/usr/bin/env python3
+"""Synchronize a personal agents repository without guessing user decisions."""
+
+from __future__ import annotations
+
+import argparse
+import filecmp
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import socket
+import stat
+import subprocess
+import sys
+import tarfile
+import tempfile
+from datetime import datetime
+from typing import Iterable
+
+
+EXIT_FAILED = 1
+EXIT_USAGE = 2
+EXIT_DECISION = 20
+EXIT_CONFLICT = 21
+EXIT_REFUSED = 22
+
+LINKS = (
+    ("skills", "skills", "claude"),
+    ("output-styles", "claude/output-styles", "claude"),
+    ("CLAUDE.md", "claude/CLAUDE.md", "claude"),
+    ("settings.json", "claude/settings.json", "claude"),
+    ("statusline-command.sh", "claude/statusline-command.sh", "claude"),
+    ("studio-moser", "config/studio-moser", "config"),
+    ("AGENTS.md", "codex/AGENTS.md", "codex"),
+)
+
+
+class Stop(Exception):
+    def __init__(self, code: int, message: str) -> None:
+        super().__init__(message)
+        self.code = code
+        self.message = message
+
+
+def run(
+    command: list[str],
+    *,
+    check: bool = True,
+    input_text: str | None = None,
+    capture: bool = True,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    result = subprocess.run(
+        command,
+        input=input_text,
+        text=True,
+        capture_output=capture,
+        env=env,
+    )
+    if capture:
+        if result.stdout:
+            print(result.stdout, end="")
+        if result.stderr:
+            print(result.stderr, end="", file=sys.stderr)
+    if check and result.returncode:
+        raise Stop(EXIT_FAILED, f"command failed ({result.returncode}): {command[0]}")
+    return result
+
+
+def helper(scripts: Path, name: str) -> str:
+    path = scripts / name
+    if not path.is_file():
+        raise Stop(EXIT_FAILED, f"SYNC_STATE=failed: missing helper {path}")
+    return str(path)
+
+
+def load_object(path: Path, *, missing: bool = False) -> dict:
+    if missing and not path.exists():
+        return {}
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        if missing:
+            return {}
+        raise
+    except (OSError, json.JSONDecodeError) as error:
+        raise Stop(EXIT_FAILED, f"SYNC_STATE=failed: cannot read {path}: {type(error).__name__}") from error
+    if not isinstance(value, dict):
+        raise Stop(EXIT_FAILED, f"SYNC_STATE=failed: {path} must contain a JSON object")
+    return value
+
+
+def write_json_atomic(path: Path, value: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    mode = path.stat().st_mode & 0o777 if path.exists() else 0o600
+    fd, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            json.dump(value, handle, indent=2, ensure_ascii=False)
+            handle.write("\n")
+        os.chmod(temporary, mode)
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def add_override(repo: Path, kind: str, name: str) -> None:
+    path = repo / ".fleet-local.json"
+    data = load_object(path, missing=True)
+    for key in ("skipInstall", "keepLocal", "skipMcp", "keepLocalMcp"):
+        values = data.setdefault(key, [])
+        if not isinstance(values, list) or any(not isinstance(item, str) for item in values):
+            raise Stop(EXIT_FAILED, f"SYNC_STATE=failed: {path} {key} must be a list of strings")
+    if name not in data[kind]:
+        data[kind].append(name)
+        data[kind].sort()
+        write_json_atomic(path, data)
+
+
+def path_for(root: str, name: str, roots: dict[str, Path]) -> Path:
+    return roots[root] / name
+
+
+def parse_link_plan(output: str) -> list[tuple[str, str, str]]:
+    entries = []
+    for line in output.splitlines():
+        match = re.match(r"^(\S.*?)\s+->\s+(\S+)\s+(ok|ABSENT|REAL-FILE|MISSING-IN-REPO|RELINK\(->.*\))$", line)
+        if not match:
+            continue
+        entries.append((match.group(1).strip(), match.group(2), match.group(3)))
+    if len(entries) != len(LINKS):
+        raise Stop(EXIT_FAILED, "SYNC_STATE=failed: link-plan.sh returned an unrecognized plan")
+    return entries
+
+
+def read_link_plan(scripts: Path, repo: Path) -> tuple[list[tuple[str, str, str]], str]:
+    result = run([helper(scripts, "link-plan.sh"), str(repo)], check=False)
+    if result.returncode not in (0, 1):
+        raise Stop(EXIT_FAILED, "SYNC_STATE=failed: link plan failed")
+    return parse_link_plan(result.stdout), result.stdout
+
+
+def backup_live(home: Path, claude: Path, config: Path, codex: Path, repo: Path) -> Path:
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    basename = f"agents-config-backup-{timestamp}"
+    roots = {"claude": claude, "config": config, "codex": codex}
+    fd, temporary_name = tempfile.mkstemp(prefix=f".{basename}.tar.gz.", dir=home)
+    temporary = Path(temporary_name)
+    archive: Path | None = None
+    try:
+        os.fchmod(fd, stat.S_IRUSR | stat.S_IWUSR)
+        with os.fdopen(fd, "wb") as handle:
+            fd = -1
+            with tarfile.open(fileobj=handle, mode="w:gz", dereference=False) as bundle:
+                bundle.dereference = True
+                for name, _rel, root in LINKS:
+                    live = path_for(root, name, roots)
+                    if live.exists() or live.is_symlink():
+                        bundle.add(live, arcname=f"{root}/{name}")
+                legacy = claude / "mcp.json"
+                if legacy.exists() or legacy.is_symlink():
+                    bundle.add(legacy, arcname="claude/mcp.json")
+                bundle.dereference = False
+                if repo.exists():
+                    bundle.add(repo, arcname="agents-repo")
+            handle.flush()
+            os.fsync(handle.fileno())
+        suffix = 0
+        while True:
+            suffix_text = "" if suffix == 0 else f"-{suffix}"
+            candidate = home / f"{basename}{suffix_text}.tar.gz"
+            try:
+                os.link(temporary, candidate)
+            except FileExistsError:
+                suffix += 1
+                continue
+            archive = candidate
+            temporary.unlink()
+            break
+    except Exception as error:
+        if fd >= 0:
+            os.close(fd)
+        temporary.unlink(missing_ok=True)
+        raise Stop(EXIT_FAILED, "SYNC_STATE=failed: backup creation failed; nothing was replaced") from error
+    assert archive is not None
+    print(f"BACKUP_STATE=created {archive}")
+    return archive
+
+
+def paths_overlap(first: Path, second: Path) -> bool:
+    return first == second or first in second.parents or second in first.parents
+
+
+def git_repository_root(path: Path) -> Path | None:
+    result = subprocess.run(
+        ["git", "-C", str(path), "rev-parse", "--show-toplevel"],
+        text=True,
+        capture_output=True,
+    )
+    if result.returncode or not result.stdout.strip():
+        return None
+    return Path(result.stdout.strip()).resolve()
+
+
+def is_git_repository(path: Path) -> bool:
+    root = git_repository_root(path)
+    return root is not None and root == path.resolve()
+
+
+def refuse_nested_repository(repo: Path) -> None:
+    root = git_repository_root(repo)
+    if root is not None and root != repo.resolve():
+        raise Stop(
+            EXIT_REFUSED,
+            f"SYNC_REFUSED=agents repository path is nested inside another Git worktree: {repo} (top-level: {root})",
+        )
+
+
+def refuse_incomplete_swaps(repo: Path, roots: dict[str, Path]) -> None:
+    artifacts: list[tuple[Path, Path]] = []
+    if repo.parent.is_dir():
+        for pattern in (f".{repo.name}.previous-*", f".{repo.name}.clone.*"):
+            artifacts.extend((path, repo) for path in repo.parent.glob(pattern))
+    for name, _rel, root in LINKS:
+        live = path_for(root, name, roots)
+        if not live.parent.is_dir():
+            continue
+        for pattern in (f".{live.name}.old.*", f".{live.name}.link.*"):
+            artifacts.extend((path, live) for path in live.parent.glob(pattern))
+    if not artifacts:
+        return
+    details = []
+    for artifact, canonical in sorted(artifacts, key=lambda item: str(item[0])):
+        state = "present" if canonical.exists() or canonical.is_symlink() else "missing"
+        details.append(f"{artifact} (canonical {state}: {canonical})")
+    raise Stop(EXIT_CONFLICT, "SYNC_CONFLICT=incomplete swap artifacts: " + "; ".join(details))
+
+
+def validate_repo_replacement(repo: Path, home: Path, roots: dict[str, Path]) -> None:
+    resolved = repo.resolve()
+    if resolved == Path("/"):
+        raise Stop(EXIT_REFUSED, "SYNC_REFUSED=repository replacement target cannot be /")
+    resolved_home = home.resolve()
+    if resolved == resolved_home or resolved in resolved_home.parents:
+        raise Stop(EXIT_REFUSED, f"SYNC_REFUSED=repository replacement target overlaps protected home root: {repo}")
+    for name, configured in roots.items():
+        path = configured.resolve()
+        if paths_overlap(resolved, path):
+            raise Stop(
+                EXIT_REFUSED,
+                f"SYNC_REFUSED=repository replacement target overlaps protected {name} root: {repo}",
+            )
+    if not is_git_repository(repo):
+        return
+    dirty = run(["git", "-C", str(repo), "status", "--porcelain", "--untracked-files=all"], check=False)
+    if dirty.returncode or dirty.stdout:
+        raise Stop(EXIT_REFUSED, "SYNC_REFUSED=occupied repository has uncommitted work; preserve it before replacement")
+    head = run(["git", "-C", str(repo), "rev-parse", "--verify", "HEAD"], check=False)
+    if head.returncode:
+        return
+    upstream = run(["git", "-C", str(repo), "rev-parse", "--verify", "@{upstream}"], check=False)
+    if upstream.returncode:
+        raise Stop(EXIT_REFUSED, "SYNC_REFUSED=occupied repository has commits without an upstream; preserve them before replacement")
+    ahead = run(["git", "-C", str(repo), "rev-list", "--count", "@{upstream}..HEAD"], check=False)
+    if ahead.returncode or ahead.stdout.strip() != "0":
+        raise Stop(EXIT_REFUSED, "SYNC_REFUSED=occupied repository has unpushed commits; push or preserve them before replacement")
+
+
+def clone_and_replace(repo_url: str, repo: Path) -> None:
+    repo.parent.mkdir(parents=True, exist_ok=True)
+    staged = Path(tempfile.mkdtemp(prefix=f".{repo.name}.clone.", dir=repo.parent))
+    previous = repo.with_name(f".{repo.name}.previous-{os.getpid()}")
+    moved_previous = False
+    try:
+        staged.rmdir()
+        result = run(["git", "clone", repo_url, str(staged)], check=False)
+        if result.returncode or not (staged / ".git").is_dir():
+            raise Stop(EXIT_FAILED, "SYNC_STATE=failed: clone failed; existing repository was left unchanged")
+        if repo.exists() or repo.is_symlink():
+            # ponytail: this is a non-atomic two-rename swap; upgrade to macOS
+            # renameatx_np(RENAME_SWAP) or a recovery journal for automatic repair.
+            os.replace(repo, previous)
+            moved_previous = True
+        try:
+            os.replace(staged, repo)
+        except Exception:
+            if moved_previous:
+                os.replace(previous, repo)
+                moved_previous = False
+            raise
+        if moved_previous:
+            try:
+                remove_live(previous)
+            except OSError:
+                print(f"SYNC_WARNING=replaced repository retained at {previous}", file=sys.stderr)
+            moved_previous = False
+    except Stop:
+        raise
+    except OSError as error:
+        raise Stop(EXIT_FAILED, "SYNC_STATE=failed: repository swap failed; existing repository was restored") from error
+    finally:
+        if moved_previous and not (repo.exists() or repo.is_symlink()):
+            os.replace(previous, repo)
+        if staged.exists() or staged.is_symlink():
+            remove_live(staged)
+
+
+def same_path(first: Path, second: Path) -> bool:
+    try:
+        return first.samefile(second)
+    except OSError:
+        return first.resolve() == second.resolve()
+
+
+def copy_contents(source: Path, target: Path) -> None:
+    if source.resolve() == target.resolve():
+        return
+    if source.is_dir():
+        target.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(source, target, dirs_exist_ok=True, symlinks=True)
+    else:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+
+
+def first_run(
+    args: argparse.Namespace,
+    repo: Path,
+    roots: dict[str, Path],
+    runtime_mcp: Path,
+    scripts: Path,
+) -> tuple[bool, Path]:
+    if args.dry_run:
+        raise Stop(EXIT_DECISION, "SYNC_DECISION_REQUIRED=repo absent; choose --source existing or --source loose for a full run")
+    if not args.source:
+        raise Stop(EXIT_DECISION, "SYNC_DECISION_REQUIRED=first-run source of truth: pass --source existing or --source loose")
+    if args.source == "existing":
+        if not args.repo_url:
+            raise Stop(EXIT_DECISION, "SYNC_DECISION_REQUIRED=pass the exact private repository URL with --repo-url")
+    elif not args.remote_url or not args.confirm_private_remote:
+        raise Stop(
+            EXIT_DECISION,
+            "SYNC_DECISION_REQUIRED=loose adoption needs --remote-url and --confirm-private-remote",
+        )
+    if args.source == "existing" and repo.exists() and any(repo.iterdir()) and not args.replace_repo_path:
+        raise Stop(
+            EXIT_REFUSED,
+            f"SYNC_REFUSED=repository path is occupied; pass --replace-repo-path to back up and replace {repo}",
+        )
+    if args.source == "existing":
+        validate_repo_replacement(repo, Path.home(), roots)
+    backup = backup_live(Path.home(), roots["claude"], roots["config"], roots["codex"], repo)
+    if args.source == "existing":
+        clone_and_replace(args.repo_url, repo)
+        return True, backup
+
+    claude_skills = roots["claude"] / "skills"
+    repo_skills = repo / "skills"
+    if claude_skills.exists() and repo_skills.exists() and claude_skills.resolve() != repo_skills.resolve():
+        compared = run(["diff", "-ru", str(repo_skills), str(claude_skills)], check=False)
+        if compared.stderr or compared.returncode not in (0, 1):
+            raise Stop(EXIT_CONFLICT, "SYNC_CONFLICT=duplicate skill stores could not be compared safely")
+        if compared.returncode == 1:
+            raise Stop(EXIT_CONFLICT, "SYNC_CONFLICT=duplicate skill stores differ; resolve the winning content, then rerun")
+    repo.mkdir(parents=True, exist_ok=True)
+    run(["git", "init", "-b", "main", str(repo)])
+    run(["git", "-C", str(repo), "remote", "add", "origin", args.remote_url])
+    branch = run(["git", "-C", str(repo), "ls-remote", "--heads", "origin", "refs/heads/main"], check=False)
+    if branch.returncode:
+        raise Stop(EXIT_FAILED, "SYNC_STATE=failed: remote authentication failed; rerun without changing protocols")
+    if branch.stdout.strip():
+        raise Stop(EXIT_REFUSED, "SYNC_REFUSED=remote main already exists; use --source existing instead")
+    return True, backup
+
+
+def adopt_loose(repo: Path, roots: dict[str, Path], runtime_mcp: Path, scripts: Path) -> None:
+    claude = roots["claude"]
+    live_settings = claude / "settings.json"
+    if live_settings.exists():
+        run([helper(scripts, "localize-skill-overrides.py"), str(live_settings), str(claude / "settings.local.json")])
+    for name, rel, root in LINKS:
+        if name == "AGENTS.md":
+            continue
+        source = path_for(root, name, roots)
+        if source.exists() or source.is_symlink():
+            copy_contents(source, repo / rel)
+    for directory in (repo / "skills", repo / "claude", repo / "config/studio-moser", repo / "codex"):
+        directory.mkdir(parents=True, exist_ok=True)
+    if runtime_mcp.is_file():
+        run([helper(scripts, "mcp-manifest.sh"), str(runtime_mcp), str(repo / "mcp.manifest.json")])
+
+
+def compare_paths(want: Path, live: Path) -> int:
+    command = ["diff", "-ru" if want.is_dir() and live.is_dir() else "-u", str(want), str(live)]
+    result = subprocess.run(command, text=True, capture_output=True)
+    if result.stderr:
+        print(result.stderr, end="", file=sys.stderr)
+        raise Stop(EXIT_REFUSED, f"SYNC_REFUSED=comparison incomplete for {live}; nothing was replaced")
+    if result.returncode not in (0, 1):
+        raise Stop(EXIT_REFUSED, f"SYNC_REFUSED=diff failed for {live}; nothing was replaced")
+    if result.stdout:
+        print(result.stdout, end="")
+    return result.returncode
+
+
+def remove_live(path: Path) -> None:
+    if path.is_symlink() or path.is_file():
+        path.unlink()
+    elif path.is_dir():
+        shutil.rmtree(path)
+
+
+def replace_with_symlink(live: Path, want: Path, *, retain: Path | None = None) -> None:
+    live.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary_name = tempfile.mkstemp(prefix=f".{live.name}.link.", dir=live.parent)
+    os.close(fd)
+    temporary = Path(temporary_name)
+    temporary.unlink()
+    temporary.symlink_to(want)
+    displaced = retain
+    if displaced is None:
+        displaced = Path(tempfile.mkdtemp(prefix=f".{live.name}.old.", dir=live.parent))
+        displaced.rmdir()
+    moved = False
+    try:
+        if live.exists() or live.is_symlink():
+            # ponytail: this is a non-atomic two-rename swap; upgrade to macOS
+            # renameatx_np(RENAME_SWAP) or a recovery journal for automatic repair.
+            os.replace(live, displaced)
+            moved = True
+        try:
+            os.replace(temporary, live)
+        except OSError:
+            if moved:
+                os.replace(displaced, live)
+                moved = False
+            raise
+        if moved and retain is None:
+            try:
+                remove_live(displaced)
+            except OSError:
+                print(f"SYNC_WARNING=replaced live path retained at {displaced}", file=sys.stderr)
+        moved = False
+    except OSError as error:
+        raise Stop(EXIT_FAILED, f"SYNC_STATE=failed: could not safely link {live}; original path was restored") from error
+    finally:
+        temporary.unlink(missing_ok=True)
+        if moved and not (live.exists() or live.is_symlink()):
+            os.replace(displaced, live)
+
+
+def reconcile_links(
+    args: argparse.Namespace,
+    repo: Path,
+    roots: dict[str, Path],
+    scripts: Path,
+) -> tuple[int, int, list[str]]:
+    plan, _ = read_link_plan(scripts, repo)
+    by_name = {name: (rel, root) for name, rel, root in LINKS}
+    relinked = 0
+    attention: list[str] = []
+    for name, rel, state in plan:
+        expected_rel, root = by_name[name]
+        if rel != expected_rel:
+            raise Stop(EXIT_FAILED, f"SYNC_STATE=failed: unexpected link target for {name}")
+        live = path_for(root, name, roots)
+        want = repo / rel
+        if state == "ok":
+            continue
+        if state == "MISSING-IN-REPO":
+            attention.append(f"{name}: missing in repository")
+            continue
+        if state == "ABSENT":
+            replace_with_symlink(live, want)
+            relinked += 1
+            continue
+        if state.startswith("RELINK"):
+            if name not in args.relink and not args.relink_all:
+                raise Stop(EXIT_DECISION, f"SYNC_DECISION_REQUIRED={name} points elsewhere; pass --relink {name} or --relink-all")
+            replace_with_symlink(live, want)
+            relinked += 1
+            continue
+        difference = compare_paths(want, live)
+        if name == "AGENTS.md":
+            if name not in args.discard_live:
+                raise Stop(
+                    EXIT_DECISION,
+                    "SYNC_DECISION_REQUIRED=AGENTS.md is derived; preserve unique text in House Style.md or CLAUDE.md, then pass --discard-live AGENTS.md",
+                )
+            backup = live.with_name(f"{live.name}.bak-{datetime.now().date().isoformat()}")
+            counter = 1
+            while backup.exists():
+                backup = live.with_name(f"{live.name}.bak-{datetime.now().date().isoformat()}-{counter}")
+                counter += 1
+            replace_with_symlink(live, want, retain=backup)
+        elif difference == 0:
+            replace_with_symlink(live, want)
+        elif name in args.keep_live:
+            if name == "settings.json":
+                run([helper(scripts, "localize-skill-overrides.py"), str(live), str(roots["claude"] / "settings.local.json")])
+            copy_contents(live, want)
+            if name == "studio-moser":
+                ignore = repo / ".gitignore"
+                line = "config/studio-moser/*.bak*"
+                current = ignore.read_text(encoding="utf-8") if ignore.exists() else ""
+                if line not in current.splitlines():
+                    ignore.write_text(current + ("" if not current or current.endswith("\n") else "\n") + line + "\n", encoding="utf-8")
+            replace_with_symlink(live, want)
+        elif name in args.discard_live:
+            replace_with_symlink(live, want)
+        else:
+            raise Stop(
+                EXIT_DECISION,
+                f"SYNC_DECISION_REQUIRED={name} differs; pass --keep-live {name} or --discard-live {name}",
+            )
+        if not live.is_symlink():
+            raise Stop(EXIT_FAILED, f"SYNC_STATE=failed: link replacement did not create {live}")
+        relinked += 1
+    return len(plan) - relinked - len(attention), relinked, attention
+
+
+def reconcile_settings(repo: Path, claude: Path, scripts: Path, *, check: bool) -> bool:
+    settings = repo / "claude/settings.json"
+    if not settings.exists():
+        return True
+    if check:
+        return run([helper(scripts, "reconcile_shared_settings.py"), "--check", str(settings)], check=False).returncode == 0
+    run([helper(scripts, "localize-skill-overrides.py"), str(settings), str(claude / "settings.local.json")])
+    run([helper(scripts, "reconcile_shared_settings.py"), str(settings)])
+    return True
+
+
+def render(repo: Path, scripts: Path) -> str:
+    result = run([helper(scripts, "render-codex-agents.sh"), str(repo)], check=False)
+    if result.returncode:
+        raise Stop(EXIT_FAILED, "SYNC_STATE=failed: derived AGENTS.md render failed")
+    return next((line.partition("=")[2] for line in result.stdout.splitlines() if line.startswith("RENDER_STATE=")), "unknown")
+
+
+def reconcile_mcp_manifest(repo: Path, claude: Path, runtime_mcp: Path, scripts: Path) -> str:
+    legacy = claude / "mcp.json"
+    if legacy.is_symlink():
+        temporary = Path(tempfile.mkstemp(prefix=".mcp.json.migrate.", dir=claude)[1])
+        try:
+            shutil.copy2(legacy.resolve(), temporary)
+            legacy.unlink()
+            os.replace(temporary, legacy)
+        finally:
+            temporary.unlink(missing_ok=True)
+    state = "not configured"
+    if runtime_mcp.is_file():
+        result = run([helper(scripts, "mcp-manifest.sh"), str(runtime_mcp), str(repo / "mcp.manifest.json")])
+        state = next((line.partition("=")[2] for line in result.stdout.splitlines() if line.startswith("MCP_MANIFEST_STATE=")), "written")
+    ignore = repo / ".gitignore"
+    current = ignore.read_text(encoding="utf-8") if ignore.exists() else ""
+    if "claude/mcp.json" not in current.splitlines():
+        ignore.write_text(current + ("" if not current or current.endswith("\n") else "\n") + "claude/mcp.json\n", encoding="utf-8")
+    run(["git", "-C", str(repo), "rm", "--cached", "claude/mcp.json", "--ignore-unmatch", "-q"])
+    return state
+
+
+def plugin_reconcile(repo: Path, claude: Path) -> tuple[str, list[str]]:
+    if shutil.which("claude") is None:
+        return "skipped: claude CLI not on PATH", ["claude CLI not on PATH"]
+    shared = load_object(repo / "claude/settings.json", missing=True)
+    local = load_object(claude / "settings.local.json", missing=True)
+    marketplaces = shared.get("extraKnownMarketplaces", {})
+    enabled = dict(shared.get("enabledPlugins", {}))
+    enabled.update(local.get("enabledPlugins", {}))
+    findings: list[str] = []
+
+    def names(command: list[str]) -> tuple[set[str], str | None]:
+        result = run(command, check=False)
+        if result.returncode:
+            return set(), f"running {' '.join(command)} exited {result.returncode}"
+        return set(re.findall(r"❯\s+(\S+)", result.stdout)), None
+
+    have_marketplaces, marketplace_error = names(["claude", "plugin", "marketplace", "list"])
+    if marketplace_error:
+        return f"failed: {marketplace_error}", [f"plugin inventory failed: {marketplace_error}"]
+    have_plugins, plugin_error = names(["claude", "plugin", "list"])
+    if plugin_error:
+        return f"failed: {plugin_error}", [f"plugin inventory failed: {plugin_error}"]
+    added = installed = updated = 0
+    for name, config in marketplaces.items():
+        if name in have_marketplaces:
+            continue
+        source = config.get("source", {}).get("repo") if isinstance(config, dict) else None
+        if not source:
+            continue
+        result = run(["claude", "plugin", "marketplace", "add", source], check=False)
+        if result.returncode:
+            findings.append(f"marketplace add failed: {name} ({source})")
+        else:
+            added += 1
+            have_marketplaces.add(name)
+    for name, on in enabled.items():
+        if not on or name in have_plugins:
+            continue
+        result = run(["claude", "plugin", "install", name], check=False)
+        if result.returncode:
+            findings.append(f"plugin install failed: {name}")
+        else:
+            installed += 1
+            have_plugins.add(name)
+    result = run(["claude", "plugin", "marketplace", "update"], check=False)
+    if result.returncode:
+        findings.append("marketplace update failed")
+    for name, on in enabled.items():
+        if not on or name not in have_plugins:
+            continue
+        result = run(["claude", "plugin", "update", name], check=False)
+        if result.returncode:
+            findings.append(f"plugin update failed: {name}")
+        elif "updated from" in (result.stdout + result.stderr):
+            updated += 1
+    for name in sorted(have_marketplaces - set(marketplaces) - {"claude-plugins-official"}):
+        findings.append(f"orphan marketplace: {name} — remove with: claude plugin marketplace remove {name}")
+    state = "up to date" if not any((added, installed, updated)) else f"added {added} marketplace(s), installed {installed}, updated {updated} — restart or /reload-plugins to apply"
+    return state, findings
+
+
+def mcp_plan(repo: Path, claude: Path, runtime_mcp: Path, scripts: Path) -> tuple[list[tuple[str, ...]], str]:
+    manifest = repo / "mcp.manifest.json"
+    if manifest.exists():
+        run([helper(scripts, "mcp-manifest.sh"), "--check", str(manifest)])
+    if not runtime_mcp.is_file():
+        print("MCP_STATE=not configured")
+    registry = runtime_mcp if runtime_mcp.is_file() else Path("/dev/null")
+    result = run([helper(scripts, "mcp-reconcile.sh"), str(repo), str(registry), str(claude / "settings.local.json")])
+    kinds = {"INSTALL", "NO-CONFIG", "SKIP", "EXTRA", "KEEP-LOCAL", "NEEDS-SECRET", "UNRESOLVED"}
+    plan = []
+    for line in result.stdout.splitlines():
+        fields = tuple(line.split("\t"))
+        if fields and fields[0] in kinds:
+            plan.append(fields)
+    return plan, result.stdout
+
+
+def install_mcp(repo: Path, name: str) -> bool:
+    manifest = load_object(repo / "mcp.manifest.json")
+    entry = dict(manifest["servers"][name])
+    entry.pop("machines", None)
+    result = run(["claude", "mcp", "add-json", "-s", "user", name, json.dumps(entry, separators=(",", ":"))], check=False)
+    return result.returncode == 0
+
+
+def apply_mcp(args: argparse.Namespace, plan: list[tuple[str, ...]], repo: Path, claude: Path, runtime_mcp: Path, scripts: Path) -> tuple[list[str], bool]:
+    findings: list[str] = []
+    prune_to_local = False
+    installs = [line[1] for line in plan if line[0] == "INSTALL"]
+    extras = [line[1] for line in plan if line[0] == "EXTRA"]
+    no_config = [line[1] for line in plan if line[0] == "NO-CONFIG"]
+    if installs or extras or no_config:
+        if not args.mcp_mode:
+            raise Stop(EXIT_DECISION, "SYNC_DECISION_REQUIRED=MCP plan requires --mcp-mode match, replace, or merge")
+        if args.mcp_mode == "replace":
+            if not args.confirm_mcp_replace:
+                raise Stop(EXIT_REFUSED, "SYNC_REFUSED=--mcp-mode replace requires --confirm-mcp-replace")
+            prune_to_local = True
+        else:
+            for name in installs:
+                if not install_mcp(repo, name):
+                    findings.append(f"MCP install failed: {name}")
+            if args.mcp_mode == "match":
+                for name in extras:
+                    if name in args.remove_mcp:
+                        if run(["claude", "mcp", "remove", "-s", "user", name], check=False).returncode:
+                            findings.append(f"MCP remove failed: {name}")
+                    elif name in args.keep_local_mcp:
+                        add_override(repo, "keepLocalMcp", name)
+                    else:
+                        raise Stop(EXIT_DECISION, f"SYNC_DECISION_REQUIRED=extra MCP {name}; pass --remove-mcp {name} or --keep-local-mcp {name}")
+    plan, _ = mcp_plan(repo, claude, runtime_mcp, scripts)
+    unresolved = [line[1] for line in plan if line[0] == "UNRESOLVED"]
+    live_servers = load_object(runtime_mcp, missing=True).get("mcpServers", {})
+    needs_secret = [
+        (line[1], line[2])
+        for line in plan
+        if line[0] == "NEEDS-SECRET" and line[1] in live_servers
+    ]
+    if needs_secret:
+        if not args.mcp_secrets_file:
+            names = ", ".join(f"{name}:{variable}" for name, variable in needs_secret)
+            raise Stop(EXIT_DECISION, f"SYNC_DECISION_REQUIRED=MCP secrets needed ({names}); pass --mcp-secrets-file PATH")
+        secret_text = Path(args.mcp_secrets_file).read_text(encoding="utf-8")
+        run([helper(scripts, "mcp-secrets.sh"), "import", str(runtime_mcp)], input_text=secret_text)
+        plan, _ = mcp_plan(repo, claude, runtime_mcp, scripts)
+        needs_secret = [(line[1], line[2]) for line in plan if line[0] == "NEEDS-SECRET"]
+        findings.extend(f"{name} needs secret {variable}" for name, variable in needs_secret)
+    if unresolved:
+        for name in unresolved:
+            if name in args.skip_mcp:
+                if run(["claude", "mcp", "remove", "-s", "user", name], check=False).returncode:
+                    findings.append(f"MCP remove failed: {name}")
+                else:
+                    add_override(repo, "skipMcp", name)
+            elif name in args.keep_unresolved_mcp:
+                findings.append(f"{name} command unavailable on this machine")
+            else:
+                raise Stop(EXIT_DECISION, f"SYNC_DECISION_REQUIRED=unresolved MCP {name}; pass --skip-mcp {name} or --keep-unresolved-mcp {name}")
+    findings.extend(f"MCP {name} has no portable config" for name in no_config)
+    return findings, prune_to_local
+
+
+def skill_listing(*, installed_only: bool = False) -> str:
+    if installed_only:
+        executable = shutil.which("skills")
+        if executable is None:
+            raise Stop(EXIT_FAILED, "SKILLS_STATE=skipped: installed skills executable not on PATH")
+        command = [executable, "list", "-g", "--json"]
+    else:
+        command = ["npx", "skills", "list", "-g", "--json"]
+    result = run(command, check=False)
+    if result.returncode:
+        raise Stop(EXIT_FAILED, f"SKILLS_STATE=failed: {' '.join(command)} exited non-zero")
+    try:
+        json.loads(result.stdout)
+    except json.JSONDecodeError as error:
+        raise Stop(EXIT_FAILED, "SKILLS_STATE=failed: npx skills list -g --json produced no parseable output") from error
+    return result.stdout
+
+
+def skills_plan(repo: Path, scripts: Path, *, installed_only: bool = False) -> list[tuple[str, ...]]:
+    listing = skill_listing(installed_only=installed_only)
+    result = run([helper(scripts, "skills-reconcile.sh"), str(repo)], input_text=listing)
+    kinds = {"INSTALL", "SKIP-INSTALL", "EXTRA", "KEEP-LOCAL"}
+    return [tuple(line.split("\t")) for line in result.stdout.splitlines() if line.split("\t", 1)[0] in kinds]
+
+
+def migrate_skill_lock(repo: Path) -> None:
+    ignore = repo / ".gitignore"
+    current = ignore.read_text(encoding="utf-8") if ignore.exists() else ""
+    lines = current.splitlines()
+    for line in (".fleet-local.json", ".skill-lock.json"):
+        if line not in lines:
+            current += ("" if not current or current.endswith("\n") else "\n") + line + "\n"
+            lines.append(line)
+    ignore.write_text(current, encoding="utf-8")
+    run(["git", "-C", str(repo), "add", ".gitignore"])
+    run(["git", "-C", str(repo), "rm", "--cached", ".skill-lock.json", "--ignore-unmatch", "-q"])
+
+
+def apply_skills(args: argparse.Namespace, configured_repo: Path, repo: Path, scripts: Path) -> tuple[str, list[str]]:
+    migrate_skill_lock(repo)
+    if shutil.which("npx") is None or shutil.which("node") is None:
+        return "skipped: npx/node not on PATH", []
+    if not same_path(configured_repo, Path.home() / ".agents"):
+        return "skipped: repo is not $HOME/.agents", []
+    plan = skills_plan(repo, scripts)
+    missing = []
+    for line in plan:
+        kind, name = line[:2]
+        if kind == "INSTALL" and name not in args.install_skill and name not in args.skip_skill:
+            missing.append(f"{name}: --install-skill or --skip-skill")
+        elif kind == "EXTRA" and name not in args.add_skill and name not in args.remove_skill and name not in args.keep_local_skill:
+            missing.append(f"{name}: --add-skill, --remove-skill, or --keep-local-skill")
+    if missing:
+        raise Stop(EXIT_DECISION, "SYNC_DECISION_REQUIRED=skill choices: " + "; ".join(missing))
+    findings: list[str] = []
+    failed_installs: list[str] = []
+    for line in plan:
+        kind, name = line[:2]
+        if kind == "INSTALL":
+            source = line[2]
+            if name in args.skip_skill:
+                add_override(repo, "skipInstall", name)
+            elif run(["npx", "skills", "add", source, "-s", name, "-a", "claude-code", "-g", "-y"], check=False).returncode:
+                failed_installs.append(name)
+                findings.append(f"skill install failed: {name} ({source})")
+        elif kind == "EXTRA":
+            if name in args.remove_skill:
+                if run(["npx", "skills", "remove", name, "-a", "claude-code", "-g", "-y"], check=False).returncode:
+                    findings.append(f"skill remove failed: {name}")
+            elif name in args.keep_local_skill:
+                add_override(repo, "keepLocal", name)
+    listing = skill_listing()
+    run([helper(scripts, "skills-manifest.sh"), str(repo), *failed_installs], input_text=listing)
+    declared = sum(1 for line in (repo / "skills.manifest").read_text(encoding="utf-8").splitlines() if line)
+    return f"{declared} declared; reconciled", findings
+
+
+def deviations(repo: Path, first: str, second: str) -> str:
+    data = load_object(repo / ".fleet-local.json", missing=True)
+    parts = []
+    for key in (first, second):
+        values = data.get(key, [])
+        if values:
+            parts.append(f"{key} {', '.join(values)}")
+    return " | ".join(parts) if parts else "none"
+
+
+def dry_run(args: argparse.Namespace, configured_repo: Path, repo: Path, roots: dict[str, Path], runtime_mcp: Path, scripts: Path) -> int:
+    plan, _ = read_link_plan(scripts, repo)
+    valid = reconcile_settings(repo, roots["claude"], scripts, check=True)
+    manifest = repo / "mcp.manifest.json"
+    if manifest.exists():
+        valid = run([helper(scripts, "mcp-manifest.sh"), "--check", str(manifest)], check=False).returncode == 0 and valid
+    mcp, _ = mcp_plan(repo, roots["claude"], runtime_mcp, scripts)
+    tracked = run(["git", "-C", str(repo), "ls-files", "--error-unmatch", ".skill-lock.json"], check=False)
+    print("SKILL_LOCK_STATE=tracked" if tracked.returncode == 0 else "SKILL_LOCK_STATE=not tracked")
+    ignore = repo / ".gitignore"
+    ignored = ignore.read_text(encoding="utf-8").splitlines() if ignore.exists() else []
+    for line in (".fleet-local.json", ".skill-lock.json"):
+        print(f"SKILL_IGNORE_STATE={'present' if line in ignored else 'missing'} {line}")
+    skill_state = "skipped: installed skills executable not on PATH"
+    if shutil.which("skills"):
+        if same_path(configured_repo, Path.home() / ".agents"):
+            try:
+                skills = skills_plan(repo, scripts, installed_only=True)
+                skill_state = f"{len(skills)} plan item(s)"
+            except Stop as error:
+                skill_state = error.message.partition(": ")[2] or error.message
+        else:
+            skill_state = "skipped: repo is not $HOME/.agents"
+    lint = run([helper(scripts, "portability-lint.sh"), str(repo)], check=False)
+    rubric = run([helper(scripts, "rubric-audit.sh"), "--days", "7"], check=False)
+    valid = lint.returncode == 0 and rubric.returncode in (0, 3) and valid
+    attention = sum(1 for _name, _rel, state in plan if state != "ok")
+    print(f"Harness sync dry run — {repo}")
+    print(f"  Links:      {len(plan) - attention} ok, 0 relinked, {attention} need attention")
+    print("  Derived:    [skipped in dry run]")
+    print("  Committed:  skipped in dry run")
+    print("  Ingest:     skipped in dry run")
+    print("  Push:       skipped in dry run")
+    print("  Final:      read-only preview")
+    print("  Plugins:    skipped in dry run")
+    print(f"  MCP:        {len(mcp)} plan item(s)")
+    print(f"  MCP local deviations: {deviations(repo, 'skipMcp', 'keepLocalMcp')}")
+    print(f"  Skills:     {skill_state}")
+    print(f"  Skills local deviations: {deviations(repo, 'skipInstall', 'keepLocal')}")
+    print(f"  Lint:       {'clean' if lint.returncode == 0 else 'findings'}")
+    print(f"  Rubric:     {'clean' if rubric.returncode == 0 else 'findings'}")
+    return 0 if valid else EXIT_FAILED
+
+
+def final_mcp(repo: Path, runtime_mcp: Path, scripts: Path, *, prune_to_local: bool) -> None:
+    if not runtime_mcp.is_file():
+        if prune_to_local:
+            raise Stop(EXIT_FAILED, "SYNC_STATE=failed: cannot replace MCP manifest without a runtime registry")
+        return
+    command = [helper(scripts, "mcp-manifest.sh")]
+    if prune_to_local:
+        command.append("--prune-to-local")
+    command.extend((str(runtime_mcp), str(repo / "mcp.manifest.json")))
+    run(command)
+
+
+def prepare_machine_push(args: argparse.Namespace, repo: Path) -> None:
+    if not args.push_machines:
+        return
+    machine = repo / "machine.yml"
+    legacy = repo / "fleet.yml"
+    if not machine.exists() and legacy.exists():
+        if not args.rename_fleet_config:
+            raise Stop(EXIT_DECISION, "SYNC_DECISION_REQUIRED=fleet.yml is legacy; pass --rename-fleet-config to rename it")
+        legacy.rename(machine)
+    if not machine.exists():
+        return
+
+
+def push_machines(args: argparse.Namespace, repo: Path) -> str:
+    if not args.push_machines:
+        return "skipped: not requested"
+    machine = repo / "machine.yml"
+    if not machine.exists():
+        return "not configured"
+    if shutil.which("yq") is None:
+        raise Stop(EXIT_FAILED, "SYNC_STATE=failed: yq not found; install it to use machine push")
+    result = run(["yq", "-r", ".machines[].host", str(machine)])
+    hosts = [line for line in result.stdout.splitlines() if line]
+    reached = []
+    unreachable = []
+    for host in hosts:
+        pulled = run(
+            ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=8", host, 'cd "${AGENTS_REPO:-$HOME/.agents}" && git pull --ff-only'],
+            check=False,
+        )
+        (reached if pulled.returncode == 0 else unreachable).append(host)
+    suffix = f"; unreachable: {', '.join(unreachable)}" if unreachable else ""
+    return f"pulled {len(reached)}/{len(hosts)} machine(s){suffix}; a pull is not a relink"
+
+
+def parser() -> argparse.ArgumentParser:
+    result = argparse.ArgumentParser(description=__doc__)
+    result.add_argument("--dry-run", action="store_true")
+    result.add_argument("--source", choices=("existing", "loose"))
+    result.add_argument("--repo-url")
+    result.add_argument("--remote-url")
+    result.add_argument("--confirm-private-remote", action="store_true")
+    result.add_argument("--replace-repo-path", action="store_true")
+    result.add_argument("--relink", action="append", default=[], metavar="NAME")
+    result.add_argument("--relink-all", action="store_true")
+    result.add_argument("--keep-live", action="append", default=[], metavar="NAME")
+    result.add_argument("--discard-live", action="append", default=[], metavar="NAME")
+    result.add_argument("--mcp-mode", choices=("match", "replace", "merge"))
+    result.add_argument("--confirm-mcp-replace", action="store_true")
+    result.add_argument("--remove-mcp", action="append", default=[], metavar="NAME")
+    result.add_argument("--keep-local-mcp", action="append", default=[], metavar="NAME")
+    result.add_argument("--skip-mcp", action="append", default=[], metavar="NAME")
+    result.add_argument("--keep-unresolved-mcp", action="append", default=[], metavar="NAME")
+    result.add_argument("--mcp-secrets-file")
+    result.add_argument("--install-skill", action="append", default=[], metavar="NAME")
+    result.add_argument("--skip-skill", action="append", default=[], metavar="NAME")
+    result.add_argument("--add-skill", action="append", default=[], metavar="NAME")
+    result.add_argument("--remove-skill", action="append", default=[], metavar="NAME")
+    result.add_argument("--keep-local-skill", action="append", default=[], metavar="NAME")
+    result.add_argument("--rename-fleet-config", action="store_true")
+    result.add_argument("--push-machines", action="store_true")
+    return result
+
+
+def main(argv: list[str]) -> int:
+    args = parser().parse_args(argv)
+    home = Path.home()
+    configured_repo = Path(os.environ.get("AGENTS_REPO", home / ".agents")).expanduser()
+    repo = configured_repo.resolve()
+    claude = Path(os.environ.get("CLAUDE_CONFIG_DIR", home / ".claude")).expanduser().resolve()
+    config = Path(os.environ.get("XDG_CONFIG_HOME", home / ".config")).expanduser().resolve()
+    codex = Path(os.environ.get("CODEX_HOME", home / ".codex")).expanduser().resolve()
+    roots = {"claude": claude, "config": config, "codex": codex}
+    runtime_mcp = (claude / ".claude.json") if "CLAUDE_CONFIG_DIR" in os.environ else (home / ".claude.json")
+    scripts = Path(__file__).resolve().parent
+    legacy_mcp_marker = claude / ".mcp-prune-to-local"
+    refuse_incomplete_swaps(repo, roots)
+    refuse_nested_repository(repo)
+    if not args.dry_run:
+        legacy_mcp_marker.unlink(missing_ok=True)
+    try:
+        return sync(args, configured_repo, repo, roots, runtime_mcp, scripts)
+    finally:
+        if not args.dry_run:
+            legacy_mcp_marker.unlink(missing_ok=True)
+
+
+def sync(
+    args: argparse.Namespace,
+    configured_repo: Path,
+    repo: Path,
+    roots: dict[str, Path],
+    runtime_mcp: Path,
+    scripts: Path,
+) -> int:
+    first = (args.source == "existing" and args.replace_repo_path) or not is_git_repository(repo)
+    adopted = False
+    backup: Path | None = None
+    if first:
+        first, backup = first_run(args, repo, roots, runtime_mcp, scripts)
+        adopted = args.source == "loose"
+    if args.dry_run:
+        return dry_run(args, configured_repo, repo, roots, runtime_mcp, scripts)
+    preflight = run([helper(scripts, "sync-preflight.sh"), str(repo)])
+    ingest = next((line.partition("state=")[2].split()[0] for line in preflight.stdout.splitlines() if "state=" in line), "ready")
+    prepare_machine_push(args, repo)
+    if adopted:
+        adopt_loose(repo, roots, runtime_mcp, scripts)
+    ok, relinked, attention = reconcile_links(args, repo, roots, scripts)
+    reconcile_settings(repo, roots["claude"], scripts, check=False)
+    derived = render(repo, scripts)
+    # A missing derived target may now exist; reconcile links once more.
+    if any(item.startswith("AGENTS.md:") for item in attention):
+        _ok2, relinked2, attention2 = reconcile_links(args, repo, roots, scripts)
+        relinked += relinked2
+        attention = attention2
+    mcp_state = reconcile_mcp_manifest(repo, roots["claude"], runtime_mcp, scripts)
+    plugin_state, findings = plugin_reconcile(repo, roots["claude"])
+    plan, _ = mcp_plan(repo, roots["claude"], runtime_mcp, scripts)
+    mcp_findings, prune_to_local = apply_mcp(args, plan, repo, roots["claude"], runtime_mcp, scripts)
+    findings.extend(mcp_findings)
+    skills_state, skill_findings = apply_skills(args, configured_repo, repo, scripts)
+    findings.extend(skill_findings)
+    lint = run([helper(scripts, "portability-lint.sh"), str(repo)], check=False)
+    if lint.returncode:
+        raise Stop(EXIT_DECISION, "SYNC_DECISION_REQUIRED=portability lint findings require an explicit fix or decline before push")
+    rubric = run([helper(scripts, "rubric-audit.sh"), "--days", "7"], check=False)
+    if rubric.returncode not in (0, 1, 3):
+        findings.append(f"rubric audit failed with exit {rubric.returncode}")
+    elif rubric.returncode == 1:
+        findings.append("rubric audit found unset or haiku dispatches")
+    elif rubric.returncode == 3:
+        findings.append("rubric audit skipped: python3 not on PATH")
+    reconcile_settings(repo, roots["claude"], scripts, check=False)
+    final_mcp(repo, runtime_mcp, scripts, prune_to_local=prune_to_local)
+    derived = render(repo, scripts)
+    final_links, _ = read_link_plan(scripts, repo)
+    unresolved_links = [name for name, _rel, state in final_links if state != "ok"]
+    if unresolved_links:
+        raise Stop(EXIT_CONFLICT, "SYNC_CONFLICT=link reconciliation incomplete: " + ", ".join(unresolved_links))
+    run([helper(scripts, "portability-lint.sh"), str(repo)])
+    message = f"harness: sync from {socket.gethostname().split('.')[0]} — reconciled portable agent config"
+    finalized = run([helper(scripts, "sync-finalize.sh"), str(repo), message])
+    final_state = next((line.partition("=")[2] for line in finalized.stdout.splitlines() if line.startswith("SYNC_STATE=")), "failed: no final proof")
+    machine_state = push_machines(args, repo)
+    status = "complete" if not findings else f"completed with {len(findings)} unresolved finding(s)"
+    print(f"Harness sync {status} — {repo}")
+    print(f"  Links:      {ok} ok, {relinked} relinked, {len(attention)} need attention")
+    print(f"  Derived:    codex/AGENTS.md {derived}")
+    print(f"  Committed:  finalized by sync-finalize.sh")
+    print(f"  Ingest:     {ingest}")
+    print(f"  Push:       exactly one guarded repository push")
+    print(f"  Final:      {final_state}")
+    print(f"  Plugins:    {plugin_state}")
+    print(f"  MCP:        {mcp_state}; {len(plan)} plan item(s)")
+    print(f"  MCP local deviations: {deviations(repo, 'skipMcp', 'keepLocalMcp')}")
+    print(f"  Skills:     {skills_state}")
+    print(f"  Skills local deviations: {deviations(repo, 'skipInstall', 'keepLocal')}")
+    print("  Lint:       clean")
+    print(f"  Rubric:     {'clean' if rubric.returncode == 0 else 'findings'}")
+    print(f"  Machines:   {machine_state}")
+    if backup:
+        print(f"  Backup:     {backup}")
+        print("  Restart running agent sessions after verifying the links.")
+        print("  Schedule /harness:sync with your existing scheduler if you want daily drift detection.")
+    for finding in findings:
+        print(f"UNRESOLVED={finding}")
+    return EXIT_FAILED if findings or attention else 0
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main(sys.argv[1:]))
+    except Stop as error:
+        print(error.message, file=sys.stderr)
+        raise SystemExit(error.code)

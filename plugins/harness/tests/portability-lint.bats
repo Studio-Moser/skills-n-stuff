@@ -102,3 +102,56 @@ commit_all() {
   [ "$status" -eq 1 ]
   [[ "$output" == *"bad.md"* ]]
 }
+
+@test "guarded optional command hooks pass" {
+  mkdir -p claude
+  cat > claude/settings.json <<'EOF'
+{"hooks":{"PreToolUse":[{"hooks":[{"type":"command","command":"[ -x \"$HOME/.tool/bin/hook\" ] && \"$HOME/.tool/bin/hook\" args || true"}]}]}}
+EOF
+  commit_all
+  run "$SCRIPT" "$REPO"
+  [ "$status" -eq 0 ]
+}
+
+@test "each canonical guard form passes only when it invokes the matched executable" {
+  mkdir -p claude
+  cat > claude/settings.json <<'EOF'
+{"hooks":{"PreToolUse":[{"hooks":[
+  {"type":"command","command":"[ -x \"$HOME/.tool/bin/hook\" ] && \"$HOME/.tool/bin/hook\" args"},
+  {"type":"command","command":"test -x \"$HOME/.tool/bin/hook\" && \"$HOME/.tool/bin/hook\" args"},
+  {"type":"command","command":"command -v hook >/dev/null 2>&1 && hook args"}
+]}]}}
+EOF
+  commit_all
+  run "$SCRIPT" "$REPO"
+  [ "$status" -eq 0 ]
+}
+
+@test "compound mismatched and unrelated guards do not protect optional commands" {
+  mkdir -p claude
+  cat > claude/settings.json <<'EOF'
+{"hooks":{"PreToolUse":[{"hooks":[
+  {"type":"command","command":"echo ready; \"$HOME/.tool/bin/hook\""},
+  {"type":"command","command":"if command -v true; then \"$HOME/.tool/bin/hook\"; fi"},
+  {"type":"command","command":"[ -x \"$HOME/.tool/bin/other\" ] && \"$HOME/.tool/bin/hook\""}
+]}]}}
+EOF
+  commit_all
+  run "$SCRIPT" "$REPO"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *'echo ready; "$HOME/.tool/bin/hook"'* ]] || return 1
+  [[ "$output" == *'if command -v true; then "$HOME/.tool/bin/hook"; fi'* ]] || return 1
+  [[ "$output" == *'other" ] && "$HOME/.tool/bin/hook'* ]] || return 1
+}
+
+@test "unguarded optional command hooks fail" {
+  mkdir -p claude
+  cat > claude/settings.json <<'EOF'
+{"hooks":{"PreToolUse":[{"hooks":[{"type":"command","command":"$HOME/.tool/bin/hook args"}]}]}}
+EOF
+  commit_all
+  run "$SCRIPT" "$REPO"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"unguarded command hook"* ]]
+  [[ "$output" == *"hooks.PreToolUse[0].hooks[0]"* ]]
+}

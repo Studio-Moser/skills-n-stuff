@@ -42,8 +42,8 @@ Skills load those references only at the branch where their rules apply. This RE
 
 PM is a workflow consumer of the [Harness contract](../harness/references/harness-contract.md).
 The current agent executes approved slices by default. PM loads `harness:risk-gate`
-to decide whether a substantial independent track should go to `harness:execute` or
-a fixed target needs `harness:review`. Those provider-neutral requests select only
+to decide whether a substantial independent track or fixed-target review should go to
+`harness:delegate`. Those provider-neutral requests select only
 the semantic route: `bulk` for clear-spec
 mechanical work and scorecards, `quick` only for latency-sensitive steps, `taste`
 for user-facing design/copy/API work, `review` for ordinary fixed-target review, and

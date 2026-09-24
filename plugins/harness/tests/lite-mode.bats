@@ -67,28 +67,28 @@ for phrase in (
     assert phrase in sprint, f"sprint-dev omits {phrase}"
 
 for text, label in ((dev, "dev-task"), (sprint, "sprint-dev")):
-    assert "always uses harness:execute" not in text, f"{label} forces delegation"
+    assert "always uses harness:delegate" not in text, f"{label} forces delegation"
     assert "each harness execution request requires self-review and the full test suite" not in text, f"{label} duplicates verification"
     assert "superpowers:" not in text, f"{label} auto-loads Superpowers"
 PY
   [ "$status" -eq 0 ]
 }
 
-@test "execute loads branch references progressively and keeps full results internal" {
-  run python3 - "$REPO/plugins/harness/skills/execute/SKILL.md" <<'PY'
+@test "delegate loads branch references progressively and keeps full results internal" {
+  run python3 - "$REPO/plugins/harness/skills/delegate/SKILL.md" <<'PY'
 from pathlib import Path
 import sys
 
 text = " ".join(Path(sys.argv[1]).read_text().split())
 for phrase in (
-    "The consumer decides direct versus delegated execution before invoking this skill",
+    "The consumer owns the outcome and decides whether delegation is justified",
     "Read [references/context.md](../../references/context.md) only when",
     "Read [references/shelby-integration.md](../../references/shelby-integration.md) only when",
     "Keep the complete HarnessResult in the workflow state",
     "render a concise user update",
-    "Populate `HARNESS_ACTIVE_CANDIDATE` from the host's declared runtime identity",
+    "Populate `HARNESS_ACTIVE_CANDIDATE` from trustworthy host runtime metadata",
 ):
-    assert phrase in text, f"execute omits Lite boundary: {phrase}"
+    assert phrase in text, f"delegate omits Lite boundary: {phrase}"
 PY
   [ "$status" -eq 0 ]
 }
@@ -105,14 +105,14 @@ PY
   [ "$status" -eq 0 ]
 }
 
-@test "managed PM workflows are explicit-only for OpenAI runtimes" {
+@test "sprint-dev is explicit-only for OpenAI runtimes" {
   run python3 - "$REPO" <<'PY'
 from pathlib import Path
 import sys
 import yaml
 
 repo = Path(sys.argv[1])
-for name in ("dev-task", "sprint-dev"):
+for name in ("sprint-dev",):
     path = repo / "plugins/pm/skills" / name / "agents/openai.yaml"
     assert path.is_file(), f"{name} omits OpenAI invocation policy"
     data = yaml.safe_load(path.read_text())

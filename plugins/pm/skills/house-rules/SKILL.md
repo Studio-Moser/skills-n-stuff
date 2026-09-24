@@ -1,6 +1,6 @@
 ---
 name: house-rules
-description: Use when a code change needs Studio Moser conventions for change classes, branches, file naming, commits, pull requests, testing, or pre-commit security checks.
+description: "Use when a code change needs Studio Moser conventions for change classes, branches, file naming, commits, pull requests, testing, or pre-commit security checks."
 ---
 
 # House Rules

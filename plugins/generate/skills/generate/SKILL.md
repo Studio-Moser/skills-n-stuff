@@ -1,12 +1,6 @@
 ---
 name: generate
-description: >-
-  Generate images, video, music, or speech through the Kie.ai MCP with a budget
-  guard, local archiving, and a prompt log. Prices the batch and stops for
-  confirmation before spending, downloads every result to a dated folder, and
-  records the prompt that produced each file. Use for ad creative, brand imagery,
-  illustrations, b-roll, image-to-video, upscales, or any batch of generated
-  media. Invoke with /generate:generate.
+description: "Use when the user wants images, video, music, or speech generated through Kie.ai with a budget check and local archive."
 ---
 
 # Generate

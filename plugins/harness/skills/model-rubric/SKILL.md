@@ -14,6 +14,7 @@ description: >-
   this skill internally after discovering the current machine's capabilities.
 effort: medium
 allowed-tools: "Bash Read Write Edit WebFetch"
+disable-model-invocation: true
 ---
 
 # Harness — Model Rubric

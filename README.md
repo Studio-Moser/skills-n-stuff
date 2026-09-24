@@ -43,15 +43,6 @@ Note: subagents, hooks, and bundled scripts (e.g., the `transcribe` CLI) are Cla
 
 ## Plugins
 
-### Figma Design
-
-Author high-quality designs directly into Figma via the Dev Mode MCP. Fuses Claude's `frontend-design` aesthetic engine with a `DESIGN.md` token contract and `figma-use` authoring discipline so code-to-design output matches the quality you get from Claude in HTML/CSS. Branches across existing Figma systems, code-only systems, and greenfield.
-
-**Skills:**
-- `/figma-design:designing-in-figma` — Build screens, UIs, mockups, and components into Figma (code-to-design) with the full aesthetic + token + auto-layout workflow
-
-[Full documentation](plugins/figma-design/README.md)
-
 ### Product Pulse
 
 Strategic intelligence system for product teams. Weekly strategy briefs, daily market research, and deep-dive analysis — a three-cadence intelligence system.
@@ -88,9 +79,7 @@ routing, bounded execution, and evidence-bearing results.
 - `/harness:sync` — reconcile your personal agent repository with this machine
 - `/harness:model-rubric` — configure capability-driven orchestration and delegated routing
 - `/harness:risk-gate` — classify when work needs structure, delegation, or independent review
-- `/harness:execute` — run one bounded request through a resolved semantic route
-- `/harness:review` — independently verify a fixed target and return reproducible evidence
-- `/harness:computer-use` — operate a local app or browser with explicit capability and proof
+- `/harness:delegate` — route bounded execution, fixed-target review, or computer use with reproducible proof
 - `/harness:fleet` — run commands on your other machines over SSH from a private host inventory
 
 [Full documentation](plugins/harness/README.md)
@@ -106,16 +95,6 @@ project.
   static or application previews
 
 [Full documentation](plugins/preview/README.md)
-
-### Site Capture
-
-Capture full-page screenshots of websites with scroll-triggered animation support. Handles bot-protected sites, cookie banners, and lazy-loaded content.
-
-**Skills:**
-- `/site-capture:capture` — Capture screenshots of one or more websites (Microlink API + Chrome fallback)
-- `/site-capture:audit` — Audit existing screenshots for quality issues (wrong content, blank sections, errors)
-
-[Full documentation](plugins/site-capture/README.md)
 
 ### Generate
 

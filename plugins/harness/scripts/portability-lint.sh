@@ -46,4 +46,10 @@ done <<EOF
 $(git -c core.quotePath=false ls-files)
 EOF
 
+# 3. Command hooks must tolerate optional tools being absent on another machine.
+scripts="$(cd "$(dirname "$0")" && pwd)"
+if ! "$scripts/validate-hook-guards.py" claude/settings.json; then
+  fail=1
+fi
+
 exit "$fail"

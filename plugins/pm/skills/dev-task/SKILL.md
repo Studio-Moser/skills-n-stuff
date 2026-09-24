@@ -1,10 +1,6 @@
 ---
 name: dev-task
-description: >-
-  Use when the user explicitly asks for the Studio Moser managed workflow for one
-  named feature, known bug fix, or focused code change. Do not invoke implicitly for
-  ordinary repository work, a sprint, open-ended design, standalone review, or
-  diagnosis before a cause is known.
+description: "Use when one large, multi-file Feature-class change needs the managed, approval-gated workflow, or the user asks for it. Never for Polish or Small work."
 allowed-tools: "Bash Read Write Edit Skill"
 ---
 
@@ -51,7 +47,7 @@ The current agent implements by default. Keep the approved slice in context, use
 test-driven development for behavior changes, and stay inside the approved authority.
 
 Delegate only when the risk gate identifies one independently useful substantial track
-with its own outcome and verification seam. Then invoke `harness:execute` with
+with its own outcome and verification seam. Then invoke `harness:delegate` with
 `operation: execute` and the appropriate semantic route. Include the gate's
 `max_children`, `max_depth`, and `token_budget` in the request:
 
@@ -98,7 +94,7 @@ axes.
 Request a separate review only when the risk gate says **independent review** or the
 user explicitly asks for one. Ordinary structured work uses the current agent's
 self-review. A provider-separated `route: independent` still requires explicit cost
-approval. When review is required, submit a fixed-target `harness:review` request:
+approval. When review is required, submit a fixed-target `harness:delegate` request:
 
 ```yaml
 operation: review
@@ -147,8 +143,9 @@ is stale, or the gate requires independent confirmation. Record actual output in
 
 ## 7. Demonstrate on request
 
-Only when the user explicitly asks to see or record the result, invoke
-`pm:feature-walkthrough` after verification. Pass the approved Outcome, Testing Seam,
+For a user-visible web feature, offer a recorded walkthrough in one line after
+verification. Only when the user explicitly asks to see or record the result, or
+accepts the offer, invoke `pm:feature-walkthrough`. Pass the approved Outcome, Testing Seam,
 feature test paths, requested devices, and destination. This optional demonstration
 does not gate completion.
 

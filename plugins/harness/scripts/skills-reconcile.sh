@@ -20,7 +20,9 @@ repo="${repo%/}"
 # install look uninstalled and every declared entry look missing. Skip
 # cleanly instead of reporting that.
 canonical_agents="${HOME%/}/.agents"
-if [ "$repo" != "$canonical_agents" ]; then
+repo_physical="$(cd "$repo" 2>/dev/null && pwd -P)" || repo_physical="$repo"
+canonical_physical="$(cd "$canonical_agents" 2>/dev/null && pwd -P)" || canonical_physical="$canonical_agents"
+if [ "$repo_physical" != "$canonical_physical" ]; then
   echo "SKILLS_STATE=skipped: skill management requires \$AGENTS_REPO=\$HOME/.agents (npx skills always installs under \$HOME/.agents/skills); this repo is $repo"
   exit 0
 fi

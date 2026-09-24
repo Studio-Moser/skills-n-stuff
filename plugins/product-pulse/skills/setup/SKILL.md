@@ -4,6 +4,7 @@ description: >-
   Use when Product Pulse needs onboarding or reconfiguration for a project's
   research context, sources, operational config, and report directories.
 allowed-tools: "Bash Read Write Edit WebSearch AskUserQuestion Skill"
+disable-model-invocation: true
 ---
 
 # Product Pulse — Setup

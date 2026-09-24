@@ -89,4 +89,15 @@ command=(
 [ -z "$fixed_target" ] || command+=(--fixed-target "$fixed_target")
 [ "$skip_git_repo_check" = false ] || command+=(--skip-git-repo-check)
 
-exec "${command[@]}"
+artifact_dir="$(cd "$(dirname "$report")" && pwd)"
+cache_root="$artifact_dir/worker-cache"
+mkdir -p "$cache_root/uv" "$cache_root/npm" "$cache_root/pip" "$cache_root/xdg"
+
+# The sandbox has no network: uv must use the existing environment instead of syncing.
+exec env \
+  UV_CACHE_DIR="$cache_root/uv" \
+  UV_NO_SYNC=1 \
+  npm_config_cache="$cache_root/npm" \
+  PIP_CACHE_DIR="$cache_root/pip" \
+  XDG_CACHE_HOME="$cache_root/xdg" \
+  "${command[@]}"

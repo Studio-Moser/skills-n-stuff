@@ -46,8 +46,7 @@ import sys
 root = Path(sys.argv[1]) / "plugins" / "harness"
 contract = " ".join((root / "references/harness-contract.md").read_text().split()).lower()
 shelby = " ".join((root / "references/shelby-integration.md").read_text().split()).lower()
-execute = " ".join((root / "skills/execute/SKILL.md").read_text().split()).lower()
-review = " ".join((root / "skills/review/SKILL.md").read_text().split()).lower()
+delegate = " ".join((root / "skills/delegate/SKILL.md").read_text().split()).lower()
 failures = []
 for phrase in ("memory:", "enabled:", "recall:", "capture:"):
     if phrase not in contract:
@@ -61,7 +60,7 @@ for phrase in (
 ):
     if phrase not in shelby:
         failures.append(f"Shelby boundary missing {phrase}")
-for name, text in (("execute", execute), ("review", review)):
+for name, text in (("delegate", delegate),):
     for phrase in ("context.memory", "recall intent", "capture intent"):
         if phrase not in text:
             failures.append(f"{name} missing {phrase}")
