@@ -718,7 +718,8 @@ def environment_provides(server: object, variable: str) -> bool:
         return True
     if shutil.which("launchctl") is None:
         return False
-    result = run(["launchctl", "getenv", variable], check=False)
+    # Never through run(): it echoes stdout, which here is the secret itself.
+    result = subprocess.run(["launchctl", "getenv", variable], capture_output=True, text=True, check=False)
     return result.returncode == 0 and bool(result.stdout.strip())
 
 

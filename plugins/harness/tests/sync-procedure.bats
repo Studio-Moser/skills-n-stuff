@@ -763,3 +763,19 @@ assert not sync.environment_provides(literal, "HARNESS_SYNC_TEST_SECRET")
 PY
   [ "$status" -eq 0 ]
 }
+
+@test "the environment secret check never prints the secret" {
+  stub="$BATS_TEST_TMPDIR/bin"; mkdir -p "$stub"
+  printf '#!/bin/sh\necho launchctl-secret-value\n' > "$stub/launchctl"; chmod +x "$stub/launchctl"
+  run env PATH="$stub:$PATH" python3 - "$REPO/plugins/harness/scripts/sync" <<'PY'
+import importlib.machinery, importlib.util, sys
+loader = importlib.machinery.SourceFileLoader("sync_script", sys.argv[1])
+spec = importlib.util.spec_from_loader("sync_script", loader)
+sync = importlib.util.module_from_spec(spec)
+loader.exec_module(sync)
+server = {"env": {"HARNESS_SYNC_LAUNCHCTL_ONLY_9Z": "${HARNESS_SYNC_LAUNCHCTL_ONLY_9Z}"}}
+assert sync.environment_provides(server, "HARNESS_SYNC_LAUNCHCTL_ONLY_9Z")
+PY
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"launchctl-secret-value"* ]] || return 1
+}
