@@ -102,3 +102,25 @@ commit_all() {
   [ "$status" -eq 1 ]
   [[ "$output" == *"bad.md"* ]]
 }
+
+@test "guarded optional command hooks pass" {
+  mkdir -p claude
+  cat > claude/settings.json <<'EOF'
+{"hooks":{"PreToolUse":[{"hooks":[{"type":"command","command":"[ -x \"$HOME/.tool/bin/hook\" ] && \"$HOME/.tool/bin/hook\" args || true"}]}]}}
+EOF
+  commit_all
+  run "$SCRIPT" "$REPO"
+  [ "$status" -eq 0 ]
+}
+
+@test "unguarded optional command hooks fail" {
+  mkdir -p claude
+  cat > claude/settings.json <<'EOF'
+{"hooks":{"PreToolUse":[{"hooks":[{"type":"command","command":"$HOME/.tool/bin/hook args"}]}]}}
+EOF
+  commit_all
+  run "$SCRIPT" "$REPO"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"unguarded command hook"* ]]
+  [[ "$output" == *"hooks.PreToolUse[0].hooks[0]"* ]]
+}
