@@ -5,110 +5,15 @@
     "email": "tim@studiomoser.com"
   },
   "metadata": {
-    "description": "Claude Code plugins by Studio Moser \u2014 strategy, research, design, and product development tools.",
+    "description": "Claude Code plugins by Studio Moser — strategy, research, design, and product development tools.",
     "version": "0.21.0",
     "pluginRoot": "./plugins"
   },
   "plugins": [
     {
-      "name": "design-critic-loop",
-      "source": "./plugins/design-critic-loop",
-      "description": "Raise any design to a high bar with the Gauntlet Loop: instead of letting the generator grade its own homework, spin up independent fresh-context critics (brief / system / craft) that judge against an explicit definition of done and iterate until they pass. Pins down what 'done' means first \u2014 asking the user for goals and reference examples when the bar is unclear \u2014 then loops build\u2192critique\u2192fix until it converges. Reusable by any design skill.",
-      "version": "0.1.1",
-      "author": {
-        "name": "Studio Moser"
-      },
-      "license": "MIT",
-      "keywords": [
-        "design",
-        "critique",
-        "gauntlet-loop",
-        "design-loop",
-        "quality",
-        "iteration",
-        "independent-critics",
-        "taste",
-        "review",
-        "ui-design"
-      ],
-      "category": "productivity",
-      "tags": [
-        "design",
-        "critique",
-        "quality",
-        "review",
-        "iteration"
-      ]
-    },
-    {
-      "name": "mac-design",
-      "source": "./plugins/mac-design",
-      "description": "Design native-feeling macOS apps in a Tauri 2, SvelteKit 5, Rust, and WebView stack. Provides the Mac product, semantic UI-kit, shell/bridge, Glaze-inspired agent-harness, and packaged-app verification context that keeps generated desktop UI from becoming a web dashboard or mobile port.",
-      "version": "0.2.0",
-      "author": {
-        "name": "Studio Moser"
-      },
-      "license": "MIT",
-      "keywords": [
-        "macos",
-        "mac-app",
-        "tauri",
-        "svelte",
-        "rust",
-        "webview",
-        "apple-hig",
-        "native-ui",
-        "desktop-app",
-        "toolbar",
-        "sidebar",
-        "inspector",
-        "ui-design"
-      ],
-      "category": "productivity",
-      "tags": [
-        "design",
-        "macos",
-        "tauri",
-        "svelte",
-        "native-ui"
-      ]
-    },
-    {
-      "name": "figma-design",
-      "source": "./plugins/figma-design",
-      "description": "Author high-quality designs directly into Figma via the remote Figma MCP. Fuses Claude's frontend-design aesthetic engine with a token contract and figma-use authoring discipline so code-to-design output matches Claude's HTML/CSS quality. Imports Claude Design projects, Storybooks (story.to.design or MCP), existing Figma systems, code-only systems, and greenfield.",
-      "version": "0.4.1",
-      "author": {
-        "name": "Studio Moser"
-      },
-      "license": "MIT",
-      "keywords": [
-        "figma",
-        "figma-mcp",
-        "code-to-design",
-        "design-system",
-        "claude-design",
-        "storybook",
-        "design-md",
-        "design-tokens",
-        "figma-variables",
-        "auto-layout",
-        "ui-design"
-      ],
-      "category": "productivity",
-      "tags": [
-        "figma",
-        "design",
-        "design-system",
-        "code-to-design",
-        "claude-design",
-        "storybook"
-      ]
-    },
-    {
       "name": "product-pulse",
       "source": "./plugins/product-pulse",
-      "description": "Strategic intelligence system for product teams. Weekly strategy briefs, daily market research, and deep-dive analysis \u2014 a three-cadence intelligence system that keeps you focused on what matters.",
+      "description": "Strategic intelligence system for product teams. Weekly strategy briefs, daily market research, and deep-dive analysis — a three-cadence intelligence system that keeps you focused on what matters.",
       "author": {
         "name": "Studio Moser"
       },
@@ -186,56 +91,9 @@
       "version": "1.1.1"
     },
     {
-      "name": "site-capture",
-      "source": "./plugins/site-capture",
-      "description": "Capture full-page screenshots of websites with scroll-triggered animation support. Handles bot-protected sites, cookie banners, and lazy-loaded content.",
-      "author": {
-        "name": "Studio Moser"
-      },
-      "license": "MIT",
-      "keywords": [
-        "screenshot",
-        "website-capture",
-        "competitive-analysis",
-        "design-reference",
-        "full-page",
-        "scroll-capture"
-      ],
-      "category": "productivity",
-      "tags": [
-        "screenshot",
-        "capture",
-        "design",
-        "competitive-analysis"
-      ]
-    },
-    {
-      "name": "claude-instances",
-      "source": "./plugins/claude-instances",
-      "description": "Run multiple Claude Desktop apps side by side, each signed into a different account. Builds a renamed, ad-hoc-signed duplicate of /Applications/Claude.app with its own bundle ID, user-data directory, and optional custom icon. Same skill rebuilds existing instances to pick up Claude auto-updates.",
-      "author": {
-        "name": "Studio Moser"
-      },
-      "license": "MIT",
-      "keywords": [
-        "claude-desktop",
-        "electron",
-        "macos",
-        "multi-account",
-        "duplicate-app",
-        "code-signing"
-      ],
-      "category": "productivity",
-      "tags": [
-        "claude-desktop",
-        "macos",
-        "multi-account"
-      ]
-    },
-    {
       "name": "generate",
       "source": "./plugins/generate",
-      "description": "Governed image, video, and audio generation over the Kie.ai MCP. The models are the easy part \u2014 this adds the discipline around them: prices a batch and stops for confirmation before spending, downloads every result locally before URLs expire, and logs the prompt that produced each file.",
+      "description": "Governed image, video, and audio generation over the Kie.ai MCP. The models are the easy part — this adds the discipline around them: prices a batch and stops for confirmation before spending, downloads every result locally before URLs expire, and logs the prompt that produced each file.",
       "version": "0.1.1",
       "author": {
         "name": "Studio Moser"

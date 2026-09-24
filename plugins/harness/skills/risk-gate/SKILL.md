@@ -1,11 +1,6 @@
 ---
 name: risk-gate
-description: >-
-  Use before implementing repository work only when it touches a security or money
-  boundary, persisted data or schema, a public contract, multiple repositories, has no
-  stable testing seam, is expected to outlive the current context window, or the user
-  explicitly requests planning, delegation, managed execution, or independent review.
-  Do not use for ordinary bounded repository work.
+description: "Use before repository work touching security, money, persisted data, a public contract, several repositories, no testing seam, or more than one context window, or when the user explicitly requests planning, delegation, or review. Never for Polish or Small changes."
 allowed-tools: "Read"
 ---
 

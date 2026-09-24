@@ -7,6 +7,7 @@ description: >-
 effort: high
 allowed-tools: "Bash Read Write Edit Skill"
 paths: ["**/.pm/**", "**/planning/todos.md"]
+disable-model-invocation: true
 ---
 
 # PM — Triage

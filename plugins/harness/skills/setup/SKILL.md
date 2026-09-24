@@ -1,15 +1,15 @@
 ---
 name: setup
-description: >-
-  Use when Harness has been installed but this developer still needs a personal
-  agents-repo relationship, portable links, runtime capability discovery, a model
-  rubric, or optional Shelby enrichment configured.
+description: "Use when Harness needs setting up or checking for this developer: agents repo, links, runtimes, and the model rubric."
 ---
 
 # Harness Setup
 
 Configure the personal Harness by composing its existing setup skills. Do not
-copy their shell procedures into this skill.
+copy their shell procedures into this skill. Sync and Model Rubric are slash-only:
+wherever this skill says to invoke `harness:sync` or `harness:model-rubric`, read
+and follow `$harness/skills/sync/SKILL.md` or `$harness/skills/model-rubric/SKILL.md`
+instead of calling the Skill tool.
 
 Read [references/harness-contract.md](../../references/harness-contract.md) for
 the result shape and [references/shelby-integration.md](../../references/shelby-integration.md)

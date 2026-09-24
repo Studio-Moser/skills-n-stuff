@@ -1,8 +1,6 @@
 ---
 name: feature-walkthrough
-description: >-
-  Use when a developer asks to see, demonstrate, record, or visually review a web
-  feature through an existing browser-testing workflow.
+description: "Use when the user asks for, or accepts an offer of, a recorded browser walkthrough of a finished web feature."
 allowed-tools: "Bash Read Write Edit AskUserQuestion"
 ---
 

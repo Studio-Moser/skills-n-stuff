@@ -1,10 +1,6 @@
 ---
 name: serve-preview
-description: >-
-  Create, expose, inspect, or stop durable local website previews that must survive
-  an agent session and remain privately reachable over Tailscale. Use for local
-  preview sites, static reference sites, dev-server sharing, and requests to open
-  a localhost site remotely. Do not use for public deployment.
+description: "Use when a local website needs a durable private Tailscale preview created, checked, or stopped."
 ---
 
 # Serve Preview

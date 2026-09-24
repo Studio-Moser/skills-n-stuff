@@ -7,6 +7,7 @@ description: >-
   inventory and public keys live in the developer's private agents repo; this skill
   never stores private keys or passwords. Skip GUI verification (use computer-use) and
   config sync (use sync).
+disable-model-invocation: true
 ---
 
 # Harness — Fleet

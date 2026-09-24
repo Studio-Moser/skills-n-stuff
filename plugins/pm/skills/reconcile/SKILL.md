@@ -6,6 +6,7 @@ description: >-
   new items or implementing ready work.
 effort: medium
 allowed-tools: "Bash Read Write Edit"
+disable-model-invocation: true
 ---
 
 # PM -- Reconcile

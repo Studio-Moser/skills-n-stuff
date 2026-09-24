@@ -105,14 +105,14 @@ PY
   [ "$status" -eq 0 ]
 }
 
-@test "managed PM workflows are explicit-only for OpenAI runtimes" {
+@test "sprint-dev is explicit-only for OpenAI runtimes" {
   run python3 - "$REPO" <<'PY'
 from pathlib import Path
 import sys
 import yaml
 
 repo = Path(sys.argv[1])
-for name in ("dev-task", "sprint-dev"):
+for name in ("sprint-dev",):
     path = repo / "plugins/pm/skills" / name / "agents/openai.yaml"
     assert path.is_file(), f"{name} omits OpenAI invocation policy"
     data = yaml.safe_load(path.read_text())

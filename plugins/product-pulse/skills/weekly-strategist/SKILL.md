@@ -4,6 +4,7 @@ description: >-
   Use when the last 7 daily reports and current market evidence need a weekly
   strategy brief, exactly three priorities, and recommendations for PM ingestion.
 allowed-tools: "Bash Read Write Edit Skill"
+disable-model-invocation: true
 ---
 
 # Product Pulse — Weekly Strategist

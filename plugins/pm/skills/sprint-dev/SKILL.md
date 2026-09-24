@@ -1,9 +1,6 @@
 ---
 name: sprint-dev
-description: >-
-  Use when the user wants to build one or more already-ready `owner/ai` backlog items
-  from a configured tracker. Do not use for one named change, an untriaged item, or
-  tracker reconciliation.
+description: "Use when the user asks for a sprint that builds ready owner/ai backlog items from the configured tracker."
 effort: high
 allowed-tools: "Bash Read Write Edit Skill"
 ---
@@ -625,3 +622,6 @@ Domain terms applied: {yes/no}
 Out-of-scope constraints enforced: {N}
 {If Trello: "Cards updated across {N} board(s); {moved_to_in_progress} in-progress, {moved_to_review} in review, {moved_to_done} done, {moved_to_needs_changes} needs-changes."}
 ```
+
+If any built PR changes a user-visible web feature, end with a one-line offer of a
+recorded walkthrough. Invoke `pm:feature-walkthrough` only if the user accepts.

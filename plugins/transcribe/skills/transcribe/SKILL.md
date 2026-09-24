@@ -7,6 +7,7 @@ description: >-
   Invoke with /transcribe:transcribe <url> or from Bash as `transcribe <url>`.
 argument-hint: <video-url> [--json]
 allowed-tools: Bash
+disable-model-invocation: true
 ---
 
 # transcribe

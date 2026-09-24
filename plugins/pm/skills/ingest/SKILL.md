@@ -6,6 +6,7 @@ description: >-
   completed work.
 effort: low
 allowed-tools: "Bash Read Write Edit Skill"
+disable-model-invocation: true
 ---
 
 # PM — Ingest
