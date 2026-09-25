@@ -67,7 +67,7 @@
     {
       "name": "harness",
       "source": "./plugins/harness",
-      "description": "Lightweight provider-neutral control plane for direct-by-default work, mechanical risk gates, bounded delegation and review, portable personal setup, and evidence-bearing results.",
+      "description": "Lightweight provider-neutral control plane for cost-aware rubric execution, mechanical risk gates, bounded delegation and review, portable personal setup, and evidence-bearing results.",
       "author": {
         "name": "Studio Moser"
       },

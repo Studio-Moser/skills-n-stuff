@@ -25,11 +25,10 @@ Match a trigger when the requested change affects:
 
 ## Decision
 
-- **Direct:** no trigger matches. The current agent implements and runs one
-  task-appropriate proof pass.
-- **Structured:** a trigger matches. State the matched trigger, bounded outcome,
-  authority, testing seam, and recovery point before implementation. The current agent
-  still implements by default.
+- **Direct:** no trigger matches. No structured workflow is needed; direct execution
+  or a rubric worker uses one task-appropriate proof pass.
+- **Structured:** a trigger matches. Record the matched trigger, bounded outcome,
+  authority, testing seam, and recovery point internally before implementation.
 - **Independent review:** require a fresh reviewer for authentication, payment,
   destructive persistence or migration, public compatibility changes without complete
   contract coverage, subjective user-facing work without deterministic proof, or an
@@ -47,9 +46,11 @@ after verification: missing or indirect assertions remain coverage gaps; close t
 with direct proof or require independent review. Keep this mapping in working notes;
 report only gaps that affect the review decision.
 
-Delegation is separate from classification. Delegate only one independently useful
-substantial track with its own outcome and verification seam. Small tool calls,
-mechanical edits, and work that needs the parent context stay with the current agent.
+Delegation is separate from risk classification. Use
+[Execution choice](../../references/routing.md#execution-choice) to select direct
+execution or one bounded rubric worker by capability, verifiability, and total cost.
+Tiny edits and individual tool calls stay local. A cheaper worker never reduces
+required verification or review.
 
 ## Limits
 
@@ -67,5 +68,6 @@ an active managed workflow. Never delegate to the same active model and effort; 
 Harness resolver short-circuits that route to direct execution. Stop delegation when
 the budget, depth, or child limit is reached.
 
-Return only: mode, matched triggers, testing seam, delegation decision and limits, and
-review decision.
+Keep mode, matched triggers, testing seam, delegation decision and limits, and review
+decision in working state. Report only useful progress, consequential tradeoffs,
+blockers, required approvals, and verification results; do not announce classification.

@@ -294,13 +294,14 @@ git worktree add .claude/worktrees/pulse-{cluster}-{date} -b pulse/{cluster}-{YY
 ### 2B. Implement approved slices
 
 For each approved delivery slice, load `harness:risk-gate`. Record its mode, matched
-triggers, testing seam, delegation decision, and review decision. The current agent
-implements by default.
+triggers, testing seam, delegation decision, and review decision internally. Choose
+direct execution or a rubric worker through Harness’s [Execution choice](../../../harness/references/routing.md#execution-choice).
 
-Delegate only one independently useful substantial track with its own outcome and
+Delegate only when that rule justifies a bounded worker with its own outcome and
 verification seam. When delegation is justified, invoke `harness:delegate` with
 `operation: execute`. Use `route: bulk` for clear-spec or mechanical work,
-`route: quick` only for a short latency-sensitive step, and `route: taste` for
+`route: quick` only for a short latency-sensitive task, `route: default` for
+ordinary implementation, and `route: taste` for
 user-facing UI, copy, or public API work. PM chooses only this semantic altitude;
 Harness resolves execution. Carry the risk gate's `max_children`, `max_depth`, and
 `token_budget` into the request.
@@ -309,7 +310,7 @@ Submit one complete Harness Request per delivery slice:
 
 ```yaml
 operation: execute
-route: {bulk | quick | taste}
+route: {bulk | quick | default | taste}
 outcome: {approved Outcome}
 context:
   project: {canonical project identifier when known}
@@ -511,9 +512,8 @@ rmdir "$REVIEW_ARTIFACT_DIR_ABS" 2>/dev/null || true
 
 If required review findings clear the bar, run the fix loop for at most two rounds:
 
-1. Resolve findings directly in the current agent unless the risk gate still identifies
-   a substantial independent track. Only then submit a new complete Phase 2B
-   `harness:delegate` request on the same branch.
+1. Resolve findings using the Phase 2B execution-choice rule. If a worker is justified,
+   submit a new complete `harness:delegate` request on the same branch.
 2. Fix each finding or dispute it with concrete evidence when it is false or contradicts
    the approved spec.
 3. Require one verification pass at the named Testing Seam plus any additional check

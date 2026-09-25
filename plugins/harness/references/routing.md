@@ -4,6 +4,42 @@ Routing translates a consumer's semantic route into one explicit model, effort,
 provider, and executor. Only Harness reads the rubric or interprets executor
 metadata.
 
+## Execution choice
+
+Choose internally before substantial investigation. Task difficulty and required
+judgment determine the suitable semantic route; risk determines verification and
+review. Change class alone does not select a model or forbid a worker.
+
+- Keep tiny edits and work whose context would cost more to transfer than to finish
+  with the current agent. Do not create a worker for an individual tool call.
+- For bounded work with clear requirements and a reliable acceptance check, prefer
+  a rubric worker when expected total cost is lower. Include dispatch, context
+  transfer, parent verification, retries, and repairs; account for subscription
+  quota and latency as well as metered dollars. Use observed task results when
+  available; do not invent savings from model names or token prices.
+- Keep ambiguous diagnosis, architecture, and subjective judgment with a suitably
+  capable agent. A cheaper current model may need a stronger rubric worker; a
+  frontier current model may benefit from a cheaper one. No model is assumed to
+  be the orchestrator. Do not change the running model or personal rubric to route
+  a task.
+- Select `quick` for latency-sensitive work, `bulk` for mechanical work, `default`
+  for ordinary implementation, and `taste` for subjective user-facing judgment.
+  Resolve the configured model and effort through Harness; do not choose a cheaper
+  unconfigured row or reinterpret availability fallbacks as a quality ladder.
+
+Give a worker the outcome, necessary context, authority, and acceptance check
+before solving the task yourself. The parent inspects the artifact and reproduces
+the named proof without repeating the whole investigation. A cheaper worker never
+reduces required verification or review. Preserve delegation limits and approval
+boundaries. Failed acceptance returns to the caller; stronger retries require the
+existing escalation authorization below.
+
+Keep classification, execution choice, and routine routing internal. Report useful
+progress, consequential tradeoffs, blockers, required approvals, and verification
+results. Retain route evidence in the Harness Result; use available runtime usage
+records to compare total cost per accepted task. Do not announce a classification
+or dump the contract.
+
 ## Top-level orchestration
 
 `orchestrator` selects the preferred model for the top-level session; it is not
