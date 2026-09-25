@@ -47,7 +47,8 @@ rerun with explicit flags:
 - MCP set: `--mcp-mode match|replace|merge`; replace also needs
   `--confirm-mcp-replace`. Resolve named extras, unavailable commands, and secrets
   with the corresponding `--remove-mcp`, `--keep-local-mcp`, `--skip-mcp`,
-  `--keep-unresolved-mcp`, or `--mcp-secrets-file` flag;
+  `--keep-unresolved-mcp`, or `--mcp-secrets-file` flag; a server whose definition
+  differs from the manifest needs `--mcp-take-manifest NAME` or `--mcp-keep-live NAME`;
 - third-party skills: choose each named `--install-skill`, `--skip-skill`,
   `--add-skill`, `--remove-skill`, or `--keep-local-skill` action;
 - optional fleet push: `--push-machines` reaches every other host in the fleet's

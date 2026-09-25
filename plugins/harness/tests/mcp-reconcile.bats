@@ -173,3 +173,22 @@ PY2
   HOME="$fake_home" plan
   [[ "$PLAN" != *$'UNRESOLVED\tboth'* ]]
 }
+
+@test "a server whose definition differs from the manifest is reported, secret values aside" {
+  cat > "$REPO/mcp.manifest.json" <<'JSON'
+{"version": 1, "servers": {
+  "github": {"type": "http", "url": "https://api.example/mcp/", "headers": {"Authorization": "${GITHUB_AUTHORIZATION}"}, "machines": ["here-host"]},
+  "same": {"type": "http", "url": "https://same.example/", "headers": {"Authorization": "${SAME_AUTHORIZATION}"}, "machines": ["here-host"]}
+}}
+JSON
+  cat > "$RUNTIME" <<'JSON'
+{"mcpServers": {
+  "github": {"type": "stdio", "command": "sh", "args": ["-c", "true"]},
+  "same": {"type": "http", "url": "https://same.example/", "headers": {"Authorization": "Bearer literal-local-value"}}
+}}
+JSON
+  run "$SCRIPT" "$REPO" "$RUNTIME" "$LOCAL"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *$'DIFFERS\tgithub'* ]] || return 1
+  [[ "$output" != *$'DIFFERS\tsame'* ]] || return 1
+}

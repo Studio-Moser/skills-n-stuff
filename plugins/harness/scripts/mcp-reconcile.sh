@@ -13,6 +13,7 @@
 #   KEEP-LOCAL    <name>          here, not declared, in keepLocalMcp
 #   NEEDS-SECRET  <name> <VAR>    declared or installed here, but VAR has no value on this machine
 #   UNRESOLVED    <name>          here, command not on PATH
+#   DIFFERS       <name>          here and declared, but the definition differs
 #
 # Never prints a command, URL, env value, or header value.
 set -euo pipefail
@@ -143,6 +144,23 @@ for name in sorted(servers):
         plan.append(("KEEP-LOCAL", name) if name in keep else ("EXTRA", name))
     if not resolves(servers[name]):
         plan.append(("UNRESOLVED", name))
+
+def shape(entry):
+    # Secret values are machine-local; only the names of env vars and headers are shape.
+    return {
+        "type": entry.get("type") or ("stdio" if entry.get("command") else "http"),
+        "command": entry.get("command"),
+        "args": entry.get("args") or [],
+        "url": entry.get("url"),
+        "env": sorted(entry.get("env") or {}),
+        "headers": sorted(entry.get("headers") or {}),
+    }
+
+for name in sorted(set(declared) & set(servers)):
+    if name in disabled or not has_shape(declared[name]):
+        continue
+    if shape(declared[name]) != shape(servers[name]):
+        plan.append(("DIFFERS", name))
 
 for name in sorted(servers):
     if name in disabled:
