@@ -33,6 +33,21 @@ The script resolves the same configuration roots as the helpers:
 - Codex: `${CODEX_HOME:-$HOME/.codex}`
 - shared config: `${XDG_CONFIG_HOME:-$HOME/.config}`
 
+## Execution policy portability
+
+The shared [Execution choice](../../references/routing.md#execution-choice) ships
+with Harness. Personal overrides belong in the agents repository's
+`claude/CLAUDE.md` Engineering discipline section; Sync renders that section into
+`codex/AGENTS.md` and links both runtimes to their portable sources. Edit the source,
+never the generated Codex file. Plugin reconciliation updates installed Harness/PM
+skills; it does not rewrite the personal rubric or select cheaper model rows.
+
+For an execution-policy rollout, verify the rendered instructions preserve silent
+classification, semantic routing, and risk-based verification. Existing project
+baseline blocks update through `scripts/stamp-baseline.sh <project>/AGENTS.md` when
+that repository update is authorized; Sync does not scan or rewrite other projects.
+Restart active sessions to load updated instructions and plugin skills.
+
 ## Decisions that stay with the agent or user
 
 Do not infer a choice from timestamps, path names, or which side is newer. Inspect

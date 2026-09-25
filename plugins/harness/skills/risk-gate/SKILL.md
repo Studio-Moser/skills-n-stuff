@@ -1,6 +1,6 @@
 ---
 name: risk-gate
-description: "Use before repository work touching security, money, persisted data, a public contract, several repositories, no testing seam, or more than one context window, or when the user explicitly requests planning, delegation, or review. Never for Polish or Small changes."
+description: "Use before repository work touching security, money, persisted data, a public contract, several repositories, no testing seam, or more than one context window, or when the user explicitly requests planning, delegation, or review. Do not invoke merely to select a worker for routine work."
 allowed-tools: "Read"
 ---
 

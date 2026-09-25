@@ -133,6 +133,17 @@ non-blocking, as in Ordered setup.
      paths, capability availability, symlinks, approvals, temporary evidence,
      and Shelby state.
 
+## Execution policy
+
+Use the shared [Execution choice](../../references/routing.md#execution-choice)
+with any main model. Setup establishes available routes; task difficulty chooses
+among them and risk determines verification. Do not change rubric values merely
+to adopt this policy. Personal policy belongs in `claude/CLAUDE.md` under Engineering
+discipline so Sync carries it into both runtimes; follow Sync's execution-policy
+portability checks when installing or updating that policy. Refresh an authorized
+project's managed baseline with `scripts/stamp-baseline.sh <project>/AGENTS.md`.
+Keep classifications and routine routing decisions internal.
+
 ## Completion
 
 Re-run the checks owned by Sync and Model Rubric that establish the setup state.
