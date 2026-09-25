@@ -814,3 +814,61 @@ PY
   grep -q 'claude plugin update harness@studio-moser' "$SSH_LOG.stdin.laptop" || return 1
   grep -q 'scripts/sync' "$SSH_LOG.stdin.laptop" || return 1
 }
+
+@test "a differing MCP server stops for a decision, and take-manifest keeps held secrets" {
+  run python3 - "$REPO/plugins/harness/scripts/sync" "$BATS_TEST_TMPDIR" <<'PY'
+import argparse, importlib.machinery, importlib.util, json, sys
+from pathlib import Path
+loader = importlib.machinery.SourceFileLoader("sync_script", sys.argv[1])
+spec = importlib.util.spec_from_loader("sync_script", loader)
+sync = importlib.util.module_from_spec(spec)
+loader.exec_module(sync)
+tmp = Path(sys.argv[2]); repo = tmp / "agents"; repo.mkdir()
+(repo / "mcp.manifest.json").write_text(json.dumps({"version": 1, "servers": {"github": {
+    "type": "http", "url": "https://api.example/mcp/", "machines": ["a"],
+    "headers": {"Authorization": "${GITHUB_AUTHORIZATION}", "X-Toolsets": "${GITHUB_X_TOOLSETS}"}}}}))
+runtime = tmp / "claude.json"
+runtime.write_text(json.dumps({"mcpServers": {"github": {"type": "http", "url": "https://old.example/",
+    "headers": {"Authorization": "Bearer kept-value"}}}}))
+args = argparse.Namespace(mcp_take_manifest=[], mcp_keep_live=[])
+try:
+    sync.apply_mcp(args, [("DIFFERS", "github")], repo, tmp, runtime, Path(sys.argv[1]).parent)
+    raise SystemExit("expected a decision stop")
+except sync.Stop as stop:
+    assert stop.code == sync.EXIT_DECISION and "--mcp-take-manifest github" in stop.message
+sync.take_manifest_mcp(repo, runtime, "github")
+entry = json.loads(runtime.read_text())["mcpServers"]["github"]
+assert entry["url"] == "https://api.example/mcp/" and "machines" not in entry
+assert entry["headers"] == {"Authorization": "Bearer kept-value", "X-Toolsets": "${GITHUB_X_TOOLSETS}"}
+PY
+  [ "$status" -eq 0 ]
+}
+
+@test "sync updates installed Codex plugins from their marketplace" {
+  stub="$BATS_TEST_TMPDIR/bin"; mkdir -p "$stub"
+  cat > "$stub/codex" <<'SH'
+#!/bin/sh
+echo "$*" >> "$CODEX_LOG"
+case "$*" in
+  "plugin add harness@studio-moser") mkdir -p "$CODEX_HOME/plugins/cache/studio-moser/harness/2.0.10" ;;
+esac
+exit 0
+SH
+  chmod +x "$stub/codex"
+  export CODEX_HOME="$BATS_TEST_TMPDIR/codex" CODEX_LOG="$BATS_TEST_TMPDIR/codex.log"
+  mkdir -p "$CODEX_HOME/plugins/cache/studio-moser/harness/2.0.9" "$CODEX_HOME/plugins/cache/studio-moser/pm/0.22.0"
+  run env PATH="$stub:$PATH" CODEX_HOME="$CODEX_HOME" CODEX_LOG="$CODEX_LOG" python3 - "$REPO/plugins/harness/scripts/sync" <<'PY'
+import importlib.machinery, importlib.util, sys
+loader = importlib.machinery.SourceFileLoader("sync_script", sys.argv[1])
+spec = importlib.util.spec_from_loader("sync_script", loader)
+sync = importlib.util.module_from_spec(spec)
+loader.exec_module(sync)
+findings = []
+print("CHANGED=%d" % sync.codex_plugin_update(findings))
+assert not findings, findings
+PY
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"CHANGED=1"* ]] || return 1
+  grep -q "plugin marketplace upgrade studio-moser" "$CODEX_LOG" || return 1
+  grep -q "plugin add pm@studio-moser" "$CODEX_LOG" || return 1
+}

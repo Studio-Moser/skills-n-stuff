@@ -619,8 +619,42 @@ def plugin_reconcile(repo: Path, claude: Path) -> tuple[str, list[str]]:
             updated += 1
     for name in sorted(have_marketplaces - set(marketplaces) - {"claude-plugins-official"}):
         findings.append(f"orphan marketplace: {name} — remove with: claude plugin marketplace remove {name}")
-    state = "up to date" if not any((added, installed, updated)) else f"added {added} marketplace(s), installed {installed}, updated {updated} — restart or /reload-plugins to apply"
+    codex_updated = codex_plugin_update(findings)
+    state = "up to date" if not any((added, installed, updated, codex_updated)) else (
+        f"added {added} marketplace(s), installed {installed}, updated {updated}, Codex updated {codex_updated} — restart or /reload-plugins to apply"
+    )
     return state, findings
+
+
+def codex_plugin_update(findings: list[str]) -> int:
+    """Refresh each Codex marketplace that has installed plugins and re-add them, so
+    Codex follows the same plugin versions as Claude Code. Returns how many changed."""
+    if shutil.which("codex") is None:
+        return 0
+    cache = Path(os.environ.get("CODEX_HOME", Path.home() / ".codex")) / "plugins" / "cache"
+    if not cache.is_dir():
+        return 0
+
+    def newest(plugin: Path) -> str:
+        versions = sorted((p.name for p in plugin.iterdir() if p.is_dir()), key=version_key)
+        return versions[-1] if versions else ""
+
+    changed = 0
+    for marketplace in sorted(p for p in cache.iterdir() if p.is_dir()):
+        plugins = sorted(p for p in marketplace.iterdir() if p.is_dir())
+        if not plugins or run(["codex", "plugin", "marketplace", "upgrade", marketplace.name], check=False).returncode:
+            continue
+        for plugin in plugins:
+            before = newest(plugin)
+            if run(["codex", "plugin", "add", f"{plugin.name}@{marketplace.name}"], check=False).returncode:
+                findings.append(f"Codex plugin update failed: {plugin.name}@{marketplace.name}")
+            elif newest(plugin) != before:
+                changed += 1
+    return changed
+
+
+def version_key(value: str) -> tuple:
+    return tuple(int(part) if part.isdigit() else part for part in re.split(r"[.-]", value))
 
 
 def mcp_plan(repo: Path, claude: Path, runtime_mcp: Path, scripts: Path) -> tuple[list[tuple[str, ...]], str]:
@@ -631,7 +665,7 @@ def mcp_plan(repo: Path, claude: Path, runtime_mcp: Path, scripts: Path) -> tupl
         print("MCP_STATE=not configured")
     registry = runtime_mcp if runtime_mcp.is_file() else Path("/dev/null")
     result = run([helper(scripts, "mcp-reconcile.sh"), str(repo), str(registry), str(claude / "settings.local.json")])
-    kinds = {"INSTALL", "NO-CONFIG", "SKIP", "EXTRA", "KEEP-LOCAL", "NEEDS-SECRET", "UNRESOLVED"}
+    kinds = {"INSTALL", "NO-CONFIG", "SKIP", "EXTRA", "KEEP-LOCAL", "NEEDS-SECRET", "UNRESOLVED", "DIFFERS"}
     plan = []
     for line in result.stdout.splitlines():
         fields = tuple(line.split("\t"))
@@ -648,9 +682,32 @@ def install_mcp(repo: Path, name: str) -> bool:
     return result.returncode == 0
 
 
+def take_manifest_mcp(repo: Path, runtime_mcp: Path, name: str) -> None:
+    """Replace this machine's definition of one MCP server with the manifest's. Secret
+    values this machine already holds carry over for env vars and headers kept by name."""
+    declared = load_object(repo / "mcp.manifest.json")["servers"][name]
+    live = load_object(runtime_mcp)
+    current = live["mcpServers"][name]
+    entry = {key: value for key, value in declared.items() if key != "machines"}
+    for field in ("env", "headers"):
+        kept = {key: value for key, value in (current.get(field) or {}).items() if key in (entry.get(field) or {})}
+        if kept:
+            entry[field] = {**entry[field], **kept}
+    live["mcpServers"][name] = entry
+    write_json_atomic(runtime_mcp, live)
+
+
 def apply_mcp(args: argparse.Namespace, plan: list[tuple[str, ...]], repo: Path, claude: Path, runtime_mcp: Path, scripts: Path) -> tuple[list[str], bool]:
     findings: list[str] = []
     prune_to_local = False
+    for name in [line[1] for line in plan if line[0] == "DIFFERS"]:
+        if name in args.mcp_take_manifest:
+            take_manifest_mcp(repo, runtime_mcp, name)
+        elif name not in args.mcp_keep_live:
+            raise Stop(
+                EXIT_DECISION,
+                f"SYNC_DECISION_REQUIRED=MCP {name} differs from the manifest; pass --mcp-take-manifest {name} or --mcp-keep-live {name}",
+            )
     installs = [line[1] for line in plan if line[0] == "INSTALL"]
     extras = [line[1] for line in plan if line[0] == "EXTRA"]
     no_config = [line[1] for line in plan if line[0] == "NO-CONFIG"]
@@ -871,6 +928,7 @@ def final_mcp(repo: Path, runtime_mcp: Path, scripts: Path, *, prune_to_local: b
 REMOTE_SYNC = r"""
 [ "$(hostname -s)" = "{self}" ] && {{ echo "REMOTE_STATE=self"; exit 0; }}
 latest_harness() {{ ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1; }}
+[ -s "$HOME/.nvm/nvm.sh" ] && . "$HOME/.nvm/nvm.sh" >/dev/null 2>&1
 if command -v claude >/dev/null 2>&1; then
   claude plugin marketplace update >/dev/null 2>&1
   claude plugin update harness@studio-moser >/dev/null 2>&1
@@ -948,6 +1006,8 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--remove-skill", action="append", default=[], metavar="NAME")
     result.add_argument("--keep-local-skill", action="append", default=[], metavar="NAME")
     result.add_argument("--push-machines", action="store_true")
+    result.add_argument("--mcp-take-manifest", action="append", default=[], metavar="NAME")
+    result.add_argument("--mcp-keep-live", action="append", default=[], metavar="NAME")
     return result
 
 
