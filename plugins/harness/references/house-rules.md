@@ -86,11 +86,16 @@ Applies to docs, notes, specs, and any file you create whose name you control.
 
 **Gate first: is this a change to code or config in a repo?** If not — research, writing, analysis, a question, planning, ops, a one-off script you run and throw away, anything that doesn't land in a repo — there is no change class and no engineering workflow: no brainstorm, no plan, no TDD, no review gate, no sub-agent by default. Do the thing, in house style. Only repo changes get a class.
 
-Size the ceremony to the change. Name the class in one line before you start ("Polish: gates at the checkpoint") so the human can override it in one word. When unsure, say the class and take the smaller one. This is the explicit instruction that lets a session skip a skill's workflow (brainstorm, plan) when the class doesn't call for it. A class never skips a gate it requires; it decides which gates apply and when they run.
+Classify the task internally and apply the required gates. Do not announce the
+class, effort choice, or routine workflow decisions. Communicate useful progress,
+blockers, consequential tradeoffs, required approvals, and verification results.
+A class decides which gates apply and when; it never skips a required gate.
+Choose direct execution or a rubric worker using [Execution choice](routing.md#execution-choice),
+including handoff cost and verifiability, before substantial investigation.
 
-- **Polish** — styling, spacing, copy; no logic change; one file per edit. No brainstorm; no plan (the class line is the plan); no sub-agent for the edits. Edit, verify the one thing that shows it (a screenshot, a targeted check), keep going. Baseline suite once per batch, not per edit. The suite, the review, and the single commit run **at the checkpoint**.
-- **Small** — one bug or one behavior with a clear spec, roughly three files or fewer. No brainstorm or separate plan. A bug starts with root-cause diagnosis; new behavior gets one runnable check. Ordinary changes stay with the current agent and use one verification pass at the highest stable existing testing seam.
-- **Feature** — new behavior across files or material design choices. State the intended outcome and use the risk gate. The current agent implements unless the gate identifies an independently useful substantial track. Add a written plan, recovery point, or independent review only when the matched risk requires it.
+- **Polish** — styling, spacing, copy; no logic change; one file per edit. No brainstorm or separate plan. Keep tiny edits local; route a bounded batch only when the execution-choice rule justifies it. Edit, verify the one thing that shows it (a screenshot, a targeted check), keep going. Baseline suite once per batch, not per edit. The suite, the review, and the single commit run **at the checkpoint**.
+- **Small** — one bug or one behavior with a clear spec, roughly three files or fewer. No brainstorm or separate plan. A bug starts with root-cause diagnosis; new behavior gets one runnable check. Choose direct execution or a rubric worker and use one verification pass at the highest stable existing testing seam.
+- **Feature** — new behavior across files or material design choices. State the intended outcome and use the risk gate. Select the implementer through the execution-choice rule; the risk gate determines verification and review. Add a written plan, recovery point, or independent review only when the matched risk requires it.
 
 **Checkpoint (Polish).** Any of: the human says commit / PR / done; the batch needs logic — commit the batch first, then the logic change proceeds as Small; the human starts an unrelated task; the session ends or hands off. Never leave a polish batch uncommitted in a shared checkout.
 

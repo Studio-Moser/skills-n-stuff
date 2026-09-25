@@ -2,7 +2,7 @@
 
 setup() { REPO="$(cd "$BATS_TEST_DIRNAME/../../.." && pwd)"; }
 
-@test "risk gate is mechanical and defaults ordinary work to direct execution" {
+@test "risk gate separates verification requirements from execution choice" {
   run python3 - "$REPO/plugins/harness/skills/risk-gate/SKILL.md" <<'PY'
 from pathlib import Path
 import sys
@@ -26,7 +26,8 @@ required = (
     "max_children",
     "max_depth",
     "token_budget",
-    "one independently useful substantial track",
+    "execution choice",
+    "a cheaper worker never reduces",
 )
 missing = [phrase for phrase in required if phrase not in text]
 assert not missing, "risk gate omits Lite rule: " + ", ".join(missing)
@@ -49,7 +50,7 @@ sprint = " ".join((repo / "plugins/pm/skills/sprint-dev/SKILL.md").read_text().s
 
 for phrase in (
     "manual only",
-    "current agent implements by default",
+    "execution choice",
     "harness:risk-gate",
     "delegate only",
     "independent review",
@@ -59,7 +60,7 @@ for phrase in (
 
 for phrase in (
     "harness:risk-gate",
-    "current agent implements by default",
+    "execution choice",
     "delegate only",
     "independent review",
     "one verification pass",
@@ -128,7 +129,7 @@ import sys
 
 text = " ".join(Path(sys.argv[1]).read_text().split()).lower()
 for phrase in (
-    "ordinary changes stay with the current agent",
+    "choose direct execution or a rubric worker",
     "one verification pass",
     "highest stable existing testing seam",
     "use the risk gate",

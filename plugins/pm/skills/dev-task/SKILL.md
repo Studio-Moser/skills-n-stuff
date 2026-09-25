@@ -7,12 +7,12 @@ allowed-tools: "Bash Read Write Edit Skill"
 # PM — Dev Task
 
 Guide one person through one development task with visible plan and approval gates.
-This is **manual only**. The current agent implements by default; routing a child is a
-separate, risk-gated decision.
+This is **manual only**. Execution follows Harness’s execution-choice rule; risk
+determines verification and review separately.
 
-Use `pm:house-rules` for branch, commit, PR, test, and security conventions. Name the
-change class first. Polish uses its one-line declaration as the plan and runs its
-checkpoint gates. Small and Feature changes use the workflow below.
+Use `pm:house-rules` for branch, commit, PR, test, and security conventions. Classify
+internally. Polish runs its checkpoint gates without a separate plan. Small and
+Feature changes use the workflow below.
 
 ## 1. Frame
 
@@ -43,17 +43,18 @@ default branch.
 
 ## 4. Execute
 
-The current agent implements by default. Keep the approved slice in context, use
-test-driven development for behavior changes, and stay inside the approved authority.
+Choose direct execution or a rubric worker through Harness’s
+[Execution choice](../../../harness/references/routing.md#execution-choice). Keep
+the approved slice in context, use test-driven development for behavior changes, and stay inside the approved authority.
 
-Delegate only when the risk gate identifies one independently useful substantial track
-with its own outcome and verification seam. Then invoke `harness:delegate` with
+Delegate only when that rule justifies a bounded worker with its own outcome and
+verification seam. Then invoke `harness:delegate` with
 `operation: execute` and the appropriate semantic route. Include the gate's
 `max_children`, `max_depth`, and `token_budget` in the request:
 
 ```yaml
 operation: execute
-route: {bulk | quick | taste}
+route: {bulk | quick | default | taste}
 outcome: {Outcome}
 context:
   project: {canonical project identifier when known}

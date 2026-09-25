@@ -13,7 +13,7 @@ import sys
 
 root = Path(sys.argv[1])
 expected_references = {
-    "setup": {"harness-contract.md", "shelby-integration.md"},
+    "setup": {"harness-contract.md", "routing.md", "shelby-integration.md"},
     "delegate": {
         "context.md", "handoff.md", "harness-contract.md", "routing.md",
         "shelby-integration.md", "verification.md",

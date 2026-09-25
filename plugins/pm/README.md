@@ -41,8 +41,9 @@ Skills load those references only at the branch where their rules apply. This RE
 ### Harness execution
 
 PM is a workflow consumer of the [Harness contract](../harness/references/harness-contract.md).
-The current agent executes approved slices by default. PM loads `harness:risk-gate`
-to decide whether a substantial independent track or fixed-target review should go to
+PM uses Harness’s [Execution choice](../harness/references/routing.md#execution-choice)
+to choose direct execution or a rubric worker through `harness:delegate`. It loads
+`harness:risk-gate` to decide verification and whether a fixed target needs
 `harness:delegate`. Those provider-neutral requests select only
 the semantic route: `bulk` for clear-spec
 mechanical work and scorecards, `quick` only for latency-sensitive steps, `taste`

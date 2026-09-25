@@ -1,7 +1,7 @@
 {
   "name": "harness",
-  "version": "2.0.7",
-  "description": "A lightweight provider-neutral agent control plane. Keeps ordinary work direct, applies mechanical risk gates, bounds delegation and review, and syncs personal skills, instructions, settings, and model routing across machines.",
+  "version": "2.1.0",
+  "description": "A lightweight provider-neutral agent control plane. Chooses direct execution or rubric workers by capability and total cost, applies mechanical risk gates, bounds delegation and review, and syncs personal skills, instructions, settings, and model routing across machines.",
   "author": {
     "name": "Studio Moser",
     "url": "https://github.com/Studio-Moser"

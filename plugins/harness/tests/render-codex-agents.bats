@@ -102,3 +102,34 @@ EOF
   run "$SCRIPT"
   [ "$status" -eq 2 ]
 }
+
+@test "portable execution policy survives rendering and repeat sync" {
+  python3 - "$REPO/claude/CLAUDE.md" <<'PYTHON'
+from pathlib import Path
+import sys
+p = Path(sys.argv[1])
+s = p.read_text().replace("- Bug fix = root cause.", """- Bug fix = root cause.
+
+### Lite execution and verification
+
+Keep classification and routine routing internal.
+Any main model may route to a cheaper or stronger worker.
+Use `harness:delegate` with `operation: execute` and a semantic route.
+Task difficulty selects the route; risk selects verification and review.
+A cheaper worker never reduces required verification or review.""")
+p.write_text(s)
+PYTHON
+  run "$SCRIPT" "$REPO"
+  [ "$status" -eq 0 ]
+  python3 - "$REPO" <<'PYTHON'
+from pathlib import Path
+import sys
+repo = Path(sys.argv[1])
+source = (repo / "claude/CLAUDE.md").read_text()
+policy = source.split("### Lite execution and verification")[1].split("<!-- shelby:bootstrap start -->")[0]
+assert policy in (repo / "codex/AGENTS.md").read_text()
+PYTHON
+  run "$SCRIPT" "$REPO"
+  [ "$status" -eq 0 ]
+  [ "$output" = "RENDER_STATE=unchanged" ]
+}
