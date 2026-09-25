@@ -844,20 +844,26 @@ PY
   [ "$status" -eq 0 ]
 }
 
-@test "sync updates installed Codex plugins from their marketplace" {
+@test "sync updates only the Codex plugins listed as installed and enabled" {
   stub="$BATS_TEST_TMPDIR/bin"; mkdir -p "$stub"
   cat > "$stub/codex" <<'SH'
 #!/bin/sh
 echo "$*" >> "$CODEX_LOG"
 case "$*" in
-  "plugin add harness@studio-moser") mkdir -p "$CODEX_HOME/plugins/cache/studio-moser/harness/2.0.10" ;;
+  "plugin list")
+    echo "harness@studio-moser        installed, enabled  2.0.9    /x/plugins/harness"
+    echo "pm@studio-moser             installed, enabled  0.22.0   /x/plugins/pm"
+    echo "superpowers@claude-plugins-official   not installed   https://example"
+    echo "generate@studio-moser       not installed       /x/plugins/generate" ;;
+  "plugin add harness@studio-moser") echo "Installed plugin root: /c/studio-moser/harness/2.0.10" ;;
+  "plugin add pm@studio-moser") echo "Installed plugin root: /c/studio-moser/pm/0.22.0" ;;
 esac
 exit 0
 SH
   chmod +x "$stub/codex"
-  export CODEX_HOME="$BATS_TEST_TMPDIR/codex" CODEX_LOG="$BATS_TEST_TMPDIR/codex.log"
-  mkdir -p "$CODEX_HOME/plugins/cache/studio-moser/harness/2.0.9" "$CODEX_HOME/plugins/cache/studio-moser/pm/0.22.0"
-  run env PATH="$stub:$PATH" CODEX_HOME="$CODEX_HOME" CODEX_LOG="$CODEX_LOG" python3 - "$REPO/plugins/harness/scripts/sync" <<'PY'
+  export CODEX_LOG="$BATS_TEST_TMPDIR/codex.log"
+  mkdir -p "$BATS_TEST_TMPDIR/codex/plugins/cache/claude-plugins-official/superpowers/6.4.1"
+  run env PATH="$stub:$PATH" CODEX_HOME="$BATS_TEST_TMPDIR/codex" CODEX_LOG="$CODEX_LOG" python3 - "$REPO/plugins/harness/scripts/sync" <<'PY'
 import importlib.machinery, importlib.util, sys
 loader = importlib.machinery.SourceFileLoader("sync_script", sys.argv[1])
 spec = importlib.util.spec_from_loader("sync_script", loader)
@@ -870,5 +876,7 @@ PY
   [ "$status" -eq 0 ]
   [[ "$output" == *"CHANGED=1"* ]] || return 1
   grep -q "plugin marketplace upgrade studio-moser" "$CODEX_LOG" || return 1
-  grep -q "plugin add pm@studio-moser" "$CODEX_LOG" || return 1
+  ! grep -q "superpowers" "$CODEX_LOG" || return 1
+  ! grep -q "claude-plugins-official" "$CODEX_LOG" || return 1
+  ! grep -q "generate" "$CODEX_LOG" || return 1
 }

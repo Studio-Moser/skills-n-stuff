@@ -627,34 +627,30 @@ def plugin_reconcile(repo: Path, claude: Path) -> tuple[str, list[str]]:
 
 
 def codex_plugin_update(findings: list[str]) -> int:
-    """Refresh each Codex marketplace that has installed plugins and re-add them, so
-    Codex follows the same plugin versions as Claude Code. Returns how many changed."""
+    """Refresh the marketplaces of the plugins Codex reports installed and enabled, and
+    re-add those plugins, so Codex follows the same versions as Claude Code. Only that
+    list counts: cache folders of removed plugins or interrupted installs are ignored,
+    so a removed plugin is never reinstalled. Returns how many plugins changed version."""
     if shutil.which("codex") is None:
         return 0
-    cache = Path(os.environ.get("CODEX_HOME", Path.home() / ".codex")) / "plugins" / "cache"
-    if not cache.is_dir():
+    listed = run(["codex", "plugin", "list"], check=False)
+    if listed.returncode:
+        findings.append("Codex plugin inventory failed")
         return 0
-
-    def newest(plugin: Path) -> str:
-        versions = sorted((p.name for p in plugin.iterdir() if p.is_dir()), key=version_key)
-        return versions[-1] if versions else ""
-
+    enabled = re.findall(r"^(\S+)@(\S+)\s+installed, enabled\s+(\S+)", listed.stdout, re.MULTILINE)
     changed = 0
-    for marketplace in sorted(p for p in cache.iterdir() if p.is_dir()):
-        plugins = sorted(p for p in marketplace.iterdir() if p.is_dir())
-        if not plugins or run(["codex", "plugin", "marketplace", "upgrade", marketplace.name], check=False).returncode:
-            continue
-        for plugin in plugins:
-            before = newest(plugin)
-            if run(["codex", "plugin", "add", f"{plugin.name}@{marketplace.name}"], check=False).returncode:
-                findings.append(f"Codex plugin update failed: {plugin.name}@{marketplace.name}")
-            elif newest(plugin) != before:
+    for marketplace in sorted({market for _name, market, _version in enabled}):
+        if run(["codex", "plugin", "marketplace", "upgrade", marketplace], check=False).returncode:
+            continue  # not a Git marketplace, or offline: its plugins stay as installed
+        for name, market, before in enabled:
+            if market != marketplace:
+                continue
+            added = run(["codex", "plugin", "add", f"{name}@{market}"], check=False)
+            if added.returncode:
+                findings.append(f"Codex plugin update failed: {name}@{market}")
+            elif f"/{before}" not in added.stdout:
                 changed += 1
     return changed
-
-
-def version_key(value: str) -> tuple:
-    return tuple(int(part) if part.isdigit() else part for part in re.split(r"[.-]", value))
 
 
 def mcp_plan(repo: Path, claude: Path, runtime_mcp: Path, scripts: Path) -> tuple[list[tuple[str, ...]], str]:
