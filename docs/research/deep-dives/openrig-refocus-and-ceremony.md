@@ -178,7 +178,7 @@ The Harness `sync` skill manages links, but I did not verify whether it detects 
 
 - **R1 — Shadowed skills.** A user-level copy silently overrides a plugin skill and calls removed contracts. Observed this run. **High**
 - **R2 — Drift after compaction in long PM sessions.** No mechanism re-delivers the outcome. **Medium**: plausible but not measured here.
-- **R3 — A refocus hook can become ceremony.** OpenRig warns that repeated static nudges "teach agents to answer the reminder instead of progressing the artifact" (`skills/_canonical/core/watchdog/SKILL.md:79`). Fire only on compaction, never on a timer. **Medium**
+- **R3 — A refocus hook can become ceremony.** OpenRig warns that repeated static nudges "teach agents to answer the reminder instead of progressing the artifact" (`skills/_canonical/core/watchdog/SKILL.md:78`). Fire only on compaction, never on a timer. **Medium**
 - **R4 — Our own moon base.** Measured by OpenRig's own definition, this run's orchestration was heavy for a single research report.
   - It took typed request packets, a resolver loop, quota fallback, parent reproduction, and a result with about 22 fields in the stale execute skill.
   - That field count exceeds the result schema in the current `harness-contract.md`.
