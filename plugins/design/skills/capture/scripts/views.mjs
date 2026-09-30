@@ -10,7 +10,8 @@
 //   url      full URL of the page to shoot
 //   outDir   created if missing; earlier files are overwritten
 //   --widths comma-separated CSS widths; desktop widths (>= 700) record motion
-//   --hide   extra selectors to hide (dev overlays); nextjs-portal is always hidden
+//   --hide   extra selectors to hide (dev overlays); nextjs-portal and
+//            [data-preview-chrome] are always hidden
 //
 // Needs @playwright/test (or playwright) with Chromium, and sharp, resolvable
 // from the current working directory. Run it from the project root.
@@ -57,7 +58,8 @@ const WIDTHS = (flag('--widths') ?? '1440,390').split(',').map((s) => {
   const width = Number(s.trim())
   return { name: String(width), width, height: HEIGHTS[width] ?? Math.round(width * 0.625), motion: width >= 700 }
 })
-const HIDE_CSS = ['nextjs-portal', ...(flag('--hide') ?? '').split(',').map((s) => s.trim()).filter(Boolean)]
+// Review chrome tagged data-preview-chrome is never part of what a reader sees.
+const HIDE_CSS = ['nextjs-portal', '[data-preview-chrome]', ...(flag('--hide') ?? '').split(',').map((s) => s.trim()).filter(Boolean)]
   .map((sel) => `${sel} { display: none !important; }`)
   .join('\n')
 // Frame times after the wheel gesture, in ms: mid-gesture to settled.
