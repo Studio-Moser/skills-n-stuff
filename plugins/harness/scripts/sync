@@ -572,16 +572,20 @@ def plugin_reconcile(repo: Path, claude: Path) -> tuple[str, list[str]]:
     enabled.update(local.get("enabledPlugins", {}))
     findings: list[str] = []
 
-    def names(command: list[str]) -> tuple[set[str], str | None]:
-        result = run(command, check=False)
+    # JSON lists only CLI-managed entries; the text form also shows claude.ai ones as "(no CLI name)".
+    def names(command: list[str], key: str) -> tuple[set[str], str | None]:
+        result = run([*command, "--json"], check=False)
         if result.returncode:
             return set(), f"running {' '.join(command)} exited {result.returncode}"
-        return set(re.findall(r"❯\s+(\S+)", result.stdout)), None
+        try:
+            return {entry[key] for entry in json.loads(result.stdout)}, None
+        except (ValueError, TypeError, KeyError):
+            return set(), f"running {' '.join(command)} returned unreadable JSON"
 
-    have_marketplaces, marketplace_error = names(["claude", "plugin", "marketplace", "list"])
+    have_marketplaces, marketplace_error = names(["claude", "plugin", "marketplace", "list"], "name")
     if marketplace_error:
         return f"failed: {marketplace_error}", [f"plugin inventory failed: {marketplace_error}"]
-    have_plugins, plugin_error = names(["claude", "plugin", "list"])
+    have_plugins, plugin_error = names(["claude", "plugin", "list"], "id")
     if plugin_error:
         return f"failed: {plugin_error}", [f"plugin inventory failed: {plugin_error}"]
     added = installed = updated = 0
@@ -947,11 +951,14 @@ def push_machines(args: argparse.Namespace, repo: Path, scripts: Path) -> str:
     hosts = [line for line in listed.stdout.splitlines() if line]
     if listed.returncode or not hosts:
         return "not configured: no fleet hosts in ssh/config"
-    script = REMOTE_SYNC.format(self=socket.gethostname().split(".")[0])
+    self_name = socket.gethostname().split(".")[0]
+    script = REMOTE_SYNC.format(self=self_name)
     outcomes: dict[str, list[str]] = {
         "synced": [], "synced with findings": [], "pulled only": [], "failed": [], "unreachable": [],
     }
     for host in hosts:
+        if host.lower() == self_name.lower():
+            continue  # this machine may not accept ssh from itself; the in-script check covers other aliases
         result = run(
             ["ssh", "-F", str(repo / "ssh/config"), "-o", "BatchMode=yes", "-o", "ConnectTimeout=8",
              host, 'exec "${SHELL:-/bin/zsh}" -l -s'],
