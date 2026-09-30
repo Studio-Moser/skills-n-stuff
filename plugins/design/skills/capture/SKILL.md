@@ -114,6 +114,39 @@ Hand a builder its own views after each section for self-review, and hand a
 critic the views plus the report; a critic that cannot open the preview from
 its sandbox works from these files.
 
+## Freeze running pages into portable HTML
+
+When variants were built as framework routes (a branch per direction, a dev
+server each), `freeze.mjs` turns each running page into one self-contained HTML
+file beside its brief, indexed by a per-direction `Snapshots.json`, so the
+branches can be retired and the variants reviewed on `design:canvas`.
+
+```sh
+node "${CLAUDE_PLUGIN_ROOT}/skills/capture/scripts/freeze.mjs" <targets.json> --dir "docs/Design Directions" [--only <direction key>]
+```
+
+Same `targets.json` as above; each direction maps to a folder under `--dir` by
+its leading token (`03-drawn` → `03 Drawn`) or an explicit `"folder"`. A
+variant's title comes from a spec beside it named `Homepage <X> - <Title>.md`
+when one exists, else from its `label`. Output: `Homepage <X> - <Title>.html`
+and `Snapshots.json` (id, title, file, label, source, height, overflow, broken
+images, bytes, capture time).
+
+How it captures, and why: single-file drives Chrome at the capture width with
+scripts **enabled** so the page hydrates and its reveals fire during the scroll,
+under **forced reduced motion** so every JS-revealed section is in the visible,
+settled state a variant must render under `prefers-reduced-motion`; CSS, fonts
+and images are inlined; every `<script>` is then removed so the file is a
+static document. CSS-driven motion (scroll-driven animations, keyframes,
+transitions) survives in the viewer; JS-driven motion does not, and the spec
+beside the file describes it. Expect roughly 0.5–2 MB per page with inlined
+imagery; without the strip a hydrated Next page is 15 MB of JavaScript.
+
+Needs Node 23+ (single-file's browser bridge uses the global `CloseEvent`),
+Chrome or a Playwright Chromium (`FREEZE_BROWSER` overrides), and Playwright
+resolvable from the project root. Run previews one at a time when several dev
+containers would not fit in memory together; the script does not start servers.
+
 ## Placing shots in Figma
 
 One row per direction, variants side by side. Upload runs through the Figma

@@ -1,10 +1,11 @@
 # Design
 
 Design exploration rounds for [Claude Code](https://code.claude.com). One brief
-and one copy doc fan out into several independent variants, each built by a
-named skill and model; fresh-context critics push each first draft further into
-its own premise; stitched captures land side by side for the owner to look at.
-Nothing here picks a winner. The owner harvests what moved them into the next
+and one copy doc fan out into several independent HTML variants, each built by
+a named skill and model; fresh-context critics push each first draft further
+into its own premise; the variants land as live frames on a shared Doop canvas
+where the owner's pinned comments flow back into the next brief. Nothing here
+picks a winner. The owner harvests what moved them into the next
 brief, and the briefs turn prescriptive as the exploration converges.
 
 [![skills.sh](https://skills.sh/b/Studio-Moser/skills-n-stuff)](https://skills.sh/Studio-Moser/skills-n-stuff)
@@ -16,7 +17,8 @@ brief, and the briefs turn prescriptive as the exploration converges.
 | `/design:fan-out` | Round runner | Validates a round sheet (max seven variants, one skill each), prepares worktrees, dispatches builders as local subagents or through Harness, gates first drafts, captures, and writes the round index |
 | `/design:variant-brief` | Brief author | Cuts the project's variant build brief from the shared template, keeping the discipline verbatim and filling the project's slots |
 | `/design:first-draft-critic` | Critic loop | Explore mode (two lenses, pushes toward the premise, two rounds) inside a fan-out; gauntlet mode (three lenses against a written done bar, five rounds) for convergence and hero pieces |
-| `/design:capture` | Screenshots | Stitched captures at one width, cut into bands Figma's editor will draw, with a manifest for the upload; fails loudly on overflow, broken images, or blank renders |
+| `/design:canvas` | Review surface | One self-hosted Doop server for every project; publishes a project's snapshots as viewport-sized live frames (row per direction) and harvests element-pinned comments into the next brief's Carry forward |
+| `/design:capture` | Screenshots and freezes | `freeze.mjs` turns running framework routes into self-contained HTML files with a per-direction manifest; `views.mjs` shoots per-viewport stills and motion strips for critics; stitched, banded captures for Figma when that is the destination |
 
 ## Templates
 
@@ -26,6 +28,15 @@ brief, and the briefs turn prescriptive as the exploration converges.
 - `templates/Round Sheet.md`: one row per variant with method, route, dials,
   and borrows; the Results section is the round index.
 - `templates/Variant Build Brief.md`: what every builder reads first.
+
+## Two mediums
+
+- **`html`** (exploration, the default): a variant is one self-contained page
+  beside the direction brief; the direction's `tokens.css` is the only shared
+  surface. No worktrees, servers, or registries. Variants are reviewed on the
+  canvas and are probes, not production code.
+- **`code`** (convergence): the survivor is rebuilt in the project's real stack
+  on a branch, with gauntlet-mode critics and the project's verify gates.
 
 ## How a round works
 
@@ -40,10 +51,11 @@ brief, and the briefs turn prescriptive as the exploration converges.
 4. `first-draft-critic` in explore mode gives each variant one fix pass against
    its own Wins if / Loses if and the craft gates. No system lens, no taste
    opinions.
-5. `capture` shoots the round; the round index records method, resolved model,
-   URL, captures, and remaining fails.
-6. The owner looks and writes Carry forward into the next briefs. When Carry
-   forward stops gaining lines across two rounds, exploration is over.
+5. `canvas` publishes the round as frames; the round index records method,
+   resolved model, file, frame name, and remaining fails.
+6. The owner looks on the canvas and pins comments; `canvas` § Harvest turns
+   them into the next briefs' Carry forward. When Carry forward stops gaining
+   lines across two rounds, exploration is over.
 
 ## Requirements
 
@@ -51,8 +63,11 @@ brief, and the briefs turn prescriptive as the exploration converges.
   (`impeccable`, `frontend-design`, `design-taste-frontend`, `hallmark`, or
   others); the plugin ships none of them.
 - Harness for delegated builders (`/plugin install harness@studio-moser`).
+- For `canvas`: Docker plus `preview:serve-preview`'s router on one host, a
+  clone of [kgoedecke/doop](https://github.com/kgoedecke/doop), and the `doop`
+  MCP registered on each machine (`claude mcp add --transport http --scope user doop <url>/mcp`).
 - For `capture`: Playwright with Chromium and `sharp` resolvable from the
-  project root.
+  project root; `freeze.mjs` also needs Node 23+ and Chrome.
 - Optional personal agents `design-builder-*` and `design-critic-*` in
   `~/.claude/agents`; the skills fall back to general-purpose subagents with
   the bundled prompts.

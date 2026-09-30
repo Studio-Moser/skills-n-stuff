@@ -32,10 +32,13 @@ A round needs four documents, all owned by the project, none invented here:
    It owns the done gates, the off-limits files, the report format, and the
    project's own traps.
 
-Plus **the round sheet**: one row per variant with `id`, `direction`, `copy`,
-`method` (exactly one design skill, or `none`), `route` (a Harness semantic
-route, or a Claude model alias for a local subagent), optional `dials`, and the
-reference entries this variant borrows from. If any input is missing, ask once,
+Plus **the round sheet**: its `medium` (`html`, the default: one
+self-contained page per variant beside the direction brief; or `code`: a
+route in the project's real stack on a direction branch), and one row per
+variant with `id`, `direction`, `copy`, `method` (exactly one design skill, or
+`none`), `route` (a Harness semantic route, or a Claude model alias for a local
+subagent), optional `dials`, and the reference entries this variant borrows
+from. If any input is missing, ask once,
 batching every question, then run to the end state: a round index handed back.
 
 ## Rules that make the round worth its cost
@@ -52,23 +55,27 @@ batching every question, then run to the end state: a round index handed back.
   in-progress work or conversation.
 - **Builders return paths and screenshots, not code.** Their report follows the
   build brief's format; the round index collects those reports.
-- **A round never touches `main`.** Each direction has its branch and worktree;
-  variants land there, commit or not according to the project's convention.
+- **Exploration is `html`; convergence is `code`.** In the `html` medium a
+  variant is one file, the direction's shared `tokens.css` is the only shared
+  surface, and there are no worktrees, servers, or registries to prepare. The
+  `code` medium is for rebuilding the survivor in the project's stack once
+  Carry forward stops growing; its variants live on a direction branch and
+  never touch `main`.
 
 ## Procedure
 
 1. **Validate the sheet.** Every row resolves: direction brief exists, copy
    direction exists, method is installed (or `none`), route is one the Harness
    rubric knows or a Claude alias. Reject a sheet over seven rows.
-2. **Prepare each direction's worktree and preview.** One worktree per
-   direction branch. Confirm the dev server or preview is running and reachable
-   before dispatch; a builder must not start a second server. Follow the
-   project's preview convention (`preview:serve-preview` when the project uses
-   it).
+2. **Prepare the medium.** `html`: confirm the direction folder exists with
+   its brief and, after the first variant, its `tokens.css`; pick the next free
+   letter from `Snapshots.json`. `code`: one worktree per direction branch,
+   dev server or preview running and reachable before dispatch (a builder must
+   not start a second one), following the project's preview convention.
 3. **Assemble each builder's packet:** the variant build brief, the direction
-   brief, the copy direction, the worktree path, the route letter or path, and
-   the running server. Five named things; the build brief says a builder asks
-   if one is missing.
+   brief, the copy direction, and the output (`html`: the file path and letter;
+   `code`: the worktree, the route, and the running server). The build brief
+   says a builder asks if one is missing.
 4. **Dispatch in parallel.**
    - A row whose `route` is a Claude alias runs as a local subagent. If a
      personal agent named `design-builder-<method>` exists, use it with the
@@ -80,23 +87,28 @@ batching every question, then run to the end state: a round index handed back.
      paths limited to the variant's route folder plus the registry file, and
      the build brief's verify checklist as the acceptance check. Harness
      resolves the model; the round index records what it resolved.
-   - Never dispatch two rows to the same worktree at once unless the build
-     brief's off-limits rules make their write sets disjoint.
+   - In `html`, builders on the same direction write different files and may
+     run at once; only the first variant of a direction writes `tokens.css`. In
+     `code`, never dispatch two rows to one worktree unless the build brief's
+     off-limits rules make their write sets disjoint.
 5. **Gate first drafts.** When the sheet sets `critic: explore` (the default
    for a fan-out), run `design:first-draft-critic` in explore mode on each
    finished variant and give the builder one fix pass. Skip when the sheet says
    `critic: none`.
-6. **Capture.** Run `design:capture` against the round's targets so every
-   variant has stitched shots and bands at the same width.
+6. **Publish.** `html`: append each variant to its direction's
+   `Snapshots.json` and run `design:canvas`'s `publish-canvas.mjs` so the round
+   appears as frames on the project's canvas. `code`: run `design:capture`
+   (`freeze.mjs` to turn routes into files first, or stitched shots for Figma).
 7. **Write the round index** into the round sheet's Results section: for each
-   variant, the method, the resolved model and effort, the route URL, the
-   capture paths, the builder's self-review pass count, and the critic's
+   variant, the method, the resolved model and effort, the file or route, the
+   canvas frame name, the builder's self-review pass count, and the critic's
    remaining fails if any. Then stop. Do not rank, do not recommend a winner.
 
 ## After the round
 
-The owner looks, and writes what moved them into the next direction brief's
-**Carry forward** section (element, which variant it came from, why). That
+The owner looks on the canvas and pins comments to elements. `design:canvas`
+§ Harvest turns those into the next direction brief's **Carry forward** block
+(element, which variant it came from, the owner's words as the why). That
 section is the round's only lasting record; the variants are probes. When Carry
 forward stops gaining new lines across two rounds, exploration is over and the
 briefs can turn prescriptive; hand the survivor to `design:first-draft-critic`

@@ -8,9 +8,28 @@ exploration. A direction is a design premise; a variant is one execution of
 it. A direction may have many variants, and they exist to be compared, so yours
 has to make a different argument rather than a different skin.
 
-Your task names five things: the direction, its worktree, your route, the dev
-server, and the copy direction. If any of those is missing, ask before
-building.
+Your task names the direction, the copy direction, the design skill to use,
+and your output: in the `html` medium, the file path and letter; in the `code`
+medium, the worktree, the route, and the running dev server. If any of those is
+missing, ask before building.
+
+## Medium
+
+**`html` (exploration).** Your variant is one file,
+`{directions dir}/{NN Name}/Homepage <X> - <Title>.html`, complete on its own:
+inline `<style>`, fonts by `@font-face` with a self-hosted or data URL, images
+inline or from the project's imagery folder, no framework, no build step, no
+`<script>` unless the direction's brief asks for behaviour CSS cannot do. The
+direction's shared type and tokens live in `{NN Name}/tokens.css`; the first
+variant writes it, later variants paste it into their `<style>` unchanged (a
+frame on the canvas cannot fetch a relative file). Verify by opening the file
+in a browser at 1440 and 390. Register in `Snapshots.json` (id, title, file,
+method label). Nothing here touches the project's application code.
+
+**`code` (convergence).** Your variant is a route in the project's real stack,
+on the direction's branch, in its worktree, against its running dev server.
+The sections below on the system, off-limits files, the registry, and traps
+apply in full.
 
 ## Read first
 
@@ -40,9 +59,9 @@ building.
 ## Two situations
 
 **The direction has no variants yet.** You are establishing its design system:
-type, tokens beyond the frozen palette, recipes, components. Build them as a
-system rather than as one page's styling, because every later variant reuses
-them.
+type, tokens beyond the frozen palette, recipes, components (`html`: the
+direction's `tokens.css`). Build them as a system rather than as one page's
+styling, because every later variant reuses them.
 
 **The direction already has variants.** Its design system exists. Reuse it. Do
 not modify it, do not modify another variant's route, and do not restyle the
