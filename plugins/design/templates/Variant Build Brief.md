@@ -14,7 +14,7 @@ building.
 
 ## Read first
 
-- `{identity brief}`: the frozen brief and the intent behind everything below.
+- `{frozen brief}`: the identity or brand brief and the intent behind everything below.
   Read {the sections a builder needs, by number}. The pass/fail rubric is not
   there; it is § Done gates in this file.
 - `{copy rules}`: follow them exactly.
@@ -125,7 +125,7 @@ Pass/fail lines. A variant clears every one before it is captured.
 - [ ] Every fixed item is unchanged.
 - [ ] No decorative label pattern repeats above every section; a label earns
       its place by adding information.
-- [ ] {persona and funnel lines from the identity brief}
+- [ ] {persona and funnel lines from the frozen brief}
 
 **System**
 
@@ -147,7 +147,7 @@ Pass/fail lines. A variant clears every one before it is captured.
 
 ## Banned outright
 
-{banned: the identity brief's lane list, plus house design law such as gradient
+{banned: the frozen brief's lane list, plus house design law such as gradient
 text, side-stripe accent borders, decorative glassmorphism, the big-number
 hero-metric template, identical repeating card grids, nested cards}
 

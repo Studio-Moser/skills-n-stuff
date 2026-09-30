@@ -1,7 +1,7 @@
 # Round {N}: {short name}
 
 Date: {YYYY-MM-DD}
-Identity brief: `{path}` (frozen, {signed date})
+Frozen brief: `{path}` (signed {date})
 Variant build brief: `{path}`
 Critic: explore | none
 Cap: 7 variants
@@ -15,9 +15,9 @@ and what this round is trying to see. Not what it should conclude.
 
 | id | direction | copy | method | route | dials | borrows from |
 | --- | --- | --- | --- | --- | --- | --- |
-| e | `Design Directions/08 Mark` | `Copy Directions/05 Proof First` | impeccable | fable | | Mark § Reference pack 1, 3 |
-| f | `Design Directions/08 Mark` | `Copy Directions/05 Proof First` | taste | taste | V9 M7 D3 | Mark § Reference pack 2 |
-| g | `Design Directions/09 Color Block` | `Copy Directions/05 Proof First` | frontend-design | default | | Color Block § Reference pack 1, 2 |
+| e | `{directions dir}/03 Ledger` | `{copy dir}/02 Proof First` | impeccable | fable | | Ledger § Reference pack 1, 3 |
+| f | `{directions dir}/03 Ledger` | `{copy dir}/02 Proof First` | taste | taste | V9 M7 D3 | Ledger § Reference pack 2 |
+| g | `{directions dir}/04 Field` | `{copy dir}/02 Proof First` | frontend-design | default | | Field § Reference pack 1, 2 |
 
 Column rules:
 

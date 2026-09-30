@@ -2,7 +2,7 @@
 
 Status: {n} variants built, awaiting owner review | exploring | retired
 Branch: `design/{name}` · Preview: {URL}
-Brief: `{identity brief path}`. Nothing here overrides it.
+Brief: `{frozen brief path}`. Nothing here overrides it.
 Siblings: one sentence per built direction naming the role the shared device
 plays there, so this direction can say what it does that none of them do.
 
@@ -23,7 +23,7 @@ not, so name the structural choice explicitly.
 
 | # | Reference | Borrow this | Not this |
 | --- | --- | --- | --- |
-| 1 | `research/Inspiration/{Site}/Design Brief.md` | {the one move} | {what would make it a copy} |
+| 1 | `{path to the reference note, screenshot, or URL}` | {the one move} | {what would make it a copy} |
 | 2 | | | |
 
 ## Premise

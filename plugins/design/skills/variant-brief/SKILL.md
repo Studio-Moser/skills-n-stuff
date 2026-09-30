@@ -24,7 +24,7 @@ lives in the template; the facts are the project's and live in its slots.
 1. Read `../../templates/Variant Build Brief.md`. Everything outside a
    `{slot}` is the shared discipline; copy it as written. Rewording it is how
    two projects end up with briefs that disagree.
-2. Read the project's identity brief, its directions README (or equivalent),
+2. Read the project's frozen brief, its directions README (or equivalent),
    and its existing verify commands. Fill each slot from those sources and
    point at them; do not restate a rule that already lives in one of them.
    One fact, one owner.
@@ -45,18 +45,18 @@ already in the codebase. Do not add taste; taste belongs to the direction brief.
 
 | Slot | Source | Notes |
 | --- | --- | --- |
-| `{identity brief}` | the frozen brief | sections a builder must read, by number |
+| `{frozen brief}` | the identity or brand brief | sections a builder must read, by number |
 | `{copy rules}` | voice or copy rules doc | followed exactly |
 | `{directions readme}` | how a direction branch is laid out and run | |
 | `{facts files}` | typed content, case studies, settings | real names and numbers only; invent nothing |
-| `{fixed items}` | identity brief | palette hex values, marks, blend rules, grain |
+| `{fixed items}` | frozen brief | palette hex values, marks, textures, brand rules |
 | `{off limits}` | project layout | shared layout, globals, chrome, package exports, other variants' routes |
 | `{registry}` | the one shared file a variant appends to | with the entry shape |
-| `{route convention}` | where variants live | e.g. `app/v/<letter>/` |
+| `{route convention}` | where variants live | e.g. `routes/<letter>/` or `variants/<letter>/` |
 | `{traps}` | past afternoons | symptom, cause, fix in the codebase |
-| `{imagery rule}` | identity brief | generated stand-ins, provenance log, never ship |
+| `{imagery rule}` | frozen brief | generated stand-ins, provenance log, never ship |
 | `{done gates}` | project's craft floor | pass/fail lines only |
-| `{banned}` | identity brief lane list plus house design law | |
+| `{banned}` | frozen brief lane list plus house design law | |
 | `{skills installed}` | the machine | one line each; the task names which one to invoke |
 | `{verify}` | scripts and checks | the commands and the browser checks at two widths |
 | `{report}` | | the fields the round index needs |

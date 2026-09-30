@@ -29,7 +29,7 @@ Requirements: `@playwright/test` (or `playwright`) with Chromium installed, and
 the script also searches `node_modules/.pnpm` for sharp. Every target's preview
 must be running; the script does not start servers.
 
-Output, under `--out` (default `Generations/shots`, add it to `.gitignore`):
+Output, under `--out` (default `design-shots`, add it to `.gitignore`):
 
 - `<slug>.png`: the stitched page at the configured width and scale, archive copy.
 - `bands/<slug>/NN.jpg`: the shot cut into bands of at most 2048 CSS px. **These
@@ -52,8 +52,8 @@ JSON lines it prints; each is one target.
   "background": "#ffffff",
   "directions": [
     {
-      "key": "08-mark",
-      "name": "08 Mark",
+      "key": "03-ledger",
+      "name": "03 Ledger",
       "premise": "one line",
       "variants": [
         { "id": "a", "label": "A, impeccable", "url": "https://preview-…/v/a", "live": "https://…" },

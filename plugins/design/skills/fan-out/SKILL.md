@@ -21,8 +21,8 @@ Read `../../templates/Round Sheet.md` for the input shape.
 
 A round needs four documents, all owned by the project, none invented here:
 
-1. **The identity brief**, frozen. What is fixed, what is banned, character
-   words, personas.
+1. **The frozen brief** (identity brief, brand brief, whatever the project
+   calls it). What is fixed, what is banned, character words, personas.
 2. **One direction brief per direction in the round**, in the shape of
    `templates/Direction Brief.md`: premise, type, hard rules, Wins if /
    Loses if, and a **Reference pack**.

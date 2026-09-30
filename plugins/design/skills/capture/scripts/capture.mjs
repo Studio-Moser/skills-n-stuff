@@ -48,7 +48,7 @@ const { chromium } = requireFirst(['@playwright/test', 'playwright'])
 const sharp = requireFirst(['sharp'])
 
 const cfg = JSON.parse(readFileSync(targetsPath, 'utf8'))
-const OUT = resolve(cwd, flag('--out') ?? 'Generations/shots')
+const OUT = resolve(cwd, flag('--out') ?? 'design-shots')
 const UPLOAD = resolve(OUT, 'figma')
 const BANDS = resolve(OUT, 'bands')
 const only = flag('--only')
