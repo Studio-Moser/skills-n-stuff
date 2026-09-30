@@ -53,9 +53,10 @@ EOF
 install_sync_stubs() {
   cat > "$BIN/claude" <<'EOF'
 #!/usr/bin/env bash
-if [ "$1 $2 $3" = "plugin marketplace list" ]; then
-  printf '❯ claude-plugins-official\n'
-fi
+case "$1 $2 $3" in
+  "plugin marketplace list") printf '[{"name":"claude-plugins-official"}]\n' ;;
+  "plugin list --json") printf '[]\n' ;;
+esac
 exit 0
 EOF
   cat > "$BIN/npx" <<'EOF'
@@ -221,9 +222,10 @@ EOF
 
   cat > "$BIN/claude" <<'EOF'
 #!/usr/bin/env bash
-if [ "$1 $2 $3" = "plugin marketplace list" ]; then
-  printf '❯ claude-plugins-official\n'
-fi
+case "$1 $2 $3" in
+  "plugin marketplace list") printf '[{"name":"claude-plugins-official"}]\n' ;;
+  "plugin list --json") printf '[]\n' ;;
+esac
 exit 0
 EOF
   cat > "$BIN/npx" <<'EOF'
@@ -879,4 +881,32 @@ PY
   ! grep -q "superpowers" "$CODEX_LOG" || return 1
   ! grep -q "claude-plugins-official" "$CODEX_LOG" || return 1
   ! grep -q "generate" "$CODEX_LOG" || return 1
+}
+
+@test "sync reports orphan marketplaces only from the CLI-managed JSON list" {
+  stub="$BATS_TEST_TMPDIR/bin"; mkdir -p "$stub"
+  cat > "$stub/claude" <<'SH'
+#!/bin/sh
+case "$*" in
+  "plugin marketplace list --json") echo '[{"name":"claude-plugins-official"},{"name":"studio-moser"},{"name":"stray"}]' ;;
+  "plugin marketplace list") printf '  ❯ studio-moser\nFrom claude.ai:\n  ❯ (no CLI name) · listed as "Anthropic Directory"\n' ;;
+  "plugin list --json") echo '[]' ;;
+esac
+exit 0
+SH
+  chmod +x "$stub/claude"
+  repo="$BATS_TEST_TMPDIR/agents"; mkdir -p "$repo/claude" "$BATS_TEST_TMPDIR/claude"
+  printf '{"extraKnownMarketplaces":{"studio-moser":{"source":{"repo":"Studio-Moser/skills-n-stuff"}}}}\n' > "$repo/claude/settings.json"
+  run env PATH="$stub:/usr/bin:/bin" python3 - "$REPO/plugins/harness/scripts/sync" "$repo" "$BATS_TEST_TMPDIR/claude" <<'PY'
+import importlib.machinery, importlib.util, sys
+from pathlib import Path
+loader = importlib.machinery.SourceFileLoader("sync_script", sys.argv[1])
+spec = importlib.util.spec_from_loader("sync_script", loader)
+sync = importlib.util.module_from_spec(spec)
+loader.exec_module(sync)
+_state, findings = sync.plugin_reconcile(Path(sys.argv[2]), Path(sys.argv[3]))
+orphans = [f for f in findings if f.startswith("orphan marketplace")]
+assert orphans == ["orphan marketplace: stray — remove with: claude plugin marketplace remove stray"], findings
+PY
+  [ "$status" -eq 0 ]
 }
