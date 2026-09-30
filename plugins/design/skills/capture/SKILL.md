@@ -64,6 +64,11 @@ JSON lines it prints; each is one target.
 }
 ```
 
+Optional keys: top-level `hideSelectors` (CSS selectors for dev overlays to
+hide in every frame; `nextjs-portal` is the default) and per-variant
+`"reducedMotion": true` for a page whose type or stage animates into place as
+each view lands, which the stitch wait would otherwise catch mid-reveal.
+
 `capture` defaults to `stitch`. Set `fullPage` only for a static page and look
 at the result. A page whose layout depends on the viewport (a fixed layer, `vh`
 units, `animation-timeline: view()`) must stitch: full-page capture grows the
@@ -87,6 +92,27 @@ initial state with the fixed layer missing.
 4. Cuts the PNG into bands and writes the JPEG, stepping quality down until the
    file fits Figma's 10 MB asset limit and resizing when the long edge exceeds
    16384 px (`cappedEdge: true` in the manifest; bands are never resized).
+
+## Views for critique
+
+Stitched pages are for side-by-side review; critics and builders need what a
+reader sees, one viewport at a time, and how the page moves between views.
+
+```sh
+node "${CLAUDE_PLUGIN_ROOT}/skills/capture/scripts/views.mjs" <url> <outDir> [--widths 1440,390] [--hide "sel"]
+```
+
+For each width it scrolls to every screen-height stop, waits for the page to
+settle, and shoots the viewport (`1440-01.png`, `390-03.png`). At desktop
+widths it also records motion: from each rest position it sends one wheel
+gesture and shoots six frames from mid-gesture to settled, tiled into one strip
+per transition (`motion-1440-02-to-03.png`), since stills cannot show a reveal
+that never resolves. `report.json` lists stops, overflow, broken images, and
+console errors per width; exit code 1 when any width is unhealthy.
+
+Hand a builder its own views after each section for self-review, and hand a
+critic the views plus the report; a critic that cannot open the preview from
+its sandbox works from these files.
 
 ## Placing shots in Figma
 

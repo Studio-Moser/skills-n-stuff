@@ -28,6 +28,7 @@ for t in "Direction Brief.md" "Round Sheet.md" "Variant Build Brief.md"; do
 done
 
 node --check "$plugin_root/skills/capture/scripts/capture.mjs" || fail=1
+node --check "$plugin_root/skills/capture/scripts/views.mjs" || fail=1
 
 python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$plugin_root/.claude-plugin/plugin.json" || fail=1
 

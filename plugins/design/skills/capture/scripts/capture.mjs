@@ -55,6 +55,11 @@ const only = flag('--only')
 const WIDTH = cfg.captureWidth ?? 1440
 const SCALE = cfg.captureScale ?? 2
 const BACKGROUND = cfg.background ?? '#ffffff'
+// Dev-server overlays live outside the page's own DOM (Next's "N" indicator is
+// a custom element with its own portal) and would be stamped into every frame.
+// Projects add their own selectors in targets.json `hideSelectors`.
+const HIDE_SELECTORS = cfg.hideSelectors ?? ['nextjs-portal']
+const HIDE_CSS = HIDE_SELECTORS.map((sel) => `${sel} { display: none !important; }`).join('\n')
 
 // Figma's EDITOR refuses to draw a tall image while its server-side renderer
 // draws it happily: an oversized fill uploads, inspects as a normal IMAGE, and
@@ -158,12 +163,17 @@ for (const d of cfg.directions) {
     const page = await browser.newPage({
       viewport: { width: WIDTH, height: 900 },
       deviceScaleFactor: SCALE,
+      // A page whose type or stage animates into place as each view lands would
+      // be caught mid-reveal by the stitch wait. Reduced motion renders every
+      // view settled. Opt in per variant with "reducedMotion": true.
+      ...(v.reducedMotion ? { reducedMotion: 'reduce' } : {}),
     })
     const errors = []
     page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
     page.on('pageerror', (e) => errors.push(String(e)))
     try {
       await page.goto(v.url, { waitUntil: 'networkidle', timeout: 180000 })
+      if (HIDE_CSS) await page.addStyleTag({ content: HIDE_CSS })
       // Walk the page so lazy images load and scroll-driven sections settle.
       await page.evaluate(
         () =>

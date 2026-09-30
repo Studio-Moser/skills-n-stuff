@@ -36,10 +36,16 @@ Two lenses, run in parallel as fresh-context subagents:
   wrong with it. No taste comments, no "more like the sibling", no
   conventional-wisdom fixes.
 - **Broken** (cheap model, may run tools). Receives the running URL and the
-  build brief's craft gates. Measures each: overflow at 390 and 1440, console
-  and page errors, `naturalWidth` of images, reduced-motion collapse, focus
-  rings, contrast where the gate names a threshold. Returns PASS or FAIL with
-  the measured value and the element.
+  build brief's craft gates. Runs `design:capture`'s `views.mjs` for the
+  per-width report and view stills, then measures each gate: overflow at 390
+  and 1440, console and page errors, `naturalWidth` of images, reduced-motion
+  collapse, focus rings, contrast where the gate names a threshold. Returns
+  PASS or FAIL with the measured value and the element.
+
+Give the commitment critic the view stills and motion strips from `views.mjs`
+rather than only a stitched page; a reveal that never resolves is invisible in
+a still. A critic that cannot open the preview from its sandbox (a delegated
+Codex worker) works from these files.
 
 No system or token lens: during exploration the direction's system is still
 being invented, and auditing it freezes it early.
