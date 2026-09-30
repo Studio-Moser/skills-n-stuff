@@ -28,6 +28,7 @@ EXIT_REFUSED = 22
 
 LINKS = (
     ("skills", "skills", "claude"),
+    ("agents", "claude/agents", "claude"),
     ("output-styles", "claude/output-styles", "claude"),
     ("CLAUDE.md", "claude/CLAUDE.md", "claude"),
     ("settings.json", "claude/settings.json", "claude"),
@@ -35,6 +36,8 @@ LINKS = (
     ("studio-moser", "config/studio-moser", "config"),
     ("AGENTS.md", "codex/AGENTS.md", "codex"),
 )
+# Portable directories a repository may legitimately lack; sync creates them.
+OPTIONAL_DIRS = {"agents"}
 
 
 class Stop(Exception):
@@ -387,7 +390,7 @@ def adopt_loose(repo: Path, roots: dict[str, Path], runtime_mcp: Path, scripts: 
         source = path_for(root, name, roots)
         if source.exists() or source.is_symlink():
             copy_contents(source, repo / rel)
-    for directory in (repo / "skills", repo / "claude", repo / "config/studio-moser", repo / "codex"):
+    for directory in (repo / "skills", repo / "claude", repo / "claude/agents", repo / "config/studio-moser", repo / "codex"):
         directory.mkdir(parents=True, exist_ok=True)
     if runtime_mcp.is_file():
         run([helper(scripts, "mcp-manifest.sh"), str(runtime_mcp), str(repo / "mcp.manifest.json")])
@@ -470,6 +473,12 @@ def reconcile_links(
         want = repo / rel
         if state == "ok":
             continue
+        if state == "MISSING-IN-REPO" and name in OPTIONAL_DIRS:
+            # An empty directory is not tracked by git, so a repository that
+            # has no personal agents yet lacks it on every fresh clone. Create
+            # it and link it rather than flagging every such machine.
+            want.mkdir(parents=True, exist_ok=True)
+            state = "ABSENT"
         if state == "MISSING-IN-REPO":
             attention.append(f"{name}: missing in repository")
             continue
