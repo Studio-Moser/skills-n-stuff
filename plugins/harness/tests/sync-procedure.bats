@@ -254,6 +254,10 @@ EOF
   [ "$(git -C "$AGENTS" rev-parse HEAD)" = "$(git --git-dir="$remote" rev-parse refs/heads/main)" ]
   [ -L "$HOME_DIR/.claude/skills" ]
   [ -L "$HOME_DIR/.codex/AGENTS.md" ]
+  # The seed repository has no claude/agents; sync creates the optional
+  # directory and links it instead of flagging the machine.
+  [ -d "$AGENTS/claude/agents" ]
+  [ -L "$HOME_DIR/.claude/agents" ]
   [[ "$output" == *"Machines:   skipped: not requested"* ]] || return 1
 }
 

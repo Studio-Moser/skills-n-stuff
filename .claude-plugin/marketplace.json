@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Claude Code plugins by Studio Moser — strategy, research, design, and product development tools.",
-    "version": "0.22.0",
+    "version": "0.23.0",
     "pluginRoot": "./plugins"
   },
   "plugins": [
@@ -88,7 +88,7 @@
         "sync",
         "agent-config"
       ],
-      "version": "2.1.1"
+      "version": "2.1.2"
     },
     {
       "name": "generate",
@@ -167,6 +167,33 @@
         "local-development",
         "tailscale",
         "docker"
+      ]
+    },
+    {
+      "name": "design",
+      "source": "./plugins/design",
+      "description": "Design exploration rounds: fan one brief out into independent variants built by named skills and models, gate first drafts with fresh-context critics, and capture stitched screenshots for side-by-side review.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Studio Moser"
+      },
+      "license": "MIT",
+      "keywords": [
+        "design",
+        "design-exploration",
+        "mockups",
+        "variants",
+        "critique",
+        "screenshots",
+        "figma"
+      ],
+      "category": "design",
+      "tags": [
+        "design",
+        "mockups",
+        "variants",
+        "critique",
+        "figma"
       ]
     }
   ]

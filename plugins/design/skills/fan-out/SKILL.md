@@ -1,0 +1,103 @@
+---
+name: fan-out
+description: >-
+  Use when the user wants one design exploration round: a brief and copy fanned
+  out into several independent variants, each built by a named skill and model,
+  captured for side-by-side review. Triggers: "run a round", "fan out",
+  "spawn N variants", "build directions 05 and 08 with impeccable and taste",
+  "model round". Not for choosing a winner or polishing one design.
+---
+
+# Fan-out
+
+One exploration round. The owner is diverging, not selecting: the round's job
+is to produce a handful of variants that each commit hard to a distinct
+premise, so the owner can harvest what moves them into the next brief. Nothing
+here ranks, votes, or merges.
+
+Read `../../templates/Round Sheet.md` for the input shape.
+
+## Inputs
+
+A round needs four documents, all owned by the project, none invented here:
+
+1. **The frozen brief** (identity brief, brand brief, whatever the project
+   calls it). What is fixed, what is banned, character words, personas.
+2. **One direction brief per direction in the round**, in the shape of
+   `templates/Direction Brief.md`: premise, type, hard rules, Wins if /
+   Loses if, and a **Reference pack**.
+3. **One copy direction**, verbatim lines plus the rules for lines the builder
+   has to write.
+4. **The project's variant build brief**, produced with `design:variant-brief`.
+   It owns the done gates, the off-limits files, the report format, and the
+   project's own traps.
+
+Plus **the round sheet**: one row per variant with `id`, `direction`, `copy`,
+`method` (exactly one design skill, or `none`), `route` (a Harness semantic
+route, or a Claude model alias for a local subagent), optional `dials`, and the
+reference entries this variant borrows from. If any input is missing, ask once,
+batching every question, then run to the end state: a round index handed back.
+
+## Rules that make the round worth its cost
+
+- **Cap the round at seven variants.** Review attention, not generation, is the
+  ceiling; past five to seven the owner stops seeing them.
+- **One method per variant.** A builder invokes exactly the skill its row names
+  and no other. Two skills on one variant make the result unattributable.
+- **Diversity comes from the sheet, not from luck.** Vary direction, reference
+  pack, and dials across rows before varying model. Two rows that differ only
+  in model are an ablation, and the sheet should say so.
+- **Builders are independent.** A builder reads the sibling variants that
+  already exist (the build brief requires it) but never another builder's
+  in-progress work or conversation.
+- **Builders return paths and screenshots, not code.** Their report follows the
+  build brief's format; the round index collects those reports.
+- **A round never touches `main`.** Each direction has its branch and worktree;
+  variants land there, commit or not according to the project's convention.
+
+## Procedure
+
+1. **Validate the sheet.** Every row resolves: direction brief exists, copy
+   direction exists, method is installed (or `none`), route is one the Harness
+   rubric knows or a Claude alias. Reject a sheet over seven rows.
+2. **Prepare each direction's worktree and preview.** One worktree per
+   direction branch. Confirm the dev server or preview is running and reachable
+   before dispatch; a builder must not start a second server. Follow the
+   project's preview convention (`preview:serve-preview` when the project uses
+   it).
+3. **Assemble each builder's packet:** the variant build brief, the direction
+   brief, the copy direction, the worktree path, the route letter or path, and
+   the running server. Five named things; the build brief says a builder asks
+   if one is missing.
+4. **Dispatch in parallel.**
+   - A row whose `route` is a Claude alias runs as a local subagent. If a
+     personal agent named `design-builder-<method>` exists, use it with the
+     row's model; otherwise spawn a general-purpose subagent, tell it to invoke
+     exactly that skill, and pass the packet.
+   - A row whose `route` is a Harness semantic route (`taste`, `default`,
+     `bulk`) goes through `harness:delegate` with `operation: execute`, the
+     packet as context, the worktree as `authority.working_directory`, allowed
+     paths limited to the variant's route folder plus the registry file, and
+     the build brief's verify checklist as the acceptance check. Harness
+     resolves the model; the round index records what it resolved.
+   - Never dispatch two rows to the same worktree at once unless the build
+     brief's off-limits rules make their write sets disjoint.
+5. **Gate first drafts.** When the sheet sets `critic: explore` (the default
+   for a fan-out), run `design:first-draft-critic` in explore mode on each
+   finished variant and give the builder one fix pass. Skip when the sheet says
+   `critic: none`.
+6. **Capture.** Run `design:capture` against the round's targets so every
+   variant has stitched shots and bands at the same width.
+7. **Write the round index** into the round sheet's Results section: for each
+   variant, the method, the resolved model and effort, the route URL, the
+   capture paths, the builder's self-review pass count, and the critic's
+   remaining fails if any. Then stop. Do not rank, do not recommend a winner.
+
+## After the round
+
+The owner looks, and writes what moved them into the next direction brief's
+**Carry forward** section (element, which variant it came from, why). That
+section is the round's only lasting record; the variants are probes. When Carry
+forward stops gaining new lines across two rounds, exploration is over and the
+briefs can turn prescriptive; hand the survivor to `design:first-draft-critic`
+in gauntlet mode and to element-level tools such as `impeccable live`.

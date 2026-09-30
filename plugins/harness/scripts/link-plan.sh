@@ -13,6 +13,7 @@ codex="${CODEX_HOME:-$HOME/.codex}"
 # roots: claude = $CLAUDE_CONFIG_DIR (default ~/.claude); config = $XDG_CONFIG_HOME (default ~/.config);
 #        codex = $CODEX_HOME (default ~/.codex)
 entries="claude|skills|skills
+claude|agents|claude/agents
 claude|output-styles|claude/output-styles
 claude|CLAUDE.md|claude/CLAUDE.md
 claude|settings.json|claude/settings.json

@@ -96,6 +96,21 @@ project.
 
 [Full documentation](plugins/preview/README.md)
 
+### Design
+
+Design exploration rounds. One brief and copy doc fan out into independent
+variants, each built by a named skill and model; fresh-context critics push
+first drafts further into their own premise; stitched captures land side by
+side for review. Nothing picks a winner; the owner harvests into the next brief.
+
+**Skills:**
+- `/design:fan-out` — Run one exploration round from a round sheet
+- `/design:variant-brief` — Cut the project's variant build brief from the shared template
+- `/design:first-draft-critic` — Independent critics in explore or gauntlet mode
+- `/design:capture` — Stitched, banded screenshots with a manifest for Figma
+
+[Full documentation](plugins/design/README.md)
+
 ### Generate
 
 Governed image, video, and audio generation over the Kie.ai MCP. Prices a batch and stops for confirmation before spending, downloads every result locally before its URL expires, and logs the prompt that produced each file.
