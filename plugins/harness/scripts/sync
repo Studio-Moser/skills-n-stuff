@@ -951,11 +951,14 @@ def push_machines(args: argparse.Namespace, repo: Path, scripts: Path) -> str:
     hosts = [line for line in listed.stdout.splitlines() if line]
     if listed.returncode or not hosts:
         return "not configured: no fleet hosts in ssh/config"
-    script = REMOTE_SYNC.format(self=socket.gethostname().split(".")[0])
+    self_name = socket.gethostname().split(".")[0]
+    script = REMOTE_SYNC.format(self=self_name)
     outcomes: dict[str, list[str]] = {
         "synced": [], "synced with findings": [], "pulled only": [], "failed": [], "unreachable": [],
     }
     for host in hosts:
+        if host.lower() == self_name.lower():
+            continue  # this machine may not accept ssh from itself; the in-script check covers other aliases
         result = run(
             ["ssh", "-F", str(repo / "ssh/config"), "-o", "BatchMode=yes", "-o", "ConnectTimeout=8",
              host, 'exec "${SHELL:-/bin/zsh}" -l -s'],

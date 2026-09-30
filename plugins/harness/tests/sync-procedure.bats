@@ -797,7 +797,7 @@ esac
 SH
   chmod +x "$stub/ssh"
   repo="$BATS_TEST_TMPDIR/agents"; mkdir -p "$repo/ssh"
-  printf 'Host laptop\n  HostName laptop.example\nHost warnmac\n  HostName warnmac.example\nHost brokenmac\n  HostName brokenmac.example\nHost oldmac\n  HostName oldmac.example\nHost gone\n  HostName gone.example\n' > "$repo/ssh/config"
+  printf 'Host laptop\n  HostName laptop.example\nHost warnmac\n  HostName warnmac.example\nHost brokenmac\n  HostName brokenmac.example\nHost oldmac\n  HostName oldmac.example\nHost gone\n  HostName gone.example\nHost thismac\n  HostName thismac.example\n' > "$repo/ssh/config"
   export SSH_LOG="$BATS_TEST_TMPDIR/ssh.log"
   run env PATH="$stub:$PATH" SSH_LOG="$SSH_LOG" python3 - "$REPO/plugins/harness/scripts/sync" "$repo" <<'PY'
 import argparse, importlib.machinery, importlib.util, sys
@@ -806,6 +806,7 @@ loader = importlib.machinery.SourceFileLoader("sync_script", sys.argv[1])
 spec = importlib.util.spec_from_loader("sync_script", loader)
 sync = importlib.util.module_from_spec(spec)
 loader.exec_module(sync)
+sync.socket.gethostname = lambda: "ThisMac.local"
 state = sync.push_machines(argparse.Namespace(push_machines=True), Path(sys.argv[2]), Path(sys.argv[1]).parent)
 print("STATE=" + state)
 PY
@@ -813,6 +814,7 @@ PY
   [[ "$output" == *"STATE=synced: laptop; synced with findings: warnmac; pulled only: oldmac; failed: brokenmac; unreachable: gone"* ]] || return 1
   grep -q -- "-F $repo/ssh/config -o BatchMode=yes" "$SSH_LOG" || return 1
   grep -q -- '-l -s' "$SSH_LOG" || return 1
+  ! grep -q ' thismac ' "$SSH_LOG" || return 1
   grep -q 'claude plugin update harness@studio-moser' "$SSH_LOG.stdin.laptop" || return 1
   grep -q 'scripts/sync' "$SSH_LOG.stdin.laptop" || return 1
 }
