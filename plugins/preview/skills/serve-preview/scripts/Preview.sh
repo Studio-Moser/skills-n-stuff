@@ -5,7 +5,7 @@ SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)"
 SKILL_DIR="$(dirname -- "$SCRIPT_DIR")"
 CONFIG_ROOT="${PREVIEW_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/agent-previews}"
 SECRETS_DIR="$CONFIG_ROOT/secrets"
-RUNTIME_BUNDLE_VERSION="0.1.6"
+RUNTIME_BUNDLE_VERSION="0.1.7"
 RUNTIME_BUNDLE="$CONFIG_ROOT/runtime/$RUNTIME_BUNDLE_VERSION"
 ROUTER_COMPOSE="$RUNTIME_BUNDLE/DockTail.compose.yaml"
 STATIC_TEMPLATE="$RUNTIME_BUNDLE/Static_Preview.conf.template"
@@ -30,6 +30,7 @@ Commands:
   up-static <name> <dir> [project]
                             Serve a directory as a durable private preview
   down <name>               Remove one managed preview container
+  prune [name...]           Remove stopped previews, their networks, and volumes
   list                      List managed previews
   url <name>                Print a preview's stable Tailscale URL
   verify <name>             Require the preview URL to return HTTP success
@@ -509,6 +510,7 @@ up_static() {
   if ! docker run -d \
     --name "$next" \
     --restart unless-stopped \
+    --memory 128m \
     --network "$network" \
     --env 'NGINX_ENVSUBST_FILTER=^PREVIEW_SERVICE_NAME$' \
     --env "PREVIEW_SERVICE_NAME=$service" \
@@ -561,16 +563,42 @@ down_preview() {
   [[ -n "$id" ]] || fail "managed preview not found: $name"
   assert_managed "$id"
   docker rm -f "$id" >/dev/null
-  local network
-  network="$(preview_network_name "$name")"
-  if docker network inspect "$network" >/dev/null 2>&1; then
-    local owned
-    owned="$(docker network inspect --format '{{ index .Labels "dev.studiomoser.agent-preview" }}' "$network")"
-    [[ "$owned" == "true" ]] || fail "refusing to remove an unmanaged network: $network"
-    docker network disconnect "$network" agent-preview-tailscale >/dev/null 2>&1 || true
-    docker network rm "$network" >/dev/null
-  fi
+  remove_preview_network "$name"
   printf 'removed %s\n' "$(container_name "$name")"
+}
+
+remove_preview_network() {
+  local network owned
+  network="$(preview_network_name "$1")"
+  docker network inspect "$network" >/dev/null 2>&1 || return 0
+  owned="$(docker network inspect --format '{{ index .Labels "dev.studiomoser.agent-preview" }}' "$network")"
+  [[ "$owned" == "true" ]] || fail "refusing to remove an unmanaged network: $network"
+  docker network disconnect "$network" agent-preview-tailscale >/dev/null 2>&1 || true
+  docker network rm "$network" >/dev/null
+}
+
+prune_previews() {
+  require_command docker
+  local container kind name volume volumes removed=0
+  # Stopped previews keep their dependency and build-cache volumes; those are the disk cost.
+  while IFS=$'\t' read -r container kind; do
+    [[ "$kind" == static || "$kind" == app ]] || continue
+    name="${container#"$CONTAINER_PREFIX"}"
+    if (( $# > 0 )) && [[ " $* " != *" $name "* ]]; then
+      continue
+    fi
+    volumes="$(docker inspect --format '{{range .Mounts}}{{if eq .Type "volume"}}{{.Name}}{{"\n"}}{{end}}{{end}}' "$container")"
+    docker rm "$container" >/dev/null
+    remove_preview_network "$name"
+    while IFS= read -r volume; do
+      # A volume still attached to another container stays.
+      [[ -z "$volume" ]] || docker volume rm "$volume" >/dev/null 2>&1 || true
+    done <<<"$volumes"
+    printf 'pruned %s\n' "$container"
+    removed=$((removed + 1))
+  done < <(docker ps -a --filter "label=$OWNERSHIP_LABEL" --filter status=exited --filter status=created \
+    --format '{{.Names}}\t{{.Label "dev.studiomoser.agent-preview.kind"}}')
+  printf '%s stopped preview(s) pruned\n' "$removed"
 }
 
 list_previews() {
@@ -600,6 +628,8 @@ verify_contract() {
   expected_service="$(service_name "$name")"
   restart="$(docker inspect --format '{{.HostConfig.RestartPolicy.Name}}' "$id")"
   [[ "$restart" == "unless-stopped" ]] || fail "preview restart policy is not unless-stopped"
+  (( $(docker inspect --format '{{.HostConfig.Memory}}' "$id") > 0 )) ||
+    fail "preview has no memory limit; set mem_limit on its container"
   network="$(preview_network_name "$name")"
   docker inspect --format '{{json .NetworkSettings.Networks}}' "$id" |
     jq -e --arg network "$network" --arg control "$CONTROL_NETWORK_NAME" \
@@ -915,6 +945,7 @@ main() {
     prepare) prepare_preview "$@" ;;
     up-static) up_static "$@" ;;
     down) down_preview "$@" ;;
+    prune) prune_previews "$@" ;;
     list) list_previews "$@" ;;
     url)
       validate_name "${1:-}"
