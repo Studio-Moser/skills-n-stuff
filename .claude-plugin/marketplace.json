@@ -172,8 +172,8 @@
     {
       "name": "design",
       "source": "./plugins/design",
-      "description": "Design exploration rounds: fan one brief out into independent HTML variants built by named skills and models, gate first drafts with fresh-context critics, review them in a local gallery with each direction's brief, references, and design system, edit variants in the page with impeccable live, and carry what the owner wants into the next brief.",
-      "version": "0.4.0",
+      "description": "Design exploration rounds: fan one brief out into independent HTML variants built by named skills and models, gate first drafts with fresh-context critics, picture them and place the round in a Figma file where each variant opens its live page, edit variants in the page with impeccable live, and carry what the owner wants into the next brief.",
+      "version": "0.5.0",
       "author": {
         "name": "Studio Moser"
       },
@@ -182,7 +182,7 @@
         "critique",
         "design",
         "design-exploration",
-        "gallery",
+        "present",
         "figma",
         "mockups",
         "screenshots",
