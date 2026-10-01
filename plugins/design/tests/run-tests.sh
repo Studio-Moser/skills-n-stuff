@@ -30,8 +30,6 @@ done
 node --check "$plugin_root/skills/capture/scripts/capture.mjs" || fail=1
 node --check "$plugin_root/skills/capture/scripts/views.mjs" || fail=1
 node --check "$plugin_root/skills/capture/scripts/freeze.mjs" || fail=1
-node --check "$plugin_root/skills/canvas/scripts/publish-canvas.mjs" || fail=1
-node --check "$plugin_root/skills/canvas/scripts/cover.mjs" || fail=1
 
 # check-brief.mjs: a filled direction passes; the bare templates do not.
 check="$plugin_root/skills/direction-brief/scripts/check-brief.mjs"
@@ -46,6 +44,8 @@ rm -rf "$blank"
 
 # gallery.mjs: serves the fixture directions, and nothing outside them.
 node --check "$plugin_root/skills/gallery/scripts/gallery.mjs" || fail=1
+node --check "$plugin_root/skills/gallery/scripts/frames.mjs" || fail=1
+node --check "$plugin_root/skills/gallery/scripts/import-build.mjs" || fail=1
 port=$((20000 + RANDOM % 20000))
 (cd "$plugin_root" && exec node skills/gallery/scripts/gallery.mjs --dir tests/fixtures --port "$port" --project Acme) >/dev/null 2>&1 &
 gallery_pid=$!
@@ -64,11 +64,19 @@ expect "/direction/01%20Ledger" 200 "02 Ledger Page"
 expect "/tests/fixtures/01%20Ledger/Homepage%20A%20-%20Entries%20First.html" 200 "forty launches"
 expect "/thumb/tests/fixtures/01%20Ledger/Homepage%20A%20-%20Entries%20First.html" 200 "<base href="
 expect "/doc/tests/fixtures/Copy%2001%20Proof%20First.md" 200 "The bet"
+expect "/edit/tests/fixtures/01%20Ledger/Homepage%20A%20-%20Entries%20First.html" 409 "has no DESIGN.md yet"
+# A static build is mounted under /build/<folder>/ and its own root-absolute
+# references are prefixed; a path that is not part of the build is left alone.
+expect "/build/01%20Ledger/v/a/" 200 'href="/build/01%20Ledger/assets/site.css"'
+expect "/build/01%20Ledger/v/a/" 200 '/build/01%20Ledger/assets/mark.svg 2x'
+expect "/build/01%20Ledger/v/a/" 200 'var p="/build/01%20Ledger/assets/"'
+expect "/build/01%20Ledger/v/a/" 200 'href="/elsewhere/"'
+expect "/build/01%20Ledger/assets/site.css" 200 "url(/build/01%20Ledger/assets/mark.svg)"
+expect "/build/01%20Ledger/..%2F..%2FBrief.md" 404
 expect "/.claude-plugin/plugin.json" 404
 expect "/skills/gallery/SKILL.md" 404
 expect "/tests/fixtures/..%2F..%2FREADME.md" 404
 kill "$gallery_pid" 2>/dev/null; wait "$gallery_pid" 2>/dev/null || true
-docker compose -f "$plugin_root/skills/canvas/assets/Doop.compose.yaml" config -q 2>/dev/null || python3 -c 'import yaml,sys; yaml.safe_load(open(sys.argv[1]))' "$plugin_root/skills/canvas/assets/Doop.compose.yaml" 2>/dev/null || { echo "WARN: could not validate Doop.compose.yaml (no docker compose or pyyaml)" >&2; }
 
 python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$plugin_root/.claude-plugin/plugin.json" || fail=1
 

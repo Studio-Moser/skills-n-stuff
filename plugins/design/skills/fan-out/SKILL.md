@@ -100,14 +100,13 @@ batching every question, then run to the end state: a round index handed back.
    finished variant and give the builder one fix pass. Skip when the sheet says
    `critic: none`.
 6. **Show the round.** `html`: there is nothing to publish; the variants are
-   files, and `design:gallery` shows them as they are written. Make sure the
-   gallery is running and give the owner the direction's address. `code`:
-   freeze the running routes with `design:capture`'s `freeze.mjs` and read its
-   per-plate diffs, so the gallery can show each as plates beside a link to
-   its live build. Only when people without a checkout need to review and
-   comment, also publish to a hosted canvas: freeze the `html` variants too
-   (`--flow` first; a refusal is a failed reduced-motion gate), run
-   `design:canvas`'s `cover.mjs`, then `publish-canvas.mjs --per-direction`.
+   files. Run `design:gallery`'s `frames.mjs` to picture each one, look at the
+   pictures (an incomplete one means the variant fails the reduced-motion
+   gate), make sure the gallery is running, and give the owner the direction's
+   address. `code`: freeze the running routes with `design:capture`'s
+   `freeze.mjs` and read its per-plate diffs, export the build as a static
+   site and bring it in with the gallery's `import-build.mjs`, then run
+   `frames.mjs`.
 7. **Write the round index** into the round sheet's Results section: for each
    variant, the method, the resolved model and effort, the file or route, the
    builder's self-review pass count, and the critic's
@@ -119,8 +118,8 @@ The owner looks in the gallery, opens what interests them, and edits a variant
 in the page when they want to push it (`design:gallery` § Edit a variant).
 What they say they want more of goes into the next direction brief's **Carry
 forward** block through `design:direction-brief` (element, which variant it
-came from, the owner's words as the why); on a hosted canvas, `design:canvas`
-§ Harvest reads it from their pinned comments instead. That section is the round's only lasting record; the variants are probes. When Carry
+came from, the owner's words as the why). That section is the round's only
+lasting record; the variants are probes. When Carry
 forward stops gaining new lines across two rounds, exploration is over and the
 briefs can turn prescriptive; hand the survivor to `design:first-draft-critic`
 in gauntlet mode.

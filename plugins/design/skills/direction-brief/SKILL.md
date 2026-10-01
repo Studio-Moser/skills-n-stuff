@@ -64,8 +64,6 @@ facts files; the variant build brief; the project's inspiration archive, if it
 has one; every existing direction's `Brief.md` (read each Premise, for
 Siblings). If the direction already has a round, ask the owner what they want
 carried forward from it, in their words; that is this brief's Carry forward.
-(When the project reviews on a hosted canvas, run `design:canvas` § Harvest
-and use the pinned comments.)
 
 Then tell the owner what exists and what is missing. A missing frozen brief is
 written first, from `../../templates/Frozen Brief.md`, using the project

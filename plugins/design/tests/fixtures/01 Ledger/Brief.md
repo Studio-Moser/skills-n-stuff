@@ -2,7 +2,7 @@
 
 Status: exploring
 Phase: wide
-Folder: `docs/Design Directions/01 Ledger` · Canvas: `Acme · 01 Ledger`
+Folder: `docs/Design Directions/01 Ledger`
 Brief: `docs/Identity Brief.md`. Nothing here overrides it.
 Siblings: none built yet.
 
