@@ -11,7 +11,7 @@ contracts only; they are not evidence that an agent follows these workflows.
 Run `/pm:feature-walkthrough` as a dry-run evaluation. Read the current skill and its
 overlay template first. Do not modify a project, branch, test, browser profile, tracker,
 or external system. The only permitted write is the observed result artifact at
-`.superpowers/sdd/2026-09-02-feature-walkthrough-skill/task-1-evals/Feature Walkthrough Result.md`.
+`.pm/evals/Feature Walkthrough Result.md`.
 
 Request: Show me the new profile workflow.
 The repository has a passing Playwright feature test that uses an authorized QA account
@@ -49,7 +49,7 @@ device, or present video output without preserving existing-test and safety proo
 
 ### Observed result artifact
 
-`.superpowers/sdd/2026-09-02-feature-walkthrough-skill/task-1-evals/Feature Walkthrough Result.md`
+`.pm/evals/Feature Walkthrough Result.md`
 
 ## Evaluation protocol
 
@@ -77,7 +77,7 @@ Run each scenario with a fresh-context agent after the implementation commit:
 Run the current /pm:triage workflow as a dry-run evaluation. Read the current skill and
 its routed references first. Do not modify a real tracker or project files. Write the
 observed result artifact to
-`.superpowers/sdd/2026-08-19-pm-work-readiness/task-3-evals/Unverified Bug Result.md`;
+`.pm/evals/Unverified Bug Result.md`;
 make no other write.
 
 Backend: GitHub
@@ -118,7 +118,7 @@ checking the behavior.
 
 ### Observed result artifact
 
-`.superpowers/sdd/2026-08-19-pm-work-readiness/task-3-evals/Unverified Bug Result.md`
+`.pm/evals/Unverified Bug Result.md`
 
 ## L feature
 
@@ -128,7 +128,7 @@ checking the behavior.
 Run the current /pm:triage workflow as a dry-run evaluation. Read the current skill and
 its routed references first. Do not modify a real tracker or project files. Write the
 observed result artifact to
-`.superpowers/sdd/2026-08-19-pm-work-readiness/task-3-evals/L Feature Result.md`; make
+`.pm/evals/L Feature Result.md`; make
 no other write.
 
 Backend: local
@@ -175,7 +175,7 @@ explicit blockers, or a stable testing boundary.
 
 ### Observed result artifact
 
-`.superpowers/sdd/2026-08-19-pm-work-readiness/task-3-evals/L Feature Result.md`
+`.pm/evals/L Feature Result.md`
 
 ## XL split
 
@@ -185,7 +185,7 @@ explicit blockers, or a stable testing boundary.
 Run the current /pm:triage workflow as a dry-run evaluation. Read the current skill and
 its routed references first. Do not modify a real tracker or project files. Write the
 observed result artifact to
-`.superpowers/sdd/2026-08-19-pm-work-readiness/task-3-evals/XL Split Result.md`; make no
+`.pm/evals/XL Split Result.md`; make no
 other write.
 
 Backend: local
@@ -234,7 +234,7 @@ not define how the backend creates, links, or returns child identifiers.
 
 ### Observed result artifact
 
-`.superpowers/sdd/2026-08-19-pm-work-readiness/task-3-evals/XL Split Result.md`
+`.pm/evals/XL Split Result.md`
 
 ## Colliding sprint items
 
@@ -245,7 +245,7 @@ Run the current /pm:sprint-dev workflow as a dry-run evaluation through the prop
 gate. Read the current skill, `references/work-readiness.md`, and the local sprint
 backend reference first. Do not modify a tracker, backlog, spec, source file, branch,
 or worktree. Write the observed result artifact to
-`.superpowers/sdd/2026-08-19-pm-work-readiness/task-4-evals/Colliding Sprint Result.md`;
+`.pm/evals/Colliding Sprint Result.md`;
 make no other write.
 
 Backend: local
@@ -330,7 +330,7 @@ with A.
 
 ### Observed result artifact
 
-`.superpowers/sdd/2026-08-19-pm-work-readiness/task-4-evals/Colliding Sprint Result.md`
+`.pm/evals/Colliding Sprint Result.md`
 
 ## Schema-changing review
 
@@ -340,7 +340,7 @@ with A.
 Run the current PM code-reviewer workflow as a dry-run evaluation. Read
 `plugins/pm/agents/code-reviewer.md` and every reference it routes to for this review.
 Do not modify a project, branch, tracker, or review. Write the observed result artifact
-to `.superpowers/sdd/2026-08-19-pm-work-readiness/task-5-evals/Schema Review Result.md`;
+to `.pm/evals/Schema Review Result.md`;
 make no other write.
 
 Repository: `InventoryService`
@@ -397,7 +397,7 @@ reopens review.
 
 ### Observed result artifact
 
-`.superpowers/sdd/2026-08-19-pm-work-readiness/task-5-evals/Schema Review Result.md`
+`.pm/evals/Schema Review Result.md`
 
 ## Exhausted dev-task review loop
 
@@ -407,7 +407,7 @@ reopens review.
 Run the current `/pm:dev-task` workflow as a dry-run evaluation beginning at its review
 gate. Read the current skill and every reference it routes to for review. Do not modify
 a project, branch, PR, tracker, or review. Write the observed result artifact to
-`.superpowers/sdd/2026-08-25-consumer-harness-integrity/delivery-evals/Exhausted Dev Task Result.md`;
+`.pm/evals/Exhausted Dev Task Result.md`;
 make no other write.
 
 Outcome: API requests time out and cancel without leaving background work running.
@@ -437,4 +437,4 @@ execution/review pair indefinitely.
 
 ### Observed result artifact
 
-`.superpowers/sdd/2026-08-25-consumer-harness-integrity/delivery-evals/Exhausted Dev Task Result.md`
+`.pm/evals/Exhausted Dev Task Result.md`

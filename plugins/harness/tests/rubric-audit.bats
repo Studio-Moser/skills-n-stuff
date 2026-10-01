@@ -53,7 +53,7 @@ write_fixture() {
     tool_use_line Bash  '{"command":"\"$h/scripts/codex-dispatch.sh\" --operation review --model m"}'
     tool_use_line Bash  '{"command":"grep -n codex-dispatch.sh README.md"}'
     tool_use_line Skill '{"skill":"pm:codex-review","args":""}'
-    tool_use_line Skill '{"skill":"superpowers:brainstorming"}'
+    tool_use_line Skill '{"skill":"frontend-design:frontend-design"}'
   } > "$PROJ/abc123.jsonl"
   # A sub-agent transcript that must NOT be counted as a dispatch.
   tool_use_line Agent '{"model":"haiku","prompt":"nested"}' > "$PROJ/abc123/subagents/agent-1.jsonl"

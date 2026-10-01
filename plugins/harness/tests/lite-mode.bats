@@ -70,7 +70,6 @@ for phrase in (
 for text, label in ((dev, "dev-task"), (sprint, "sprint-dev")):
     assert "always uses harness:delegate" not in text, f"{label} forces delegation"
     assert "each harness execution request requires self-review and the full test suite" not in text, f"{label} duplicates verification"
-    assert "superpowers:" not in text, f"{label} auto-loads Superpowers"
 PY
   [ "$status" -eq 0 ]
 }
@@ -94,14 +93,13 @@ PY
   [ "$status" -eq 0 ]
 }
 
-@test "PM planning plans directly without Superpowers" {
+@test "PM planning plans directly from readiness notes" {
   run python3 - "$REPO/plugins/pm/references/triage-spec-flow.md" <<'PY'
 from pathlib import Path
 import sys
 
 text = " ".join(Path(sys.argv[1]).read_text().split())
 assert "Plan directly from the verified readiness notes" in text
-assert "superpowers" not in text.lower(), "triage planning still routes through Superpowers"
 PY
   [ "$status" -eq 0 ]
 }
