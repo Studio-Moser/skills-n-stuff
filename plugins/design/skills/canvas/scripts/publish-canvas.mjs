@@ -88,8 +88,11 @@ const existing = new Map((full.frames ?? []).map((f) => [f.name, f]))
 const EMBED_SOURCE = args.includes('--embed-source')
 function liveFor(d, v, name) {
   if (v.live && existsSync(resolve(DIRECTIONS, d, v.live))) return readFileSync(resolve(DIRECTIONS, d, v.live), 'utf8')
-  const url = v.liveUrl ?? (EMBED_SOURCE && /^https?:/.test(v.source ?? '') ? v.source : null)
-  if (!url) return null
+  const raw = v.liveUrl ?? (EMBED_SOURCE && /^https?:/.test(v.source ?? '') ? v.source : null)
+  if (!raw) return null
+  // A directory-style export redirects "/v/k" to "http://…/v/k/" behind a TLS
+  // proxy, which the frame blocks as mixed content; ask for the directory.
+  const url = /\/[^/.]*$/.test(new URL(raw).pathname) && !raw.endsWith('/') ? `${raw}/` : raw
   return `<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;height:100%;overflow:hidden;background:#fff}iframe{border:0;width:100%;height:100%;display:block}</style></head><body><iframe src="${url}" title="${name.replace(/"/g, '&quot;')}" loading="lazy"></iframe></body></html>`
 }
 
