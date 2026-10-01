@@ -151,7 +151,19 @@ const toUrl = (u) => (isRemote(u) || u.startsWith('file:') ? u : pathToFileURL(r
 // The whole stylesheet as text, with selectors that address the document
 // (html, body, :root) moved onto the plate wrappers, so per-plate state on
 // those elements keeps working and inherited base styles reach every plate.
-function collectCss() {
+function collectCss(viewportHeight) {
+  // Viewport units become pixels of the capture viewport, in declaration
+  // values only. Never in a selector: an atomic class is named after its value
+  // (".min-h_100vh"), and rewriting the name leaves the rule matching nothing,
+  // so every viewport-sized section silently collapses. Never inside url():
+  // a base64 font can contain "3vh" by chance.
+  const pin = (text) =>
+    text
+      .split(/(url\([^)]*\))/)
+      .map((part, i) =>
+        i % 2 ? part : part.replace(/(-?\d*\.?\d+)(?:s|d|l)?vh\b/g, (_, n) => `${(Number(n) * viewportHeight) / 100}px`)
+      )
+      .join('')
   const mapSelector = (sel) =>
     sel
       .replace(/(^|[\s,>+~(])html(?=$|[\s,.:#[>+~)])/g, '$1.plate-root')
@@ -162,13 +174,15 @@ function collectCss() {
     for (const r of rules) {
       if (r instanceof CSSStyleRule) {
         const nested = r.cssRules && r.cssRules.length ? walk(r.cssRules) : ''
-        out += `${mapSelector(r.selectorText)}{${r.style.cssText}${nested}}\n`
+        out += `${mapSelector(r.selectorText)}{${pin(r.style.cssText)}${nested}}\n`
       } else if (r instanceof CSSMediaRule || r instanceof CSSSupportsRule || (window.CSSContainerRule && r instanceof CSSContainerRule)) {
         out += `${r.cssText.slice(0, r.cssText.indexOf('{'))}{\n${walk(r.cssRules)}}\n`
       } else if (window.CSSLayerBlockRule && r instanceof CSSLayerBlockRule) {
         out += `@layer ${r.name}{\n${walk(r.cssRules)}}\n`
       } else {
-        out += r.cssText + '\n' // @font-face, @keyframes, @property, @layer statements
+        // @keyframes and @property carry declarations too; @font-face and
+        // @layer statements have nothing to pin
+        out += (r instanceof CSSKeyframesRule || (window.CSSPropertyRule && r instanceof CSSPropertyRule) ? pin(r.cssText) : r.cssText) + '\n'
       }
     }
     return out
@@ -309,8 +323,8 @@ async function buildPlates(page, url, flow = false) {
   await page.waitForTimeout(1500)
 
   const cache = new Map()
-  let css = await page.evaluate(collectCss)
-  css = await inlineCssUrls(page, pinViewportUnits(css), url, cache)
+  let css = await page.evaluate(collectCss, HEIGHT)
+  css = await inlineCssUrls(page, css, url, cache)
 
   // A page that keeps a viewport-sized fixed or sticky layer under reduced
   // motion is still a stage, not a long-scroll document.
