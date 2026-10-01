@@ -230,6 +230,24 @@ async function settlePlate() {
   const limit = new Promise((r) => setTimeout(r, 3000))
   await Promise.race([Promise.all(onScreen.map((i) => i.decode().catch(() => {}))), limit])
   await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
+  // Let what is moving come to rest by itself first. A rotating word mid-swap
+  // or a crossfade mid-fade is one step of a scripted sequence: finishing the
+  // step by hand lands between steps (the old word gone, the next not started),
+  // and only the page's own timer starts the next one. So wait for a quiet
+  // quarter second, up to four seconds, before forcing anything.
+  const moving = () =>
+    document.getAnimations().some((a) => {
+      const end = a.effect?.getComputedTiming().endTime
+      return (!a.timeline || a.timeline instanceof DocumentTimeline) && Number.isFinite(end) && a.playState === 'running'
+    })
+  const giveUp = performance.now() + 4000
+  let quietSince = null
+  while (performance.now() < giveUp) {
+    if (moving()) quietSince = null
+    else if (quietSince === null) quietSince = performance.now()
+    else if (performance.now() - quietSince > 250) break
+    await new Promise((r) => setTimeout(r, 50))
+  }
   for (let pass = 0; pass < 3; pass++) {
     for (const a of document.getAnimations()) {
       const end = a.effect?.getComputedTiming().endTime
@@ -277,6 +295,12 @@ function capturePlate(hide) {
 }
 
 // ---- node side -------------------------------------------------------------
+
+// Settle and capture in one step inside the page. With a gap between them the
+// page's own timer starts the next swap of a rotating word, and the capture
+// lands mid-swap with nothing showing.
+const settleThenCapture = (page) =>
+  page.evaluate(`(${settlePlate})().then(() => (${capturePlate})(${JSON.stringify(HIDE)}))`)
 
 const VH = /(-?\d*\.?\d+)(?:s|d|l)?vh\b/g
 // Never inside url(...): a base64 font or image can contain "3vh" by chance,
@@ -364,8 +388,7 @@ async function buildPlates(page, url, flow = false) {
   for (let i = 0; i < stops; i++) {
     await page.evaluate((y) => window.scrollTo({ top: y, behavior: 'instant' }), i * HEIGHT)
     await page.waitForTimeout(SETTLE_MS)
-    await page.evaluate(settlePlate)
-    await page.waitForTimeout(150)
+    const plate = flow ? await page.evaluate(settlePlate) : await settleThenCapture(page)
     // The live screen is the reference each plate is checked against. In flow
     // mode the document is captured once, so a fixed header would show in
     // every live screen but only once in the file: hide fixed layers below
@@ -381,7 +404,7 @@ async function buildPlates(page, url, flow = false) {
       })
     }
     shots.push(await page.screenshot())
-    if (!flow) plates.push(await page.evaluate(capturePlate, HIDE))
+    if (!flow) plates.push(plate)
   }
   if (flow) {
     await page.evaluate(() => {
@@ -392,8 +415,7 @@ async function buildPlates(page, url, flow = false) {
       window.scrollTo({ top: 0, behavior: 'instant' })
     })
     await page.waitForTimeout(400)
-    await page.evaluate(settlePlate)
-    plates.push(await page.evaluate(capturePlate, HIDE))
+    plates.push(await settleThenCapture(page))
   }
 
   // Images: one custom property per distinct source, referenced from every
