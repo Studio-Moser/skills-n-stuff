@@ -85,14 +85,9 @@ if "/pm:feature-walkthrough" not in readme:
     failures.append("README omits /pm:feature-walkthrough")
 if "seven-skill pipeline" not in readme:
     failures.append("README does not describe a seven-skill pipeline")
-if manifest.get("version") != "0.22.1":
-    failures.append("PM manifest version is not 0.22.1")
-
 pm = next((plugin for plugin in marketplace["plugins"] if plugin["name"] == "pm"), None)
-if pm is None or pm.get("version") != "0.22.1":
-    failures.append("PM marketplace version is not 0.22.1")
-if marketplace["metadata"].get("version") != "0.22.0":
-    failures.append("marketplace metadata version is not 0.21.0")
+if pm is None or pm.get("version") != manifest.get("version"):
+    failures.append("PM marketplace version does not match the PM manifest")
 
 assert not failures, "; ".join(failures)
 PY
