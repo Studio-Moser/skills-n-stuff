@@ -52,9 +52,7 @@ Selecting a layer with no page says so and clears the panel.
 Select the variant's whole frame (its column), press the link button, enter
 the page's address, and save. Remove takes it away again. The address lives on
 the frame in the file, so it is there for everyone who uses the plugin, and it
-stays with the frame when it is moved, renamed, or duplicated. The row also
-lists every frame on the current canvas page that has one; pressing a name
-selects that frame.
+stays with the frame when it is moved, renamed, or duplicated.
 
 ## How it finds a variant
 

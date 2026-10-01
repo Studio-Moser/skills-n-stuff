@@ -52,8 +52,6 @@
     background: var(--figma-color-bg, #fff); border: 1px solid var(--figma-color-border, #e6e6e6); border-radius: 6px;
   }
   .settings .hint { color: var(--figma-color-text-secondary, #777); }
-  .frames { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 4px; max-height: 84px; overflow: auto; }
-  .frames button { height: 24px; padding: 0 8px; border: 1px solid var(--figma-color-border, #e6e6e6); max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
   .grip { position: fixed; right: 0; bottom: 0; width: 18px; height: 18px; cursor: nwse-resize; touch-action: none; z-index: 5; }
   .grip::after { content: ""; position: absolute; right: 4px; bottom: 4px; width: 8px; height: 8px; border-right: 2px solid var(--figma-color-border-strong, #999); border-bottom: 2px solid var(--figma-color-border-strong, #999); }
   body.dragging iframe { pointer-events: none; }
@@ -84,7 +82,6 @@
   <button type="button" id="setpage">Save</button>
   <button type="button" id="clearpage">Remove</button>
   <span class="hint" id="pagehint"></span>
-  <div class="frames" id="frames"></div>
 </div>
 <div class="stage" id="stage">
   <div class="note" id="note"><b>Select a variant</b>Select a frame that has a page, or anything inside it. To give a frame a page, select it and use the link button above.</div>
@@ -182,17 +179,6 @@ onmessage = (event) => {
     if (!v) return say('No preview for this selection', 'This layer has no page. To give it one, use the link button above.')
     show(v)
   }
-  if (message.type === 'list' && message.frames) {
-    const frames = $('frames')
-    frames.replaceChildren(...message.frames.map((f) => {
-      const b = document.createElement('button')
-      b.type = 'button'
-      b.dataset.select = f.id
-      b.textContent = f.name
-      b.title = f.url
-      return b
-    }))
-  }
 }
 
 document.addEventListener('click', (event) => {
@@ -201,10 +187,9 @@ document.addEventListener('click', (event) => {
   if (button.dataset.preset) { preset = button.dataset.preset; render() }
   if (button.id === 'reload' && current) frame.src = current
   if (button.id === 'gear') { const open = $('settings').classList.toggle('open'); button.setAttribute('aria-expanded', open); render() }
-  if (button.id === 'link') { const open = $('linkrow').classList.toggle('open'); button.setAttribute('aria-expanded', open); if (open) send({ type: 'list' }); render() }
+  if (button.id === 'link') { const open = $('linkrow').classList.toggle('open'); button.setAttribute('aria-expanded', open); render() }
   if (button.id === 'setpage' && target) { const value = $('page').value.trim(); if (/^https?:\/\//i.test(value)) { current = null; send({ type: 'setPage', id: target.id, value }) } else $('pagehint').textContent = 'Enter an address that starts with http:// or https://.' }
   if (button.id === 'clearpage' && target) { current = null; send({ type: 'setPage', id: target.id, value: '' }) }
-  if (button.dataset.select) send({ type: 'select', id: button.dataset.select })
   if (button.id === 'save') {
     address = $('address').value.trim().replace(/\/+$/, '')
     current = null

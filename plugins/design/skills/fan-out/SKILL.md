@@ -99,23 +99,35 @@ batching every question, then run to the end state: a round index handed back.
    for a fan-out), run `design:first-draft-critic` in explore mode on each
    finished variant and give the builder one fix pass. Skip when the sheet says
    `critic: none`.
-6. **Show the round.** `html`: there is nothing to publish; the variants are
-   files. Run `design:gallery`'s `frames.mjs` to picture each one, look at the
-   pictures (an incomplete one means the variant fails the reduced-motion
-   gate), make sure the gallery is running, and give the owner the direction's
-   address. `code`: freeze the running routes with `design:capture`'s
-   `freeze.mjs` and read its per-plate diffs, export the build as a static
-   site and bring it in with the gallery's `import-build.mjs`, then run
-   `frames.mjs`.
+6. **Show the round.** Picture the variants, then put them where the owner
+   reviews.
+   - **Pictures.** `html`: the variants are files; run `design:gallery`'s
+     `frames.mjs` and look at the pictures (an incomplete one means the variant
+     fails the reduced-motion gate). `code`: freeze the running routes with
+     `design:capture`'s `freeze.mjs` and read its per-plate diffs, export the
+     build as a static site and bring it in with the gallery's
+     `import-build.mjs`, then run `frames.mjs`.
+   - **Figma**, when the round sheet names a file: follow `design:gallery`
+     § Review in Figma. For every variant, create its column, place its
+     screens, and store its page address on the column frame
+     (`setSharedPluginData('design_gallery', 'page', …)`), which is what makes
+     the variant open its live page in the Figma plugin. Read each address
+     back after writing it, and check one of them answers from the server the
+     round sheet names. A variant placed without its address is not finished.
+   - **Gallery**, otherwise: make sure it is running and give the owner the
+     direction's address.
 7. **Write the round index** into the round sheet's Results section: for each
-   variant, the method, the resolved model and effort, the file or route, the
-   builder's self-review pass count, and the critic's
+   variant, the method, the resolved model and effort, the file or route, its
+   page address and Figma frame when placed, the builder's self-review pass
+   count, and the critic's
    remaining fails if any. Then stop. Do not rank, do not recommend a winner.
 
 ## After the round
 
-The owner looks in the gallery, opens what interests them, and edits a variant
-in the page when they want to push it (`design:gallery` § Edit a variant).
+The owner looks at the round in the Figma file or the gallery, opens a
+variant's live page (in Figma, by selecting it with the Design Gallery plugin
+running), and edits a variant in the page when they want to push it
+(`design:gallery` § Edit a variant).
 What they say they want more of goes into the next direction brief's **Carry
 forward** block through `design:direction-brief` (element, which variant it
 came from, the owner's words as the why). That section is the round's only

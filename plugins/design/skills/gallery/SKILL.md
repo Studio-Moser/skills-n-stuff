@@ -6,9 +6,12 @@ description: >-
   grid, and for each direction its full brief, saved references, design system,
   and all its variants, each one click from opening full-size or being edited
   in the page with impeccable live. Also sets a project up for the workflow.
-  Triggers: "open the gallery", "show me the directions", "set up the design
-  gallery", "set up design exploration here", "edit this variant", "let me
-  tweak variant C".
+  Also covers picturing variants, placing a round in a Figma file with each
+  variant hooked to its live page, and bringing framework builds into the
+  repository. Triggers: "open the gallery", "show me the directions", "set up
+  the design gallery", "set up design exploration here", "edit this variant",
+  "let me tweak variant C", "put the round in Figma", "place the variants in
+  Figma", "hook this frame up to its page", "take the pictures".
 ---
 
 # Gallery
@@ -167,7 +170,12 @@ Place a round through the Figma MCP:
    then send each `Frames/<variant>/desktop/NN.webp` (or `mobile/NN.webp`) to
    its returned address. Re-uploading to the same frames replaces the pictures
    and keeps the layout.
-3. Never place the whole scroll as one image. Figma shrinks an image past
+3. Read each column's address back
+   (`getSharedPluginData('design_gallery', 'page')`) and request one of them
+   from the server, so a variant never lands in the file without a working
+   page. When a variant's file is renamed or re-lettered, update the address
+   on its column.
+4. Never place the whole scroll as one image. Figma shrinks an image past
    4096px on a side, and its editor has painted very tall images blank with no
    error.
 

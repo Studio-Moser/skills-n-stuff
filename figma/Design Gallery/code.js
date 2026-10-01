@@ -85,20 +85,13 @@ function sendSelection() {
   })
 }
 
-// Every frame on this canvas page that has a page of its own.
-function sendList() {
-  const frames = figma.currentPage.findAllWithCriteria({ sharedPluginData: { namespace: NAMESPACE, keys: [KEY] } })
-  figma.ui.postMessage({ type: 'list', frames: frames.map((n) => ({ id: n.id, name: n.name, url: pageOf(n) })) })
-}
-
 figma.on('selectionchange', sendSelection)
-figma.on('currentpagechange', () => { sendSelection(); sendList() })
+figma.on('currentpagechange', sendSelection)
 
 figma.ui.onmessage = async (message) => {
   if (message.type === 'ready') {
     figma.ui.postMessage({ type: 'settings', address: (await figma.clientStorage.getAsync('galleryAddress')) || '' })
     sendSelection()
-    sendList()
   }
   if (message.type === 'address') {
     await figma.clientStorage.setAsync('galleryAddress', message.value)
@@ -108,15 +101,6 @@ figma.ui.onmessage = async (message) => {
     const node = await figma.getNodeByIdAsync(message.id)
     if (node && 'setSharedPluginData' in node) node.setSharedPluginData(NAMESPACE, KEY, message.value)
     sendSelection()
-    sendList()
   }
-  if (message.type === 'select') {
-    const node = await figma.getNodeByIdAsync(message.id)
-    if (node && node.type !== 'PAGE' && node.type !== 'DOCUMENT') {
-      figma.currentPage.selection = [node]
-      figma.viewport.scrollAndZoomIntoView([node])
-    }
-  }
-  if (message.type === 'list') sendList()
   if (message.type === 'resize') figma.ui.resize(Math.round(message.width), Math.round(message.height))
 }
