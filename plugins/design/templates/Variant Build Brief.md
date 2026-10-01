@@ -26,7 +26,7 @@ scrolls, it may size sections to the viewport, and it may carry a small inline
 script for motion CSS cannot do, as long as it needs no network, storage, or
 same-origin access. Verify by opening the file in
 a browser at 1440 and 390. Write it as formatted source, one element per line:
-the gallery shows the file as written, and live editing finds an element by
+the file is shown to the owner as written, and live editing finds an element by
 its line. Nothing here touches the project's application code.
 
 **`code` (convergence).** Your variant is a route in the project's real stack,

@@ -14,7 +14,7 @@ description: >-
 
 Views are what critics and builders see (§ Views for critique); plates hold
 every screen of a viewport-driven page in one long document (§ Freeze a page
-into plates), which `design:gallery` pictures. The stitched capture below is
+into plates), which `design:present` pictures. The stitched capture below is
 for Figma. Two things paint blank without an
 error and have each cost a day: Chromium's full-page capture past 16384 device
 pixels, and Figma's editor when handed a tall image. The bundled script routes

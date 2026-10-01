@@ -101,13 +101,13 @@ batching every question, then run to the end state: a round index handed back.
    `critic: none`.
 6. **Show the round.** Picture the variants, then put them where the owner
    reviews.
-   - **Pictures.** `html`: the variants are files; run `design:gallery`'s
+   - **Pictures.** `html`: the variants are files; run `design:present`'s
      `frames.mjs` and look at the pictures (an incomplete one means the variant
      fails the reduced-motion gate). `code`: freeze the running routes with
      `design:capture`'s `freeze.mjs` and read its per-plate diffs, export the
-     build as a static site and bring it in with the gallery's
+     build as a static site and bring it in with `design:present`'s
      `import-build.mjs`, then run `frames.mjs`.
-   - **Figma**, when the round sheet names a file: follow `design:gallery`
+   - **Figma**, when the round sheet names a file: follow `design:present`
      § Review in Figma. For every variant, create its column, place its
      screens, and store its page address on the column frame
      (`setSharedPluginData('design_gallery', 'page', …)`), which is what makes
@@ -127,7 +127,7 @@ batching every question, then run to the end state: a round index handed back.
 The owner looks at the round in the Figma file or the gallery, opens a
 variant's live page (in Figma, by selecting it with the Design Gallery plugin
 running), and edits a variant in the page when they want to push it
-(`design:gallery` § Edit a variant).
+(`design:present` § Edit a variant).
 What they say they want more of goes into the next direction brief's **Carry
 forward** block through `design:direction-brief` (element, which variant it
 came from, the owner's words as the why). That section is the round's only
