@@ -1,6 +1,6 @@
 # Variant build brief
 
-Template: design plugin 0.1.0. Text outside `{slots}` is shared discipline; copy
+Template: design plugin 0.4.0. Text outside `{slots}` is shared discipline; copy
 it as written. Fill slots from the project's own documents and point at them.
 
 You are building one variant for one direction of the {project} identity
@@ -8,9 +8,31 @@ exploration. A direction is a design premise; a variant is one execution of
 it. A direction may have many variants, and they exist to be compared, so yours
 has to make a different argument rather than a different skin.
 
-Your task names five things: the direction, its worktree, your route, the dev
-server, and the copy direction. If any of those is missing, ask before
-building.
+Your task names the direction, the copy direction, the design skill to use,
+and your output: in the `html` medium, the file path and letter; in the `code`
+medium, the worktree, the route, and the running dev server. If any of those is
+missing, ask before building.
+
+## Medium
+
+**`html` (exploration).** Your variant is one file,
+`{directions dir}/{NN Name}/Homepage <X> - <Title>.html`, complete on its own:
+inline `<style>`, fonts by `@font-face` with a self-hosted or data URL, images
+inline or from the project's imagery folder, no framework, no build step. The
+direction's shared type and tokens live in `{NN Name}/tokens.css`; the first
+variant writes it, later variants paste it into their `<style>` unchanged (a
+variant is one file, complete on its own). It is a normal page: it
+scrolls, it may size sections to the viewport, and it may carry a small inline
+script for motion CSS cannot do, as long as it needs no network, storage, or
+same-origin access. Verify by opening the file in
+a browser at 1440 and 390. Write it as formatted source, one element per line:
+the gallery shows the file as written, and live editing finds an element by
+its line. Nothing here touches the project's application code.
+
+**`code` (convergence).** Your variant is a route in the project's real stack,
+on the direction's branch, in its worktree, against its running dev server.
+The sections below on the system, off-limits files, the registry, and traps
+apply in full.
 
 ## Read first
 
@@ -18,19 +40,23 @@ building.
   Read {the sections a builder needs, by number}. The pass/fail rubric is not
   there; it is § Done gates in this file.
 - `{copy rules}`: follow them exactly.
-- `{directions readme}`: how a direction branch is laid out and run.
+- `{directions readme}`: how a direction folder (`html`) or branch (`code`) is
+  laid out and run.
 - **Your direction's brief.** It is the design decision, already made. Execute
   that premise; do not substitute a new one. If you believe the premise is
   wrong, say so in your report and build it anyway. Its **Carry forward**
   section tells you what the owner harvested from the last round and why;
   extend those ideas, do not copy them. Its **Reference pack** names the one
-  move to borrow from each reference and the thing that would make it a copy.
+  move to borrow from each reference and the thing that would make it a copy;
+  open the files it points at in the direction's `References/` folder and read
+  the owner's words about each in `References/References.md`.
 - **Your copy direction.** Its lines are the copy, verbatim. Its brief states
   the rules that bind any line you have to write yourself. Design and copy are
   separate axes: the same copy is used by variants in several directions, so
   the words are not yours to re-argue.
 - **Every variant that already exists for this direction**, listed in
-  `{registry}`. You cannot make a different argument from the others without
+  `{registry}` (`html`: the direction folder's `Snapshots.json` and the pages
+  beside it). You cannot make a different argument from the others without
   knowing what they argue.
 - `{facts files}`: the real facts when your copy direction does not supply
   one. Real names, years, nouns, and numbers only. Invent nothing. Where copy
@@ -40,9 +66,9 @@ building.
 ## Two situations
 
 **The direction has no variants yet.** You are establishing its design system:
-type, tokens beyond the frozen palette, recipes, components. Build them as a
-system rather than as one page's styling, because every later variant reuses
-them.
+type, tokens beyond the frozen palette, recipes, components (`html`: the
+direction's `tokens.css`). Build them as a system rather than as one page's
+styling, because every later variant reuses them.
 
 **The direction already has variants.** Its design system exists. Reuse it. Do
 not modify it, do not modify another variant's route, and do not restyle the
@@ -50,7 +76,8 @@ system to suit your layout. If a component genuinely does not fit, write a new
 one inside your own route folder and say why in your report. A parallel set of
 near-identical components is the wrong answer.
 
-Either way, everything you write lives in your own route folder.
+Either way, everything you write lives in your own file (`html`) or route
+folder (`code`).
 
 ## What "a different argument" means
 
@@ -75,9 +102,11 @@ lives in}
 other variant's route folder; on a direction that already has variants, also
 its tokens, fonts, recipes, and components}
 
-One exception: register yourself in `{registry}` when you are done. It is the
-direction's index of its own variants and the only shared file you may append
-to. Entry shape: {entry shape}.
+One exception, in the `code` medium: register yourself in `{registry}` when
+you are done. It is the direction's index of its own variants and the only
+shared file you may append to. Entry shape: {entry shape}. In the `html` medium
+you register nowhere; freezing the round writes the direction's
+`Snapshots.json`.
 
 ## Where variants live
 
@@ -139,8 +168,12 @@ Pass/fail lines. A variant clears every one before it is captured.
 - [ ] WCAG AA contrast for every piece of text, including text over colour, at
       every breakpoint.
 - [ ] Layout holds at 390px: no horizontal scroll, no overlapped or hidden copy.
-- [ ] All motion collapses under `prefers-reduced-motion`; no idle motion
-      survives.
+- [ ] Under `prefers-reduced-motion` the page is a normal long-scroll document:
+      no fixed or sticky stage, every scene's ground, imagery and type present
+      in flow in its final lockup, nothing that exists only in a scroll state,
+      and no idle motion. Stopping the animations is not enough; a stage frozen
+      on its first scene hides every other scene from the people who asked for
+      less motion. (`freeze.mjs --flow` tests this.)
 - [ ] Visible focus ring on every interactive element, on every ground.
 - [ ] No font-swap layout shift beyond the current baseline.
 - [ ] {copy rules that are checkable: punctuation, casing}
@@ -155,10 +188,11 @@ hero-metric template, identical repeating card grids, nested cards}
 
 At 1440 and 390 wide: no horizontal overflow
 (`document.documentElement.scrollWidth <= clientWidth`), every visible image
-has `naturalWidth > 0`, no console or page errors after a full scroll, motion
-still under `prefers-reduced-motion: reduce`. Then screenshot both widths.
+has `naturalWidth > 0`, no console or page errors after a full scroll, and
+under `prefers-reduced-motion: reduce` the page is the long-scroll document the
+craft gate describes. Then screenshot both widths.
 
-Then run {verify: the project's typecheck, lint, test, format commands}.
+In the `code` medium, then run {verify: the project's typecheck, lint, test, format commands}.
 
 ## Report
 

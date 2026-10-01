@@ -1,0 +1,11 @@
+/* 01 Ledger: shared tokens. The first variant wrote this; later variants paste it unchanged. */
+:root {
+  --paper: #f4efe4;
+  --ink: #1d2327;
+  --rule: #c9bfa8;
+  --accent: #b5462f;
+  --font-figure: "Founders Grotesk", system-ui, sans-serif;
+  --font-text: Georgia, serif;
+  --measure: 62ch;
+  --baseline: 28px;
+}

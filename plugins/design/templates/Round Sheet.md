@@ -3,6 +3,8 @@
 Date: {YYYY-MM-DD}
 Frozen brief: `{path}` (signed {date})
 Variant build brief: `{path}`
+Medium: html | code
+Gallery: `http://127.0.0.1:4600/direction/<NN Name>` (`design:gallery`)
 Critic: explore | none
 Cap: 7 variants
 
@@ -39,8 +41,7 @@ Filled by `design:fan-out` when the round finishes. One block per variant.
 
 - Method: {skill} · Model: {resolved model@effort} · Route: {semantic route or alias}
 - Argues: {one line from the builder's report}
-- URL: {preview URL}
-- Captures: `{path to stitched png}`, bands `{dir}`
+- File or route: `{Homepage X - Title.html}` or {preview URL}
 - Builder self-review passes: {n}, {what each changed, one clause each}
 - Critic (explore): {k} fails remaining, or clean
 - Builder's note: {anything the builder flagged, verbatim}

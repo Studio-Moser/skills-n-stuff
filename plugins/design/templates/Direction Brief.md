@@ -1,7 +1,8 @@
 # Direction {NN}: {Name}
 
 Status: {n} variants built, awaiting owner review | exploring | retired
-Branch: `design/{name}` · Preview: {URL}
+Phase: wide | tightening | prescriptive
+Folder: `{directions dir}/{NN Name}` (`code` medium: branch `design/{name}`, preview {URL})
 Brief: `{frozen brief path}`. Nothing here overrides it.
 Siblings: one sentence per built direction naming the role the shared device
 plays there, so this direction can say what it does that none of them do.
@@ -17,13 +18,14 @@ copying it.
 
 ## Reference pack
 
-Two or three entries from the project's inspiration archive, each with the one
-choice to borrow. Surface aesthetics transfer from screenshots; structure does
+Two to four entries from this direction's `References/` folder or the
+project's inspiration archive, each with the one choice to borrow. The owner's
+own words about each are in `References/References.md`. Surface aesthetics transfer from screenshots; structure does
 not, so name the structural choice explicitly.
 
 | # | Reference | Borrow this | Not this |
 | --- | --- | --- | --- |
-| 1 | `{path to the reference note, screenshot, or URL}` | {the one move} | {what would make it a copy} |
+| 1 | `{References/NN Name, an archive path, or a URL}` | {the one move} | {what would make it a copy} |
 | 2 | | | |
 
 ## Premise
@@ -81,6 +83,7 @@ the device sits, and where the copy sits.
 
 ## Scope and checks
 
-Worktree, pages in scope, files a variant may touch, files it may not. Then
+Pages in scope, files a variant may touch, files it may not (`code` medium:
+the worktree as well). Then
 the project's verify commands and the craft lines that must hold before the
 variant is captured.

@@ -1,7 +1,7 @@
 {
   "name": "design",
-  "version": "0.1.0",
-  "description": "Design exploration rounds for marketing sites and product UI: fan one brief out into independent variants built by different skills and models, gate first drafts with fresh-context critics that push toward each premise instead of the mean, and capture stitched screenshots for side-by-side review.",
+  "version": "0.4.0",
+  "description": "Design exploration rounds for marketing sites and product UI: interview the owner into a direction brief with saved references, fan it out into independent HTML variants built by different skills and models, gate first drafts with fresh-context critics that push toward each premise instead of the mean, review every direction in a local gallery with its brief, references, design system, and variants, edit variants in the page with impeccable live, and carry what the owner wants into the next brief.",
   "author": {
     "name": "Studio Moser",
     "url": "https://github.com/Studio-Moser"
@@ -9,15 +9,17 @@
   "repository": "https://github.com/Studio-Moser/skills-n-stuff",
   "license": "MIT",
   "keywords": [
+    "critique",
     "design",
     "design-exploration",
-    "mockups",
-    "variants",
+    "gallery",
     "fan-out",
-    "critique",
-    "screenshots",
     "figma",
+    "marketing-site",
+    "mockups",
+    "screenshots",
+    "snapshots",
     "ui-design",
-    "marketing-site"
+    "variants"
   ]
 }

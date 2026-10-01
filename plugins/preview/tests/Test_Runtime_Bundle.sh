@@ -26,6 +26,8 @@ bundle="$test_root/config/runtime/$version"
 test -f "$bundle/.complete"
 test -f "$bundle/DockTail.compose.yaml"
 test -f "$bundle/Static_Preview.conf.template"
+# static previews must be embeddable in a sandboxed frame (fonts, CSS masks)
+grep -q 'Access-Control-Allow-Origin "\*" always' "$bundle/Static_Preview.conf.template"
 test -f "$bundle/Preview_Hub/Preview_Hub.py"
 grep -Fxq '172.30.0.2' "$test_root/docker-env"
 
