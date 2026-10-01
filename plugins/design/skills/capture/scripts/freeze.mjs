@@ -492,7 +492,10 @@ async function buildPlates(page, url, flow = false) {
 
   const plateCss = `
 html,body{margin:0;padding:0;background:#fff}
-.plate-doc{${vars}}
+/* image variables live on :root, not on a body class: a canvas that morphs
+   this document into its own (Doop) does not carry <body> attributes over,
+   and every image would silently go blank */
+:root{${vars}}
 .plate-preload{position:absolute;left:0;top:0;width:1px;height:1px;opacity:0.01;pointer-events:none;background-image:${preload || 'none'}}
 .plate{display:block;position:relative;width:${WIDTH}px;height:${HEIGHT}px;overflow:hidden;transform:translateZ(0);contain:paint}
 .plate-root{position:relative;display:block;width:${WIDTH}px;min-height:${HEIGHT}px}
