@@ -100,7 +100,7 @@ const IDLE = note.innerHTML.replace(/^<b>.*?<\/b>/, '')
 function render() {
   if (box.hidden) return
   // Room around the page for its drag handles.
-  const availW = stage.clientWidth - 32, availH = stage.clientHeight - 32
+  const availW = stage.clientWidth - 56, availH = stage.clientHeight - 56
   const [w, h] = preset === 'custom' ? custom : PRESETS[preset] || [availW, availH]
   shown = [w, h]
   const s = Math.min(1, availW / w, availH / h)
