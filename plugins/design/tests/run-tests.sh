@@ -73,6 +73,10 @@ expect "/build/01%20Ledger/v/a/" 200 'var p="/build/01%20Ledger/assets/"'
 expect "/build/01%20Ledger/v/a/" 200 'href="/elsewhere/"'
 expect "/build/01%20Ledger/assets/site.css" 200 "url(/build/01%20Ledger/assets/mark.svg)"
 expect "/build/01%20Ledger/..%2F..%2FBrief.md" 404
+# Editing is offered only to a browser on this machine.
+expect "/direction/01%20Ledger" 200 'href="/edit/'
+if curl -s -H "Host: gallery.example.ts.net" "http://127.0.0.1:$port/direction/01%20Ledger" | grep -qF 'href="/edit/'; then echo "FAIL gallery: edit offered to another host" >&2; fail=1; fi
+[ "$(curl -s -o /dev/null -w '%{http_code}' -H "Host: gallery.example.ts.net" "http://127.0.0.1:$port/edit/tests/fixtures/01%20Ledger/Homepage%20A%20-%20Entries%20First.html")" = 403 ] || { echo "FAIL gallery: edit route open to another host" >&2; fail=1; }
 expect "/.claude-plugin/plugin.json" 404
 expect "/skills/gallery/SKILL.md" 404
 expect "/tests/fixtures/..%2F..%2FREADME.md" 404

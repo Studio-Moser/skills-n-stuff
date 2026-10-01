@@ -12,13 +12,18 @@
 // whole scroll needs. Viewport heights are pinned to a 900px screen so a
 // section sized to the viewport does not stretch.
 //
-// Output: "<direction>/Frames/<variant>.webp", 640px wide, and Frames.json
-// with each picture's size and what it was taken from. A picture newer than
-// its page is left alone unless --force.
+// Output, per variant, in "<direction>/Frames/":
+//   <variant>.webp         the whole scroll, 640px wide, for the gallery's grids
+//   <variant>/01.webp …    the same picture at full width (1440px), cut into
+//                          bands no taller than 2048px, for a Figma file:
+//                          Figma shrinks an image past 4096px on a side and
+//                          its editor has painted very tall ones blank
+// and Frames.json, with each picture's size, its bands, and what it was taken
+// from. A picture newer than its page is left alone unless --force.
 //
 // Needs @playwright/test (or playwright) with Chromium, and sharp, resolvable
 // from the current working directory.
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -59,6 +64,7 @@ const sharp = requireFirst(['sharp'])
 const WIDTH = 1440
 const SCREEN = 900
 const OUT_WIDTH = 640
+const BAND = 2048
 // Chromium paints nothing past 16384 device pixels, so a taller page is
 // pictured in pieces and joined.
 const PIECE = 8000
@@ -103,7 +109,7 @@ for (const folder of folders) {
   for (const v of list) {
     const file = join(dir, folder, v.from)
     const out = join(outDir, `${v.base}.webp`)
-    if (!force && existsSync(out) && statSync(out).mtimeMs >= statSync(file).mtimeMs && index[v.base]) continue
+    if (!force && existsSync(out) && statSync(out).mtimeMs >= statSync(file).mtimeMs && index[v.base]?.bands) continue
     const page = await context.newPage()
     try {
       const url = pathToFileURL(file).href
@@ -141,8 +147,20 @@ for (const folder of folders) {
       const outHeight = Math.round((height * OUT_WIDTH) / WIDTH)
       const whole = pieces.length === 1 ? sharp(pieces[0].input) : sharp({ create: { width: WIDTH, height, channels: 3, background: '#ffffff' } }).composite(pieces.map((p) => ({ input: p.input, left: 0, top: p.top }))).png()
       mkdirSync(outDir, { recursive: true })
-      await sharp(await whole.toBuffer()).resize(OUT_WIDTH, outHeight, { fit: 'fill' }).webp({ quality: 78 }).toFile(out)
-      index[v.base] = { file: `${v.base}.webp`, width: OUT_WIDTH, height: outHeight, from: v.from, pageHeight: height }
+      const full = await whole.toBuffer()
+      await sharp(full).resize(OUT_WIDTH, outHeight, { fit: 'fill' }).webp({ quality: 78 }).toFile(out)
+      // The same picture at full width, in bands, for Figma.
+      const bandDir = join(outDir, v.base)
+      rmSync(bandDir, { recursive: true, force: true })
+      mkdirSync(bandDir, { recursive: true })
+      const bands = []
+      for (let y = 0, n = 1; y < height; y += BAND, n++) {
+        const h = Math.min(BAND, height - y)
+        const name = `${String(n).padStart(2, '0')}.webp`
+        await sharp(full).extract({ left: 0, top: y, width: WIDTH, height: h }).webp({ quality: 80 }).toFile(join(bandDir, name))
+        bands.push({ file: `${v.base}/${name}`, width: WIDTH, height: h })
+      }
+      index[v.base] = { file: `${v.base}.webp`, width: OUT_WIDTH, height: outHeight, from: v.from, pageHeight: height, bands }
       console.log(JSON.stringify({ folder, variant: v.base, from: v.from, pageHeight: height, kilobytes: Math.round(statSync(out).size / 1000) }))
     } catch (error) {
       failed++

@@ -24,6 +24,10 @@
 // Usage: node gallery.mjs [--dir "docs/Design Directions"] [--port 4600]
 //                         [--host 127.0.0.1] [--project "<name>"]
 //                         [--impeccable <path to the impeccable script>]
+//                         [--view-only]
+// Editing is offered only to a browser on this machine (an address of
+// localhost or 127.0.0.1), and never with --view-only: a gallery reached
+// through another host name, such as a dev server, is for looking.
 // Run it from the project root. It serves files under --dir and markdown under
 // the project root. The one thing it changes on disk is /edit: it writes a
 // direction's live-editing config when there is none and runs `impeccable
@@ -45,6 +49,9 @@ const DIR = resolve(ROOT, flag('--dir', 'docs/Design Directions'))
 const PORT = Number(flag('--port', 4600))
 const HOST = flag('--host', '127.0.0.1')
 const PROJECT = flag('--project', basename(ROOT))
+const VIEW_ONLY = args.includes('--view-only')
+// Live editing runs on this machine, so it is offered only to a browser here.
+const canEdit = (req) => !VIEW_ONLY && /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/i.test(req.headers.host ?? '')
 const DIR_REL = relative(ROOT, DIR).split(sep).join('/')
 if (!existsSync(DIR)) {
   console.error(`gallery: ${DIR} does not exist. Run from the project root, or pass --dir.`)
@@ -394,10 +401,14 @@ const openPreview = (el) => {
   pvFrame.src = el.dataset.preview
   pvPreset = 'full'
   pv.showModal()
+  // Keep focus on the bar, not in the page, so Escape closes the preview.
+  pv.querySelector('.pv-bar [data-close]').focus()
   pvRender()
+  // The open preview is part of the address, so it can be linked to.
+  if (el.dataset.letter) history.replaceState(null, '', location.pathname + '?preview=' + el.dataset.letter + location.hash)
 }
 if (pv) {
-  pv.addEventListener('close', () => { pvFrame.src = 'about:blank' })
+  pv.addEventListener('close', () => { pvFrame.src = 'about:blank'; history.replaceState(null, '', location.pathname + location.hash) })
   addEventListener('resize', () => { if (pv.open) pvRender() })
   pv.querySelectorAll('.pv-handle').forEach((handle) => handle.addEventListener('pointerdown', (down) => {
     down.preventDefault()
@@ -434,6 +445,10 @@ document.addEventListener('click', (event) => {
   if (preset) { pvPreset = preset.dataset.preset; if (PRESETS[pvPreset]) pvSize = PRESETS[pvPreset].slice(); pvRender() }
   if (event.target.closest('[data-close]') || event.target.classList.contains('pv-stage')) event.target.closest('dialog').close()
 })
+// "?preview=t" opens that variant's preview straight away.
+const linked = new URLSearchParams(location.search).get('preview')
+const linkedFrame = linked && [...document.querySelectorAll('.frame[data-letter]')].find((f) => f.dataset.letter === linked.toLowerCase())
+if (linkedFrame) openPreview(linkedFrame)
 document.addEventListener('keydown', (event) => {
   if ((event.key === 'Enter' || event.key === ' ') && event.target.matches('.frame')) { event.preventDefault(); openPreview(event.target) }
 })
@@ -560,7 +575,7 @@ ${families.length ? `<h3 class="card-title">Typefaces</h3><p>${families.map(esc)
 ${rest.length ? `<h3 class="card-title">Tokens</h3><div class="table-responsive"><table class="table table-sm"><tbody>${rest.map(([k, v]) => `<tr><td><code>${esc(k)}</code></td><td class="text-secondary">${esc(v.length > 120 ? v.slice(0, 117) + '…' : v)}</td></tr>`).join('')}</tbody></table></div>` : ''}`
 }
 
-function directionPage(folder) {
+function directionPage(folder, editable) {
   const d = readDirection(folder)
   const base = urlPath(DIR_REL, folder)
   const rel = (name) => `${DIR_REL}/${folder}/${name}`
@@ -585,10 +600,10 @@ function directionPage(folder) {
 <figcaption class="variant-bar"><span class="variant-title"><b>${esc(v.letter)}</b> ${esc(v.title)}</span>${v.live ? '<span class="live-dot" title="Live editing is on"></span>' : ''}${v.frame?.stale ? '<span class="stale-dot" title="The page changed after this picture was taken. Run frames.mjs to refresh it."></span>' : ''}
 <span class="variant-tools">
 <button class="tool" type="button" data-info="info-${i}" data-title="${esc(name)}" aria-label="Notes on ${esc(name)}" title="Notes">${ICON.info}</button>
-<button class="tool" type="button" data-preview="${esc(preview)}" data-title="${esc(name)}" aria-label="Preview ${esc(name)}" title="Preview">${ICON.eye}</button>
-${v.source ? `<a class="tool" href="/edit${file(v.source)}" target="_blank" rel="noopener" aria-label="Edit ${esc(name)} with impeccable live" title="Edit with impeccable live">${ICON.pencil}</a>` : ''}
+<button class="tool" type="button" data-preview="${esc(preview)}" data-title="${esc(name)}" data-letter="${esc(v.letter.toLowerCase())}" aria-label="Preview ${esc(name)}" title="Preview">${ICON.eye}</button>
+${v.source && editable ? `<a class="tool" href="/edit${file(v.source)}" target="_blank" rel="noopener" aria-label="Edit ${esc(name)} with impeccable live" title="Edit with impeccable live">${ICON.pencil}</a>` : ''}
 </span></figcaption>
-<div class="frame" role="button" tabindex="0" data-preview="${esc(preview)}" data-title="${esc(name)}" aria-label="Preview ${esc(name)}">${picture(d, v, true)}</div>
+<div class="frame" role="button" tabindex="0" data-preview="${esc(preview)}" data-title="${esc(name)}" data-letter="${esc(v.letter.toLowerCase())}" aria-label="Preview ${esc(name)}">${picture(d, v, true)}</div>
 <template id="info-${i}"><p class="text-secondary">${esc(details)}</p><p><code>${esc(rel(v.show))}</code></p><p>${links}</p>${v.note ? `<hr><div class="markdown" data-notes="/doc${file(v.note)}?fragment=1">Loading the notes…</div>` : '<hr><p class="text-secondary mb-0">No notes file for this variant.</p>'}</template>
 </figure>`
   }).join('\n')
@@ -726,7 +741,7 @@ const server = createServer((req, res) => {
 
     if (!parts.length) return send(res, 200, indexPage())
     if (parts[0] === 'direction' && parts[1] && existsSync(join(DIR, parts[1])) && inside(DIR, resolve(DIR, parts[1]))) {
-      if (parts.length === 2) return send(res, 200, directionPage(parts[1]))
+      if (parts.length === 2) return send(res, 200, directionPage(parts[1], canEdit(req)))
       if (parts[2] === 'reference' && parts[3]) {
         const html = referencePage(parts[1], parts[3])
         return html ? send(res, 200, html) : notFound(res)
@@ -737,7 +752,9 @@ const server = createServer((req, res) => {
       return file ? send(res, 200, file.body, file.type) : notFound(res)
     }
     if (parts[0] === 'edit') {
-      // Only a click in the gallery, or a typed address, may start live mode.
+      // Only a click in the gallery, or a typed address, may start live mode,
+      // and only from a browser on this machine.
+      if (!canEdit(req)) return send(res, 403, 'Editing is available only on the machine running the gallery', 'text/plain')
       if (!['same-origin', 'none', undefined].includes(req.headers['sec-fetch-site'])) return send(res, 403, 'Open this from the gallery', 'text/plain')
       const abs = resolve(ROOT, ...parts.slice(1))
       if (!inside(DIR, abs) || !/\.html$/i.test(abs) || /\.plates\.html$/i.test(abs) || !existsSync(abs)) return notFound(res)

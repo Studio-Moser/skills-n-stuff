@@ -37,9 +37,15 @@ It binds to this machine only. To look at it from another device, put the
 whole server on a private network instead of pointing parts of it elsewhere:
 `tailscale serve --bg 4600` publishes it to the tailnet, or pass `--host` with
 a private interface's address. Every link in the gallery is relative, so it
-works under either address. Live editing stays on the machine running the
-gallery, because impeccable's helper listens on that machine alone. Do not put
-the gallery on a public address.
+works under either address.
+
+Editing is local by design. The pencil and the route behind it are offered
+only to a browser on the machine running the gallery (an address of
+`localhost` or `127.0.0.1`), because impeccable's helper listens on that
+machine alone. Reached through any other host name, such as a tailnet address
+or a dev server, the same gallery is for looking: no pencil, and the route
+refuses. `--view-only` turns editing off everywhere. Do not put the gallery on
+a public address.
 
 ## What it shows
 
@@ -59,7 +65,9 @@ the tab is part of the address, so a link lands on the same one.
     90% of the window. Drag its right or bottom edge to resize it, or pick a
     size from the bar underneath: fill the window, laptop (1440 × 900), tablet
     (834 × 1112), or phone (390 × 844). A size larger than the window is
-    scaled to fit and the bar says by how much.
+    scaled to fit and the bar says by how much. An open preview is part of
+    the address (`/direction/<NN Name>?preview=t`), so a link from anywhere
+    opens one variant straight into it.
   - **Edit** starts live editing for the variant and opens it in a new tab
     (below). A variant built in a framework has no Edit; its preview is its
     page in the direction's static build (below), or its plates when there is
@@ -106,8 +114,11 @@ root:
 node "${CLAUDE_PLUGIN_ROOT}/skills/gallery/scripts/frames.mjs" --dir "docs/Design Directions" [--only <NN>] [--force]
 ```
 
-It writes `Frames/<variant>.webp` (640px wide) and `Frames/Frames.json`, and
-skips a picture that is newer than its page. A source page is pictured as a
+It writes, per variant, `Frames/<variant>.webp` (the whole scroll, 640px
+wide, for the gallery's grids), `Frames/<variant>/01.webp …` (the same picture
+at 1440px in bands no taller than 2048px, for Figma), and an entry in
+`Frames/Frames.json` with the sizes. It skips a picture that is newer than its
+page. A source page is pictured as a
 reader who asked for reduced motion gets it, with viewport heights pinned to a
 900px screen: the build brief requires that layout to be a normal long-scroll
 page with every scene present, so a variant that fails that gate shows up here
@@ -116,6 +127,33 @@ is pictured from the plates. The gallery marks a picture whose page has
 changed since with an amber dot, and shows a short live thumbnail for a variant
 that has no picture yet. Needs Playwright with Chromium and `sharp` resolvable
 from the project.
+
+## Review in Figma
+
+A Figma file is a second place to lay the same pictures out, with free
+arrangement and pinned comments for people who do not run the gallery. The
+pictures are still, and the gallery stays the place a variant moves: each
+variant in Figma carries a link that opens its preview. Place them through the
+Figma MCP:
+
+1. One section per direction (or round), one column per variant: a header row
+   with the variant's label and a text link, **Open live preview**, to
+   `<gallery address>/direction/<NN Name>?preview=<letter>`; beneath it a
+   vertical auto-layout with no spacing or padding holding one frame per band,
+   each `1440 × <band height>` from `Frames.json`.
+2. Upload the bands with `upload_assets`, passing the band frames' ids in
+   order, then send each `Frames/<variant>/NN.webp` to its returned address.
+   Re-uploading to the same frames replaces the pictures and keeps the layout.
+3. Never place the whole scroll as one image. Figma shrinks an image past
+   4096px on a side, and its editor has painted very tall images blank with no
+   error.
+
+The links use whatever address the gallery is served at. While working that is
+`http://127.0.0.1:4600`, which opens only on the machine running it; a
+source-page variant can also carry an **Edit** link to
+`<gallery address>/edit/<path to the page>`. When the gallery is hosted for a
+team, rewrite the links to that address and remove the Edit links: the hosted
+gallery does not offer editing.
 
 ## Framework builds
 
