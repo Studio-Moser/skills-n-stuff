@@ -144,7 +144,10 @@ function titleFor(dir, id, label) {
 const fileNameFor = (id, title) => `Homepage ${id.length === 1 ? id.toUpperCase() : id} - ${title}.plates.html`
 // A variant's url is an http(s) address or a path to a self-contained HTML file.
 const isRemote = (u) => /^https?:\/\//.test(u)
-const toUrl = (u) => (isRemote(u) || u.startsWith('file:') ? u : pathToFileURL(resolve(u)).href)
+// A directory-style static export answers "/v/k" with a redirect to
+// "http://…/v/k/" behind a TLS proxy; ask for the directory directly.
+const direct = (u) => (/\/[^/.]*$/.test(new URL(u).pathname) && !u.endsWith('/') ? `${u}/` : u)
+const toUrl = (u) => (isRemote(u) ? direct(u) : u.startsWith('file:') ? u : pathToFileURL(resolve(u)).href)
 
 // ---- in-page helpers (serialised into the page) ---------------------------
 
