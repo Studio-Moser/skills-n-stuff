@@ -9,6 +9,8 @@
 //   /doc/<path>.md          any markdown file in the project, rendered
 //   /edit/<path>.html       start impeccable live for a variant, then open it
 //   /build/<folder>/…       a direction's static framework build, from Build/
+//   /api/directions.json    every direction and variant with its addresses, for
+//                           tools outside the gallery (the Figma plugin)
 //   /<directions dir>/…     the files themselves, at their repo-relative path
 //
 // Variants are served at their repo-relative path on purpose: a live-editing
@@ -667,6 +669,32 @@ function docPage(abs) {
   })
 }
 
+// ---- data for other tools ----------------------------------------------------
+// Addresses are paths; the caller joins them to whatever address it reached the
+// gallery at.
+function directionsJson(editable) {
+  return directionFolders().map((folder) => {
+    const d = readDirection(folder)
+    const base = urlPath(DIR_REL, folder)
+    const file = (name) => `${base}/${encodeURIComponent(name)}`
+    const frames = (() => { try { return JSON.parse(read(join(d.dir, 'Frames', 'Frames.json')) ?? '{}') } catch { return {} } })()
+    return {
+      folder, number: d.number, name: d.name, premise: d.premise, page: urlPath('direction', folder),
+      variants: d.variants.map((v) => {
+        const built = v.build ? `${urlPath('build', folder)}/${v.build.split('/').map(encodeURIComponent).join('/')}` : ''
+        const screens = (size) => (frames[v.base]?.[size]?.screens ?? []).map((s) => ({ src: `${base}/Frames/${s.file.split('/').map(encodeURIComponent).join('/')}`, width: frames[v.base][size].width, height: s.height }))
+        return {
+          letter: v.letter, title: v.title, label: v.label,
+          preview: v.source ? file(v.source) : built || file(v.show),
+          page: `${urlPath('direction', folder)}?preview=${encodeURIComponent(v.letter.toLowerCase())}`,
+          edit: v.source && editable ? `/edit${file(v.source)}` : null,
+          desktop: screens('desktop'), mobile: screens('mobile'),
+        }
+      }),
+    }
+  })
+}
+
 // ---- static builds ----------------------------------------------------------
 // A direction can hold the static export of a framework build in Build/. Such
 // pages refer to their own files by root-absolute paths ("/_next/…"), which
@@ -746,6 +774,11 @@ const server = createServer((req, res) => {
         const html = referencePage(parts[1], parts[3])
         return html ? send(res, 200, html) : notFound(res)
       }
+    }
+    if (parts[0] === 'api' && parts[1] === 'directions.json') {
+      // Readable from any origin: it lists only what the gallery already shows.
+      res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'access-control-allow-origin': '*' })
+      return res.end(JSON.stringify({ project: PROJECT, directions: directionsJson(canEdit(req)) }))
     }
     if (parts[0] === 'build' && parts[1] && inside(DIR, resolve(DIR, parts[1]))) {
       const file = buildFile(parts[1], parts.slice(2))
