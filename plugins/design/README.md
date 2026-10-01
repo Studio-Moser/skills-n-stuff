@@ -16,7 +16,7 @@ exploration converges.
 | Skill | Role | What |
 | --- | --- | --- |
 | `/design:direction-brief` | Direction interview | Guides the owner from a hunch and a pile of references to a direction brief and a copy direction: asks only what the project's documents do not answer, captures every URL as view stills and saves every image into the direction's `References/` folder, drafts each section for correction, then runs a readiness check and drafts the round sheet |
-| `/design:gallery` | Review surface | A dependency-free local server over the directions folder: a grid of directions, and per direction its variants as whole-scroll pictures, its full brief, saved references, and design system. A variant opens in a resizable preview with device sizes, shows its notes, or opens for in-page editing with impeccable live. `frames.mjs` takes the pictures; `import-build.mjs` brings a framework build's static export into a direction so its real pages play from the repository |
+| `/design:present` | Presenting a round | A dependency-free local server over the directions folder: a grid of directions, and per direction its variants as whole-scroll pictures, its full brief, saved references, and design system. A variant opens in a resizable preview with device sizes, shows its notes, or opens for in-page editing with impeccable live. `frames.mjs` pictures each variant a screen at a time at desktop (1440 × 900) and mobile (360 × 800), for the gallery's grids and for a Figma file whose labels link back to the live preview; editing is offered only on the machine running the gallery; `import-build.mjs` brings a framework build's static export into a direction so its real pages play from the repository |
 | `/design:fan-out` | Round runner | Validates a round sheet (max seven variants, one skill each), prepares the medium (files for `html`, worktrees for `code`), dispatches builders as local subagents or through Harness, gates first drafts, and writes the round index; `html` variants appear in the gallery as written |
 | `/design:variant-brief` | Brief author | Cuts the project's variant build brief from the shared template, keeping the discipline verbatim and filling the project's slots |
 | `/design:first-draft-critic` | Critic loop | Explore mode (two lenses, pushes toward the premise, two rounds) inside a fan-out; gauntlet mode (three lenses against a written done bar, five rounds) for convergence and hero pieces |
@@ -73,7 +73,7 @@ exploration converges.
 - Harness for delegated builders (`/plugin install harness@studio-moser`).
 - For `gallery`: Node only. Editing a variant needs impeccable installed and
   a `PRODUCT.md` at the project root.
-- For `capture`, and the gallery's `frames.mjs` and `import-build.mjs`:
+- For `capture`, and `design:present`'s `frames.mjs` and `import-build.mjs`:
   Playwright with Chromium and `sharp` resolvable from the project root.
 - Optional personal agents `design-builder-*` and `design-critic-*` in
   `~/.claude/agents`; the skills fall back to general-purpose subagents with

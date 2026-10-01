@@ -1,0 +1,17 @@
+{
+  "name": "Design Gallery",
+  "id": "studio-moser-design-gallery",
+  "api": "1.0.0",
+  "main": "code.js",
+  "ui": "ui.html",
+  "editorType": [
+    "figma"
+  ],
+  "documentAccess": "dynamic-page",
+  "networkAccess": {
+    "allowedDomains": [
+      "*"
+    ],
+    "reasoning": "Shows the live page of a design variant from the team's own design gallery, whose address the user sets: a local server while working, a private host when shared."
+  }
+}

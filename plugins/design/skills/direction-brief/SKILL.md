@@ -31,7 +31,7 @@ What it produces, all owned by the project:
 {copy dir}/{NN Name}/{Page}.md   from templates/Copy Direction.md (when the copy is new)
 ```
 
-The brief is named `Brief.md`; `design:gallery` reads it, the references, and
+The brief is named `Brief.md`; `design:present` reads it, the references, and
 `DESIGN.md` from this folder and shows them on the direction's page.
 
 ## How to run the interview
@@ -186,6 +186,6 @@ forward** in the owner's words, add any new references (stage 2), move the
 phase forward when the owner says so, tighten whatever that settled, and re-run
 the check. When the phase reaches tightening, write the direction's
 `DESIGN.md` from the brief's Type, colour, and Hard rules and its `tokens.css`:
-it is what live editing in the gallery reads to stay inside this direction.
+it is what live editing reads to stay inside this direction.
 Do not rewrite the Premise unless the owner changes it; a direction whose
 premise changes is a new direction with a new number.

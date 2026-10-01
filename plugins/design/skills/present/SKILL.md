@@ -1,30 +1,39 @@
 ---
-name: gallery
+name: present
 description: >-
-  Use for the local review surface of a design exploration: one small server at
-  the top of a project's design directions that shows every direction in a
-  grid, and for each direction its full brief, saved references, design system,
-  and all its variants, each one click from opening full-size or being edited
-  in the page with impeccable live. Also sets a project up for the workflow.
-  Triggers: "open the gallery", "show me the directions", "set up the design
-  gallery", "set up design exploration here", "edit this variant", "let me
-  tweak variant C".
+  Use to put a design round in front of the owner: picture each variant a
+  screen at a time, place the round in a Figma file with every variant hooked
+  to its live page, bring a framework build's static export into the
+  repository, edit a variant in the page with impeccable live, or run the
+  optional local gallery of directions. Also sets a project up for the
+  workflow. Triggers: "put the round in Figma", "place the variants in Figma",
+  "hook this frame up to its page", "take the pictures", "present the round",
+  "edit this variant", "let me tweak variant C", "import the build", "open the
+  gallery", "set up design exploration here".
 ---
 
-# Gallery
+# Present
 
 A project's exploration lives in files: briefs, references, tokens, and one
-self-contained page per variant. The gallery is a view of those
-files, rendered on request, so there is nothing to publish and nothing to keep
-in sync. It changes nothing on disk except when the owner presses Edit. Editing happens in the variant itself, through impeccable's live mode,
-and lands in the same file.
+self-contained page per variant. Presenting a round means turning those files
+into something the owner can look at and act on:
 
-## Run it
+- **Pictures** of every variant, a screen at a time (§ Pictures of the variants).
+- **A Figma file** with the pictures laid out and each variant's frame hooked
+  to its live page, shown inside Figma by the Design Gallery plugin
+  (§ Review in Figma). This is the usual review surface.
+- **The page itself**, served over `http` by the project's own dev server or
+  any static server rooted at the project, and edited in place with impeccable
+  live (§ Edit a variant).
+- **A local gallery**, optional: a small server that shows every direction
+  with its brief, references, design system, and variants (§ The local gallery). It changes nothing on disk except when the owner presses Edit.
+
+## The local gallery (optional)
 
 From the project root:
 
 ```sh
-node "${CLAUDE_PLUGIN_ROOT}/skills/gallery/scripts/gallery.mjs" [--dir "docs/Design Directions"] [--port 4600] [--project "<Name>"]
+node "${CLAUDE_PLUGIN_ROOT}/skills/present/scripts/gallery.mjs" [--dir "docs/Design Directions"] [--port 4600] [--project "<Name>"]
 ```
 
 It needs Node and nothing else, and prints its address
@@ -37,11 +46,17 @@ It binds to this machine only. To look at it from another device, put the
 whole server on a private network instead of pointing parts of it elsewhere:
 `tailscale serve --bg 4600` publishes it to the tailnet, or pass `--host` with
 a private interface's address. Every link in the gallery is relative, so it
-works under either address. Live editing stays on the machine running the
-gallery, because impeccable's helper listens on that machine alone. Do not put
-the gallery on a public address.
+works under either address.
 
-## What it shows
+Editing is local by design. The pencil and the route behind it are offered
+only to a browser on the machine running the gallery (an address of
+`localhost` or `127.0.0.1`), because impeccable's helper listens on that
+machine alone. Reached through any other host name, such as a tailnet address
+or a dev server, the same gallery is for looking: no pencil, and the route
+refuses. `--view-only` turns editing off everywhere. Do not put the gallery on
+a public address.
+
+## What the gallery shows
 
 **`/`: every direction.** A tile per direction folder: its number, name, and
 phase, the premise at reading size, pictures of its first four variants laid
@@ -59,7 +74,9 @@ the tab is part of the address, so a link lands on the same one.
     90% of the window. Drag its right or bottom edge to resize it, or pick a
     size from the bar underneath: fill the window, laptop (1440 × 900), tablet
     (834 × 1112), or phone (390 × 844). A size larger than the window is
-    scaled to fit and the bar says by how much.
+    scaled to fit and the bar says by how much. An open preview is part of
+    the address (`/direction/<NN Name>?preview=t`), so a link from anywhere
+    opens one variant straight into it.
   - **Edit** starts live editing for the variant and opens it in a new tab
     (below). A variant built in a framework has no Edit; its preview is its
     page in the direction's static build (below), or its plates when there is
@@ -103,19 +120,75 @@ refresh the pictures whenever variants are built or edited, from the project
 root:
 
 ```sh
-node "${CLAUDE_PLUGIN_ROOT}/skills/gallery/scripts/frames.mjs" --dir "docs/Design Directions" [--only <NN>] [--force]
+node "${CLAUDE_PLUGIN_ROOT}/skills/present/scripts/frames.mjs" --dir "docs/Design Directions" [--only <NN>] [--force]
 ```
 
-It writes `Frames/<variant>.webp` (640px wide) and `Frames/Frames.json`, and
-skips a picture that is newer than its page. A source page is pictured as a
+It pictures each variant one screen at a time, at two sizes, so every image
+is one full screen of the page: usable alone as a thumbnail, and stacked as
+the whole scroll.
+
+- `Frames/<variant>/desktop/01.webp …`: 1440 × 900 each.
+- `Frames/<variant>/mobile/01.webp …`: 360 × 800 each.
+- `Frames/<variant>.webp`: the whole desktop scroll at 640px wide, which the
+  gallery's grids show.
+- `Frames/Frames.json`: the sizes, the screens, and what each was taken from.
+
+It skips a variant whose pictures are newer than its page. A source page is pictured as a
 reader who asked for reduced motion gets it, with viewport heights pinned to a
 900px screen: the build brief requires that layout to be a normal long-scroll
 page with every scene present, so a variant that fails that gate shows up here
 as an incomplete picture. A variant with plates at least as new as its source
-is pictured from the plates. The gallery marks a picture whose page has
+is pictured from the plates. Mobile needs a page that responds to width,
+which plates do not: a source page is pictured as above, and a variant that
+is a page in the direction's `Build/` is opened from there with its motion
+running and pictured as it is scrolled a screen at a time. A variant with
+neither has no mobile pictures. The gallery marks a picture whose page has
 changed since with an amber dot, and shows a short live thumbnail for a variant
 that has no picture yet. Needs Playwright with Chromium and `sharp` resolvable
 from the project.
+
+## Review in Figma
+
+A Figma file is a second place to lay the same pictures out, with free
+arrangement and pinned comments. It needs no gallery: the pictures are files,
+and each variant links to its own page, which any static server rooted at the
+project serves (`python3 -m http.server 4600` from the project root, the
+gallery, or a shared host). The Figma plugin in this repository's
+`figma/Design Gallery` folder shows the page of whichever variant is selected,
+inside Figma, from the address stored on the variant's frame.
+
+Place a round through the Figma MCP:
+
+1. One section per direction (or round), one column per variant. Store the
+   variant's page address on the column frame, which is what the plugin reads:
+   `column.setSharedPluginData('design_gallery', 'page', '<address>')`. For
+   people without the plugin, the header row may also carry a text link,
+   **Open live preview**, to the same address. The address is the variant's
+   page at its path in the project:
+   `<server address>/<directions dir>/<NN Name>/Homepage <X> - <Title>.html`
+   for a source page, or `<server address>/<directions dir>/<NN Name>/Build/<build>`
+   for a framework build. Beneath the header row with the variant's label, a
+   vertical auto-layout with no spacing or
+   padding holding one frame per screen, each `1440 × <screen height>` from
+   `Frames.json` (900, the last one shorter). A mobile column beside it is the
+   same with `360 × <height>` frames from the `mobile` list.
+2. Upload the screens with `upload_assets`, passing the frames' ids in order,
+   then send each `Frames/<variant>/desktop/NN.webp` (or `mobile/NN.webp`) to
+   its returned address. Re-uploading to the same frames replaces the pictures
+   and keeps the layout.
+3. Read each column's address back
+   (`getSharedPluginData('design_gallery', 'page')`) and request one of them
+   from the server, so a variant never lands in the file without a working
+   page. When a variant's file is renamed or re-lettered, update the address
+   on its column.
+4. Never place the whole scroll as one image. Figma shrinks an image past
+   4096px on a side, and its editor has painted very tall images blank with no
+   error.
+
+While working, the server address is `http://127.0.0.1:4600`, which opens only
+on that machine. For a team, serve the same folder from a shared host; the
+paths do not change, and each person sets that host once in the plugin, so the
+links need no rewriting.
 
 ## Framework builds
 
@@ -123,32 +196,22 @@ A variant built in the project's real stack is not a file the gallery can
 open. Export the build as a static site and bring it into the direction:
 
 ```sh
-node "${CLAUDE_PLUGIN_ROOT}/skills/gallery/scripts/import-build.mjs" --from <export dir> --dir "docs/Design Directions" --direction "<NN Name>" [--routes /v/a/,/v/b/]
+node "${CLAUDE_PLUGIN_ROOT}/skills/present/scripts/import-build.mjs" --from <export dir> --dir "docs/Design Directions" --direction "<NN Name>" [--routes /v/a/,/v/b/]
 ```
 
 It serves the export at a temporary local address, opens each variant's page
 at a desktop and a phone width, scrolls it through, and copies into `Build/`
 only the files those visits loaded, plus the build's code whole. Each variant
-in `Snapshots.json` gets `"build": "v/a/"`, and the gallery previews that page
-with its motion. The export's pages use root-absolute paths, so the gallery
-mounts the build at `/build/<NN Name>/` and prefixes those paths as it serves
-each file. Needs Playwright with Chromium resolvable from the project.
+in `Snapshots.json` gets `"build": "v/a/"`.
 
-## Set a project up
-
-A new project needs four things before its first round:
-
-1. A directions folder (`docs/Design Directions` unless the project has a
-   convention). The gallery starts on an empty one and says what to do next.
-2. The frozen brief, copy rules, and facts files: `design:direction-brief`
-   stage 0 finds them and writes a frozen brief when there is none.
-3. The variant build brief, from `design:variant-brief`.
-4. For editing: impeccable installed, and its product context
-   (`PRODUCT.md` at the project root, written by impeccable's `init`). One
-   product context serves every direction.
-
-Then `design:direction-brief` creates each direction, `design:fan-out` builds
-its variants, and they appear here as the files are written.
+An export's pages name their own files by root-absolute paths, which only work
+at a site's root. The copy is rebased: each such path gets the `Build/`
+folder's own address as a prefix (recorded in `Build/Build.json`), so the pages
+are plain static files that any server rooted at the project serves, the
+gallery included. Run it from the project root so the prefix matches.
+`import-build.mjs --rebase --dir … --direction …` applies or changes the prefix
+of a build already in place. Importing needs Playwright with Chromium
+resolvable from the project; `--rebase` needs nothing.
 
 ## Edit a variant
 
@@ -205,4 +268,4 @@ different premise, write a new direction and run a round.
 
 It has no comments and no accounts. The owner says what they want carried
 forward, and `design:direction-brief` writes it into the next brief. Someone
-without the repository looks at the gallery over a private network (§ Run it).
+without the repository looks at the gallery over a private network (§ The local gallery).
