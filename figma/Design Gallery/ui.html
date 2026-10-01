@@ -52,6 +52,8 @@
     background: var(--figma-color-bg, #fff); border: 1px solid var(--figma-color-border, #e6e6e6); border-radius: 6px;
   }
   .settings .hint { color: var(--figma-color-text-secondary, #777); }
+  .grip { position: fixed; right: 0; bottom: 0; width: 18px; height: 18px; cursor: nwse-resize; touch-action: none; z-index: 5; }
+  .grip::after { content: ""; position: absolute; right: 4px; bottom: 4px; width: 8px; height: 8px; border-right: 2px solid var(--figma-color-border-strong, #999); border-bottom: 2px solid var(--figma-color-border-strong, #999); }
   body.dragging iframe { pointer-events: none; }
 </style>
 </head>
@@ -79,6 +81,7 @@
   <div class="box" id="box" hidden><iframe id="frame" title="Variant preview"></iframe>
     <div class="handle" data-axis="x" title="Drag to resize"></div><div class="handle" data-axis="y" title="Drag to resize"></div><div class="handle" data-axis="xy" title="Drag to resize"></div></div>
 </div>
+<div class="grip" id="grip" title="Drag to resize the window"></div>
 <script>
 const send = (message) => parent.postMessage({ pluginMessage: message }, '*')
 const $ = (id) => document.getElementById(id)
@@ -200,6 +203,18 @@ document.querySelectorAll('.handle').forEach((handle) => handle.addEventListener
   handle.addEventListener('pointermove', move)
   handle.addEventListener('pointerup', up)
 }))
+// The corner grip resizes the plugin's window; the page inside refits.
+$('grip').addEventListener('pointerdown', (down) => {
+  down.preventDefault()
+  $('grip').setPointerCapture(down.pointerId)
+  const from = [innerWidth, innerHeight]
+  document.body.classList.add('dragging')
+  // The window grows under the pointer, so measure against the screen.
+  const move = (e) => send({ type: 'resize', width: Math.min(2400, Math.max(420, from[0] + e.screenX - down.screenX)), height: Math.min(1600, Math.max(360, from[1] + e.screenY - down.screenY)) })
+  const up = () => { document.body.classList.remove('dragging'); $('grip').removeEventListener('pointermove', move); $('grip').removeEventListener('pointerup', up) }
+  $('grip').addEventListener('pointermove', move)
+  $('grip').addEventListener('pointerup', up)
+})
 addEventListener('resize', render)
 send({ type: 'ready' })
 </script>

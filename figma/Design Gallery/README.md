@@ -35,6 +35,8 @@ changing either, run the plugin again.
    - the gallery's address
 4. Drag the right or bottom edge of the page, or its corner, to try other
    sizes.
+5. Drag the grip in the window's bottom-right corner to resize the plugin's
+   window; the page refits.
 
 Selecting a layer that is not part of a variant says so and clears the panel.
 
