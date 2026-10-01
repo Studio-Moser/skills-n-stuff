@@ -55,6 +55,5 @@ figma.ui.onmessage = async (message) => {
     await figma.clientStorage.setAsync('galleryAddress', message.value)
     sendSelection()
   }
-  if (message.type === 'resize') figma.ui.resize(Math.round(message.width), Math.round(message.height))
   if (message.type === 'open') figma.openExternal(message.url)
 }

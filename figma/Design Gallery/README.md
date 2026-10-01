@@ -31,12 +31,12 @@ changing either, run the plugin again.
      a size larger than the panel is scaled to fit and the bar says by how much
    - edit with impeccable live, in the browser, when the gallery offers it
      (a source-page variant, on the machine running the gallery)
-   - open the variant's preview in the browser
    - reload
    - the gallery's address
-4. Drag the corner to resize the panel.
+4. Drag the right or bottom edge of the page, or its corner, to try other
+   sizes.
 
-Selecting something that is not a variant leaves the last one on screen.
+Selecting a layer that is not part of a variant says so and clears the panel.
 
 ## How it finds a variant
 
@@ -53,7 +53,9 @@ variant.
 By default the panel uses the address in the variant's own link, so a file
 whose links point at `http://127.0.0.1:4600` works on the machine running the
 gallery. To use a hosted gallery without rewriting the links, set its address
-with the gear; it is stored per person, in Figma's own plugin storage.
+with the gear. That one address is then used for every variant, in any file;
+it is each person's own setting, kept in Figma's plugin storage, and changes
+nothing in the file. Empty it to go back to each link's own address.
 
 ## Limits
 
