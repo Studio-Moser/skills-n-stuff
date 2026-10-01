@@ -66,18 +66,17 @@
   <button type="button" data-preset="mobile" title="Phone · 360 × 800" aria-label="Phone, 360 by 800"><svg viewBox="0 0 24 24"><path d="M6 5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2z"/><path d="M11 4h2"/><path d="M12 17v.01"/></svg></button>
   <span class="size" id="size"></span>
   <span class="grow"></span>
-  <button type="button" id="edit" title="Edit with impeccable live, in the browser" aria-label="Edit in the browser" hidden><svg viewBox="0 0 24 24"><path d="M4 20h4L18.5 9.5a2.828 2.828 0 1 0-4-4L4 16v4"/><path d="M13.5 6.5l4 4"/></svg></button>
   <button type="button" id="reload" title="Reload" aria-label="Reload" disabled><svg viewBox="0 0 24 24"><path d="M20 11A8.1 8.1 0 0 0 4.5 9M4 5v4h4"/><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4"/></svg></button>
-  <button type="button" id="gear" title="Gallery address" aria-label="Gallery address" aria-expanded="false"><svg viewBox="0 0 24 24"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 0 0-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 0 0-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 0 0-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 0 0-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 0 0 1.066-2.573c-.94-1.543.826-3.31 2.37-2.37c1 .608 2.296.07 2.572-1.065"/><path d="M9 12a3 3 0 1 0 6 0a3 3 0 0 0-6 0"/></svg></button>
+  <button type="button" id="gear" title="Server address" aria-label="Server address" aria-expanded="false"><svg viewBox="0 0 24 24"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 0 0-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 0 0-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 0 0-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 0 0-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 0 0 1.066-2.573c-.94-1.543.826-3.31 2.37-2.37c1 .608 2.296.07 2.572-1.065"/><path d="M9 12a3 3 0 1 0 6 0a3 3 0 0 0-6 0"/></svg></button>
 </div>
 <div class="settings" id="settings">
-  <label for="address">Gallery address</label>
+  <label for="address">Server address</label>
   <input id="address" type="url" placeholder="http://127.0.0.1:4600" spellcheck="false">
   <button type="button" id="save">Save</button>
-  <span class="hint">One address for every variant you preview with this plugin, in any file. It is your own setting and changes nothing in the file. Leave it empty to use the address written in each variant's link.</span>
+  <span class="hint">Replaces the server part of every variant's link (for example, to use a shared host in place of your own machine), for every variant you preview with this plugin, in any file. It is your own setting and changes nothing in the file. Leave it empty to open each link as written.</span>
 </div>
 <div class="stage" id="stage">
-  <div class="note" id="note"><b>Select a variant</b>Select a variant placed from the gallery: its label, one of its screens, or its column. The label links to the variant's live preview, and that link is how this panel finds it.</div>
+  <div class="note" id="note"><b>Select a variant</b>Select a variant: its label, one of its screens, or its column. The label's link to the variant's page is how this panel finds it.</div>
   <div class="box" id="box" hidden><iframe id="frame" title="Variant preview"></iframe>
     <div class="handle" data-axis="x" title="Drag to resize"></div><div class="handle" data-axis="y" title="Drag to resize"></div><div class="handle" data-axis="xy" title="Drag to resize"></div></div>
 </div>
@@ -91,9 +90,9 @@ const PRESETS = { laptop: [1440, 900], tablet: [834, 1112], mobile: [360, 800] }
 let preset = 'fill'
 let custom = [0, 0]      // the size set by dragging, when preset is 'custom'
 let shown = [0, 0]       // the page size on screen now
-let address = ''          // the user's setting; empty means "use the link's own"
-let current = null        // { base, folder, letter, title, preview, page, edit }
-const lists = new Map()   // gallery address -> its directions
+let address = ''          // the user's setting; empty means "open each link as written"
+let current = null        // the address on screen
+let wanted = null         // the link of the selected variant
 const IDLE = note.innerHTML.replace(/^<b>.*?<\/b>/, '')
 
 // The page at its real size, scaled down when the panel is smaller.
@@ -118,7 +117,6 @@ function say(title, html) {
   frame.src = 'about:blank'
   $('title').textContent = 'Design Gallery'
   $('reload').disabled = true
-  $('edit').hidden = true
   box.hidden = true
   note.hidden = false
   note.innerHTML = '<b></b>' + html
@@ -126,33 +124,28 @@ function say(title, html) {
   $('size').textContent = ''
 }
 
-async function directions(base) {
-  if (!lists.has(base)) {
-    const response = await fetch(base + '/api/directions.json')
-    if (!response.ok) throw new Error('The gallery answered ' + response.status)
-    lists.set(base, (await response.json()).directions)
-  }
-  return lists.get(base)
+// The link as written, or with its server swapped for the user's setting.
+function resolve(link) {
+  if (!address) return link
+  const u = new URL(link)
+  return address + u.pathname + u.search + u.hash
 }
 
 async function show(variant) {
-  const base = (address || variant.origin).replace(/\/+$/, '')
-  try {
-    const direction = (await directions(base)).find((d) => d.folder === variant.folder)
-    const found = direction && direction.variants.find((v) => v.letter.toLowerCase() === variant.letter)
-    if (!found) return say('Not in the gallery', 'The gallery at <code>' + base + '</code> has no variant “' + variant.letter.toUpperCase() + '” in “' + variant.folder + '”.')
-    current = { base, folder: variant.folder, letter: variant.letter, title: found.letter + ' ' + found.title, preview: found.preview, page: found.page, edit: found.edit }
-    $('title').textContent = variant.folder + ' · ' + current.title
-    frame.src = base + found.preview
-    note.hidden = true
-    box.hidden = false
-    $('reload').disabled = false
-    $('edit').hidden = !found.edit
-    render()
-  } catch (error) {
-    lists.delete(base)
-    say('The gallery is not reachable', 'Tried <code>' + base + '</code>. Start it from the project (<code>node …/gallery.mjs</code>), or set its address with the gear. ' + (error && error.message ? '(' + error.message + ')' : ''))
+  const url = resolve(variant.url)
+  if (url === current) return
+  // A frame gives no sign that its page failed to load, so ask first.
+  try { await fetch(url, { mode: 'no-cors', cache: 'no-store' }) } catch (error) {
+    return say('The page is not reachable', 'Tried <code></code>. Start a server for the project, or set its address with the gear.'.replace('<code></code>', '<code>' + url.replace(/[<&]/g, '') + '</code>'))
   }
+  if (wanted !== variant.url) return
+  current = url
+  $('title').textContent = variant.label || new URL(url).pathname.split('/').filter(Boolean).slice(-2).map(decodeURIComponent).join(' / ')
+  frame.src = url
+  note.hidden = true
+  box.hidden = false
+  $('reload').disabled = false
+  render()
 }
 
 onmessage = (event) => {
@@ -160,9 +153,10 @@ onmessage = (event) => {
   if (!message) return
   if (message.type === 'settings') { address = message.address; $('address').value = address }
   if (message.type === 'selection') {
+    wanted = message.variant ? message.variant.url : null
     if (!message.selected) return say('Select a variant', IDLE)
-    if (!message.variant) return say('No preview for this selection', 'This layer is not part of a variant placed from the gallery. A variant is recognised by the “Open live preview” link on its label.')
-    if (!(current && current.folder === message.variant.folder && current.letter === message.variant.letter && current.base === (address || message.variant.origin).replace(/\/+$/, ''))) show(message.variant)
+    if (!message.variant) return say('No preview for this selection', 'This layer is not part of a variant with a page. A variant is recognised by the link on its label to its page (“Open live preview”).')
+    show(message.variant)
   }
 }
 
@@ -170,15 +164,12 @@ document.addEventListener('click', (event) => {
   const button = event.target.closest('button')
   if (!button) return
   if (button.dataset.preset) { preset = button.dataset.preset; render() }
-  if (button.id === 'edit' && current && current.edit) send({ type: 'open', url: current.base + current.edit })
-  if (button.id === 'reload' && current) { lists.delete(current.base); frame.src = frame.src }
+  if (button.id === 'reload' && current) frame.src = current
   if (button.id === 'gear') { const open = $('settings').classList.toggle('open'); button.setAttribute('aria-expanded', open); render() }
   if (button.id === 'save') {
     address = $('address').value.trim().replace(/\/+$/, '')
-    send({ type: 'address', value: address })
-    const again = current
     current = null
-    if (again) show({ origin: again.base, folder: again.folder, letter: again.letter })
+    send({ type: 'address', value: address })   // the plugin answers with the selection again
   }
 })
 

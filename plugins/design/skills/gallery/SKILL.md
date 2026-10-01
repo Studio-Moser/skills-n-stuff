@@ -141,18 +141,24 @@ from the project.
 ## Review in Figma
 
 A Figma file is a second place to lay the same pictures out, with free
-arrangement and pinned comments for people who do not run the gallery. The
-pictures are still, and the gallery stays the place a variant moves: each
-variant in Figma carries a link that opens its preview. Place them through the
-Figma MCP:
+arrangement and pinned comments. It needs no gallery: the pictures are files,
+and each variant links to its own page, which any static server rooted at the
+project serves (`python3 -m http.server 4600` from the project root, the
+gallery, or a shared host). The Figma plugin in this repository's
+`figma/Design Gallery` folder shows the page of whichever variant is selected,
+inside Figma, from that link alone.
+
+Place a round through the Figma MCP:
 
 1. One section per direction (or round), one column per variant: a header row
-   with the variant's label and a text link, **Open live preview**, to
-   `<gallery address>/direction/<NN Name>?preview=<letter>`; beneath it a
-   vertical auto-layout with no spacing or padding holding one frame per
-   screen, each `1440 × <screen height>` from `Frames.json` (900, the last one
-   shorter). A mobile column beside it is the same with `360 × <height>`
-   frames from the `mobile` list.
+   with the variant's label and a text link, **Open live preview**, to the
+   variant's page at its path in the project:
+   `<server address>/<directions dir>/<NN Name>/Homepage <X> - <Title>.html`
+   for a source page, or `<server address>/<directions dir>/<NN Name>/Build/<build>`
+   for a framework build. Beneath it, a vertical auto-layout with no spacing or
+   padding holding one frame per screen, each `1440 × <screen height>` from
+   `Frames.json` (900, the last one shorter). A mobile column beside it is the
+   same with `360 × <height>` frames from the `mobile` list.
 2. Upload the screens with `upload_assets`, passing the frames' ids in order,
    then send each `Frames/<variant>/desktop/NN.webp` (or `mobile/NN.webp`) to
    its returned address. Re-uploading to the same frames replaces the pictures
@@ -161,12 +167,10 @@ Figma MCP:
    4096px on a side, and its editor has painted very tall images blank with no
    error.
 
-The links use whatever address the gallery is served at. While working that is
-`http://127.0.0.1:4600`, which opens only on the machine running it; a
-source-page variant can also carry an **Edit** link to
-`<gallery address>/edit/<path to the page>`. When the gallery is hosted for a
-team, rewrite the links to that address and remove the Edit links: the hosted
-gallery does not offer editing.
+While working, the server address is `http://127.0.0.1:4600`, which opens only
+on that machine. For a team, serve the same folder from a shared host; the
+paths do not change, and each person sets that host once in the plugin, so the
+links need no rewriting.
 
 ## Framework builds
 
@@ -180,26 +184,16 @@ node "${CLAUDE_PLUGIN_ROOT}/skills/gallery/scripts/import-build.mjs" --from <exp
 It serves the export at a temporary local address, opens each variant's page
 at a desktop and a phone width, scrolls it through, and copies into `Build/`
 only the files those visits loaded, plus the build's code whole. Each variant
-in `Snapshots.json` gets `"build": "v/a/"`, and the gallery previews that page
-with its motion. The export's pages use root-absolute paths, so the gallery
-mounts the build at `/build/<NN Name>/` and prefixes those paths as it serves
-each file. Needs Playwright with Chromium resolvable from the project.
+in `Snapshots.json` gets `"build": "v/a/"`.
 
-## Set a project up
-
-A new project needs four things before its first round:
-
-1. A directions folder (`docs/Design Directions` unless the project has a
-   convention). The gallery starts on an empty one and says what to do next.
-2. The frozen brief, copy rules, and facts files: `design:direction-brief`
-   stage 0 finds them and writes a frozen brief when there is none.
-3. The variant build brief, from `design:variant-brief`.
-4. For editing: impeccable installed, and its product context
-   (`PRODUCT.md` at the project root, written by impeccable's `init`). One
-   product context serves every direction.
-
-Then `design:direction-brief` creates each direction, `design:fan-out` builds
-its variants, and they appear here as the files are written.
+An export's pages name their own files by root-absolute paths, which only work
+at a site's root. The copy is rebased: each such path gets the `Build/`
+folder's own address as a prefix (recorded in `Build/Build.json`), so the pages
+are plain static files that any server rooted at the project serves, the
+gallery included. Run it from the project root so the prefix matches.
+`import-build.mjs --rebase --dir … --direction …` applies or changes the prefix
+of a build already in place. Importing needs Playwright with Chromium
+resolvable from the project; `--rebase` needs nothing.
 
 ## Edit a variant
 

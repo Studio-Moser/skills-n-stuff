@@ -65,14 +65,9 @@ expect "/tests/fixtures/01%20Ledger/Homepage%20A%20-%20Entries%20First.html" 200
 expect "/thumb/tests/fixtures/01%20Ledger/Homepage%20A%20-%20Entries%20First.html" 200 "<base href="
 expect "/doc/tests/fixtures/Copy%2001%20Proof%20First.md" 200 "The bet"
 expect "/edit/tests/fixtures/01%20Ledger/Homepage%20A%20-%20Entries%20First.html" 409 "has no DESIGN.md yet"
-# A static build is mounted under /build/<folder>/ and its own root-absolute
-# references are prefixed; a path that is not part of the build is left alone.
-expect "/build/01%20Ledger/v/a/" 200 'href="/build/01%20Ledger/assets/site.css"'
-expect "/build/01%20Ledger/v/a/" 200 '/build/01%20Ledger/assets/mark.svg 2x'
-expect "/build/01%20Ledger/v/a/" 200 'var p="/build/01%20Ledger/assets/"'
-expect "/build/01%20Ledger/v/a/" 200 'href="/elsewhere/"'
-expect "/build/01%20Ledger/assets/site.css" 200 "url(/build/01%20Ledger/assets/mark.svg)"
-expect "/build/01%20Ledger/..%2F..%2FBrief.md" 404
+# A folder inside the directions folder is served as its index page.
+expect "/tests/fixtures/01%20Ledger/Build/v/a/" 200 "<title>Built</title>"
+[ "$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$port/tests/fixtures/01%20Ledger/Build/v/a")" = 301 ] || { echo "FAIL gallery: folder without a trailing slash is not redirected" >&2; fail=1; }
 # Editing is offered only to a browser on this machine.
 expect "/direction/01%20Ledger" 200 'href="/edit/'
 if curl -s -H "Host: gallery.example.ts.net" "http://127.0.0.1:$port/direction/01%20Ledger" | grep -qF 'href="/edit/'; then echo "FAIL gallery: edit offered to another host" >&2; fail=1; fi
@@ -84,6 +79,20 @@ expect "/tests/fixtures/..%2F..%2FREADME.md" 404
 kill "$gallery_pid" 2>/dev/null; wait "$gallery_pid" 2>/dev/null || true
 
 python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$plugin_root/.claude-plugin/plugin.json" || fail=1
+
+# import-build.mjs --rebase: a build's own root-absolute paths get the Build/
+# folder's address; a path that is not part of the build is left alone; a
+# second run changes nothing.
+rb="$(mktemp -d)"
+mkdir -p "$rb/dirs" && cp -R "$fixtures/01 Ledger" "$rb/dirs/"
+(cd "$rb" && node "$plugin_root/skills/gallery/scripts/import-build.mjs" --rebase --dir dirs --direction "01 Ledger" >/dev/null) || fail=1
+built="$rb/dirs/01 Ledger/Build"
+for want in 'href="/dirs/01%20Ledger/Build/assets/site.css"' '/dirs/01%20Ledger/Build/assets/mark.svg 2x' 'var p="/dirs/01%20Ledger/Build/assets/"' 'href="/elsewhere/"'; do
+  grep -qF -- "$want" "$built/v/a/index.html" || { echo "FAIL rebase: page lacks $want" >&2; fail=1; }
+done
+grep -qF 'url(/dirs/01%20Ledger/Build/assets/mark.svg)' "$built/assets/site.css" || { echo "FAIL rebase: stylesheet not rebased" >&2; fail=1; }
+(cd "$rb" && node "$plugin_root/skills/gallery/scripts/import-build.mjs" --rebase --dir dirs --direction "01 Ledger") | grep -qF '"rewritten":0' || { echo "FAIL rebase: second run rewrote files" >&2; fail=1; }
+rm -rf "$rb"
 
 [ "$fail" -eq 0 ] && echo "design plugin: all checks passed"
 exit "$fail"

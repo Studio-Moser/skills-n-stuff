@@ -8,7 +8,6 @@
 //                           system, and a grid of its variants
 //   /doc/<path>.md          any markdown file in the project, rendered
 //   /edit/<path>.html       start impeccable live for a variant, then open it
-//   /build/<folder>/…       a direction's static framework build, from Build/
 //   /api/directions.json    every direction and variant with its addresses, for
 //                           tools outside the gallery (the Figma plugin)
 //   /<directions dir>/…     the files themselves, at their repo-relative path
@@ -587,9 +586,10 @@ function directionPage(folder, editable) {
     const name = `${v.letter} ${v.title}`
     // Everything the gallery shows comes from this folder on disk, so it works
     // the same on any machine with the repository: the source page, else the
-    // variant's page in the direction's static build, else its plates. A build
-    // hosted elsewhere is only ever a link in the notes.
-    const built = v.build ? `${urlPath('build', folder)}/${v.build.split('/').map(encodeURIComponent).join('/')}` : ''
+    // variant's page in the direction's Build/ folder (plain static files,
+    // rebased by import-build.mjs), else its plates. A build hosted elsewhere
+    // is only ever a link in the notes.
+    const built = v.build ? `${base}/Build/${v.build === './' ? '' : v.build.split('/').map(encodeURIComponent).join('/')}` : ''
     const preview = v.source ? file(v.source) : built || file(v.show)
     const details = [v.label, v.source ? 'Source page' : 'Framework build', v.captured ? `captured ${v.captured.slice(0, 10)}` : ''].filter(Boolean).join(' · ')
     const links = [
@@ -681,7 +681,7 @@ function directionsJson(editable) {
     return {
       folder, number: d.number, name: d.name, premise: d.premise, page: urlPath('direction', folder),
       variants: d.variants.map((v) => {
-        const built = v.build ? `${urlPath('build', folder)}/${v.build.split('/').map(encodeURIComponent).join('/')}` : ''
+        const built = v.build ? `${base}/Build/${v.build === './' ? '' : v.build.split('/').map(encodeURIComponent).join('/')}` : ''
         const screens = (size) => (frames[v.base]?.[size]?.screens ?? []).map((s) => ({ src: `${base}/Frames/${s.file.split('/').map(encodeURIComponent).join('/')}`, width: frames[v.base][size].width, height: s.height }))
         return {
           letter: v.letter, title: v.title, label: v.label,
@@ -693,29 +693,6 @@ function directionsJson(editable) {
       }),
     }
   })
-}
-
-// ---- static builds ----------------------------------------------------------
-// A direction can hold the static export of a framework build in Build/. Such
-// pages refer to their own files by root-absolute paths ("/_next/…"), which
-// only work at a site's root. The build is mounted at /build/<folder>/ and,
-// as each text file is served, a root-absolute reference to one of the
-// build's own top-level entries gets the mount's prefix.
-const TEXT = /^(text\/|application\/json)/
-function buildFile(folder, rest) {
-  const root = join(DIR, folder, 'Build')
-  let abs = resolve(root, ...rest)
-  if (!inside(root, abs) || !existsSync(abs)) return null
-  if (statSync(abs).isDirectory()) abs = join(abs, 'index.html')
-  if (!existsSync(abs)) return null
-  const type = MIME[extname(abs).toLowerCase()] ?? 'application/octet-stream'
-  if (!TEXT.test(type)) return { body: readFileSync(abs), type }
-  const tops = list(root).map((e) => e.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
-  // In script, only a quoted path is a path; in markup and styles it may also
-  // follow "=", "(", a comma or a space (srcset, url()).
-  const before = type.startsWith('text/javascript') ? '["\'`]' : '["\'`(=,\\s]'
-  const own = new RegExp(`(?<=${before})\\/(?=(?:${tops})(?:[\\/"'\`?#)\\\\\\s]|$))`, 'g')
-  return { body: readFileSync(abs, 'utf8').replace(own, urlPath('build', folder) + '/'), type }
 }
 
 // ---- live editing ------------------------------------------------------------
@@ -780,10 +757,6 @@ const server = createServer((req, res) => {
       res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'access-control-allow-origin': '*' })
       return res.end(JSON.stringify({ project: PROJECT, directions: directionsJson(canEdit(req)) }))
     }
-    if (parts[0] === 'build' && parts[1] && inside(DIR, resolve(DIR, parts[1]))) {
-      const file = buildFile(parts[1], parts.slice(2))
-      return file ? send(res, 200, file.body, file.type) : notFound(res)
-    }
     if (parts[0] === 'edit') {
       // Only a click in the gallery, or a typed address, may start live mode,
       // and only from a browser on this machine.
@@ -806,8 +779,16 @@ const server = createServer((req, res) => {
       return send(res, 200, docPage(abs))
     }
     const strip = parts[0] === 'thumb'
-    const abs = resolve(ROOT, ...(strip ? parts.slice(1) : parts))
-    if (!inside(DIR, abs) || !existsSync(abs) || !statSync(abs).isFile()) return notFound(res)
+    let abs = resolve(ROOT, ...(strip ? parts.slice(1) : parts))
+    if (!inside(DIR, abs) || !existsSync(abs)) return notFound(res)
+    // A folder is its index page, as on any static server; without the
+    // trailing slash the page's relative addresses would resolve a level up.
+    if (statSync(abs).isDirectory()) {
+      if (!url.pathname.endsWith('/')) { res.writeHead(301, { location: url.pathname + '/' + url.search }); return res.end() }
+      abs = join(abs, 'index.html')
+      if (!existsSync(abs)) return notFound(res)
+    }
+    if (!statSync(abs).isFile()) return notFound(res)
     const type = MIME[extname(abs).toLowerCase()] ?? 'application/octet-stream'
     if (strip && type.startsWith('text/html')) {
       // A thumbnail is the page without any live-editing script, with relative

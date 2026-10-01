@@ -9,15 +9,23 @@
 // interaction would otherwise be missed. It also keeps any asset those pages
 // and their stylesheets name by path, for a file fetched only on a hover.
 //
-// Usage: node import-build.mjs --from <export dir> --dir <directions dir> --direction "<NN Name>" [--routes /v/a/,/v/b/]
+// Usage: node import-build.mjs --from <export dir> --dir <directions dir> --direction "<NN Name>" [--routes /v/a/,/v/b/] [--prefix /path/to/Build/]
+//        node import-build.mjs --rebase --dir <directions dir> --direction "<NN Name>" [--prefix /path/to/Build/]
 //
 // Routes default to the path of each variant's `source` address in the
 // direction's Snapshots.json; each such variant then gets `"build": "v/a/"`
-// (`"./"` for a page at the site's root),
-// the page the gallery previews. An existing Build/ folder is replaced.
+// (`"./"` for a page at the site's root). An existing Build/ folder is replaced.
 //
-// Needs @playwright/test (or playwright) with Chromium, resolvable from the
-// current working directory.
+// An export's pages name their own files by root-absolute paths ("/_next/…"),
+// which only work at a site's root. The copy is rebased: each such path gets
+// the Build/ folder's own address as a prefix, so the pages are plain static
+// files that any server rooted at the project serves correctly. The prefix
+// defaults to the folder's path from the current directory (run this from the
+// project root) and is recorded in Build/Build.json. --rebase applies or
+// changes the prefix of a Build/ already in place, without an export.
+//
+// Run from the project root. Importing needs @playwright/test (or playwright)
+// with Chromium, resolvable from there; --rebase needs nothing.
 import { createServer } from 'node:http'
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
@@ -31,12 +39,48 @@ const flag = (name) => {
 const from = flag('--from') && resolve(flag('--from'))
 const dir = flag('--dir') && resolve(flag('--dir'))
 const direction = flag('--direction')
-if (!from || !dir || !direction || !existsSync(from) || !existsSync(join(dir, direction))) {
-  console.error('usage: import-build.mjs --from <export dir> --dir <directions dir> --direction "<NN Name>" [--routes /v/a/,/v/b/]')
+const rebaseOnly = args.includes('--rebase')
+if (!dir || !direction || !existsSync(join(dir, direction)) || (!rebaseOnly && (!from || !existsSync(from)))) {
+  console.error('usage: import-build.mjs --from <export dir> --dir <directions dir> --direction "<NN Name>" [--routes /v/a/,/v/b/] [--prefix /path/]\n       import-build.mjs --rebase --dir <directions dir> --direction "<NN Name>" [--prefix /path/]')
   process.exit(2)
 }
 
 const cwd = process.cwd()
+const out = join(dir, direction, 'Build')
+const walk = (d) => readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(join(d, e.name)) : [join(d, e.name)]))
+
+// Give the build's own root-absolute paths the Build/ folder's address.
+const MARKER = 'Build.json'
+const TEXT = /\.(html|css|js|mjs|json|txt|svg|xml|webmanifest)$/i
+function rebase() {
+  const wanted = (flag('--prefix') ?? '/' + relative(cwd, out).split(sep).map(encodeURIComponent).join('/')).replace(/\/*$/, '/')
+  const markerPath = join(out, MARKER)
+  const had = existsSync(markerPath) ? JSON.parse(readFileSync(markerPath, 'utf8')).prefix : null
+  if (had === wanted) return { prefix: wanted, rewritten: 0 }
+  const tops = readdirSync(out).filter((n) => n !== MARKER).map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
+  let rewritten = 0
+  for (const file of walk(out)) {
+    if (!TEXT.test(file) || file === markerPath) continue
+    const text = readFileSync(file, 'utf8')
+    let next
+    if (had) next = text.split(had).join(wanted)
+    else {
+      // In script, only a quoted path is a path; in markup and styles it may
+      // also follow "=", "(", a comma or a space (srcset, url()).
+      const before = /\.m?js$/i.test(file) ? '["\'`]' : '["\'`(=,\\s]'
+      next = text.replace(new RegExp(`(?<=${before})\\/(?=(?:${tops})(?:[\\/"'\`?#)\\\\\\s]|$))`, 'g'), wanted)
+    }
+    if (next !== text) { writeFileSync(file, next); rewritten++ }
+  }
+  writeFileSync(markerPath, JSON.stringify({ prefix: wanted }, null, 2) + '\n')
+  return { prefix: wanted, rewritten }
+}
+if (rebaseOnly) {
+  if (!existsSync(out)) { console.error(`import-build: no ${out}`); process.exit(2) }
+  console.log(JSON.stringify({ direction, ...rebase() }))
+  process.exit(0)
+}
+
 const projectRequire = createRequire(resolve(cwd, 'package.json'))
 function requireFirst(names) {
   for (const n of names) {
@@ -119,7 +163,6 @@ server.close()
 
 // The build's code whole; everything else only if a visit asked for it.
 const code = join(from, '_next', 'static')
-const walk = (d) => readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(join(d, e.name)) : [join(d, e.name)]))
 if (existsSync(code)) for (const f of walk(code)) used.add(relative(from, f))
 
 // A page can name a file it only fetches on a hover or a state the visits did
@@ -135,7 +178,6 @@ for (const rel of [...used].filter((f) => /\.(html|css)$/i.test(f))) {
   }
 }
 
-const out = join(dir, direction, 'Build')
 rmSync(out, { recursive: true, force: true })
 let bytes = 0
 for (const rel of used) {
@@ -156,4 +198,5 @@ for (const v of manifest.variants) {
 if (linked) writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n')
 
 const total = walk(from).reduce((n, f) => n + statSync(f).size, 0)
-console.log(JSON.stringify({ direction, routes: routes.length, files: used.size, megabytes: +(bytes / 1e6).toFixed(1), exportMegabytes: +(total / 1e6).toFixed(1), linkedVariants: linked, missing: [...new Set(missing)].slice(0, 10) }))
+const { prefix } = rebase()
+console.log(JSON.stringify({ direction, prefix, routes: routes.length, files: used.size, megabytes: +(bytes / 1e6).toFixed(1), exportMegabytes: +(total / 1e6).toFixed(1), linkedVariants: linked, missing: [...new Set(missing)].slice(0, 10) }))

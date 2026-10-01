@@ -36,7 +36,7 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import { createRequire } from 'node:module'
-import { extname, join, resolve, sep } from 'node:path'
+import { extname, join, relative, resolve, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 const args = process.argv.slice(2)
@@ -176,7 +176,8 @@ async function screenByScreen(context, url, size) {
   }
 }
 
-// Serve a direction's Build/ at a site root, as it was built to run.
+// Serve the project as a plain static site. A Build/ folder's pages carry the
+// folder's own address (import-build.mjs rebases them), so they run from here.
 const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript', '.json': 'application/json', '.txt': 'text/plain', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.avif': 'image/avif', '.gif': 'image/gif', '.ico': 'image/x-icon', '.woff2': 'font/woff2', '.woff': 'font/woff', '.mp4': 'video/mp4', '.webm': 'video/webm' }
 async function serveBuild(root) {
   const server = createServer((req, res) => {
@@ -228,8 +229,8 @@ for (const folder of folders) {
   const outDir = join(dir, folder, 'Frames')
   const indexPath = join(outDir, 'Frames.json')
   const index = existsSync(indexPath) ? JSON.parse(readFileSync(indexPath, 'utf8')) : {}
-  const buildRoot = join(dir, folder, 'Build')
-  const build = list.some((v) => v.build !== null && !v.source) ? await serveBuild(buildRoot) : null
+  const build = list.some((v) => v.build !== null && !v.source) ? await serveBuild(cwd) : null
+  const buildPath = '/' + relative(cwd, join(dir, folder, 'Build')).split(sep).map(encodeURIComponent).join('/')
   for (const v of list) {
     const file = join(dir, folder, v.from)
     const out = join(outDir, `${v.base}.webp`)
@@ -249,7 +250,7 @@ for (const folder of folders) {
         mobile = await writeScreens(outDir, v.base, MOBILE, await cut(m.png, MOBILE, m.height))
         mobileFrom = v.source
       } else if (v.build !== null && build) {
-        mobile = await writeScreens(outDir, v.base, MOBILE, await screenByScreen(mobileMoving, `${build.origin}/${v.build}`, MOBILE))
+        mobile = await writeScreens(outDir, v.base, MOBILE, await screenByScreen(mobileMoving, `${build.origin}${buildPath}/${v.build}`, MOBILE))
         mobileFrom = `Build/${v.build}`
       }
       index[v.base] = { file: `${v.base}.webp`, width: GRID_WIDTH, height: gridHeight, from: v.from, pageHeight: height, desktop, mobile, mobileFrom }
