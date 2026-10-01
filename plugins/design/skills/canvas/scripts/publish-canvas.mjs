@@ -37,7 +37,12 @@ const DIRECTIONS = resolve(dir)
 // full-height frame flattens a sticky page into panels spread over empty ground.
 const FRAME_HEIGHT = 900
 const GAP_X = 240
-const GAP_Y = 400
+// A direction wraps onto a new line after PER_LINE frames so one long round
+// does not stretch the canvas into a strip that Fit cannot show; lines of the
+// same direction sit closer together than directions do.
+const PER_LINE = Number(flag('--per-line') ?? 8)
+const GAP_LINE = 160
+const GAP_Y = 500
 
 let cookie = ''
 async function api(method, path, body) {
@@ -83,19 +88,21 @@ let count = 0
 for (const d of folders) {
   const manifest = JSON.parse(readFileSync(resolve(DIRECTIONS, d, 'Snapshots.json'), 'utf8'))
   const width = manifest.width ?? 1440
-  let x = 0
+  let i = 0
   for (const v of manifest.variants.filter((m) => m.ok !== false)) {
+    const x = (i % PER_LINE) * (width + GAP_X)
+    const lineY = y + Math.floor(i / PER_LINE) * (FRAME_HEIGHT + GAP_LINE)
     const letter = v.id.length === 1 ? v.id.toUpperCase() : v.id
     const name = `${d} · ${letter} ${v.title}`
     const html = readFileSync(resolve(DIRECTIONS, d, v.file), 'utf8')
     const prior = existing.get(name)
     const frame = prior
-      ? await api('PATCH', `/api/frames/${prior.id}`, { html, x, y, width, height: FRAME_HEIGHT })
-      : await api('POST', `/api/canvases/${canvas.id}/frames`, { name, x, y, width, height: FRAME_HEIGHT, html })
+      ? await api('PATCH', `/api/frames/${prior.id}`, { html, x, y: lineY, width, height: FRAME_HEIGHT })
+      : await api('POST', `/api/canvases/${canvas.id}/frames`, { name, x, y: lineY, width, height: FRAME_HEIGHT, html })
     console.log(JSON.stringify({ name, id: frame.id, updated: !!prior, bytes: html.length }))
     count++
-    x += width + GAP_X
+    i++
   }
-  y += FRAME_HEIGHT + GAP_Y
+  y += Math.max(1, Math.ceil(i / PER_LINE)) * (FRAME_HEIGHT + GAP_LINE) - GAP_LINE + GAP_Y
 }
 console.log(`\n${count} frame(s) on "${canvasName}" (${base}/c/${canvas.id})`)
