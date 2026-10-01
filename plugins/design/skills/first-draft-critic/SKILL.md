@@ -42,8 +42,9 @@ Two lenses, run in parallel as fresh-context subagents:
   collapse, focus rings, contrast where the gate names a threshold. Returns
   PASS or FAIL with the measured value and the element.
 
-Give the commitment critic the view stills and motion strips from `views.mjs`
-rather than only a stitched page; a reveal that never resolves is invisible in
+In the `html` medium the variant is a file: pass `views.mjs` a `file://` URL
+and it works the same. Give the commitment critic the view stills and motion
+strips from `views.mjs` rather than only a stitched page; a reveal that never resolves is invisible in
 a still. A critic that cannot open the preview from its sandbox (a delegated
 Codex worker) works from these files.
 
