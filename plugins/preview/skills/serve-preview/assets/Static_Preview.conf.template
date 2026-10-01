@@ -6,6 +6,12 @@ server {
     root /usr/share/nginx/html;
     index index.html;
 
+    # A preview embedded in a sandboxed frame (a design canvas, an artifact) has
+    # an opaque origin, and the browser fetches fonts and CSS mask images in
+    # CORS mode: without this header they are refused and a masked logo simply
+    # disappears. Previews are tailnet-only static files, so any origin may
+    # read them.
+    add_header Access-Control-Allow-Origin "*" always;
     add_header X-Agent-Preview-Name "${PREVIEW_SERVICE_NAME}" always;
 
     location / {
