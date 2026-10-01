@@ -31,7 +31,7 @@ setup() {
   printf 'Host foo\n%s\n' "$LINE" > "$CONFIG"
   run "$SCRIPT" "$REPO" "$CONFIG"
   [ "$status" -eq 0 ]
-  [[ "$output" == included* ]]
+  [[ "$output" == included* ]] || return 1
   [ "$(head -1 "$CONFIG")" = "$LINE" ]
 }
 
@@ -42,7 +42,7 @@ setup() {
   before="$(cat "$CONFIG")"
   run "$SCRIPT" "$REPO" "$CONFIG"
   [ "$status" -eq 0 ]
-  [[ "$output" == already* ]]
+  [[ "$output" == already* ]] || return 1
   [ "$(cat "$CONFIG")" = "$before" ]
 }
 
@@ -62,7 +62,7 @@ setup() {
   printf 'Include "%s" "%s/ssh/config"\nHost x\n' "$first" "$rest" > "$CONFIG"
   run "$SCRIPT" "$REPO" "$CONFIG"
   [ "$status" -eq 0 ]
-  [[ "$output" == included* ]]
+  [[ "$output" == included* ]] || return 1
   [ "$(head -1 "$CONFIG")" = "$LINE" ]
 }
 

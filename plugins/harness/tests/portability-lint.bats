@@ -152,7 +152,7 @@ EOF
   commit_all
   run "$SCRIPT" "$REPO"
   [ "$status" -eq 1 ]
-  [[ "$output" == *"unguarded command hook"* ]]
+  [[ "$output" == *"unguarded command hook"* ]] || return 1
   [[ "$output" == *"hooks.PreToolUse[0].hooks[0]"* ]]
 }
 
