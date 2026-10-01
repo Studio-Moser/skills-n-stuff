@@ -48,10 +48,13 @@ Selecting a layer that is not part of a variant says so and clears the panel.
 
 ## How it finds a variant
 
-It walks up from the selection to the nearest layer that contains exactly one
-link to a page (links to other Figma files do not count), and loads that link.
-A layer containing several variants' links, such as a whole section, is not a
-variant. The panel's title is the first text beside the link.
+A variant is the smallest layer that holds both a link to a page and the
+variant's pictures: from the linked text, the first layer above it that
+contains an image. A selection belongs to a variant when it is that layer or
+inside it. So in a row of variants where only one has a link, selecting
+another one, or the row, shows no preview. Links to other Figma files do not
+count. The panel's title is the first text in the variant that is not the
+link.
 
 ## The server address
 
