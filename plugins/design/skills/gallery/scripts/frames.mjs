@@ -97,6 +97,7 @@ function variants(folder) {
   const entries = existsSync(manifestPath) ? (JSON.parse(readFileSync(manifestPath, 'utf8')).variants ?? []) : []
   return [...groups.values()].map((g) => {
     const entry = entries.find((e) => (g.plates && e.file === g.plates) || (g.source && (e.file === g.source || e.live === g.source))) ?? {}
+    // The variant's page inside Build/; "" is a page at the build's root.
     const build = entry.build && existsSync(join(dir, folder, 'Build', entry.build)) ? String(entry.build).replace(/^\.?\/+/, '') : null
     return { ...g, build, from: g.plates && (!g.source || mtime(g.plates) >= mtime(g.source)) ? g.plates : g.source }
   })
@@ -228,7 +229,7 @@ for (const folder of folders) {
   const indexPath = join(outDir, 'Frames.json')
   const index = existsSync(indexPath) ? JSON.parse(readFileSync(indexPath, 'utf8')) : {}
   const buildRoot = join(dir, folder, 'Build')
-  const build = list.some((v) => v.build && !v.source) ? await serveBuild(buildRoot) : null
+  const build = list.some((v) => v.build !== null && !v.source) ? await serveBuild(buildRoot) : null
   for (const v of list) {
     const file = join(dir, folder, v.from)
     const out = join(outDir, `${v.base}.webp`)
@@ -247,7 +248,7 @@ for (const folder of folders) {
         const m = await wholeScroll(mobileStill, join(dir, folder, v.source), MOBILE)
         mobile = await writeScreens(outDir, v.base, MOBILE, await cut(m.png, MOBILE, m.height))
         mobileFrom = v.source
-      } else if (v.build && build) {
+      } else if (v.build !== null && build) {
         mobile = await writeScreens(outDir, v.base, MOBILE, await screenByScreen(mobileMoving, `${build.origin}/${v.build}`, MOBILE))
         mobileFrom = `Build/${v.build}`
       }
