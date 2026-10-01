@@ -4,7 +4,7 @@
 // re-lays the grid, so a direction added later slots into row order instead of
 // landing on another row.
 //
-// Usage: node publish-canvas.mjs --dir <directions dir> --canvas "<canvas name>" [--only <prefix>] [--signup]
+// Usage: node publish-canvas.mjs --dir <directions dir> --canvas "<canvas name>" [--only <prefix>] [--invite a@x.com,b@y.com] [--signup]
 //
 // <directions dir> holds one folder per direction; each folder with a
 // Snapshots.json (written by freeze.mjs or by hand) is published. Env:
@@ -62,6 +62,14 @@ await api('POST', '/api/auth/sign-in/email', { email: DOOP_EMAIL, password: DOOP
 const canvases = await api('GET', '/api/canvases')
 let canvas = canvases.find((c) => c.name === canvasName)
 if (!canvas) canvas = await api('POST', '/api/canvases', { name: canvasName })
+// The publishing account owns the canvas and canvases are private, so the
+// people who review it have to be invited by email (they need a Doop account
+// first). Already-invited and owner emails answer 400, which is fine.
+for (const email of (flag('--invite') ?? process.env.DOOP_INVITE ?? '').split(',').map((e) => e.trim()).filter(Boolean)) {
+  await api('POST', `/api/canvases/${canvas.id}/members`, { email }).catch((e) => {
+    if (!/-> 400 /.test(String(e))) console.error(`invite ${email}: ${String(e).slice(0, 160)}`)
+  })
+}
 const full = await api('GET', `/api/canvases/${canvas.id}`)
 const existing = new Map((full.frames ?? []).map((f) => [f.name, f]))
 

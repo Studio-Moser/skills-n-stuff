@@ -60,11 +60,13 @@ Snapshots are the per-direction HTML files and `Snapshots.json` manifests that
 ```sh
 DOOP_URL=https://preview-doop.<tailnet>.ts.net DOOP_EMAIL=… DOOP_PASSWORD="$(cat ~/.config/agent-previews/secrets/doop_password)" \
   node "${CLAUDE_PLUGIN_ROOT}/skills/canvas/scripts/publish-canvas.mjs" \
-    --dir "docs/Design Directions" --canvas "<Project> identity exploration" [--only 08]
+    --dir "docs/Design Directions" --canvas "<Project> identity exploration" [--only 08] [--invite you@example.com]
 ```
 
 One row per direction folder (sorted), one 1440×900 frame per variant, named
-`<Folder> · <X> <Title>`. Re-running updates frames by name and re-lays the
+`<Folder> · <X> <Title>`. Canvases are private to the publishing account;
+pass `--invite you@example.com` (or `DOOP_INVITE`) so the people who review it
+can open it, after they have signed up on the server. Re-running updates frames by name and re-lays the
 grid. It signs in with email and password over the REST API, so it needs no
 browser; the MCP is for agents working on the canvas interactively.
 
