@@ -4,11 +4,14 @@
   "api": "1.0.0",
   "main": "code.js",
   "ui": "ui.html",
-  "editorType": ["figma"],
+  "editorType": [
+    "figma"
+  ],
   "documentAccess": "dynamic-page",
   "networkAccess": {
-    "allowedDomains": ["*"],
-    "reasoning": "Shows the live page of a design variant from the team's own design gallery, whose address the user sets: a local server while working, a private host when shared.",
-    "devAllowedDomains": ["http://localhost:4600", "http://127.0.0.1:4600"]
+    "allowedDomains": [
+      "*"
+    ],
+    "reasoning": "Shows the live page of a design variant from the team's own design gallery, whose address the user sets: a local server while working, a private host when shared."
   }
 }
