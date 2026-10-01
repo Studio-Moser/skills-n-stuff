@@ -67,7 +67,7 @@ from the self-contained pages builders write in the `html` medium.
 ```sh
 DOOP_URL=https://preview-doop.<tailnet>.ts.net DOOP_EMAIL=… DOOP_PASSWORD="$(cat ~/.config/agent-previews/secrets/doop_password)" \
   node "${CLAUDE_PLUGIN_ROOT}/skills/canvas/scripts/publish-canvas.mjs" \
-    --dir "docs/Design Directions" --canvas "<Project> identity exploration" [--only 08] [--invite you@example.com]
+    --dir "docs/Design Directions" --canvas "<Project>" --per-direction [--only 08] [--invite you@example.com]
 ```
 
 One block per direction folder (sorted), eight frames to a line
@@ -75,6 +75,14 @@ One block per direction folder (sorted), eight frames to a line
 `<Folder> · <X> <Title>`, plus `<…> (live)` above it when the variant has a
 live page: its own self-contained file (`live` in the manifest), or a durable
 address (`liveUrl`, or the address it was frozen from with `--embed-source`).
+
+**One canvas per direction.** A browser holds every frame of a canvas in
+memory at once. A whole exploration on one canvas (a hundred long frames)
+loads, then reloads, then gives up. Publish with `--per-direction`: each
+direction gets its own canvas, `<name> · <Direction folder>`, and a folder
+holding more than one round gets one per round. Embedded live builds stay
+unloaded behind a poster until the frame is presented, because a frame on the
+canvas never receives input and twenty running pages are what kills the tab.
 
 **Keep the canvas light.** A canvas is loaded whole, so fifty self-contained
 files (every one with its fonts and photographs inlined) is a hundred
