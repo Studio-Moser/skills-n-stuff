@@ -173,7 +173,7 @@
       "name": "design",
       "source": "./plugins/design",
       "description": "Design exploration rounds: fan one brief out into independent HTML variants built by named skills and models, gate first drafts with fresh-context critics, review them as live frames on a shared Doop canvas, and harvest comments into the next brief.",
-      "version": "0.2.1",
+      "version": "0.3.0",
       "author": {
         "name": "Studio Moser"
       },

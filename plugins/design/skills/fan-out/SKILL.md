@@ -19,7 +19,9 @@ Read `../../templates/Round Sheet.md` for the input shape.
 
 ## Inputs
 
-A round needs four documents, all owned by the project, none invented here:
+A round needs four documents, all owned by the project, none invented here.
+`design:direction-brief` produces the second and third with the owner, saves
+the references they point at, and drafts the round sheet:
 
 1. **The frozen brief** (identity brief, brand brief, whatever the project
    calls it). What is fixed, what is banned, character words, personas.
@@ -64,8 +66,8 @@ batching every question, then run to the end state: a round index handed back.
 
 ## Procedure
 
-1. **Validate the sheet.** Every row resolves: direction brief exists, copy
-   direction exists, method is installed (or `none`), route is one the Harness
+1. **Validate the sheet.** Every row resolves: its direction passes
+   `design:direction-brief`'s `check-brief.mjs`, copy direction exists, method is installed (or `none`), route is one the Harness
    rubric knows or a Claude alias. Reject a sheet over seven rows.
 2. **Prepare the medium.** `html`: confirm the direction folder exists with
    its brief and, after the first variant, its `tokens.css`; pick the next free

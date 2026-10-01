@@ -1,6 +1,7 @@
 # Direction {NN}: {Name}
 
 Status: {n} variants built, awaiting owner review | exploring | retired
+Phase: wide | tightening | prescriptive
 Folder: `{directions dir}/{NN Name}` · Canvas: `{Project} · {NN Name}` (`code` medium: branch `design/{name}`, preview {URL})
 Brief: `{frozen brief path}`. Nothing here overrides it.
 Siblings: one sentence per built direction naming the role the shared device
@@ -17,13 +18,14 @@ copying it.
 
 ## Reference pack
 
-Two or three entries from the project's inspiration archive, each with the one
-choice to borrow. Surface aesthetics transfer from screenshots; structure does
+Two to four entries from this direction's `References/` folder or the
+project's inspiration archive, each with the one choice to borrow. The owner's
+own words about each are in `References/References.md`. Surface aesthetics transfer from screenshots; structure does
 not, so name the structural choice explicitly.
 
 | # | Reference | Borrow this | Not this |
 | --- | --- | --- | --- |
-| 1 | `{path to the reference note, screenshot, or URL}` | {the one move} | {what would make it a copy} |
+| 1 | `{References/NN Name, an archive path, or a URL}` | {the one move} | {what would make it a copy} |
 | 2 | | | |
 
 ## Premise
