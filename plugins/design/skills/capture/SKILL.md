@@ -2,8 +2,8 @@
 name: capture
 description: >-
   Use to turn the variants of a design round into reviewable artifacts: freeze
-  a running page or an HTML file into plates for a canvas frame, shoot
-  per-viewport stills and motion strips for critics, or stitch banded
+  a running page or an HTML file into plates (every screen in one long
+  document), shoot per-viewport stills and motion strips for critics, or stitch banded
   screenshots for Figma or a local gallery. Fails loudly on overflow, broken
   images, a blank render, or a plate that differs from the live page. Triggers:
   "freeze the round", "make plates", "capture the round", "shoot the variants",
@@ -12,9 +12,10 @@ description: >-
 
 # Capture
 
-Plates on a canvas are how the owner sees a round (§ Freeze a page into
-plates); views are what critics and builders see (§ Views for critique). The
-stitched capture below is for Figma or a gallery. Two things paint blank without an
+Views are what critics and builders see (§ Views for critique); plates hold
+every screen of a viewport-driven page in one long document (§ Freeze a page
+into plates), which `design:gallery` pictures. The stitched capture below is
+for Figma. Two things paint blank without an
 error and have each cost a day: Chromium's full-page capture past 16384 device
 pixels, and Figma's editor when handed a tall image. The bundled script routes
 around both. Do not replace it with `page.screenshot({ fullPage: true })`.
@@ -119,9 +120,9 @@ its sandbox works from these files.
 
 ## Freeze a page into plates
 
-A canvas frame does not scroll, and a page built around a viewport (a fixed
-stage whose scenes change as you scroll, `vh`-sized sections, scroll-driven
-animation) has no single static rendering. `freeze.mjs` therefore captures
+A page built around a viewport (a fixed stage whose scenes change as you
+scroll, `vh`-sized sections, scroll-driven animation) has no single static
+rendering. `freeze.mjs` therefore captures
 **plates**: it loads the page at a real viewport with scripts and motion
 running, stops at every screen, lets it settle, and captures that screen's DOM.
 The output stacks those screens in one long, self-contained file whose height

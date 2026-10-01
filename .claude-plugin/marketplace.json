@@ -172,18 +172,17 @@
     {
       "name": "design",
       "source": "./plugins/design",
-      "description": "Design exploration rounds: fan one brief out into independent HTML variants built by named skills and models, gate first drafts with fresh-context critics, review them as live frames on a shared Doop canvas, and harvest comments into the next brief.",
-      "version": "0.3.0",
+      "description": "Design exploration rounds: fan one brief out into independent HTML variants built by named skills and models, gate first drafts with fresh-context critics, review them in a local gallery with each direction's brief, references, and design system, edit variants in the page with impeccable live, and carry what the owner wants into the next brief.",
+      "version": "0.4.0",
       "author": {
         "name": "Studio Moser"
       },
       "license": "MIT",
       "keywords": [
-        "canvas",
         "critique",
         "design",
         "design-exploration",
-        "doop",
+        "gallery",
         "figma",
         "mockups",
         "screenshots",

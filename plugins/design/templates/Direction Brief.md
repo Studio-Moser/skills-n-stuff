@@ -2,7 +2,7 @@
 
 Status: {n} variants built, awaiting owner review | exploring | retired
 Phase: wide | tightening | prescriptive
-Folder: `{directions dir}/{NN Name}` · Canvas: `{Project} · {NN Name}` (`code` medium: branch `design/{name}`, preview {URL})
+Folder: `{directions dir}/{NN Name}` (`code` medium: branch `design/{name}`, preview {URL})
 Brief: `{frozen brief path}`. Nothing here overrides it.
 Siblings: one sentence per built direction naming the role the shared device
 plays there, so this direction can say what it does that none of them do.

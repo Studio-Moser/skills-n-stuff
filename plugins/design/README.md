@@ -3,10 +3,11 @@
 Design exploration rounds for [Claude Code](https://code.claude.com). One brief
 and one copy doc fan out into several independent HTML variants, each built by
 a named skill and model; fresh-context critics push each first draft further
-into its own premise; the variants land as live frames on a shared Doop canvas
-where the owner's pinned comments flow back into the next brief. Nothing here
-picks a winner. The owner harvests what moved them into the next
-brief, and the briefs turn prescriptive as the exploration converges.
+into its own premise; a local gallery shows every direction with its brief,
+references, design system, and variants, and the owner edits a variant in the
+page with impeccable live. Nothing here picks a winner. The owner harvests
+what moved them into the next brief, and the briefs turn prescriptive as the
+exploration converges.
 
 [![skills.sh](https://skills.sh/b/Studio-Moser/skills-n-stuff)](https://skills.sh/Studio-Moser/skills-n-stuff)
 
@@ -15,11 +16,11 @@ brief, and the briefs turn prescriptive as the exploration converges.
 | Skill | Role | What |
 | --- | --- | --- |
 | `/design:direction-brief` | Direction interview | Guides the owner from a hunch and a pile of references to a direction brief and a copy direction: asks only what the project's documents do not answer, captures every URL as view stills and saves every image into the direction's `References/` folder, drafts each section for correction, then runs a readiness check and drafts the round sheet |
-| `/design:fan-out` | Round runner | Validates a round sheet (max seven variants, one skill each), prepares the medium (files for `html`, worktrees for `code`), dispatches builders as local subagents or through Harness, gates first drafts, freezes, writes covers, publishes, and writes the round index |
+| `/design:gallery` | Review surface | A dependency-free local server over the directions folder: a grid of directions, and per direction its variants as whole-scroll pictures, its full brief, saved references, and design system. A variant opens in a resizable preview with device sizes, shows its notes, or opens for in-page editing with impeccable live. `frames.mjs` takes the pictures; `import-build.mjs` brings a framework build's static export into a direction so its real pages play from the repository |
+| `/design:fan-out` | Round runner | Validates a round sheet (max seven variants, one skill each), prepares the medium (files for `html`, worktrees for `code`), dispatches builders as local subagents or through Harness, gates first drafts, and writes the round index; `html` variants appear in the gallery as written |
 | `/design:variant-brief` | Brief author | Cuts the project's variant build brief from the shared template, keeping the discipline verbatim and filling the project's slots |
 | `/design:first-draft-critic` | Critic loop | Explore mode (two lenses, pushes toward the premise, two rounds) inside a fan-out; gauntlet mode (three lenses against a written done bar, five rounds) for convergence and hero pieces |
-| `/design:canvas` | Review surface | One self-hosted Doop server for every project; publishes each direction as its own canvas (a cover first, a full-height frame of plates per variant, a live one-screen frame above each `html` variant for Present) and harvests element-pinned comments into the next brief's Carry forward |
-| `/design:capture` | Freezes and screenshots | `freeze.mjs` freezes a running page or an HTML file into plates (one settled screen per scroll stop, checked against the live page); `views.mjs` shoots per-viewport stills and motion strips for critics; stitched, banded captures for Figma when that is the destination |
+| `/design:capture` | Freezes and screenshots | `views.mjs` shoots per-viewport stills and motion strips for critics and for saved references; `freeze.mjs` freezes a viewport-driven framework page into plates (one settled screen per scroll stop, checked against the live page); stitched, banded captures for Figma when that is the destination |
 
 ## Templates
 
@@ -38,8 +39,8 @@ brief, and the briefs turn prescriptive as the exploration converges.
 
 - **`html`** (exploration, the default): a variant is one self-contained page
   beside the direction brief; the direction's `tokens.css` is the only shared
-  surface. No worktrees, servers, or registries. Variants are reviewed on the
-  canvas and are probes, not production code.
+  surface. No worktrees, servers, or registries. Variants are reviewed in the
+  gallery and are probes, not production code.
 - **`code`** (convergence): the survivor is rebuilt in the project's real stack
   on a branch, with gauntlet-mode critics and the project's verify gates.
 
@@ -57,10 +58,11 @@ brief, and the briefs turn prescriptive as the exploration converges.
 4. `first-draft-critic` in explore mode gives each variant one fix pass against
    its own Wins if / Loses if and the craft gates. No system lens, no taste
    opinions.
-5. `canvas` publishes each direction as its own canvas, cover first; the round index records method,
+5. `gallery` shows the round as soon as the files exist; the round index records method,
    resolved model, file, frame name, and remaining fails.
-6. The owner looks on the canvas and pins comments; `canvas` § Harvest turns
-   them into the next briefs' Carry forward. When Carry forward stops gaining
+6. The owner looks in the gallery, edits variants in the page with impeccable
+   live, and says what to carry forward; `direction-brief` writes it into the
+   next briefs' Carry forward. When Carry forward stops gaining
    lines across two rounds, exploration is over.
 
 ## Requirements
@@ -69,11 +71,10 @@ brief, and the briefs turn prescriptive as the exploration converges.
   (`impeccable`, `frontend-design`, `design-taste-frontend`, `hallmark`, or
   others); the plugin ships none of them.
 - Harness for delegated builders (`/plugin install harness@studio-moser`).
-- For `canvas`: Docker plus `preview:serve-preview`'s router on one host, a
-  clone of [kgoedecke/doop](https://github.com/kgoedecke/doop), and the `doop`
-  MCP registered on each machine (`claude mcp add --transport http --scope user doop <url>/mcp`).
-- For `capture`: Playwright with Chromium and `sharp` resolvable from the
-  project root.
+- For `gallery`: Node only. Editing a variant needs impeccable installed and
+  a `PRODUCT.md` at the project root.
+- For `capture`, and the gallery's `frames.mjs` and `import-build.mjs`:
+  Playwright with Chromium and `sharp` resolvable from the project root.
 - Optional personal agents `design-builder-*` and `design-critic-*` in
   `~/.claude/agents`; the skills fall back to general-purpose subagents with
   the bundled prompts.

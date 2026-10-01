@@ -27,10 +27,12 @@ What it produces, all owned by the project:
     References.md          one entry per reference: source, date, the owner's words, files
     01 {Source}/           a captured URL: view stills, motion strips, report.json
     02 {Name}.png          an image or file the owner supplied
+  DESIGN.md                the direction's design context, once it is being refined
 {copy dir}/{NN Name}/{Page}.md   from templates/Copy Direction.md (when the copy is new)
 ```
 
-The brief is named `Brief.md`; `design:canvas`'s cover reads its Premise.
+The brief is named `Brief.md`; `design:gallery` reads it, the references, and
+`DESIGN.md` from this folder and shows them on the direction's page.
 
 ## How to run the interview
 
@@ -60,9 +62,8 @@ frozen brief (identity or brand brief: what is fixed, what is banned, character
 words, personas); the copy or voice rules; the copy directions folder; the
 facts files; the variant build brief; the project's inspiration archive, if it
 has one; every existing direction's `Brief.md` (read each Premise, for
-Siblings). If an earlier round of this direction is on the canvas with
-unresolved comments, run `design:canvas` § Harvest first; those comments are
-this brief's Carry forward.
+Siblings). If the direction already has a round, ask the owner what they want
+carried forward from it, in their words; that is this brief's Carry forward.
 
 Then tell the owner what exists and what is missing. A missing frozen brief is
 written first, from `../../templates/Frozen Brief.md`, using the project
@@ -180,8 +181,11 @@ pack, and the sheet's rows in one message, and ask for the go-ahead to run
 
 ## Revising a direction for the next round
 
-Same skill, shorter path: harvest (stage 0), rewrite **Carry forward** in the
-owner's words, add any new references (stage 2), move the phase forward when
-the owner says so, tighten whatever the harvest settled, and re-run the check.
+Same skill, shorter path: ask what carries forward (stage 0), rewrite **Carry
+forward** in the owner's words, add any new references (stage 2), move the
+phase forward when the owner says so, tighten whatever that settled, and re-run
+the check. When the phase reaches tightening, write the direction's
+`DESIGN.md` from the brief's Type, colour, and Hard rules and its `tokens.css`:
+it is what live editing in the gallery reads to stay inside this direction.
 Do not rewrite the Premise unless the owner changes it; a direction whose
 premise changes is a new direction with a new number.
