@@ -15,10 +15,11 @@ brief, and the briefs turn prescriptive as the exploration converges.
 | Skill | Role | What |
 | --- | --- | --- |
 | `/design:direction-brief` | Direction interview | Guides the owner from a hunch and a pile of references to a direction brief and a copy direction: asks only what the project's documents do not answer, captures every URL as view stills and saves every image into the direction's `References/` folder, drafts each section for correction, then runs a readiness check and drafts the round sheet |
-| `/design:fan-out` | Round runner | Validates a round sheet (max seven variants, one skill each), prepares the medium (files for `html`, worktrees for `code`), dispatches builders as local subagents or through Harness, gates first drafts, freezes, writes covers, publishes, and writes the round index |
+| `/design:gallery` | Review surface | A dependency-free local server over the directions folder: a grid of directions, and per direction its full brief, saved references, design system, and variants, each opening full-size, at phone width, or for in-page editing with impeccable live. Also the checklist for setting a project up |
+| `/design:fan-out` | Round runner | Validates a round sheet (max seven variants, one skill each), prepares the medium (files for `html`, worktrees for `code`), dispatches builders as local subagents or through Harness, gates first drafts, and writes the round index; `html` variants appear in the gallery as written |
 | `/design:variant-brief` | Brief author | Cuts the project's variant build brief from the shared template, keeping the discipline verbatim and filling the project's slots |
 | `/design:first-draft-critic` | Critic loop | Explore mode (two lenses, pushes toward the premise, two rounds) inside a fan-out; gauntlet mode (three lenses against a written done bar, five rounds) for convergence and hero pieces |
-| `/design:canvas` | Review surface | One self-hosted Doop server for every project; publishes each direction as its own canvas (a cover first, a full-height frame of plates per variant, a live one-screen frame above each `html` variant for Present) and harvests element-pinned comments into the next brief's Carry forward |
+| `/design:canvas` | Hosted review surface (optional) | One self-hosted Doop server for every project; publishes each direction as its own canvas (a cover first, a full-height frame of plates per variant, a live one-screen frame above each `html` variant for Present) and harvests element-pinned comments into the next brief's Carry forward |
 | `/design:capture` | Freezes and screenshots | `freeze.mjs` freezes a running page or an HTML file into plates (one settled screen per scroll stop, checked against the live page); `views.mjs` shoots per-viewport stills and motion strips for critics; stitched, banded captures for Figma when that is the destination |
 
 ## Templates
@@ -57,10 +58,11 @@ brief, and the briefs turn prescriptive as the exploration converges.
 4. `first-draft-critic` in explore mode gives each variant one fix pass against
    its own Wins if / Loses if and the craft gates. No system lens, no taste
    opinions.
-5. `canvas` publishes each direction as its own canvas, cover first; the round index records method,
+5. `gallery` shows the round as soon as the files exist; the round index records method,
    resolved model, file, frame name, and remaining fails.
-6. The owner looks on the canvas and pins comments; `canvas` § Harvest turns
-   them into the next briefs' Carry forward. When Carry forward stops gaining
+6. The owner looks in the gallery, edits variants in the page with impeccable
+   live, and says what to carry forward; `direction-brief` writes it into the
+   next briefs' Carry forward. When Carry forward stops gaining
    lines across two rounds, exploration is over.
 
 ## Requirements
@@ -69,7 +71,9 @@ brief, and the briefs turn prescriptive as the exploration converges.
   (`impeccable`, `frontend-design`, `design-taste-frontend`, `hallmark`, or
   others); the plugin ships none of them.
 - Harness for delegated builders (`/plugin install harness@studio-moser`).
-- For `canvas`: Docker plus `preview:serve-preview`'s router on one host, a
+- For `gallery`: Node only. Editing a variant needs impeccable installed and
+  a `PRODUCT.md` at the project root.
+- For `canvas` (optional): Docker plus `preview:serve-preview`'s router on one host, a
   clone of [kgoedecke/doop](https://github.com/kgoedecke/doop), and the `doop`
   MCP registered on each machine (`claude mcp add --transport http --scope user doop <url>/mcp`).
 - For `capture`: Playwright with Chromium and `sharp` resolvable from the

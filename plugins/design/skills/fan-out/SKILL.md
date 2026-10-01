@@ -99,27 +99,28 @@ batching every question, then run to the end state: a round index handed back.
    for a fan-out), run `design:first-draft-critic` in explore mode on each
    finished variant and give the builder one fix pass. Skip when the sheet says
    `critic: none`.
-6. **Freeze, cover, publish.** Run `design:capture`'s `freeze.mjs` on the
-   round's variants (`html`: the files; `code`: the running routes) and read
-   its per-plate diffs. Freeze an `html` variant with `--flow` first: a page
-   that meets the reduced-motion gate freezes as one long document; a page
-   `--flow` refuses is frozen as plates, and the refusal goes in the round
-   index as a failed gate. Then run `design:canvas`'s `cover.mjs` so every
-   direction has a `Cover.html`, and `publish-canvas.mjs --per-direction` so
-   each direction is its own canvas: the cover first, one full-height frame per
-   variant, and a live frame above each `html` variant. A canvas published
-   without a cover shows as an unlabelled thumbnail on the dashboard.
+6. **Show the round.** `html`: there is nothing to publish; the variants are
+   files, and `design:gallery` shows them as they are written. Make sure the
+   gallery is running and give the owner the direction's address. `code`:
+   freeze the running routes with `design:capture`'s `freeze.mjs` and read its
+   per-plate diffs, so the gallery can show each as plates beside a link to
+   its live build. Only when people without a checkout need to review and
+   comment, also publish to a hosted canvas: freeze the `html` variants too
+   (`--flow` first; a refusal is a failed reduced-motion gate), run
+   `design:canvas`'s `cover.mjs`, then `publish-canvas.mjs --per-direction`.
 7. **Write the round index** into the round sheet's Results section: for each
    variant, the method, the resolved model and effort, the file or route, the
-   canvas frame name, the builder's self-review pass count, and the critic's
+   builder's self-review pass count, and the critic's
    remaining fails if any. Then stop. Do not rank, do not recommend a winner.
 
 ## After the round
 
-The owner looks on the canvas and pins comments to elements. `design:canvas`
-§ Harvest turns those into the next direction brief's **Carry forward** block
-(element, which variant it came from, the owner's words as the why). That
-section is the round's only lasting record; the variants are probes. When Carry
+The owner looks in the gallery, opens what interests them, and edits a variant
+in the page when they want to push it (`design:gallery` § Edit a variant).
+What they say they want more of goes into the next direction brief's **Carry
+forward** block through `design:direction-brief` (element, which variant it
+came from, the owner's words as the why); on a hosted canvas, `design:canvas`
+§ Harvest reads it from their pinned comments instead. That section is the round's only lasting record; the variants are probes. When Carry
 forward stops gaining new lines across two rounds, exploration is over and the
 briefs can turn prescriptive; hand the survivor to `design:first-draft-critic`
-in gauntlet mode and to element-level tools such as `impeccable live`.
+in gauntlet mode.

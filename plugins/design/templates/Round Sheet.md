@@ -4,7 +4,7 @@ Date: {YYYY-MM-DD}
 Frozen brief: `{path}` (signed {date})
 Variant build brief: `{path}`
 Medium: html | code
-Canvas: `<Project> · <Direction folder>`, one per direction (`publish-canvas.mjs --canvas "<Project>" --per-direction`)
+Gallery: `http://127.0.0.1:4600/direction/<NN Name>` (`design:gallery`)
 Critic: explore | none
 Cap: 7 variants
 
@@ -42,7 +42,6 @@ Filled by `design:fan-out` when the round finishes. One block per variant.
 - Method: {skill} · Model: {resolved model@effort} · Route: {semantic route or alias}
 - Argues: {one line from the builder's report}
 - File or route: `{Homepage X - Title.html}` or {preview URL}
-- Canvas frame: `{Folder} · {X} {Title}`
 - Builder self-review passes: {n}, {what each changed, one clause each}
 - Critic (explore): {k} fails remaining, or clean
 - Builder's note: {anything the builder flagged, verbatim}

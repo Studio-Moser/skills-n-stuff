@@ -1,6 +1,6 @@
 # Variant build brief
 
-Template: design plugin 0.3.0. Text outside `{slots}` is shared discipline; copy
+Template: design plugin 0.4.0. Text outside `{slots}` is shared discipline; copy
 it as written. Fill slots from the project's own documents and point at them.
 
 You are building one variant for one direction of the {project} identity
@@ -21,12 +21,13 @@ inline `<style>`, fonts by `@font-face` with a self-hosted or data URL, images
 inline or from the project's imagery folder, no framework, no build step. The
 direction's shared type and tokens live in `{NN Name}/tokens.css`; the first
 variant writes it, later variants paste it into their `<style>` unchanged (a
-frame on the canvas cannot fetch a relative file). It is a normal page: it
+variant is one file, complete on its own). It is a normal page: it
 scrolls, it may size sections to the viewport, and it may carry a small inline
 script for motion CSS cannot do, as long as it needs no network, storage, or
-same-origin access (a canvas frame is sandboxed). Verify by opening the file in
-a browser at 1440 and 390. The round freezes it into plates for the canvas;
-you do not write those. Nothing here touches the project's application code.
+same-origin access. Verify by opening the file in
+a browser at 1440 and 390. Write it as formatted source, one element per line:
+the gallery shows the file as written, and live editing finds an element by
+its line. Nothing here touches the project's application code.
 
 **`code` (convergence).** Your variant is a route in the project's real stack,
 on the direction's branch, in its worktree, against its running dev server.

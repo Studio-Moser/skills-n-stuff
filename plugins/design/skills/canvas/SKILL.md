@@ -1,7 +1,8 @@
 ---
 name: canvas
 description: >-
-  Use for the review surface of a design exploration: a self-hosted Doop canvas
+  Use when people without a checkout need to review and comment on a design
+  exploration (the local default is design:gallery): a self-hosted Doop canvas
   where every direction is a canvas led by a cover, every variant is a
   full-height HTML frame, and the owner's
   element-pinned comments flow back to agents. Covers standing the one shared
@@ -12,6 +13,10 @@ description: >-
 ---
 
 # Canvas
+
+The default review surface is `design:gallery`, which needs no server. Use the
+canvas in addition when reviewers have no checkout or comments must be pinned
+to elements and read back by agents.
 
 Figma holds images; a round of HTML variants wants a surface that runs them.
 Doop (kgoedecke/doop, AGPL) is an infinite multiplayer canvas whose frames are
