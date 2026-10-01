@@ -97,8 +97,6 @@ tracked = subprocess.check_output(
 ).decode().split("\0")
 for name in filter(None, tracked):
     relative = Path(name)
-    if relative.parts[:1] == (".superpowers",) or relative.parts[:2] == ("docs", "superpowers"):
-        continue
     path = root / relative
     if not path.is_file():
         continue

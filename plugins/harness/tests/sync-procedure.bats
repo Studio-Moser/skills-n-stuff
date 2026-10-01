@@ -861,7 +861,7 @@ case "$*" in
   "plugin list")
     echo "harness@studio-moser        installed, enabled  2.0.9    /x/plugins/harness"
     echo "pm@studio-moser             installed, enabled  0.22.0   /x/plugins/pm"
-    echo "superpowers@claude-plugins-official   not installed   https://example"
+    echo "example@claude-plugins-official       not installed   https://example"
     echo "generate@studio-moser       not installed       /x/plugins/generate" ;;
   "plugin add harness@studio-moser") echo "Installed plugin root: /c/studio-moser/harness/2.0.10" ;;
   "plugin add pm@studio-moser") echo "Installed plugin root: /c/studio-moser/pm/0.22.0" ;;
@@ -870,7 +870,7 @@ exit 0
 SH
   chmod +x "$stub/codex"
   export CODEX_LOG="$BATS_TEST_TMPDIR/codex.log"
-  mkdir -p "$BATS_TEST_TMPDIR/codex/plugins/cache/claude-plugins-official/superpowers/6.4.1"
+  mkdir -p "$BATS_TEST_TMPDIR/codex/plugins/cache/claude-plugins-official/example/1.0.0"
   run env PATH="$stub:$PATH" CODEX_HOME="$BATS_TEST_TMPDIR/codex" CODEX_LOG="$CODEX_LOG" python3 - "$REPO/plugins/harness/scripts/sync" <<'PY'
 import importlib.machinery, importlib.util, sys
 loader = importlib.machinery.SourceFileLoader("sync_script", sys.argv[1])
@@ -884,7 +884,7 @@ PY
   [ "$status" -eq 0 ]
   [[ "$output" == *"CHANGED=1"* ]] || return 1
   grep -q "plugin marketplace upgrade studio-moser" "$CODEX_LOG" || return 1
-  ! grep -q "superpowers" "$CODEX_LOG" || return 1
+  ! grep -q "example@" "$CODEX_LOG" || return 1
   ! grep -q "claude-plugins-official" "$CODEX_LOG" || return 1
   ! grep -q "generate" "$CODEX_LOG" || return 1
 }

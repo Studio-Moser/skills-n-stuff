@@ -59,10 +59,6 @@ Skill({ skill: "transcribe:transcribe", args: "<url>" })
 
 **JSON (with `--json`):** includes timestamped segments.
 
-## Scope and limitations
-
-See the [design spec](../../docs/superpowers/specs/2026-04-14-transcribe-plugin-design.md) for what's in scope for v0.1.
-
 ## License
 
 MIT
