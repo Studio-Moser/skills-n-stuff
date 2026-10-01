@@ -114,38 +114,50 @@ Hand a builder its own views after each section for self-review, and hand a
 critic the views plus the report; a critic that cannot open the preview from
 its sandbox works from these files.
 
-## Freeze running pages into portable HTML
+## Freeze a page into plates
 
-When variants were built as framework routes (a branch per direction, a dev
-server each), `freeze.mjs` turns each running page into one self-contained HTML
-file beside its brief, indexed by a per-direction `Snapshots.json`, so the
-branches can be retired and the variants reviewed on `design:canvas`.
+A canvas frame does not scroll, and a page built around a viewport (a fixed
+stage whose scenes change as you scroll, `vh`-sized sections, scroll-driven
+animation) has no single static rendering. `freeze.mjs` therefore captures
+**plates**: it loads the page at a real viewport with scripts and motion
+running, stops at every screen, lets it settle, and captures that screen's DOM.
+The output stacks those screens in one long, self-contained file whose height
+is `plates × viewport height`.
 
 ```sh
-node "${CLAUDE_PLUGIN_ROOT}/skills/capture/scripts/freeze.mjs" <targets.json> --dir "docs/Design Directions" [--only <direction key>]
+node "${CLAUDE_PLUGIN_ROOT}/skills/capture/scripts/freeze.mjs" <targets.json> --dir "docs/Design Directions" [--only <direction key>] [--variant <id>]
 ```
 
-Same `targets.json` as above; each direction maps to a folder under `--dir` by
-its leading token (`03-drawn` → `03 Drawn`) or an explicit `"folder"`. A
-variant's title comes from a spec beside it named `Homepage <X> - <Title>.md`
-when one exists, else from its `label`. Output: `Homepage <X> - <Title>.html`
-and `Snapshots.json` (id, title, file, label, source, height, overflow, broken
-images, bytes, capture time).
+Same `targets.json` as above; a variant's `url` is an http(s) address (a
+running framework route) or a path to a self-contained HTML file (an
+`html`-medium variant). Each direction maps to a folder under `--dir` by its
+leading token (`03-drawn` → `03 Drawn`) or an explicit `"folder"`. Output:
+`Homepage <X> - <Title>.plates.html` and the entry in `Snapshots.json` (id,
+title, file, plates, height, per-plate diff, and `live` when the source was a
+local file).
 
-How it captures, and why: single-file drives Chrome at the capture width with
-scripts **enabled** so the page hydrates and its reveals fire during the scroll,
-under **forced reduced motion** so every JS-revealed section is in the visible,
-settled state a variant must render under `prefers-reduced-motion`; CSS, fonts
-and images are inlined; every `<script>` is then removed so the file is a
-static document. CSS-driven motion (scroll-driven animations, keyframes,
-transitions) survives in the viewer; JS-driven motion does not, and the spec
-beside the file describes it. Expect roughly 0.5–2 MB per page with inlined
-imagery; without the strip a hydrated Next page is 15 MB of JavaScript.
+What settling means: images decoded; every animation and transition with a
+finite end on the document timeline finished (a window caught mid-fade reads as
+empty); whatever is still animating, scroll-driven or endless, committed to
+inline style where it is. Then animations are switched off inside plates.
 
-Needs Node 23+ (single-file's browser bridge uses the global `CloseEvent`),
-Chrome or a Playwright Chromium (`FREEZE_BROWSER` overrides), and Playwright
-resolvable from the project root. Run previews one at a time when several dev
-containers would not fit in memory together; the script does not start servers.
+How a plate holds together: one shared stylesheet with `html`/`body`/`:root`
+selectors rewritten onto the plate's wrappers; viewport units pinned to the
+capture height, never inside `url(...)` (a base64 font can contain `3vh` by
+chance, and rewriting it makes a display face fall back silently); each plate
+a transformed, clipped box, so `position: fixed` layers pin to their plate
+while in-flow content shifts up by the plate's scroll offset; fonts and images
+inlined once and referenced from every plate. Text stays text, so comments can
+still be pinned to elements.
+
+**The check.** Each plate is rendered from the file and compared with a
+screenshot of the live page at that stop. `plateDiff` records the difference
+per plate; 0.0005 is typical, and the run exits 1 above 1%. Read the flagged
+plate numbers before trusting a file: the diff is what caught both bugs above.
+
+Needs Playwright with Chromium and `sharp` resolvable from the project root,
+and each page running (the script starts no servers; run dev previews one at a
+time when several would not fit in memory together).
 
 ## Placing shots in Figma
 

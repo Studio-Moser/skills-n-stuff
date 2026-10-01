@@ -19,12 +19,15 @@ missing, ask before building.
 `{directions dir}/{NN Name}/Homepage <X> - <Title>.html`, complete on its own:
 inline `<style>`, fonts by `@font-face` with a self-hosted or data URL, images
 inline or from the project's imagery folder, no framework, no build step, no
-`<script>` unless the direction's brief asks for behaviour CSS cannot do. The
+build step. The
 direction's shared type and tokens live in `{NN Name}/tokens.css`; the first
 variant writes it, later variants paste it into their `<style>` unchanged (a
-frame on the canvas cannot fetch a relative file). Verify by opening the file
-in a browser at 1440 and 390. Register in `Snapshots.json` (id, title, file,
-method label). Nothing here touches the project's application code.
+frame on the canvas cannot fetch a relative file). It is a normal page: it
+scrolls, it may size sections to the viewport, and it may carry a small inline
+script for motion CSS cannot do, as long as it needs no network, storage, or
+same-origin access (a canvas frame is sandboxed). Verify by opening the file in
+a browser at 1440 and 390. The round freezes it into plates for the canvas;
+you do not write those. Nothing here touches the project's application code.
 
 **`code` (convergence).** Your variant is a route in the project's real stack,
 on the direction's branch, in its worktree, against its running dev server.

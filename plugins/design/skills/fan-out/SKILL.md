@@ -95,10 +95,11 @@ batching every question, then run to the end state: a round index handed back.
    for a fan-out), run `design:first-draft-critic` in explore mode on each
    finished variant and give the builder one fix pass. Skip when the sheet says
    `critic: none`.
-6. **Publish.** `html`: append each variant to its direction's
-   `Snapshots.json` and run `design:canvas`'s `publish-canvas.mjs` so the round
-   appears as frames on the project's canvas. `code`: run `design:capture`
-   (`freeze.mjs` to turn routes into files first, or stitched shots for Figma).
+6. **Freeze and publish.** Run `design:capture`'s `freeze.mjs` on the round's
+   variants (`html`: the files; `code`: the running routes) to produce plates
+   and the `Snapshots.json` entries, read its per-plate diffs, then run
+   `design:canvas`'s `publish-canvas.mjs` so the round appears as full-height
+   frames on the project's canvas, with a live frame above each `html` variant.
 7. **Write the round index** into the round sheet's Results section: for each
    variant, the method, the resolved model and effort, the file or route, the
    canvas frame name, the builder's self-review pass count, and the critic's

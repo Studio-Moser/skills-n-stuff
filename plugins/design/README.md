@@ -17,8 +17,8 @@ brief, and the briefs turn prescriptive as the exploration converges.
 | `/design:fan-out` | Round runner | Validates a round sheet (max seven variants, one skill each), prepares worktrees, dispatches builders as local subagents or through Harness, gates first drafts, captures, and writes the round index |
 | `/design:variant-brief` | Brief author | Cuts the project's variant build brief from the shared template, keeping the discipline verbatim and filling the project's slots |
 | `/design:first-draft-critic` | Critic loop | Explore mode (two lenses, pushes toward the premise, two rounds) inside a fan-out; gauntlet mode (three lenses against a written done bar, five rounds) for convergence and hero pieces |
-| `/design:canvas` | Review surface | One self-hosted Doop server for every project; publishes a project's snapshots as viewport-sized live frames (row per direction) and harvests element-pinned comments into the next brief's Carry forward |
-| `/design:capture` | Screenshots and freezes | `freeze.mjs` turns running framework routes into self-contained HTML files with a per-direction manifest; `views.mjs` shoots per-viewport stills and motion strips for critics; stitched, banded captures for Figma when that is the destination |
+| `/design:canvas` | Review surface | One self-hosted Doop server for every project; publishes a project's plates as full-height frames (a block per direction, a live one-screen frame above each `html` variant for Present) and harvests element-pinned comments into the next brief's Carry forward |
+| `/design:capture` | Freezes and screenshots | `freeze.mjs` freezes a running page or an HTML file into plates (one settled screen per scroll stop, checked against the live page); `views.mjs` shoots per-viewport stills and motion strips for critics; stitched, banded captures for Figma when that is the destination |
 
 ## Templates
 
@@ -67,7 +67,7 @@ brief, and the briefs turn prescriptive as the exploration converges.
   clone of [kgoedecke/doop](https://github.com/kgoedecke/doop), and the `doop`
   MCP registered on each machine (`claude mcp add --transport http --scope user doop <url>/mcp`).
 - For `capture`: Playwright with Chromium and `sharp` resolvable from the
-  project root; `freeze.mjs` also needs Node 23+ and Chrome.
+  project root.
 - Optional personal agents `design-builder-*` and `design-critic-*` in
   `~/.claude/agents`; the skills fall back to general-purpose subagents with
   the bundled prompts.

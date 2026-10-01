@@ -16,9 +16,16 @@ Figma holds images; a round of HTML variants wants a surface that runs them.
 Doop (kgoedecke/doop, AGPL) is an infinite multiplayer canvas whose frames are
 sandboxed iframes of real HTML, with an MCP that both writes frames and reads
 comments back. One server serves every project; a project is a canvas, a
-direction is a row, a variant is a viewport-sized frame the reviewer scrolls
-inside, so sticky stages and scroll-driven motion behave as they did in the
-browser.
+direction is a block of frames, a variant is one full-height frame.
+
+**Frames do not scroll.** On the canvas a frame is a design object: the wheel
+pans the canvas, hover selects elements for comments, and resizing a frame
+changes the page's viewport rather than revealing more of it. So a variant goes
+on the canvas as **plates** (`design:capture` § Freeze): every screen laid out
+in its settled state in one long file, with the frame as tall as the file.
+**Present** (select a frame, press ▶) shows one frame full-screen and does
+scroll, with scripts running; a variant that has a live page gets a second,
+one-screen frame above its plates for that.
 
 ## One server, many canvases
 
@@ -53,9 +60,9 @@ new canvas when a project starts a genuinely new exploration, not per round.
 
 ## Publish a project's snapshots
 
-Snapshots are the per-direction HTML files and `Snapshots.json` manifests that
-`design:capture`'s `freeze.mjs` writes, or that builders write directly in the
-`html` medium.
+Snapshots are the per-direction `.plates.html` files and `Snapshots.json`
+manifests that `design:capture`'s `freeze.mjs` writes, from running routes or
+from the self-contained pages builders write in the `html` medium.
 
 ```sh
 DOOP_URL=https://preview-doop.<tailnet>.ts.net DOOP_EMAIL=… DOOP_PASSWORD="$(cat ~/.config/agent-previews/secrets/doop_password)" \
@@ -63,17 +70,20 @@ DOOP_URL=https://preview-doop.<tailnet>.ts.net DOOP_EMAIL=… DOOP_PASSWORD="$(c
     --dir "docs/Design Directions" --canvas "<Project> identity exploration" [--only 08] [--invite you@example.com]
 ```
 
-One row per direction folder (sorted), one 1440×900 frame per variant, named
-`<Folder> · <X> <Title>`. Canvases are private to the publishing account;
+One block per direction folder (sorted), eight frames to a line
+(`--per-line`), one full-height frame per variant named
+`<Folder> · <X> <Title>`, plus `<…> (live)` above it when the manifest entry
+has a `live` file. Canvases are private to the publishing account;
 pass `--invite you@example.com` (or `DOOP_INVITE`) so the people who review it
 can open it, after they have signed up on the server. Re-running updates frames by name and re-lays the
 grid. It signs in with email and password over the REST API, so it needs no
 browser; the MCP is for agents working on the canvas interactively.
 
-Frames hold complete HTML with inline CSS and no external URLs Doop cannot
-reach; that is what `freeze.mjs` produces and what an `html`-medium build brief
-requires. Doop strips nothing from a frame you create, so scripts you leave in
-will run inside the sandbox; the freeze removes them on purpose.
+Frames hold complete HTML with inline CSS and no external URLs; that is what
+`freeze.mjs` produces and what an `html`-medium build brief requires of the
+live page. Scripts in a frame run inside its sandbox (no same-origin access,
+no storage), which is what lets a live frame animate in Present; plates carry
+none.
 
 ## Harvest comments into the next brief
 

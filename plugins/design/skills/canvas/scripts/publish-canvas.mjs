@@ -1,5 +1,5 @@
 // Put a project's variant snapshots on a Doop canvas: one row per direction
-// folder, one viewport-sized frame per variant, frames named
+// folder, one full-height frame per variant, frames named
 // "<Direction folder> · <X> <Title>". Re-running updates frames by name and
 // re-lays the grid, so a direction added later slots into row order instead of
 // landing on another row.
@@ -32,17 +32,18 @@ if (!DOOP_URL || !DOOP_EMAIL || !DOOP_PASSWORD) {
 }
 const base = DOOP_URL.replace(/\/$/, '')
 const DIRECTIONS = resolve(dir)
-// A viewport, not the page height: the reviewer scrolls inside the frame, so
-// sticky stages and scroll-driven motion behave as they did in the browser. A
-// full-height frame flattens a sticky page into panels spread over empty ground.
-const FRAME_HEIGHT = 900
+// Doop frames do not scroll for viewers, so a frame is the full height of its
+// page (a plates file already lays every screen out in its settled state);
+// the manifest's height is used, with one screen as the fallback.
+const DEFAULT_HEIGHT = 900
+const GAP_LIVE = 160
 const GAP_X = 240
 // A direction wraps onto a new line after PER_LINE frames so one long round
 // does not stretch the canvas into a strip that Fit cannot show; lines of the
 // same direction sit closer together than directions do.
 const PER_LINE = Number(flag('--per-line') ?? 8)
-const GAP_LINE = 160
-const GAP_Y = 500
+const GAP_LINE = 400
+const GAP_Y = 1600
 
 let cookie = ''
 async function api(method, path, body) {
@@ -77,6 +78,12 @@ for (const email of (flag('--invite') ?? process.env.DOOP_INVITE ?? '').split(',
 }
 const full = await api('GET', `/api/canvases/${canvas.id}`)
 const existing = new Map((full.frames ?? []).map((f) => [f.name, f]))
+async function upsert(name, props) {
+  const prior = existing.get(name)
+  return prior
+    ? api('PATCH', `/api/frames/${prior.id}`, props)
+    : api('POST', `/api/canvases/${canvas.id}/frames`, { name, ...props })
+}
 
 const folders = readdirSync(DIRECTIONS)
   .filter((d) => existsSync(resolve(DIRECTIONS, d, 'Snapshots.json')))
@@ -88,21 +95,31 @@ let count = 0
 for (const d of folders) {
   const manifest = JSON.parse(readFileSync(resolve(DIRECTIONS, d, 'Snapshots.json'), 'utf8'))
   const width = manifest.width ?? 1440
-  let i = 0
-  for (const v of manifest.variants.filter((m) => m.ok !== false)) {
-    const x = (i % PER_LINE) * (width + GAP_X)
-    const lineY = y + Math.floor(i / PER_LINE) * (FRAME_HEIGHT + GAP_LINE)
-    const letter = v.id.length === 1 ? v.id.toUpperCase() : v.id
-    const name = `${d} · ${letter} ${v.title}`
-    const html = readFileSync(resolve(DIRECTIONS, d, v.file), 'utf8')
-    const prior = existing.get(name)
-    const frame = prior
-      ? await api('PATCH', `/api/frames/${prior.id}`, { html, x, y: lineY, width, height: FRAME_HEIGHT })
-      : await api('POST', `/api/canvases/${canvas.id}/frames`, { name, x, y: lineY, width, height: FRAME_HEIGHT, html })
-    console.log(JSON.stringify({ name, id: frame.id, updated: !!prior, bytes: html.length }))
-    count++
-    i++
+  const variants = manifest.variants.filter((m) => m.ok !== false)
+  // Lines of PER_LINE frames, each line as tall as its tallest frame.
+  for (let start = 0; start < variants.length; start += PER_LINE) {
+    const line = variants.slice(start, start + PER_LINE)
+    const liveBand = line.some((v) => v.live) ? DEFAULT_HEIGHT + GAP_LIVE : 0
+    let x = 0
+    for (const v of line) {
+      const letter = v.id.length === 1 ? v.id.toUpperCase() : v.id
+      const name = `${d} · ${letter} ${v.title}`
+      const html = readFileSync(resolve(DIRECTIONS, d, v.file), 'utf8')
+      const height = v.height ?? DEFAULT_HEIGHT
+      const frame = await upsert(name, { html, x, y: y + liveBand, width, height })
+      console.log(JSON.stringify({ name, id: frame.id, bytes: html.length, height }))
+      count++
+      // The live page, one screen tall, above its plates: select it and press
+      // Present to scroll it with its motion running.
+      if (v.live && existsSync(resolve(DIRECTIONS, d, v.live))) {
+        const liveHtml = readFileSync(resolve(DIRECTIONS, d, v.live), 'utf8')
+        await upsert(`${name} (live)`, { html: liveHtml, x, y, width, height: DEFAULT_HEIGHT })
+        count++
+      }
+      x += width + GAP_X
+    }
+    y += liveBand + Math.max(...line.map((v) => v.height ?? DEFAULT_HEIGHT)) + GAP_LINE
   }
-  y += Math.max(1, Math.ceil(i / PER_LINE)) * (FRAME_HEIGHT + GAP_LINE) - GAP_LINE + GAP_Y
+  y += GAP_Y - GAP_LINE
 }
 console.log(`\n${count} frame(s) on "${canvasName}" (${base}/c/${canvas.id})`)
