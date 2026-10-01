@@ -84,6 +84,16 @@ holding more than one round gets one per round. Embedded live builds stay
 unloaded behind a poster until the frame is presented, because a frame on the
 canvas never receives input and twenty running pages are what kills the tab.
 
+**Give each canvas a cover.** Doop shows a canvas's most recently updated
+frame as its dashboard thumbnail, so a dashboard of published directions is a
+wall of whatever was written last. `cover.mjs --dir <directions dir> --project
+"<name>"` writes a `Cover.html` per direction (number and name in large type,
+premise, a labelled thumbnail of every variant); `publish-canvas.mjs` puts it
+first on the canvas and writes it last. Add `--rebuild` the first time on a
+canvas that already has frames so the cover leads the layers list. A cover is
+self-contained (system fonts, inlined thumbnails) because the server that
+renders thumbnails cannot reach the asset host.
+
 **Keep the canvas light.** A canvas is loaded whole, so fifty self-contained
 files (every one with its fonts and photographs inlined) is a hundred
 megabytes and a minute before anything draws. Publish with

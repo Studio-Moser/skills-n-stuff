@@ -4,7 +4,7 @@
 // and re-lays the grid.
 //
 // Usage: node publish-canvas.mjs --dir <directions dir> --canvas "<name>"
-//          [--per-direction] [--only <prefix>] [--embed-source] [--prune]
+//          [--per-direction] [--only <prefix>] [--embed-source] [--prune] [--rebuild]
 //          [--assets-dir <dir> --assets-url <url>] [--per-line N]
 //          [--invite a@x.com,b@y.com] [--signup]
 //
@@ -14,6 +14,15 @@
 // and a whole exploration on one canvas (a hundred frames) makes the tab
 // reload until it gives up; a direction is a size it can hold. Without the
 // flag everything goes on the one canvas named <name>.
+//
+// A direction folder's Cover.html (from cover.mjs; "Cover - <round>.html" for
+// a later round) is published as the frame "<folder> · Cover", above
+// everything. It is created first, so it leads the layers list, and written
+// last, because Doop shows a canvas's most recently updated frame as its
+// dashboard thumbnail. On a canvas that already has frames a new cover cannot
+// be first; --rebuild deletes the canvas's frames and publishes them again in
+// order (comments on those frames go with them, so use it before review, not
+// after).
 //
 // <directions dir> holds one folder per direction; each folder with a
 // Snapshots.json (written by freeze.mjs or by hand) is published. Env:
@@ -153,8 +162,10 @@ for (const d of folders) {
   const rounds = [...new Set(variants.map((v) => v.round ?? d))]
   for (const round of rounds) {
     const extra = round === rounds[0] ? '' : round.replace(rounds[0], '').replace(/^[-_ ]+/, '') || round
+    const cover = resolve(DIRECTIONS, d, extra ? `Cover - ${extra}.html` : 'Cover.html')
     plan.push({
       canvas: `${canvasName} · ${d}${extra ? ` · ${extra}` : ''}`,
+      cover: existsSync(cover) ? { name: `${d} · Cover`, file: cover } : null,
       blocks: [{ folder: d, width, variants: variants.filter((v) => (v.round ?? d) === round) }],
     })
   }
@@ -163,7 +174,7 @@ for (const d of folders) {
 const canvases = await api('GET', '/api/canvases')
 const invitees = (flag('--invite') ?? process.env.DOOP_INVITE ?? '').split(',').map((e) => e.trim()).filter(Boolean)
 let total = 0
-for (const { canvas: name, blocks } of plan) {
+for (const { canvas: name, cover, blocks } of plan) {
   let canvas = canvases.find((c) => c.name === name)
   if (!canvas) canvas = await api('POST', '/api/canvases', { name })
   // Canvases are private to whoever created them, so reviewers are invited by
@@ -176,18 +187,31 @@ for (const { canvas: name, blocks } of plan) {
     })
   }
   const full = await api('GET', `/api/canvases/${canvas.id}`)
+  if (args.includes('--rebuild')) {
+    for (const f of full.frames ?? []) await api('DELETE', `/api/frames/${f.id}`)
+    full.frames = []
+  }
   const existing = new Map((full.frames ?? []).map((f) => [f.name, f]))
   const published = new Set()
-  const upsert = (frameName, props) => {
+  const upsert = async (frameName, props) => {
     published.add(frameName)
     const prior = existing.get(frameName)
-    return prior
-      ? api('PATCH', `/api/frames/${prior.id}`, props)
-      : api('POST', `/api/canvases/${canvas.id}/frames`, { name: frameName, ...props })
+    const frame = prior
+      ? await api('PATCH', `/api/frames/${prior.id}`, props)
+      : await api('POST', `/api/canvases/${canvas.id}/frames`, { name: frameName, ...props })
+    existing.set(frameName, frame)
+    return frame
   }
 
-  let y = 0
   let count = 0
+  // Above the first line of frames; not sent through hosted(), since the
+  // server that renders thumbnails cannot reach the asset host.
+  const coverProps = cover && { html: readFileSync(cover.file, 'utf8'), x: 0, y: -(DEFAULT_HEIGHT + GAP_LINE), width: 1440, height: DEFAULT_HEIGHT }
+  if (cover) {
+    await upsert(cover.name, coverProps)
+    count++
+  }
+  let y = 0
   for (const { folder: d, width, variants } of blocks) {
     // Lines of PER_LINE frames, each line as tall as its tallest frame.
     for (let start = 0; start < variants.length; start += PER_LINE) {
@@ -224,6 +248,9 @@ for (const { canvas: name, blocks } of plan) {
       console.log(JSON.stringify({ pruned: frameName, canvas: name }))
     }
   }
+  // Written again after everything else so it is the newest frame, which is
+  // the one the dashboard shows. The stamp makes the write a real change.
+  if (cover) await upsert(cover.name, { ...coverProps, html: coverProps.html.replace('</body>', `<!-- published ${new Date().toISOString()} --></body>`) })
   total += count
   console.log(JSON.stringify({ canvas: name, id: canvas.id, frames: count, url: `${base}/c/${canvas.id}` }))
 }

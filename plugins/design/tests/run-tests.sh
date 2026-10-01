@@ -31,6 +31,7 @@ node --check "$plugin_root/skills/capture/scripts/capture.mjs" || fail=1
 node --check "$plugin_root/skills/capture/scripts/views.mjs" || fail=1
 node --check "$plugin_root/skills/capture/scripts/freeze.mjs" || fail=1
 node --check "$plugin_root/skills/canvas/scripts/publish-canvas.mjs" || fail=1
+node --check "$plugin_root/skills/canvas/scripts/cover.mjs" || fail=1
 docker compose -f "$plugin_root/skills/canvas/assets/Doop.compose.yaml" config -q 2>/dev/null || python3 -c 'import yaml,sys; yaml.safe_load(open(sys.argv[1]))' "$plugin_root/skills/canvas/assets/Doop.compose.yaml" 2>/dev/null || { echo "WARN: could not validate Doop.compose.yaml (no docker compose or pyyaml)" >&2; }
 
 python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$plugin_root/.claude-plugin/plugin.json" || fail=1
