@@ -183,10 +183,32 @@ function collectCss([viewportHeight, bakeReducedMotion]) {
       .replace(/(^|[\s,>+~(])html(?=$|[\s,.:#[>+~)])/g, '$1.plate-root')
       .replace(/(^|[\s,>+~(])body(?=$|[\s,.:#[>+~)])/g, '$1.plate-body')
       .replace(/:root/g, '.plate-root')
+  // Only the font faces this page actually loaded. A site's stylesheet
+  // declares every family and every character subset it might need (megabytes
+  // of them once inlined); a page uses a handful.
+  const norm = (v) => String(v).replace(/["']/g, '').replace(/\s+/g, ' ').trim().toLowerCase()
+  const faceKey = (family, style, weight, range) =>
+    [norm(family), norm(style || 'normal'), norm(weight || 'normal'), norm(range || 'U+0-10FFFF')].join('|')
+  const loadedFaces = new Set(
+    [...document.fonts].filter((f) => f.status === 'loaded').map((f) => faceKey(f.family, f.style, f.weight, f.unicodeRange))
+  )
+  const keepFace = (r) =>
+    // nothing recognisably loaded means the matching failed, not that the page has no fonts
+    loadedFaces.size === 0 ||
+    loadedFaces.has(
+      faceKey(
+        r.style.getPropertyValue('font-family'),
+        r.style.getPropertyValue('font-style'),
+        r.style.getPropertyValue('font-weight'),
+        r.style.getPropertyValue('unicode-range')
+      )
+    )
   const walk = (rules) => {
     let out = ''
     for (const r of rules) {
-      if (r instanceof CSSStyleRule) {
+      if (r instanceof CSSFontFaceRule) {
+        if (keepFace(r)) out += r.cssText + '\n'
+      } else if (r instanceof CSSStyleRule) {
         const nested = r.cssRules && r.cssRules.length ? walk(r.cssRules) : ''
         out += `${mapSelector(r.selectorText)}{${pin(r.style.cssText)}${nested}}\n`
       } else if (r instanceof CSSMediaRule || r instanceof CSSSupportsRule || (window.CSSContainerRule && r instanceof CSSContainerRule)) {
@@ -362,8 +384,6 @@ async function buildPlates(page, url, flow = false) {
   await page.waitForTimeout(1500)
 
   const cache = new Map()
-  let css = await page.evaluate(collectCss, [HEIGHT, flow])
-  css = await inlineCssUrls(page, css, url, cache)
 
   // A page that keeps a viewport-sized fixed or sticky layer under reduced
   // motion is still a stage, not a long-scroll document.
@@ -417,6 +437,11 @@ async function buildPlates(page, url, flow = false) {
     await page.waitForTimeout(400)
     plates.push(await settleThenCapture(page))
   }
+
+  // Collected after every screen has been visited, so a face first used far
+  // down the page counts as loaded.
+  let css = await page.evaluate(collectCss, [HEIGHT, flow])
+  css = await inlineCssUrls(page, css, url, cache)
 
   // Images: one custom property per distinct source, referenced from every
   // plate. A static build ships originals (a 2000px photograph shown at 308px),
