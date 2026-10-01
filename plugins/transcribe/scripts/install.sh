@@ -41,7 +41,11 @@ fi
 
 # ── Playwright Chromium ──────────────────────────────────────────────────────
 
-PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
+# Install into the copy this script lives in. Preferring CLAUDE_PLUGIN_ROOT
+# meant deps could land in a different copy than the one verify-deps.sh and
+# bin/transcribe resolve, which is exactly how a copy ends up with no
+# node_modules while the install looked like it succeeded.
+PLUGIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 echo "→ Installing Playwright and Chromium..."
 pushd "$PLUGIN_ROOT" >/dev/null
