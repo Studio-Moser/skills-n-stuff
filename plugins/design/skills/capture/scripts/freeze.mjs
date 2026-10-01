@@ -154,7 +154,18 @@ const toUrl = (u) => (isRemote(u) ? direct(u) : u.startsWith('file:') ? u : path
 // The whole stylesheet as text, with selectors that address the document
 // (html, body, :root) moved onto the plate wrappers, so per-plate state on
 // those elements keeps working and inherited base styles reach every plate.
-function collectCss(viewportHeight) {
+function collectCss([viewportHeight, bakeReducedMotion]) {
+  // A flow file is the page's reduced-motion layout, and it has to render
+  // that way for a viewer who has no such preference (and in a canvas frame),
+  // so the preference is baked in: "reduce" conditions become always true,
+  // "no-preference" ones never.
+  const condition = (text) =>
+    bakeReducedMotion
+      ? text
+          .replace(/\(\s*prefers-reduced-motion\s*:\s*reduce\s*\)/g, '(min-width: 0px)')
+          .replace(/\(\s*prefers-reduced-motion\s*:\s*no-preference\s*\)/g, '(max-width: 0px)')
+          .replace(/\(\s*prefers-reduced-motion\s*\)/g, '(min-width: 0px)')
+      : text
   // Viewport units become pixels of the capture viewport, in declaration
   // values only. Never in a selector: an atomic class is named after its value
   // (".min-h_100vh"), and rewriting the name leaves the rule matching nothing,
@@ -179,7 +190,7 @@ function collectCss(viewportHeight) {
         const nested = r.cssRules && r.cssRules.length ? walk(r.cssRules) : ''
         out += `${mapSelector(r.selectorText)}{${pin(r.style.cssText)}${nested}}\n`
       } else if (r instanceof CSSMediaRule || r instanceof CSSSupportsRule || (window.CSSContainerRule && r instanceof CSSContainerRule)) {
-        out += `${r.cssText.slice(0, r.cssText.indexOf('{'))}{\n${walk(r.cssRules)}}\n`
+        out += `${condition(r.cssText.slice(0, r.cssText.indexOf('{')))}{\n${walk(r.cssRules)}}\n`
       } else if (window.CSSLayerBlockRule && r instanceof CSSLayerBlockRule) {
         out += `@layer ${r.name}{\n${walk(r.cssRules)}}\n`
       } else {
@@ -252,6 +263,7 @@ function capturePlate(hide) {
   cloned.forEach((img, i) => {
     const src = live[i]?.currentSrc || live[i]?.src || ''
     img.setAttribute('data-plate-src', src)
+    img.setAttribute('data-plate-w', String(Math.round(live[i]?.getBoundingClientRect().width || 0)))
     img.removeAttribute('srcset')
     img.removeAttribute('sizes')
     img.removeAttribute('loading')
@@ -326,7 +338,7 @@ async function buildPlates(page, url, flow = false) {
   await page.waitForTimeout(1500)
 
   const cache = new Map()
-  let css = await page.evaluate(collectCss, HEIGHT)
+  let css = await page.evaluate(collectCss, [HEIGHT, flow])
   css = await inlineCssUrls(page, css, url, cache)
 
   // A page that keeps a viewport-sized fixed or sticky layer under reduced
@@ -384,23 +396,44 @@ async function buildPlates(page, url, flow = false) {
     plates.push(await page.evaluate(capturePlate, HIDE))
   }
 
-  // Images: one custom property per distinct source, referenced from every plate.
-  const imgVar = new Map()
-  let vars = ''
+  // Images: one custom property per distinct source, referenced from every
+  // plate. A static build ships originals (a 2000px photograph shown at 308px),
+  // so rasters are re-encoded at twice the widest size they are shown at; fifty
+  // variants of originals is hundreds of megabytes.
+  const widest = new Map()
   for (const p of plates) {
-    for (const m of p.inner.matchAll(/data-plate-src="([^"]*)"/g)) {
+    for (const m of p.inner.matchAll(/data-plate-src="([^"]*)" data-plate-w="(\d+)"/g)) {
       const src = m[1].replace(/&amp;/g, '&')
-      if (!src || imgVar.has(src)) continue
-      const data = src.startsWith('data:') ? src : await inlineUrl(page, new URL(src, url).href, cache)
-      const name = `--plate-img-${imgVar.size}`
-      imgVar.set(src, data ? name : null)
-      if (data) vars += `${name}:url(${data});`
+      widest.set(src, Math.max(widest.get(src) ?? 0, Number(m[2])))
     }
   }
+  const imgVar = new Map()
+  let vars = ''
+  for (const [src, shown] of widest) {
+    if (!src) continue
+    let data = src.startsWith('data:') ? src : await inlineUrl(page, new URL(src, url).href, cache)
+    const raster = data && /^data:image\/(jpeg|png|webp|avif);base64,/.exec(data)
+    if (raster && shown > 0) {
+      try {
+        const original = Buffer.from(data.slice(raster[0].length), 'base64')
+        const webp = await sharp(original).resize({ width: shown * 2, withoutEnlargement: true }).webp({ quality: 82 }).toBuffer()
+        if (webp.length < original.length) data = `data:image/webp;base64,${webp.toString('base64')}`
+      } catch {} // keep the original if sharp cannot read it
+    }
+    const name = `--plate-img-${imgVar.size}`
+    imgVar.set(src, data ? name : null)
+    if (data) vars += `${name}:url(${data});`
+  }
+  // Chrome fetches an image that is only referenced from CSS when its element
+  // first comes into view, so a plate far down the document shows empty
+  // windows until it is scrolled to, and a screenshot taken before that is
+  // blank. One always-painted pixel that uses every image loads them all at
+  // first paint.
+  const preload = [...imgVar.values()].filter(Boolean).map((n) => `var(${n})`).join(',')
   const BLANK = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=='
   const renderInner = (inner) =>
     pinInlineStyles(
-      inner.replace(/<img\b([^>]*?)data-plate-src="([^"]*)"([^>]*)>/g, (_, a, src, b) => {
+      inner.replace(/<img\b([^>]*?)data-plate-src="([^"]*)" data-plate-w="\d+"([^>]*)>/g, (_, a, src, b) => {
         const name = imgVar.get(src.replace(/&amp;/g, '&'))
         const rest = (a + b).replace(/\ssrc="[^"]*"/, '')
         const styled = /\sstyle="/.test(rest)
@@ -413,6 +446,7 @@ async function buildPlates(page, url, flow = false) {
   const plateCss = `
 html,body{margin:0;padding:0;background:#fff}
 .plate-doc{${vars}}
+.plate-preload{position:absolute;left:0;top:0;width:1px;height:1px;opacity:0.01;pointer-events:none;background-image:${preload || 'none'}}
 .plate{display:block;position:relative;width:${WIDTH}px;height:${HEIGHT}px;overflow:hidden;transform:translateZ(0);contain:paint}
 .plate-root{position:relative;display:block;width:${WIDTH}px;min-height:${HEIGHT}px}
 .plate-body{display:block;min-height:${HEIGHT}px}
@@ -440,6 +474,7 @@ html,body{margin:0;padding:0;background:#fff}
 <title>${(await page.title()).replace(/</g, '&lt;')}</title>
 <style>${css}</style><style>${plateCss}</style></head>
 <body class="plate-doc">
+<div class="plate-preload" aria-hidden="true"></div>
 ${body}
 </body></html>
 `
@@ -457,6 +492,13 @@ async function measure(browser, file, shots, expectedHeight) {
     overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
     imgs: document.images.length,
   }))
+  // Visit every screen once so nothing is compared before it has been painted.
+  for (let y = 0; y < expectedHeight; y += HEIGHT) {
+    await page.evaluate((top) => window.scrollTo(0, top), y)
+    await page.waitForTimeout(120)
+  }
+  await page.evaluate(() => window.scrollTo(0, 0))
+  await page.waitForTimeout(400)
   // Each plate, rendered from the file, against the live screen it was taken from.
   const diffs = []
   for (let i = 0; i < shots.length; i++) {
