@@ -14,6 +14,7 @@ brief, and the briefs turn prescriptive as the exploration converges.
 
 | Skill | Role | What |
 | --- | --- | --- |
+| `/design:direction-brief` | Direction interview | Guides the owner from a hunch and a pile of references to a direction brief and a copy direction: asks only what the project's documents do not answer, captures every URL as view stills and saves every image into the direction's `References/` folder, drafts each section for correction, then runs a readiness check and drafts the round sheet |
 | `/design:fan-out` | Round runner | Validates a round sheet (max seven variants, one skill each), prepares the medium (files for `html`, worktrees for `code`), dispatches builders as local subagents or through Harness, gates first drafts, freezes, writes covers, publishes, and writes the round index |
 | `/design:variant-brief` | Brief author | Cuts the project's variant build brief from the shared template, keeping the discipline verbatim and filling the project's slots |
 | `/design:first-draft-critic` | Critic loop | Explore mode (two lenses, pushes toward the premise, two rounds) inside a fan-out; gauntlet mode (three lenses against a written done bar, five rounds) for convergence and hero pieces |
@@ -25,6 +26,10 @@ brief, and the briefs turn prescriptive as the exploration converges.
 - `templates/Direction Brief.md`: premise, type, hard rules, Wins if / Loses
   if, plus **Carry forward** (what the owner harvested last round and why) and
   **Reference pack** (the one move to borrow from each reference).
+- `templates/Copy Direction.md`: the bet, the page line by line (used
+  verbatim), the rules for lines a builder writes, and the source of every fact.
+- `templates/Frozen Brief.md`: the project-level brief every direction sits
+  under, for a project that has none yet.
 - `templates/Round Sheet.md`: one row per variant with method, route, dials,
   and borrows; the Results section is the round index.
 - `templates/Variant Build Brief.md`: what every builder reads first.
@@ -40,7 +45,8 @@ brief, and the briefs turn prescriptive as the exploration converges.
 
 ## How a round works
 
-1. Direction briefs carry a Reference pack and a Carry forward section.
+1. `direction-brief` interviews the owner, saves the references, and writes
+   the direction brief (Reference pack, Carry forward) and copy direction.
 2. The round sheet lists up to seven variants. Diversity comes from direction,
    reference pack, and dials before model; two rows differing only in model are
    an ablation and say so.

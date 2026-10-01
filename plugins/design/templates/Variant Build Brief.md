@@ -1,6 +1,6 @@
 # Variant build brief
 
-Template: design plugin 0.2.1. Text outside `{slots}` is shared discipline; copy
+Template: design plugin 0.3.0. Text outside `{slots}` is shared discipline; copy
 it as written. Fill slots from the project's own documents and point at them.
 
 You are building one variant for one direction of the {project} identity
@@ -46,7 +46,9 @@ apply in full.
   wrong, say so in your report and build it anyway. Its **Carry forward**
   section tells you what the owner harvested from the last round and why;
   extend those ideas, do not copy them. Its **Reference pack** names the one
-  move to borrow from each reference and the thing that would make it a copy.
+  move to borrow from each reference and the thing that would make it a copy;
+  open the files it points at in the direction's `References/` folder and read
+  the owner's words about each in `References/References.md`.
 - **Your copy direction.** Its lines are the copy, verbatim. Its brief states
   the rules that bind any line you have to write yourself. Design and copy are
   separate axes: the same copy is used by variants in several directions, so
