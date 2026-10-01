@@ -4,7 +4,7 @@
 // re-lays the grid, so a direction added later slots into row order instead of
 // landing on another row.
 //
-// Usage: node publish-canvas.mjs --dir <directions dir> --canvas "<canvas name>" [--only <prefix>] [--embed-source] [--invite a@x.com,b@y.com] [--signup]
+// Usage: node publish-canvas.mjs --dir <directions dir> --canvas "<canvas name>" [--only <prefix>] [--embed-source] [--prune] [--invite a@x.com,b@y.com] [--signup]
 //
 // <directions dir> holds one folder per direction; each folder with a
 // Snapshots.json (written by freeze.mjs or by hand) is published. Env:
@@ -96,7 +96,9 @@ function liveFor(d, v, name) {
   return `<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;height:100%;overflow:hidden;background:#fff}iframe{border:0;width:100%;height:100%;display:block}</style></head><body><iframe src="${url}" title="${name.replace(/"/g, '&quot;')}" loading="lazy"></iframe></body></html>`
 }
 
+const published = new Set()
 async function upsert(name, props) {
+  published.add(name)
   const prior = existing.get(name)
   return prior
     ? api('PATCH', `/api/frames/${prior.id}`, props)
@@ -139,5 +141,15 @@ for (const d of folders) {
     y += liveBand + Math.max(...line.map((v) => v.height ?? DEFAULT_HEIGHT)) + GAP_LINE
   }
   y += GAP_Y - GAP_LINE
+}
+// --prune removes frames the manifests no longer describe (a renamed variant,
+// a dropped one, a frame from an older layout). Only with a full publish:
+// with --only everything outside that direction would look stale.
+if (args.includes('--prune') && !only) {
+  for (const [name, frame] of existing) {
+    if (published.has(name)) continue
+    await api('DELETE', `/api/frames/${frame.id}`)
+    console.log(JSON.stringify({ pruned: name }))
+  }
 }
 console.log(`\n${count} frame(s) on "${canvasName}" (${base}/c/${canvas.id})`)
