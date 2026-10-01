@@ -4,7 +4,7 @@ Date: {YYYY-MM-DD}
 Frozen brief: `{path}` (signed {date})
 Variant build brief: `{path}`
 Medium: html | code
-Canvas: `<Project> identity exploration`
+Canvas: `<Project> · <Direction folder>`, one per direction (`publish-canvas.mjs --canvas "<Project>" --per-direction`)
 Critic: explore | none
 Cap: 7 variants
 

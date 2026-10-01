@@ -83,9 +83,11 @@ batching every question, then run to the end state: a round index handed back.
      exactly that skill, and pass the packet.
    - A row whose `route` is a Harness semantic route (`taste`, `default`,
      `bulk`) goes through `harness:delegate` with `operation: execute`, the
-     packet as context, the worktree as `authority.working_directory`, allowed
-     paths limited to the variant's route folder plus the registry file, and
-     the build brief's verify checklist as the acceptance check. Harness
+     packet as context, the project root (`html`) or the worktree (`code`) as
+     `authority.working_directory`, allowed paths limited to the variant's own
+     output (`html`: its file, plus `tokens.css` for a direction's first
+     variant; `code`: its route folder plus the registry file), and the build
+     brief's verify checklist as the acceptance check. Harness
      resolves the model; the round index records what it resolved.
    - In `html`, builders on the same direction write different files and may
      run at once; only the first variant of a direction writes `tokens.css`. In
@@ -95,11 +97,16 @@ batching every question, then run to the end state: a round index handed back.
    for a fan-out), run `design:first-draft-critic` in explore mode on each
    finished variant and give the builder one fix pass. Skip when the sheet says
    `critic: none`.
-6. **Freeze and publish.** Run `design:capture`'s `freeze.mjs` on the round's
-   variants (`html`: the files; `code`: the running routes) to produce plates
-   and the `Snapshots.json` entries, read its per-plate diffs, then run
-   `design:canvas`'s `publish-canvas.mjs` so the round appears as full-height
-   frames on the project's canvas, with a live frame above each `html` variant.
+6. **Freeze, cover, publish.** Run `design:capture`'s `freeze.mjs` on the
+   round's variants (`html`: the files; `code`: the running routes) and read
+   its per-plate diffs. Freeze an `html` variant with `--flow` first: a page
+   that meets the reduced-motion gate freezes as one long document; a page
+   `--flow` refuses is frozen as plates, and the refusal goes in the round
+   index as a failed gate. Then run `design:canvas`'s `cover.mjs` so every
+   direction has a `Cover.html`, and `publish-canvas.mjs --per-direction` so
+   each direction is its own canvas: the cover first, one full-height frame per
+   variant, and a live frame above each `html` variant. A canvas published
+   without a cover shows as an unlabelled thumbnail on the dashboard.
 7. **Write the round index** into the round sheet's Results section: for each
    variant, the method, the resolved model and effort, the file or route, the
    canvas frame name, the builder's self-review pass count, and the critic's

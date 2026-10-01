@@ -2,7 +2,8 @@
 name: canvas
 description: >-
   Use for the review surface of a design exploration: a self-hosted Doop canvas
-  where every variant is a live HTML frame, rows are directions, and the owner's
+  where every direction is a canvas led by a cover, every variant is a
+  full-height HTML frame, and the owner's
   element-pinned comments flow back to agents. Covers standing the one shared
   server up behind the preview router, publishing a project's snapshots to its
   canvas, and harvesting comments into the next brief. Triggers: "put the round
@@ -15,8 +16,8 @@ description: >-
 Figma holds images; a round of HTML variants wants a surface that runs them.
 Doop (kgoedecke/doop, AGPL) is an infinite multiplayer canvas whose frames are
 sandboxed iframes of real HTML, with an MCP that both writes frames and reads
-comments back. One server serves every project; a project is a canvas, a
-direction is a block of frames, a variant is one full-height frame.
+comments back. One server serves every project; a direction is a canvas led
+by a cover, a variant is one full-height frame.
 
 **Frames do not scroll.** On the canvas a frame is a design object: the wheel
 pans the canvas, hover selects elements for comments, and resizing a frame
@@ -35,8 +36,9 @@ URL and never a public one. Projects do not get their own servers: a server per
 project multiplies accounts, MCP registrations, and containers without adding
 any isolation a canvas name does not already give.
 
-Canvas naming: `<Project> <exploration>` (`Acme identity exploration`). Start a
-new canvas when a project starts a genuinely new exploration, not per round.
+Canvas naming: `<Project> · <Direction folder>` (`Acme · 03 Ledger`), which is
+what `--canvas "<Project>" --per-direction` produces. A later round in the same
+folder gets its own canvas, so no canvas grows past one round's frames.
 
 ## Stand the server up (once)
 
@@ -65,6 +67,7 @@ manifests that `design:capture`'s `freeze.mjs` writes, from running routes or
 from the self-contained pages builders write in the `html` medium.
 
 ```sh
+node "${CLAUDE_PLUGIN_ROOT}/skills/canvas/scripts/cover.mjs" --dir "docs/Design Directions" --project "<Project>"
 DOOP_URL=https://preview-doop.<tailnet>.ts.net DOOP_EMAIL=… DOOP_PASSWORD="$(cat ~/.config/agent-previews/secrets/doop_password)" \
   node "${CLAUDE_PLUGIN_ROOT}/skills/canvas/scripts/publish-canvas.mjs" \
     --dir "docs/Design Directions" --canvas "<Project>" --per-direction [--only 08] [--invite you@example.com]
@@ -112,15 +115,19 @@ directory-style export: a redirect to `http://` behind the TLS proxy is
 blocked as mixed content). The static host must send
 `Access-Control-Allow-Origin`, because the page inside a sandboxed frame has
 an opaque origin and fonts and CSS `mask-image` are fetched in CORS mode; a
-masked logo that vanishes is the symptom. Canvases are private to the publishing account;
-pass `--invite you@example.com` (or `DOOP_INVITE`) so the people who review it
-can open it, after they have signed up on the server. Re-running updates frames by name and re-lays the
-grid. It signs in with email and password over the REST API, so it needs no
-browser; the MCP is for agents working on the canvas interactively.
+masked logo that vanishes is the symptom.
 
-Frames hold complete HTML with inline CSS and no external URLs; that is what
-`freeze.mjs` produces and what an `html`-medium build brief requires of the
-live page. Scripts in a frame run inside its sandbox (no same-origin access,
+**Access and re-runs.** Canvases are private to the publishing account; pass
+`--invite you@example.com` (or `DOOP_INVITE`) so the people who review it can
+open it, after they have signed up on the server. Re-running updates frames by
+name and re-lays the grid. It signs in with email and password over the REST
+API, so it needs no browser; the MCP is for agents working on the canvas
+interactively.
+
+The files on disk are complete HTML with inline CSS and no external URLs; that
+is what `freeze.mjs` produces and what an `html`-medium build brief requires of
+the live page. A published plates frame carries URLs only for the asset host,
+and only when `--assets-url` is set. Scripts in a frame run inside its sandbox (no same-origin access,
 no storage), which is what lets a live frame animate in Present; plates carry
 none.
 
