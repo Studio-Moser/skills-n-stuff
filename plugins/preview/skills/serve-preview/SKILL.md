@@ -24,6 +24,8 @@ as `preview` in the examples below.
 - Treat Service names as tailnet-wide. Refuse an existing name associated with a
   different preview router instead of silently creating a load-balanced Service.
 - Give every preview `restart: unless-stopped` behavior.
+- Give every preview container a memory limit (`mem_limit`). Development servers
+  get `2g` at most; `verify` refuses a preview without one.
 - Put the application process itself in the managed container. A host process behind
   a proxy container or LaunchAgent is a migration bridge, not a finished preview.
 - Give every preview its own managed Docker network. Connect only the DockTail
@@ -57,11 +59,15 @@ Useful lifecycle commands:
 "$preview" url <name>
 "$preview" logs
 "$preview" down <name>
+"$preview" prune [name...]
 "$preview" doctor
 ```
 
 `down` removes the preview container but leaves its Tailscale Service definition so
 the same stable name can be reused later.
+`prune` removes stopped previews (all, or only the named ones) with their networks
+and Docker volumes, including their dependency and build caches. Run it when a
+preview is finished instead of leaving it stopped.
 
 ## Existing application containers
 
@@ -73,6 +79,7 @@ services:
   app:
     container_name: agent-preview-project-name
     restart: unless-stopped
+    mem_limit: 2g
     networks:
       - default
       - agent-preview-project-name
@@ -93,6 +100,11 @@ networks:
     external: true
     name: agent-preview-project-name
 ```
+
+Serve a production build (`next build && next start`, a static export through
+`up-static`, or the framework's equivalent) for any preview that is only being
+reviewed. Run a development server only while someone is actively editing that
+preview; each one holds hundreds of megabytes to gigabytes and grows as pages compile.
 
 Make sure the application listens on `0.0.0.0` inside its container. Keep source
 mounts and framework-specific commands in the project's Compose configuration; do
