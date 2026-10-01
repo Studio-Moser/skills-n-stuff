@@ -76,6 +76,14 @@ One block per direction folder (sorted), eight frames to a line
 live page: its own self-contained file (`live` in the manifest), or a durable
 address (`liveUrl`, or the address it was frozen from with `--embed-source`).
 
+**Keep the canvas light.** A canvas is loaded whole, so fifty self-contained
+files (every one with its fonts and photographs inlined) is a hundred
+megabytes and a minute before anything draws. Publish with
+`--assets-dir <dir> --assets-url <url>`: fonts and images are written once to a
+directory a static preview serves (`up-static`), frames reference them by URL,
+and the canvas carries only text and structure. The files on disk stay
+self-contained; `--prune` removes frames the manifests no longer describe.
+
 **Keeping a framework build playable.** A variant built as a route in a real
 stack cannot go in a frame as a file: its motion is its scripts. Build the
 branch as a production static site, serve it with

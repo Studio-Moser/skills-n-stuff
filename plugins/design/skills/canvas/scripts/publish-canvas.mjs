@@ -4,13 +4,14 @@
 // re-lays the grid, so a direction added later slots into row order instead of
 // landing on another row.
 //
-// Usage: node publish-canvas.mjs --dir <directions dir> --canvas "<canvas name>" [--only <prefix>] [--embed-source] [--prune] [--invite a@x.com,b@y.com] [--signup]
+// Usage: node publish-canvas.mjs --dir <directions dir> --canvas "<canvas name>" [--only <prefix>] [--embed-source] [--prune] [--assets-dir <dir> --assets-url <url>] [--invite a@x.com,b@y.com] [--signup]
 //
 // <directions dir> holds one folder per direction; each folder with a
 // Snapshots.json (written by freeze.mjs or by hand) is published. Env:
 // DOOP_URL, DOOP_EMAIL, DOOP_PASSWORD. --signup creates the account first;
 // the server allows it only for SIGNUP_EMAIL_DOMAINS.
-import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const args = process.argv.slice(2)
@@ -37,6 +38,26 @@ const DIRECTIONS = resolve(dir)
 // the manifest's height is used, with one screen as the fallback.
 const DEFAULT_HEIGHT = 900
 const GAP_LIVE = 160
+// With --assets-dir and --assets-url, inlined fonts and images are written
+// once to a directory a static host serves and the frame references them by
+// URL, so the canvas carries text and structure instead of megabytes of
+// base64 per frame (the same font or photo is shared by every variant that
+// uses it). The files on disk stay self-contained. The host must send
+// Access-Control-Allow-Origin: fonts are fetched in CORS mode from a frame.
+const ASSETS_DIR = flag('--assets-dir')
+const ASSETS_URL = (flag('--assets-url') ?? '').replace(/\/$/, '')
+const EXT = { 'font/woff2': 'woff2', 'font/woff': 'woff', 'image/webp': 'webp', 'image/jpeg': 'jpg', 'image/png': 'png', 'image/svg+xml': 'svg', 'image/gif': 'gif', 'image/avif': 'avif' }
+if (ASSETS_DIR) mkdirSync(ASSETS_DIR, { recursive: true })
+function hosted(html) {
+  if (!ASSETS_DIR || !ASSETS_URL) return html
+  return html.replace(/url\((["']?)data:([a-z0-9.+/-]+);base64,([A-Za-z0-9+/=]+)\1\)/g, (whole, _q, mime, b64) => {
+    if (b64.length < 3000 || !EXT[mime]) return whole // tiny or unknown: cheaper inline
+    const name = `${createHash('sha1').update(b64).digest('hex').slice(0, 20)}.${EXT[mime]}`
+    const file = resolve(ASSETS_DIR, name)
+    if (!existsSync(file)) writeFileSync(file, Buffer.from(b64, 'base64'))
+    return `url(${ASSETS_URL}/${name})`
+  })
+}
 const GAP_X = 240
 // A direction wraps onto a new line after PER_LINE frames so one long round
 // does not stretch the canvas into a strip that Fit cannot show; lines of the
@@ -124,7 +145,7 @@ for (const d of folders) {
     for (const v of line) {
       const letter = v.id.length === 1 ? v.id.toUpperCase() : v.id
       const name = `${d} · ${letter} ${v.title}`
-      const html = readFileSync(resolve(DIRECTIONS, d, v.file), 'utf8')
+      const html = hosted(readFileSync(resolve(DIRECTIONS, d, v.file), 'utf8'))
       const height = v.height ?? DEFAULT_HEIGHT
       const frame = await upsert(name, { html, x, y: y + liveBand, width, height })
       console.log(JSON.stringify({ name, id: frame.id, bytes: html.length, height }))
