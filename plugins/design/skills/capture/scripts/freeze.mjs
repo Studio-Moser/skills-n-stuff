@@ -191,9 +191,16 @@ function collectCss() {
 // finite end is finished first; a scene that waits for its image before it
 // fades in gets its images decoded before that.
 async function settlePlate() {
-  await Promise.all(
-    [...document.images].filter((i) => i.currentSrc || i.src).map((i) => i.decode().catch(() => {}))
-  )
+  // Only images on this screen, and never without a limit: decode() on a lazy
+  // image that is off screen or display:none waits for a load that is not
+  // coming, and one such image hangs the whole capture.
+  const onScreen = [...document.images].filter((i) => {
+    if (!(i.currentSrc || i.src)) return false
+    const r = i.getBoundingClientRect()
+    return r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < innerHeight
+  })
+  const limit = new Promise((r) => setTimeout(r, 3000))
+  await Promise.race([Promise.all(onScreen.map((i) => i.decode().catch(() => {}))), limit])
   await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
   for (let pass = 0; pass < 3; pass++) {
     for (const a of document.getAnimations()) {
