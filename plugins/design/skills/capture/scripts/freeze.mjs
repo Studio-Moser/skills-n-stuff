@@ -24,7 +24,11 @@
 // the live page at that stop; the difference per plate goes in the manifest
 // and the run exits 1 when any plate is more than 1% away.
 //
-// Usage: node freeze.mjs <targets.json> --dir <directions dir> [--only <direction key>] [--variant <id>]
+// Usage: node freeze.mjs <targets.json> --dir <directions dir> [--only <direction key>] [--variant <id>] [--flow]
+//
+// --flow is for a page whose reduced-motion layout is a normal long-scroll
+// document: it is loaded under prefers-reduced-motion, refused if a fixed or
+// sticky layer still covers the viewport, and captured as one document.
 //
 // targets.json is the capture.mjs shape (directions[].variants[] with id, url,
 // optional label); url is an http(s) address or a path to a self-contained
@@ -53,6 +57,9 @@ if (!targetsPath || !dirArg) {
 }
 const only = flag('--only')
 const onlyVariant = flag('--variant')
+// --flow: the page has a real reduced-motion layout (a normal long-scroll
+// document, no fixed stage), so capture that once instead of stacking plates.
+const flowMode = args.includes('--flow')
 const cfg = JSON.parse(readFileSync(targetsPath, 'utf8'))
 const DIRECTIONS = resolve(dirArg)
 const WIDTH = cfg.captureWidth ?? 1440
@@ -280,7 +287,7 @@ const attrString = (pairs, skip = []) =>
     .map(([k, v]) => `${k}="${String(v).replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"`)
     .join(' ')
 
-async function buildPlates(page, url) {
+async function buildPlates(page, url, flow = false) {
   await page.goto(url, { waitUntil: 'networkidle', timeout: 180000 })
   await page.addStyleTag({ content: `${HIDE}{display:none !important}` })
   await page.waitForTimeout(2500)
@@ -298,6 +305,24 @@ async function buildPlates(page, url) {
   let css = await page.evaluate(collectCss)
   css = await inlineCssUrls(page, pinViewportUnits(css), url, cache)
 
+  // A page that keeps a viewport-sized fixed or sticky layer under reduced
+  // motion is still a stage, not a long-scroll document.
+  const stage = flow
+    ? await page.evaluate(() => {
+        const vw = innerWidth
+        const vh = innerHeight
+        for (const el of document.body.querySelectorAll('*')) {
+          const cs = getComputedStyle(el)
+          if (cs.position !== 'fixed' && cs.position !== 'sticky') continue
+          const r = el.getBoundingClientRect()
+          if (r.width * r.height > vw * vh * 0.5 && cs.visibility !== 'hidden' && cs.display !== 'none')
+            return `${el.tagName.toLowerCase()}.${String(el.className).split(' ')[0]} (${cs.position}, ${Math.round(r.width)}x${Math.round(r.height)})`
+        }
+        return null
+      })
+    : null
+  if (stage) throw new Error(`not a long-scroll layout under reduced motion: ${stage} covers the viewport`)
+
   const plates = []
   const shots = []
   for (let i = 0; i < stops; i++) {
@@ -305,8 +330,33 @@ async function buildPlates(page, url) {
     await page.waitForTimeout(SETTLE_MS)
     await page.evaluate(settlePlate)
     await page.waitForTimeout(150)
-    // The live screen is the reference each plate is checked against.
+    // The live screen is the reference each plate is checked against. In flow
+    // mode the document is captured once, so a fixed header would show in
+    // every live screen but only once in the file: hide fixed layers below
+    // the first screen for the reference shots.
+    if (flow && i > 0) {
+      await page.evaluate(() => {
+        for (const el of document.body.querySelectorAll('*')) {
+          if (getComputedStyle(el).position === 'fixed') {
+            el.dataset.flowHidden = '1'
+            el.style.visibility = 'hidden'
+          }
+        }
+      })
+    }
     shots.push(await page.screenshot())
+    if (!flow) plates.push(await page.evaluate(capturePlate, HIDE))
+  }
+  if (flow) {
+    await page.evaluate(() => {
+      document.querySelectorAll('[data-flow-hidden]').forEach((el) => {
+        el.style.visibility = ''
+        delete el.dataset.flowHidden
+      })
+      window.scrollTo({ top: 0, behavior: 'instant' })
+    })
+    await page.waitForTimeout(400)
+    await page.evaluate(settlePlate)
     plates.push(await page.evaluate(capturePlate, HIDE))
   }
 
@@ -355,7 +405,7 @@ html,body{margin:0;padding:0;background:#fff}
       const sty = (pairs) => pinViewportUnits((pairs.find(([k]) => k === 'style') || [, ''])[1])
       // Custom elements, so a page rule on `section` or `div` cannot style the
       // wrappers (a page's own `section { padding }` once doubled every inset).
-      return `<x-plate class="plate" data-plate="${i + 1}" data-scroll-y="${p.scrollY}">
+      return `<x-plate class="plate"${flow ? ` style="height:${Math.max(total, HEIGHT)}px"` : ''} data-plate="${i + 1}" data-scroll-y="${p.scrollY}">
 <x-plate-root class="plate-root ${cls(p.html)}" ${htmlAttrs} style="margin-top:-${p.scrollY}px;${sty(p.html)}">
 <x-plate-body class="plate-body ${cls(p.body)}" ${bodyAttrs} style="${sty(p.body)}">${renderInner(p.inner)}</x-plate-body></x-plate-root></x-plate>`
     })
@@ -369,10 +419,10 @@ html,body{margin:0;padding:0;background:#fff}
 ${body}
 </body></html>
 `
-  return { doc, plates: plates.length, pageHeight: total, lastScrollY: last, shots }
+  return { doc, plates: plates.length, screens: shots.length, pageHeight: total, lastScrollY: last, shots }
 }
 
-async function measure(browser, file, plates, shots) {
+async function measure(browser, file, shots, expectedHeight) {
   const page = await browser.newPage({ viewport: { width: WIDTH, height: HEIGHT } })
   const errors = []
   page.on('pageerror', (e) => errors.push(String(e)))
@@ -385,14 +435,16 @@ async function measure(browser, file, plates, shots) {
   }))
   // Each plate, rendered from the file, against the live screen it was taken from.
   const diffs = []
-  for (let i = 0; i < plates; i++) {
-    const got = await page.screenshot({ clip: { x: 0, y: i * HEIGHT, width: WIDTH, height: HEIGHT }, fullPage: true })
+  for (let i = 0; i < shots.length; i++) {
+    // the last live screen stops where the page ends, not on a multiple of the height
+    const y = Math.min(i * HEIGHT, Math.max(0, expectedHeight - HEIGHT))
+    const got = await page.screenshot({ clip: { x: 0, y, width: WIDTH, height: HEIGHT }, fullPage: true })
     diffs.push(Number((await difference(got, shots[i])).toFixed(4)))
   }
   await page.close()
   return {
     ...stats,
-    expectedHeight: plates * HEIGHT,
+    expectedHeight,
     errors: errors.length,
     plateDiff: diffs,
     worstDiff: Math.max(...diffs),
@@ -421,16 +473,21 @@ for (const d of cfg.directions) {
       // The live page, for a second, viewport-sized frame that can be presented.
       ...(isRemote(v.url) ? {} : { live: relative(dir, resolve(v.url)) }),
       round: d.key,
-      mode: 'plates',
+      mode: flowMode ? 'flow' : 'plates',
       capturedAt: new Date().toISOString(),
     }
-    const page = await browser.newPage({ viewport: { width: WIDTH, height: HEIGHT }, deviceScaleFactor: 1 })
+    const page = await browser.newPage({
+      viewport: { width: WIDTH, height: HEIGHT },
+      deviceScaleFactor: 1,
+      ...(flowMode ? { reducedMotion: 'reduce' } : {}),
+    })
     const consoleErrors = []
     page.on('pageerror', (e) => consoleErrors.push(String(e)))
     try {
-      const built = await buildPlates(page, toUrl(v.url))
+      const built = await buildPlates(page, toUrl(v.url), flowMode)
       writeFileSync(file, built.doc)
-      Object.assign(entry, await measure(browser, file, built.plates, built.shots), {
+      const expected = flowMode ? Math.max(built.pageHeight, HEIGHT) : built.plates * HEIGHT
+      Object.assign(entry, await measure(browser, file, built.shots, expected), {
         plates: built.plates,
         pageHeight: built.pageHeight,
         bytes: statSync(file).size,

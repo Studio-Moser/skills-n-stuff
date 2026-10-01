@@ -150,6 +150,14 @@ while in-flow content shifts up by the plate's scroll offset; fonts and images
 inlined once and referenced from every plate. Text stays text, so comments can
 still be pinned to elements.
 
+**`--flow`, for a page with a real reduced-motion layout.** Under
+`prefers-reduced-motion` a well-built page is a normal long-scroll document:
+no fixed stage, every scene present in flow in its final lockup. `--flow`
+loads the page that way, refuses it if a fixed or sticky layer still covers
+the viewport ("not a long-scroll layout under reduced motion", which is also an
+accessibility finding about the page), and captures it once as a single
+document instead of stacked plates: one copy of the DOM, no repeated header.
+
 **The check.** Each plate is rendered from the file and compared with a
 screenshot of the live page at that stop. `plateDiff` records the difference
 per plate; 0.0005 is typical, and the run exits 1 above 1%. Read the flagged

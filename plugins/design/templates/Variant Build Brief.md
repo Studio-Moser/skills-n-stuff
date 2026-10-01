@@ -161,8 +161,12 @@ Pass/fail lines. A variant clears every one before it is captured.
 - [ ] WCAG AA contrast for every piece of text, including text over colour, at
       every breakpoint.
 - [ ] Layout holds at 390px: no horizontal scroll, no overlapped or hidden copy.
-- [ ] All motion collapses under `prefers-reduced-motion`; no idle motion
-      survives.
+- [ ] Under `prefers-reduced-motion` the page is a normal long-scroll document:
+      no fixed or sticky stage, every scene's ground, imagery and type present
+      in flow in its final lockup, nothing that exists only in a scroll state,
+      and no idle motion. Stopping the animations is not enough; a stage frozen
+      on its first scene hides every other scene from the people who asked for
+      less motion. (`freeze.mjs --flow` tests this.)
 - [ ] Visible focus ring on every interactive element, on every ground.
 - [ ] No font-swap layout shift beyond the current baseline.
 - [ ] {copy rules that are checkable: punctuation, casing}

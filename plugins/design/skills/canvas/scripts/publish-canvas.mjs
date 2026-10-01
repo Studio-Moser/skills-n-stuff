@@ -4,7 +4,7 @@
 // re-lays the grid, so a direction added later slots into row order instead of
 // landing on another row.
 //
-// Usage: node publish-canvas.mjs --dir <directions dir> --canvas "<canvas name>" [--only <prefix>] [--invite a@x.com,b@y.com] [--signup]
+// Usage: node publish-canvas.mjs --dir <directions dir> --canvas "<canvas name>" [--only <prefix>] [--embed-source] [--invite a@x.com,b@y.com] [--signup]
 //
 // <directions dir> holds one folder per direction; each folder with a
 // Snapshots.json (written by freeze.mjs or by hand) is published. Env:
@@ -78,6 +78,21 @@ for (const email of (flag('--invite') ?? process.env.DOOP_INVITE ?? '').split(',
 }
 const full = await api('GET', `/api/canvases/${canvas.id}`)
 const existing = new Map((full.frames ?? []).map((f) => [f.name, f]))
+// A variant's live page: its own self-contained file (manifest `live`), or,
+// with --embed-source, the address it was frozen from when that address is
+// durable (a static export of the real build, not a dev server). The embed is
+// lazy so a canvas of fifty running pages loads only what is near the viewport.
+// The host must send Access-Control-Allow-Origin: a frame is sandboxed, so the
+// page inside has an opaque origin and fonts and CSS masks are fetched in CORS
+// mode (preview:serve-preview static previews do).
+const EMBED_SOURCE = args.includes('--embed-source')
+function liveFor(d, v, name) {
+  if (v.live && existsSync(resolve(DIRECTIONS, d, v.live))) return readFileSync(resolve(DIRECTIONS, d, v.live), 'utf8')
+  const url = v.liveUrl ?? (EMBED_SOURCE && /^https?:/.test(v.source ?? '') ? v.source : null)
+  if (!url) return null
+  return `<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;height:100%;overflow:hidden;background:#fff}iframe{border:0;width:100%;height:100%;display:block}</style></head><body><iframe src="${url}" title="${name.replace(/"/g, '&quot;')}" loading="lazy"></iframe></body></html>`
+}
+
 async function upsert(name, props) {
   const prior = existing.get(name)
   return prior
@@ -99,7 +114,7 @@ for (const d of folders) {
   // Lines of PER_LINE frames, each line as tall as its tallest frame.
   for (let start = 0; start < variants.length; start += PER_LINE) {
     const line = variants.slice(start, start + PER_LINE)
-    const liveBand = line.some((v) => v.live) ? DEFAULT_HEIGHT + GAP_LIVE : 0
+    const liveBand = line.some((v) => liveFor(d, v, '')) ? DEFAULT_HEIGHT + GAP_LIVE : 0
     let x = 0
     for (const v of line) {
       const letter = v.id.length === 1 ? v.id.toUpperCase() : v.id
@@ -111,9 +126,9 @@ for (const d of folders) {
       count++
       // The live page, one screen tall, above its plates: select it and press
       // Present to scroll it with its motion running.
-      if (v.live && existsSync(resolve(DIRECTIONS, d, v.live))) {
-        const liveHtml = readFileSync(resolve(DIRECTIONS, d, v.live), 'utf8')
-        await upsert(`${name} (live)`, { html: liveHtml, x, y, width, height: DEFAULT_HEIGHT })
+      const live = liveFor(d, v, name)
+      if (live) {
+        await upsert(`${name} (live)`, { html: live, x, y, width, height: DEFAULT_HEIGHT })
         count++
       }
       x += width + GAP_X

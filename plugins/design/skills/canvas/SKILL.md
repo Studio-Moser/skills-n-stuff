@@ -72,8 +72,21 @@ DOOP_URL=https://preview-doop.<tailnet>.ts.net DOOP_EMAIL=… DOOP_PASSWORD="$(c
 
 One block per direction folder (sorted), eight frames to a line
 (`--per-line`), one full-height frame per variant named
-`<Folder> · <X> <Title>`, plus `<…> (live)` above it when the manifest entry
-has a `live` file. Canvases are private to the publishing account;
+`<Folder> · <X> <Title>`, plus `<…> (live)` above it when the variant has a
+live page: its own self-contained file (`live` in the manifest), or a durable
+address (`liveUrl`, or the address it was frozen from with `--embed-source`).
+
+**Keeping a framework build playable.** A variant built as a route in a real
+stack cannot go in a frame as a file: its motion is its scripts. Build the
+branch as a production static site, serve it with
+`preview:serve-preview up-static` at a stable address, and let the live frame
+embed that address; Present then scrolls the real build with its motion
+running. Use a URL that needs no redirect (a trailing slash for a
+directory-style export: a redirect to `http://` behind the TLS proxy is
+blocked as mixed content). The static host must send
+`Access-Control-Allow-Origin`, because the page inside a sandboxed frame has
+an opaque origin and fonts and CSS `mask-image` are fetched in CORS mode; a
+masked logo that vanishes is the symptom. Canvases are private to the publishing account;
 pass `--invite you@example.com` (or `DOOP_INVITE`) so the people who review it
 can open it, after they have signed up on the server. Re-running updates frames by name and re-lays the
 grid. It signs in with email and password over the REST API, so it needs no
