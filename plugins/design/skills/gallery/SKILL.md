@@ -146,16 +146,20 @@ and each variant links to its own page, which any static server rooted at the
 project serves (`python3 -m http.server 4600` from the project root, the
 gallery, or a shared host). The Figma plugin in this repository's
 `figma/Design Gallery` folder shows the page of whichever variant is selected,
-inside Figma, from that link alone.
+inside Figma, from the address stored on the variant's frame.
 
 Place a round through the Figma MCP:
 
-1. One section per direction (or round), one column per variant: a header row
-   with the variant's label and a text link, **Open live preview**, to the
-   variant's page at its path in the project:
+1. One section per direction (or round), one column per variant. Store the
+   variant's page address on the column frame, which is what the plugin reads:
+   `column.setSharedPluginData('design_gallery', 'page', '<address>')`. For
+   people without the plugin, the header row may also carry a text link,
+   **Open live preview**, to the same address. The address is the variant's
+   page at its path in the project:
    `<server address>/<directions dir>/<NN Name>/Homepage <X> - <Title>.html`
    for a source page, or `<server address>/<directions dir>/<NN Name>/Build/<build>`
-   for a framework build. Beneath it, a vertical auto-layout with no spacing or
+   for a framework build. Beneath the header row with the variant's label, a
+   vertical auto-layout with no spacing or
    padding holding one frame per screen, each `1440 × <screen height>` from
    `Frames.json` (900, the last one shorter). A mobile column beside it is the
    same with `360 × <height>` frames from the `mobile` list.

@@ -9,13 +9,14 @@ panel is the bridge, so reviewing a variant does not mean leaving the file.
 
 ## What it needs
 
-1. **A link on each variant.** The variant's label in Figma carries a link to
-   the variant's page ("Open live preview"). That link is the whole contract:
-   the plugin loads whatever page it points at.
-2. **Something serving that page over `http`.** Any static server rooted at
-   the project will do, for example `python3 -m http.server 4600` from the
-   project root; so will the design plugin's gallery, or a shared host. A
-   plugin panel cannot open a file straight from disk.
+1. **A frame that knows its page.** The address of a variant's page is stored
+   on its frame in Figma, as shared plugin data (namespace `design_gallery`,
+   key `page`). Nothing is drawn on the canvas for it. Set it in the panel, or
+   from any tool that can write shared plugin data:
+   `frame.setSharedPluginData('design_gallery', 'page', '<address>')`.
+2. **Something serving that page over `http`.** The project's own dev server,
+   any static server rooted at the project (`python3 -m http.server 4600`),
+   or a shared host. A plugin panel cannot open a file straight from disk.
 
 Nothing else: no gallery, no data endpoint, no build step.
 
@@ -33,36 +34,46 @@ the plugin again.
 
 ## Use
 
-1. Run the plugin and select a variant: its label, one of its screens, or its
-   whole column.
-2. The panel shows that variant's page. The buttons in its bar: fill the
-   panel, laptop (1440 × 900), tablet (834 × 1112), phone (360 × 800), reload,
-   and the server address. A size larger than the panel is scaled to fit and
-   the bar says by how much.
+1. Run the plugin and select a variant's frame, or anything inside it. The
+   panel shows its page.
+2. The buttons in the bar: fill the panel, laptop (1440 × 900), tablet
+   (834 × 1112), phone (360 × 800), this frame's page, reload, and the server
+   address. A size larger than the panel is scaled to fit and the bar says by
+   how much.
 3. Drag the right or bottom edge of the page, or its corner, to try other
    sizes.
 4. Drag the grip in the window's bottom-right corner to resize the plugin's
    window; the page refits.
 
-Selecting a layer that is not part of a variant says so and clears the panel.
+Selecting a layer with no page says so and clears the panel.
+
+## Giving a frame a page
+
+Select the variant's whole frame (its column), press the link button, enter
+the page's address, and save. Remove takes it away again. The address lives on
+the frame in the file, so it is there for everyone who uses the plugin, and it
+stays with the frame when it is moved, renamed, or duplicated. The row also
+lists every frame on the current canvas page that has one; pressing a name
+selects that frame.
 
 ## How it finds a variant
 
-A variant is the smallest layer that holds both a link to a page and the
-variant's pictures: from the linked text, the first layer above it that
-contains an image. A selection belongs to a variant when it is that layer or
-inside it. So in a row of variants where only one has a link, selecting
-another one, or the row, shows no preview. Links to other Figma files do not
-count. The panel's title is the first text in the variant that is not the
-link.
+It walks up from the selection to the nearest layer that has a page stored on
+it. The panel's title is the first text in that frame, or the frame's name.
+
+A frame with none falls back to a link: a text layer that links to a page
+("Open live preview"). That variant is the smallest layer holding both the
+link and the variant's pictures, so a neighbour without a link shows no
+preview. The link also works for people without the plugin, since clicking it
+opens the page in a browser. Links to other Figma files do not count.
 
 ## The server address
 
-By default each link opens as written, so a file whose links point at
-`http://127.0.0.1:4600` works on a machine serving the project there. To use
-another server without rewriting the links (a shared host, say), set its
-address with the gear: it replaces the server part of every link, for every
-variant, in any file. It is each person's own setting, kept in Figma's plugin
+By default each page opens at the address stored for it, so a file whose
+addresses point at `http://localhost:3000` works on a machine serving the
+project there. To use another server without changing them (a shared host,
+say), set its address with the gear: it replaces the server part of every
+address, for every variant, in any file. It is each person's own setting, kept in Figma's plugin
 storage, and changes nothing in the file.
 
 ## Limits

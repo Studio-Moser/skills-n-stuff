@@ -52,6 +52,8 @@
     background: var(--figma-color-bg, #fff); border: 1px solid var(--figma-color-border, #e6e6e6); border-radius: 6px;
   }
   .settings .hint { color: var(--figma-color-text-secondary, #777); }
+  .frames { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 4px; max-height: 84px; overflow: auto; }
+  .frames button { height: 24px; padding: 0 8px; border: 1px solid var(--figma-color-border, #e6e6e6); max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
   .grip { position: fixed; right: 0; bottom: 0; width: 18px; height: 18px; cursor: nwse-resize; touch-action: none; z-index: 5; }
   .grip::after { content: ""; position: absolute; right: 4px; bottom: 4px; width: 8px; height: 8px; border-right: 2px solid var(--figma-color-border-strong, #999); border-bottom: 2px solid var(--figma-color-border-strong, #999); }
   body.dragging iframe { pointer-events: none; }
@@ -66,6 +68,7 @@
   <button type="button" data-preset="mobile" title="Phone · 360 × 800" aria-label="Phone, 360 by 800"><svg viewBox="0 0 24 24"><path d="M6 5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2z"/><path d="M11 4h2"/><path d="M12 17v.01"/></svg></button>
   <span class="size" id="size"></span>
   <span class="grow"></span>
+  <button type="button" id="link" title="This frame's page" aria-label="This frame's page" aria-expanded="false"><svg viewBox="0 0 24 24"><path d="M9 15l6-6"/><path d="M11 6l.463-.536a5 5 0 0 1 7.071 7.072L18 13"/><path d="M13 18l-.397.534a5.068 5.068 0 0 1-7.127 0a4.972 4.972 0 0 1 0-7.071L6 11"/></svg></button>
   <button type="button" id="reload" title="Reload" aria-label="Reload" disabled><svg viewBox="0 0 24 24"><path d="M20 11A8.1 8.1 0 0 0 4.5 9M4 5v4h4"/><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4"/></svg></button>
   <button type="button" id="gear" title="Server address" aria-label="Server address" aria-expanded="false"><svg viewBox="0 0 24 24"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 0 0-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 0 0-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 0 0-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 0 0-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 0 0 1.066-2.573c-.94-1.543.826-3.31 2.37-2.37c1 .608 2.296.07 2.572-1.065"/><path d="M9 12a3 3 0 1 0 6 0a3 3 0 0 0-6 0"/></svg></button>
 </div>
@@ -75,8 +78,16 @@
   <button type="button" id="save">Save</button>
   <span class="hint">Replaces the server part of every variant's link (for example, to use a shared host in place of your own machine), for every variant you preview with this plugin, in any file. It is your own setting and changes nothing in the file. Leave it empty to open each link as written.</span>
 </div>
+<div class="settings" id="linkrow">
+  <label for="page" id="pagelabel">Page for this frame</label>
+  <input id="page" type="url" placeholder="http://localhost:3000/path/to/the/variant.html" spellcheck="false">
+  <button type="button" id="setpage">Save</button>
+  <button type="button" id="clearpage">Remove</button>
+  <span class="hint" id="pagehint"></span>
+  <div class="frames" id="frames"></div>
+</div>
 <div class="stage" id="stage">
-  <div class="note" id="note"><b>Select a variant</b>Select a variant: its label, one of its screens, or its column. The label's link to the variant's page is how this panel finds it.</div>
+  <div class="note" id="note"><b>Select a variant</b>Select a frame that has a page, or anything inside it. To give a frame a page, select it and use the link button above.</div>
   <div class="box" id="box" hidden><iframe id="frame" title="Variant preview"></iframe>
     <div class="handle" data-axis="x" title="Drag to resize"></div><div class="handle" data-axis="y" title="Drag to resize"></div><div class="handle" data-axis="xy" title="Drag to resize"></div></div>
 </div>
@@ -93,6 +104,7 @@ let shown = [0, 0]       // the page size on screen now
 let address = ''          // the user's setting; empty means "open each link as written"
 let current = null        // the address on screen
 let wanted = null         // the link of the selected variant
+let target = null         // the frame the link row edits: { id, name }
 const IDLE = note.innerHTML.replace(/^<b>.*?<\/b>/, '')
 
 // The page at its real size, scaled down when the panel is smaller.
@@ -153,10 +165,33 @@ onmessage = (event) => {
   if (!message) return
   if (message.type === 'settings') { address = message.address; $('address').value = address }
   if (message.type === 'selection') {
-    wanted = message.variant ? message.variant.url : null
+    const v = message.variant
+    wanted = v ? v.url : null
+    // The link row edits the frame that owns the page, else the selected layer.
+    target = v && v.via === 'frame' ? { id: v.ownerId, name: v.ownerName } : message.selected
+    $('link').classList.toggle('active', Boolean(v && v.via === 'frame'))
+    $('pagelabel').textContent = target ? 'Page for “' + target.name + '”' : 'Page for this frame'
+    $('page').value = v && v.via === 'frame' ? v.url : ''
+    $('page').disabled = $('setpage').disabled = !target
+    $('clearpage').disabled = !(v && v.via === 'frame')
+    $('pagehint').textContent = !target ? 'Select a frame first.'
+      : v && v.via === 'frame' ? 'Stored on the frame, in this file, for everyone who uses the plugin. Selecting the frame or anything inside it shows this page.'
+      : v ? 'This layer now gets its page from a link beside it. Saving an address here stores it on the selected layer instead.'
+      : 'Stored on the selected layer, in this file, for everyone who uses the plugin. Select the whole variant (its column or frame) before saving.'
     if (!message.selected) return say('Select a variant', IDLE)
-    if (!message.variant) return say('No preview for this selection', 'This layer is not part of a variant with a page. A variant is recognised by the link on its label to its page (“Open live preview”).')
-    show(message.variant)
+    if (!v) return say('No preview for this selection', 'This layer has no page. To give it one, use the link button above.')
+    show(v)
+  }
+  if (message.type === 'list' && message.frames) {
+    const frames = $('frames')
+    frames.replaceChildren(...message.frames.map((f) => {
+      const b = document.createElement('button')
+      b.type = 'button'
+      b.dataset.select = f.id
+      b.textContent = f.name
+      b.title = f.url
+      return b
+    }))
   }
 }
 
@@ -166,6 +201,10 @@ document.addEventListener('click', (event) => {
   if (button.dataset.preset) { preset = button.dataset.preset; render() }
   if (button.id === 'reload' && current) frame.src = current
   if (button.id === 'gear') { const open = $('settings').classList.toggle('open'); button.setAttribute('aria-expanded', open); render() }
+  if (button.id === 'link') { const open = $('linkrow').classList.toggle('open'); button.setAttribute('aria-expanded', open); if (open) send({ type: 'list' }); render() }
+  if (button.id === 'setpage' && target) { const value = $('page').value.trim(); if (/^https?:\/\//i.test(value)) { current = null; send({ type: 'setPage', id: target.id, value }) } else $('pagehint').textContent = 'Enter an address that starts with http:// or https://.' }
+  if (button.id === 'clearpage' && target) { current = null; send({ type: 'setPage', id: target.id, value: '' }) }
+  if (button.dataset.select) send({ type: 'select', id: button.dataset.select })
   if (button.id === 'save') {
     address = $('address').value.trim().replace(/\/+$/, '')
     current = null
