@@ -57,6 +57,8 @@ function requireFirst(names) {
 const { chromium } = requireFirst(['@playwright/test', 'playwright'])
 const sharp = requireFirst(['sharp'])
 
+const words = (s) => String(s ?? '').replace(/^[A-Za-z],\s*/, '').toLowerCase().replace(/[^a-z0-9]+/g, '')
+const sameWords = (a, b) => words(a) === words(b)
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
 function premiseFor(folder, manifest) {
@@ -89,16 +91,16 @@ function coverHtml({ number, name, round, premise, variants, date }) {
 html,body{margin:0}
 body{width:1440px;height:900px;overflow:hidden;background:#f6f3ec;color:#1b1d1f;font-family:Georgia,'Times New Roman','Liberation Serif',serif;display:grid;grid-template-columns:560px 1fr}
 .id{padding:64px 0 56px 72px;display:flex;flex-direction:column}
-.project{font:600 20px/1 system-ui,-apple-system,'Liberation Sans',Arial,sans-serif;letter-spacing:.02em}
+.project{font:600 20px/1 'Helvetica Neue',Helvetica,Arial,'Liberation Sans',system-ui,sans-serif;letter-spacing:.02em}
 .number{font-size:230px;line-height:.86;margin:54px 0 0 -8px;letter-spacing:-.04em}
 h1{font-size:92px;line-height:.98;font-weight:400;margin:14px 0 0;letter-spacing:-.02em}
-.round{font:500 26px/1.2 system-ui,-apple-system,'Liberation Sans',Arial,sans-serif;margin-top:16px;opacity:.7}
+.round{font:500 26px/1.2 'Helvetica Neue',Helvetica,Arial,'Liberation Sans',system-ui,sans-serif;margin-top:16px;opacity:.7}
 .premise{font-size:21px;line-height:1.42;margin:28px 0 0;max-width:440px}
-.meta{margin-top:auto;font:500 17px/1.4 system-ui,-apple-system,'Liberation Sans',Arial,sans-serif;opacity:.62}
+.meta{margin-top:auto;font:500 17px/1.4 'Helvetica Neue',Helvetica,Arial,'Liberation Sans',system-ui,sans-serif;opacity:.62}
 .grid{padding:64px 72px 56px 40px;display:grid;grid-template-columns:repeat(${cols},1fr);gap:22px 22px;align-content:start}
 figure{margin:0}
 figure img{display:block;width:100%;aspect-ratio:16/10;object-fit:cover;object-position:top;border:1px solid rgba(27,29,31,.16);background:#fff}
-figcaption{font:500 ${cols === 4 ? 14 : 16}px/1.3 system-ui,-apple-system,'Liberation Sans',Arial,sans-serif;margin-top:8px}
+figcaption{font:500 ${cols === 4 ? 14 : 16}px/1.3 'Helvetica Neue',Helvetica,Arial,'Liberation Sans',system-ui,sans-serif;margin-top:8px}
 figcaption b{display:inline-block;min-width:1.1em;font-weight:700}
 figcaption small{display:block;font-size:${cols === 4 ? 12 : 13}px;font-weight:400;opacity:.62;margin-top:2px}
 </style></head>
@@ -140,8 +142,9 @@ for (const d of folders) {
       tiles.push({
         letter: v.id.length === 1 ? v.id.toUpperCase() : v.id,
         title: v.title,
-        // "K, copy 13 final, built directly" -> "copy 13 final, built directly"
-        label: (v.label ?? '').replace(/^[A-Za-z],\s*/, ''),
+        // "K, copy 13 final, built directly" -> "copy 13 final, built directly";
+        // dropped when the title was made from the label and says the same
+        label: sameWords(v.label, v.title) ? '' : (v.label ?? '').replace(/^[A-Za-z],\s*/, ''),
         thumb: `data:image/jpeg;base64,${jpeg.toString('base64')}`,
       })
     }
