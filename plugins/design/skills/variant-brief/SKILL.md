@@ -47,7 +47,7 @@ already in the codebase. Do not add taste; taste belongs to the direction brief.
 | --- | --- | --- |
 | `{frozen brief}` | the identity or brand brief | sections a builder must read, by number |
 | `{copy rules}` | voice or copy rules doc | followed exactly |
-| `{directions readme}` | how a direction branch is laid out and run | |
+| `{directions readme}` | how a direction folder (`html`) or branch (`code`) is laid out and run | |
 | `{facts files}` | typed content, case studies, settings | real names and numbers only; invent nothing |
 | `{fixed items}` | frozen brief | palette hex values, marks, textures, brand rules |
 | `{off limits}` | project layout | shared layout, globals, chrome, package exports, other variants' routes |

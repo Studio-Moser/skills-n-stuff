@@ -1,17 +1,20 @@
 ---
 name: capture
 description: >-
-  Use to screenshot every variant in a design round at one fixed width, ready
-  for side-by-side review in Figma or a local gallery. Stitches viewport frames
-  instead of trusting full-page capture, cuts each shot into bands Figma's
-  editor will actually draw, and fails loudly on overflow, broken images, or a
-  blank render. Triggers: "capture the round", "shoot the variants", "update
-  the Figma shots".
+  Use to turn the variants of a design round into reviewable artifacts: freeze
+  a running page or an HTML file into plates for a canvas frame, shoot
+  per-viewport stills and motion strips for critics, or stitch banded
+  screenshots for Figma or a local gallery. Fails loudly on overflow, broken
+  images, a blank render, or a plate that differs from the live page. Triggers:
+  "freeze the round", "make plates", "capture the round", "shoot the variants",
+  "update the Figma shots".
 ---
 
 # Capture
 
-Screenshots are how the owner sees a round. Two things paint blank without an
+Plates on a canvas are how the owner sees a round (§ Freeze a page into
+plates); views are what critics and builders see (§ Views for critique). The
+stitched capture below is for Figma or a gallery. Two things paint blank without an
 error and have each cost a day: Chromium's full-page capture past 16384 device
 pixels, and Figma's editor when handed a tall image. The bundled script routes
 around both. Do not replace it with `page.screenshot({ fullPage: true })`.
@@ -125,7 +128,7 @@ The output stacks those screens in one long, self-contained file whose height
 is `plates × viewport height`.
 
 ```sh
-node "${CLAUDE_PLUGIN_ROOT}/skills/capture/scripts/freeze.mjs" <targets.json> --dir "docs/Design Directions" [--only <direction key>] [--variant <id>]
+node "${CLAUDE_PLUGIN_ROOT}/skills/capture/scripts/freeze.mjs" <targets.json> --dir "docs/Design Directions" [--only <direction key>] [--variant <id>] [--flow]
 ```
 
 Same `targets.json` as above; a variant's `url` is an http(s) address (a
@@ -161,7 +164,8 @@ document instead of stacked plates: one copy of the DOM, no repeated header.
 **The check.** Each plate is rendered from the file and compared with a
 screenshot of the live page at that stop. `plateDiff` records the difference
 per plate; 0.0005 is typical, and the run exits 1 above 1%. Read the flagged
-plate numbers before trusting a file: the diff is what caught both bugs above.
+plate numbers before trusting a file: the diff is what catches a plate frozen
+mid-fade or a display face that silently fell back.
 
 Needs Playwright with Chromium and `sharp` resolvable from the project root,
 and each page running (the script starts no servers; run dev previews one at a

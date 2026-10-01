@@ -1,6 +1,6 @@
 {
   "name": "design",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Design exploration rounds for marketing sites and product UI: fan one brief out into independent HTML variants built by different skills and models, gate first drafts with fresh-context critics that push toward each premise instead of the mean, review them as live frames on a shared Doop canvas, and harvest the owner's comments into the next brief.",
   "author": {
     "name": "Studio Moser",

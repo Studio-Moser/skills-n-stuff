@@ -46,16 +46,17 @@ fix first.
 ### Broken critic (cheap model, may run Playwright)
 
 ```
-You did not build this and have no stake in it. You receive a running URL and a
-list of gates. Measure each gate; do not judge design quality and do not edit
+You did not build this and have no stake in it. You receive a URL (a running
+route or a file:// page) and a list of gates. Measure each gate; do not judge design quality and do not edit
 source.
 
 URL: {{URL}}
 
 Gates:
 {{GATES — e.g. no horizontal scroll at 390 and 1440; no console or page errors
-after a full scroll; every visible img has naturalWidth > 0; motion collapses
-under prefers-reduced-motion: reduce; visible focus ring on every interactive
+after a full scroll; every visible img has naturalWidth > 0; under
+prefers-reduced-motion: reduce the page is a normal long-scroll document with
+no fixed or sticky stage and every scene present in flow; visible focus ring on every interactive
 element; text over colour meets AA}}
 
 For each gate return PASS or FAIL with the measured value and the element or

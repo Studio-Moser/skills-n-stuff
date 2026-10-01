@@ -1,7 +1,7 @@
 # Direction {NN}: {Name}
 
 Status: {n} variants built, awaiting owner review | exploring | retired
-Branch: `design/{name}` · Preview: {URL}
+Folder: `{directions dir}/{NN Name}` · Canvas: `{Project} · {NN Name}` (`code` medium: branch `design/{name}`, preview {URL})
 Brief: `{frozen brief path}`. Nothing here overrides it.
 Siblings: one sentence per built direction naming the role the shared device
 plays there, so this direction can say what it does that none of them do.
@@ -81,6 +81,7 @@ the device sits, and where the copy sits.
 
 ## Scope and checks
 
-Worktree, pages in scope, files a variant may touch, files it may not. Then
+Pages in scope, files a variant may touch, files it may not (`code` medium:
+the worktree as well). Then
 the project's verify commands and the craft lines that must hold before the
 variant is captured.

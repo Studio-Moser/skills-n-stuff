@@ -35,11 +35,12 @@ Two lenses, run in parallel as fresh-context subagents:
   variant that hedges toward the mean fails commitment even when nothing is
   wrong with it. No taste comments, no "more like the sibling", no
   conventional-wisdom fixes.
-- **Broken** (cheap model, may run tools). Receives the running URL and the
-  build brief's craft gates. Runs `design:capture`'s `views.mjs` for the
+- **Broken** (cheap model, may run tools). Receives the variant's URL (a
+  running route, or a `file://` page in the `html` medium) and the build
+  brief's craft gates. Runs `design:capture`'s `views.mjs` for the
   per-width report and view stills, then measures each gate: overflow at 390
-  and 1440, console and page errors, `naturalWidth` of images, reduced-motion
-  collapse, focus rings, contrast where the gate names a threshold. Returns
+  and 1440, console and page errors, `naturalWidth` of images, the
+  reduced-motion long-scroll layout, focus rings, contrast where the gate names a threshold. Returns
   PASS or FAIL with the measured value and the element.
 
 In the `html` medium the variant is a file: pass `views.mjs` a `file://` URL

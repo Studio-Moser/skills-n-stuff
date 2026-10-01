@@ -1,6 +1,6 @@
 # Variant build brief
 
-Template: design plugin 0.1.0. Text outside `{slots}` is shared discipline; copy
+Template: design plugin 0.2.1. Text outside `{slots}` is shared discipline; copy
 it as written. Fill slots from the project's own documents and point at them.
 
 You are building one variant for one direction of the {project} identity
@@ -18,8 +18,7 @@ missing, ask before building.
 **`html` (exploration).** Your variant is one file,
 `{directions dir}/{NN Name}/Homepage <X> - <Title>.html`, complete on its own:
 inline `<style>`, fonts by `@font-face` with a self-hosted or data URL, images
-inline or from the project's imagery folder, no framework, no build step, no
-build step. The
+inline or from the project's imagery folder, no framework, no build step. The
 direction's shared type and tokens live in `{NN Name}/tokens.css`; the first
 variant writes it, later variants paste it into their `<style>` unchanged (a
 frame on the canvas cannot fetch a relative file). It is a normal page: it
@@ -40,7 +39,8 @@ apply in full.
   Read {the sections a builder needs, by number}. The pass/fail rubric is not
   there; it is § Done gates in this file.
 - `{copy rules}`: follow them exactly.
-- `{directions readme}`: how a direction branch is laid out and run.
+- `{directions readme}`: how a direction folder (`html`) or branch (`code`) is
+  laid out and run.
 - **Your direction's brief.** It is the design decision, already made. Execute
   that premise; do not substitute a new one. If you believe the premise is
   wrong, say so in your report and build it anyway. Its **Carry forward**
@@ -52,7 +52,8 @@ apply in full.
   separate axes: the same copy is used by variants in several directions, so
   the words are not yours to re-argue.
 - **Every variant that already exists for this direction**, listed in
-  `{registry}`. You cannot make a different argument from the others without
+  `{registry}` (`html`: the direction folder's `Snapshots.json` and the pages
+  beside it). You cannot make a different argument from the others without
   knowing what they argue.
 - `{facts files}`: the real facts when your copy direction does not supply
   one. Real names, years, nouns, and numbers only. Invent nothing. Where copy
@@ -72,7 +73,8 @@ system to suit your layout. If a component genuinely does not fit, write a new
 one inside your own route folder and say why in your report. A parallel set of
 near-identical components is the wrong answer.
 
-Either way, everything you write lives in your own route folder.
+Either way, everything you write lives in your own file (`html`) or route
+folder (`code`).
 
 ## What "a different argument" means
 
@@ -97,9 +99,11 @@ lives in}
 other variant's route folder; on a direction that already has variants, also
 its tokens, fonts, recipes, and components}
 
-One exception: register yourself in `{registry}` when you are done. It is the
-direction's index of its own variants and the only shared file you may append
-to. Entry shape: {entry shape}.
+One exception, in the `code` medium: register yourself in `{registry}` when
+you are done. It is the direction's index of its own variants and the only
+shared file you may append to. Entry shape: {entry shape}. In the `html` medium
+you register nowhere; freezing the round writes the direction's
+`Snapshots.json`.
 
 ## Where variants live
 
@@ -181,10 +185,11 @@ hero-metric template, identical repeating card grids, nested cards}
 
 At 1440 and 390 wide: no horizontal overflow
 (`document.documentElement.scrollWidth <= clientWidth`), every visible image
-has `naturalWidth > 0`, no console or page errors after a full scroll, motion
-still under `prefers-reduced-motion: reduce`. Then screenshot both widths.
+has `naturalWidth > 0`, no console or page errors after a full scroll, and
+under `prefers-reduced-motion: reduce` the page is the long-scroll document the
+craft gate describes. Then screenshot both widths.
 
-Then run {verify: the project's typecheck, lint, test, format commands}.
+In the `code` medium, then run {verify: the project's typecheck, lint, test, format commands}.
 
 ## Report
 

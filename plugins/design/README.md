@@ -14,10 +14,10 @@ brief, and the briefs turn prescriptive as the exploration converges.
 
 | Skill | Role | What |
 | --- | --- | --- |
-| `/design:fan-out` | Round runner | Validates a round sheet (max seven variants, one skill each), prepares worktrees, dispatches builders as local subagents or through Harness, gates first drafts, captures, and writes the round index |
+| `/design:fan-out` | Round runner | Validates a round sheet (max seven variants, one skill each), prepares the medium (files for `html`, worktrees for `code`), dispatches builders as local subagents or through Harness, gates first drafts, freezes, writes covers, publishes, and writes the round index |
 | `/design:variant-brief` | Brief author | Cuts the project's variant build brief from the shared template, keeping the discipline verbatim and filling the project's slots |
 | `/design:first-draft-critic` | Critic loop | Explore mode (two lenses, pushes toward the premise, two rounds) inside a fan-out; gauntlet mode (three lenses against a written done bar, five rounds) for convergence and hero pieces |
-| `/design:canvas` | Review surface | One self-hosted Doop server for every project; publishes a project's plates as full-height frames (a block per direction, a live one-screen frame above each `html` variant for Present) and harvests element-pinned comments into the next brief's Carry forward |
+| `/design:canvas` | Review surface | One self-hosted Doop server for every project; publishes each direction as its own canvas (a cover first, a full-height frame of plates per variant, a live one-screen frame above each `html` variant for Present) and harvests element-pinned comments into the next brief's Carry forward |
 | `/design:capture` | Freezes and screenshots | `freeze.mjs` freezes a running page or an HTML file into plates (one settled screen per scroll stop, checked against the live page); `views.mjs` shoots per-viewport stills and motion strips for critics; stitched, banded captures for Figma when that is the destination |
 
 ## Templates
@@ -51,7 +51,7 @@ brief, and the briefs turn prescriptive as the exploration converges.
 4. `first-draft-critic` in explore mode gives each variant one fix pass against
    its own Wins if / Loses if and the craft gates. No system lens, no taste
    opinions.
-5. `canvas` publishes the round as frames; the round index records method,
+5. `canvas` publishes each direction as its own canvas, cover first; the round index records method,
    resolved model, file, frame name, and remaining fails.
 6. The owner looks on the canvas and pins comments; `canvas` § Harvest turns
    them into the next briefs' Carry forward. When Carry forward stops gaining
