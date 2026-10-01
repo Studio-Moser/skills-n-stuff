@@ -114,16 +114,26 @@ root:
 node "${CLAUDE_PLUGIN_ROOT}/skills/gallery/scripts/frames.mjs" --dir "docs/Design Directions" [--only <NN>] [--force]
 ```
 
-It writes, per variant, `Frames/<variant>.webp` (the whole scroll, 640px
-wide, for the gallery's grids), `Frames/<variant>/01.webp …` (the same picture
-at 1440px in bands no taller than 2048px, for Figma), and an entry in
-`Frames/Frames.json` with the sizes. It skips a picture that is newer than its
-page. A source page is pictured as a
+It pictures each variant one screen at a time, at two sizes, so every image
+is one full screen of the page: usable alone as a thumbnail, and stacked as
+the whole scroll.
+
+- `Frames/<variant>/desktop/01.webp …`: 1440 × 900 each.
+- `Frames/<variant>/mobile/01.webp …`: 360 × 800 each.
+- `Frames/<variant>.webp`: the whole desktop scroll at 640px wide, which the
+  gallery's grids show.
+- `Frames/Frames.json`: the sizes, the screens, and what each was taken from.
+
+It skips a variant whose pictures are newer than its page. A source page is pictured as a
 reader who asked for reduced motion gets it, with viewport heights pinned to a
 900px screen: the build brief requires that layout to be a normal long-scroll
 page with every scene present, so a variant that fails that gate shows up here
 as an incomplete picture. A variant with plates at least as new as its source
-is pictured from the plates. The gallery marks a picture whose page has
+is pictured from the plates. Mobile needs a page that responds to width,
+which plates do not: a source page is pictured as above, and a variant that
+is a page in the direction's `Build/` is opened from there with its motion
+running and pictured as it is scrolled a screen at a time. A variant with
+neither has no mobile pictures. The gallery marks a picture whose page has
 changed since with an amber dot, and shows a short live thumbnail for a variant
 that has no picture yet. Needs Playwright with Chromium and `sharp` resolvable
 from the project.
@@ -139,11 +149,14 @@ Figma MCP:
 1. One section per direction (or round), one column per variant: a header row
    with the variant's label and a text link, **Open live preview**, to
    `<gallery address>/direction/<NN Name>?preview=<letter>`; beneath it a
-   vertical auto-layout with no spacing or padding holding one frame per band,
-   each `1440 × <band height>` from `Frames.json`.
-2. Upload the bands with `upload_assets`, passing the band frames' ids in
-   order, then send each `Frames/<variant>/NN.webp` to its returned address.
-   Re-uploading to the same frames replaces the pictures and keeps the layout.
+   vertical auto-layout with no spacing or padding holding one frame per
+   screen, each `1440 × <screen height>` from `Frames.json` (900, the last one
+   shorter). A mobile column beside it is the same with `360 × <height>`
+   frames from the `mobile` list.
+2. Upload the screens with `upload_assets`, passing the frames' ids in order,
+   then send each `Frames/<variant>/desktop/NN.webp` (or `mobile/NN.webp`) to
+   its returned address. Re-uploading to the same frames replaces the pictures
+   and keeps the layout.
 3. Never place the whole scroll as one image. Figma shrinks an image past
    4096px on a side, and its editor has painted very tall images blank with no
    error.
