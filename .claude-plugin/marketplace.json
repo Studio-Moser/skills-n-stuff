@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Claude Code plugins by Studio Moser — strategy, research, design, and product development tools.",
-    "version": "0.24.0",
+    "version": "0.25.0",
     "pluginRoot": "./plugins"
   },
   "plugins": [
@@ -36,7 +36,7 @@
         "growth",
         "deep-dive"
       ],
-      "version": "0.6.0"
+      "version": "0.7.0"
     },
     {
       "name": "pm",
@@ -62,7 +62,7 @@
         "triage",
         "sprint"
       ],
-      "version": "0.22.1"
+      "version": "0.23.0"
     },
     {
       "name": "harness",
@@ -88,13 +88,13 @@
         "sync",
         "agent-config"
       ],
-      "version": "2.1.2"
+      "version": "2.1.3"
     },
     {
       "name": "generate",
       "source": "./plugins/generate",
       "description": "Governed image, video, and audio generation over the Kie.ai MCP. The models are the easy part — this adds the discipline around them: prices a batch and stops for confirmation before spending, downloads every result locally before URLs expire, and logs the prompt that produced each file.",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "author": {
         "name": "Studio Moser"
       },
@@ -148,7 +148,7 @@
       "name": "preview",
       "source": "./plugins/preview",
       "description": "Create durable private local previews with stable Tailscale Service URLs and a tailnet-wide Preview Hub.",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "author": {
         "name": "Studio Moser"
       },
@@ -173,7 +173,7 @@
       "name": "design",
       "source": "./plugins/design",
       "description": "Design exploration rounds: fan one brief out into independent HTML variants built by named skills and models, gate first drafts with fresh-context critics, picture them and place the round in a Figma file where each variant opens its live page, edit variants in the page with impeccable live, and carry what the owner wants into the next brief.",
-      "version": "0.5.0",
+      "version": "0.5.1",
       "author": {
         "name": "Studio Moser"
       },
