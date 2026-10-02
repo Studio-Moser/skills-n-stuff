@@ -44,6 +44,13 @@ PY
 from pathlib import Path
 import sys
 
+def read_skill(path):
+    # sprint-dev keeps its fixed-target review loop in a directly linked reference.
+    text = path.read_text()
+    if path.parent.name == "sprint-dev":
+        text += (path.parents[2] / "references/sprint-review-loop.md").read_text()
+    return text
+
 root = Path(sys.argv[1]) / "plugins" / "pm"
 contracts = {
     "dev-task": (
@@ -76,7 +83,7 @@ contracts = {
 
 failures = []
 for name, (path, required) in contracts.items():
-    text = path.read_text()
+    text = read_skill(path)
     normalized = " ".join(text.split()).lower()
     missing = [value for value in required if value.lower() not in normalized]
     if missing:
@@ -96,6 +103,13 @@ from pathlib import Path
 import re
 import sys
 
+def read_skill(path):
+    # sprint-dev keeps its fixed-target review loop in a directly linked reference.
+    text = path.read_text()
+    if path.parent.name == "sprint-dev":
+        text += (path.parents[2] / "references/sprint-review-loop.md").read_text()
+    return text
+
 root = Path(sys.argv[1]) / "plugins" / "pm"
 sources = {
     "dev-task": root / "skills/dev-task/SKILL.md",
@@ -106,7 +120,7 @@ sources = {
 }
 
 def packets(path):
-    return re.findall(r"```yaml\n(operation: .*?)\n```", path.read_text(), re.DOTALL)
+    return re.findall(r"```yaml\n(operation: .*?)\n```", read_skill(path), re.DOTALL)
 
 packet_sets = {name: packets(path) for name, path in sources.items()}
 failures = []
@@ -185,7 +199,14 @@ from pathlib import Path
 import re
 import sys
 
-text = (Path(sys.argv[1]) / "plugins/pm/skills/sprint-dev/SKILL.md").read_text()
+def read_skill(path):
+    # sprint-dev keeps its fixed-target review loop in a directly linked reference.
+    text = path.read_text()
+    if path.parent.name == "sprint-dev":
+        text += (path.parents[2] / "references/sprint-review-loop.md").read_text()
+    return text
+
+text = read_skill(Path(sys.argv[1]) / "plugins/pm/skills/sprint-dev/SKILL.md")
 packets = re.findall(r"```yaml\n(operation: review.*?)\n```", text, re.DOTALL)
 failures = []
 if len(packets) != 1:
@@ -221,7 +242,14 @@ from pathlib import Path
 import re
 import sys
 
-text = (Path(sys.argv[1]) / "plugins/pm/skills/sprint-dev/SKILL.md").read_text()
+def read_skill(path):
+    # sprint-dev keeps its fixed-target review loop in a directly linked reference.
+    text = path.read_text()
+    if path.parent.name == "sprint-dev":
+        text += (path.parents[2] / "references/sprint-review-loop.md").read_text()
+    return text
+
+text = read_skill(Path(sys.argv[1]) / "plugins/pm/skills/sprint-dev/SKILL.md")
 packets = re.findall(r"```yaml\n(operation: review.*?)\n```", text, re.DOTALL)
 failures = []
 if len(packets) != 1:
