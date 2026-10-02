@@ -1,8 +1,7 @@
 ---
 name: weekly-strategist
 description: >-
-  Use when the last 7 daily reports and current market evidence need a weekly
-  strategy brief, exactly three priorities, and recommendations for PM ingestion.
+  Turns the last 7 daily reports and current market evidence into a weekly strategy brief with exactly three priorities and recommendations for PM ingestion. Use when the weekly strategy brief is due.
 allowed-tools: "Bash Read Write Edit Skill"
 disable-model-invocation: true
 ---

@@ -1,8 +1,7 @@
 ---
 name: setup
 description: >-
-  Use when PM has not yet been configured for a workspace, or when the user explicitly
-  requests reconfiguration of its issue-tracker backend.
+  Configures PM's issue-tracker backend for a workspace. Use when PM is not yet configured or the user asks to reconfigure it.
 disable-model-invocation: true
 effort: medium
 allowed-tools: "Bash Read Write Edit ToolSearch Skill"

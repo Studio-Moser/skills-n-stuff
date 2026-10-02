@@ -1,6 +1,7 @@
 ---
 name: feature-walkthrough
-description: "Use when the user asks for, or accepts an offer of, a recorded browser walkthrough of a finished web feature."
+description: >-
+  Records a browser walkthrough video of a finished web feature. Use when the user asks for, or accepts an offer of, a recorded walkthrough.
 allowed-tools: "Bash Read Write Edit AskUserQuestion"
 ---
 

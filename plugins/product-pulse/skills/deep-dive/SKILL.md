@@ -1,6 +1,7 @@
 ---
 name: deep-dive
-description: "Use when the user asks to research or compare an external video, article, repository, or document against the current project."
+description: >-
+  Researches an external video, article, repository, or document and compares it against the current project in a cited report. Use when the user asks to research, analyze, or compare an external resource against the project.
 allowed-tools: "Bash Read Write Edit Skill"
 ---
 

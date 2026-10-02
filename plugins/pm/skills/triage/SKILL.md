@@ -1,9 +1,7 @@
 ---
 name: triage
 description: >-
-  Use when `status/needs-triage` items require keep, reject, or deduplication decisions
-  or readiness preparation before execution. Do not use for raw-report ingestion,
-  ready-item implementation, or tracker reconciliation.
+  Makes keep, reject, and deduplication decisions on `status/needs-triage` items and prepares kept items for execution. Use when items await triage. Not for raw-report ingestion, ready-item implementation, or tracker reconciliation.
 effort: high
 allowed-tools: "Bash Read Write Edit Skill"
 paths: ["**/.pm/**", "**/planning/todos.md"]

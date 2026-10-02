@@ -1,17 +1,7 @@
 ---
 name: model-rubric
 description: >-
-  Create or refresh this developer's user-global model-routing rubric — the file
-  that decides which model does which work (cheap models for bulk/mechanical work,
-  the strongest for ambiguous or taste-sensitive work). Lives at
-  ${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml, one per
-  developer; on machines with an agents repo the folder is a symlink into it,
-  so the rubric syncs across machines. Trigger: "set up my model rubric",
-  "refresh my rubric", "which model should agents use", "my rubric is stale",
-  or /harness:model-rubric.
-  Do NOT use to route a specific task right now (just read the rubric), or to
-  configure a project's issue tracker (that's /pm:setup). Harness setup invokes
-  this skill internally after discovering the current machine's capabilities.
+  Creates or refreshes this developer's user-global model-routing rubric, which decides which model does which work, at ${XDG_CONFIG_HOME:-$HOME/.config}/studio-moser/model-rubric.yml (synced through the agents repo when present). Use when asked to set up or refresh the model rubric, when it is stale, or from Harness setup. Not for routing one task or configuring a project's issue tracker.
 effort: medium
 allowed-tools: "Bash Read Write Edit WebFetch"
 disable-model-invocation: true

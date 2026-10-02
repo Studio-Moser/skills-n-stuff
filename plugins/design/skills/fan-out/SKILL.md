@@ -1,11 +1,7 @@
 ---
 name: fan-out
 description: >-
-  Use when the user wants one design exploration round: a brief and copy fanned
-  out into several independent variants, each built by a named skill and model,
-  captured for side-by-side review. Triggers: "run a round", "fan out",
-  "spawn N variants", "build directions 05 and 08 with impeccable and taste",
-  "model round". Not for choosing a winner or polishing one design.
+  Runs one design exploration round: fans a brief and copy out into independent variants, each built by a named skill and model, and captures them for side-by-side review. Use when asked to run a round, fan out, or spawn N variants. Not for choosing a winner or polishing one design.
 ---
 
 # Fan-out

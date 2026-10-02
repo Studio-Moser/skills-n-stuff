@@ -1,6 +1,7 @@
 ---
 name: dev-task
-description: "Use when one large, multi-file Feature-class change needs the managed, approval-gated workflow, or the user asks for it. Never for Polish or Small work."
+description: >-
+  Runs the managed, approval-gated workflow for one large, multi-file Feature-class change. Use when such a change needs that workflow or the user asks for it. Never for Polish or Small work.
 allowed-tools: "Bash Read Write Edit Skill"
 ---
 

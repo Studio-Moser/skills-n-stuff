@@ -1,6 +1,7 @@
 ---
 name: setup
-description: "Use when Harness needs setting up or checking for this developer: agents repo, links, runtimes, and the model rubric."
+description: >-
+  Sets up or checks Harness for this developer: agents repo, links, runtimes, and the model rubric. Use when Harness needs first-time setup or a health check.
 ---
 
 # Harness Setup

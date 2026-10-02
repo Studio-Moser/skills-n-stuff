@@ -1,12 +1,7 @@
 ---
 name: fleet
 description: >-
-  Use when an agent needs a shell on another of the developer's machines — run a
-  command, read a log, check a build, or restart a service over SSH instead of VNC —
-  or when a machine must be enrolled in, or removed from, the Harness fleet. The host
-  inventory and public keys live in the developer's private agents repo; this skill
-  never stores private keys or passwords. Skip GUI verification (use computer-use) and
-  config sync (use sync).
+  Runs commands on the developer's other machines over SSH and enrolls or removes machines from the Harness fleet; inventory and public keys live in the private agents repo, never private keys. Use when an agent needs a shell on another machine to run a command, read a log, check a build, or restart a service. Not for GUI verification (computer-use) or config sync (sync).
 disable-model-invocation: true
 ---
 

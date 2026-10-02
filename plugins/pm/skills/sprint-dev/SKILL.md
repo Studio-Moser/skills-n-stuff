@@ -1,6 +1,7 @@
 ---
 name: sprint-dev
-description: "Use when the user asks for a sprint that builds ready owner/ai backlog items from the configured tracker."
+description: >-
+  Builds ready owner/ai backlog items from the configured tracker as one sprint. Use when the user asks for a sprint.
 effort: high
 allowed-tools: "Bash Read Write Edit Skill"
 ---

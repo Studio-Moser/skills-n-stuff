@@ -1,8 +1,7 @@
 ---
 name: setup
 description: >-
-  Use when Product Pulse needs onboarding or reconfiguration for a project's
-  research context, sources, operational config, and report directories.
+  Onboards or reconfigures Product Pulse for a project: research context, sources, operational config, and report directories. Use when Product Pulse is not set up or needs reconfiguration.
 allowed-tools: "Bash Read Write Edit WebSearch AskUserQuestion Skill"
 disable-model-invocation: true
 ---

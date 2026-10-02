@@ -1,7 +1,7 @@
 ---
 name: delegate
 description: >-
-  Use when an agent should delegate bounded execution, fixed-target review, or computer-use verification through Harness routing and authority controls.
+  Delegates bounded execution, fixed-target review, or computer-use verification through Harness routing and authority controls. Use when an agent hands such work to a worker.
 ---
 
 # Harness Delegate

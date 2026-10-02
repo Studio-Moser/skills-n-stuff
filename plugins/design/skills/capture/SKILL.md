@@ -1,13 +1,7 @@
 ---
 name: capture
 description: >-
-  Use to turn the variants of a design round into reviewable artifacts: freeze
-  a running page or an HTML file into plates (every screen in one long
-  document), shoot per-viewport stills and motion strips for critics, or stitch banded
-  screenshots for Figma or a local gallery. Fails loudly on overflow, broken
-  images, a blank render, or a plate that differs from the live page. Triggers:
-  "freeze the round", "make plates", "capture the round", "shoot the variants",
-  "update the Figma shots".
+  Freezes a design round's variants into reviewable artifacts: full-page plates, per-viewport stills, motion strips, and banded screenshots for Figma or the local gallery, failing loudly on overflow, broken images, or a blank render. Use when asked to freeze, capture, or shoot a round's variants, make plates, or update the Figma shots.
 ---
 
 # Capture

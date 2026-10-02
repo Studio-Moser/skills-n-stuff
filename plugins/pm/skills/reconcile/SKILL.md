@@ -1,9 +1,7 @@
 ---
 name: reconcile
 description: >-
-  Use when the issue tracker may be stale after merges or sprints, or needs a periodic
-  reality check against git history and current project state. Do not use for deciding
-  new items or implementing ready work.
+  Reconciles the issue tracker against git history and current project state. Use when the tracker may be stale after merges or sprints, or for a periodic reality check. Not for deciding new items or implementing ready work.
 effort: medium
 allowed-tools: "Bash Read Write Edit"
 disable-model-invocation: true

@@ -1,9 +1,7 @@
 ---
 name: ingest
 description: >-
-  Use when new Product Pulse daily, weekly, or deep-dive reports need importing into
-  the configured issue tracker. Do not use to triage existing candidates or reconcile
-  completed work.
+  Imports new Product Pulse daily, weekly, or deep-dive reports into the configured issue tracker. Use when new reports are ready to import. Not for triaging existing candidates or reconciling completed work.
 effort: low
 allowed-tools: "Bash Read Write Edit Skill"
 disable-model-invocation: true

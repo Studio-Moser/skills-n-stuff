@@ -1,13 +1,7 @@
 ---
 name: direction-brief
 description: >-
-  Use to start or revise a design direction: a guided interview that turns the
-  owner's hunch and references into a direction brief and a copy direction, and
-  saves every reference (URLs captured as screenshots, images, files) into the
-  direction's folder for builders to look at. Ends with a readiness check and a
-  drafted round sheet, so nothing a round needs is missing. Triggers: "new
-  design direction", "start a direction", "let's write a design brief", "brief
-  this direction", "write the copy brief", "here are some references".
+  Runs a guided interview that turns the owner's hunch and references into a direction brief and copy direction, saves every reference into the direction's folder, and drafts the round sheet. Use when starting or revising a design direction, writing a design or copy brief, or when the user shares design references.
 ---
 
 # Direction brief

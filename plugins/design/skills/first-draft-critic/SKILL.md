@@ -1,14 +1,7 @@
 ---
 name: first-draft-critic
 description: >-
-  Use to get a better first draft or a finished design out of an agent by
-  sending its output to independent fresh-context critics instead of letting
-  the generator grade its own work. Two modes: explore (default inside a
-  fan-out round; two lenses, pushes each variant further into its own premise,
-  two rounds max) and gauntlet (three lenses against an explicit done bar,
-  loops to five rounds; for hero pieces and the convergence phase). Triggers:
-  "critique this variant", "run the critics", "gauntlet", "is this done",
-  "raise the bar".
+  Sends a design variant to independent fresh-context critics instead of letting the generator grade its own work, in explore mode (two lenses, two rounds) or gauntlet mode (three lenses against a done bar, up to five rounds). Use when asked to critique a variant, run the critics or a gauntlet, or judge whether a design is done.
 ---
 
 # First-draft critic

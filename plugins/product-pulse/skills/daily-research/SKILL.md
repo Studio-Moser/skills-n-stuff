@@ -1,8 +1,7 @@
 ---
 name: daily-research
 description: >-
-  Use when configured research domains need a daily source scan, strategic
-  filtering, and a dated report for PM ingestion and publication.
+  Scans configured research domains, filters findings strategically, and writes a dated report for PM ingestion and publication. Use when the daily research scan is due.
 allowed-tools: "Bash Read Write Edit Skill"
 disable-model-invocation: true
 ---

@@ -56,8 +56,9 @@ for path in sorted(root.glob("*/SKILL.md")):
     description = str(metadata.get("description", "")).strip()
     tools = str(metadata.get("allowed-tools", "")).split()
     relative = path.relative_to(root.parent.parent)
-    if not description.startswith("Use when "):
-        failures.append(f"{relative}: description must start with 'Use when '")
+    # Anthropic's skill-authoring guide: third person, what the skill does, then when to use it.
+    if not description.split()[0].endswith("s") or "Use when " not in description:
+        failures.append(f"{relative}: description must say what the skill does in third person, then 'Use when ...'")
     if len(description) > 500:
         failures.append(f"{relative}: description exceeds 500 characters")
     if "Skill" not in tools:
