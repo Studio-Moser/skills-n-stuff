@@ -1,5 +1,12 @@
 # Triage — Phase 2: Spec creation flow
 
+## Contents
+
+- [Step 2a: Plan from the readiness notes](#step-2a-plan-from-the-readiness-notes)
+- [Step 2b: Write implementation plan](#step-2b-write-implementation-plan)
+- [Step 2c: Write spec to backend](#step-2c-write-spec-to-backend)
+- [Step 2d: Checkpoint](#step-2d-checkpoint)
+
 Loaded by `pm:triage` at Phase 2, once the user has approved the speccing order. Runs for each item classified as M/L/XL or unclear; S-sized items with a complete description skip straight to Phase 3.
 
 Prerequisite: `pm:triage` has loaded `references/work-readiness.md`, verified any bug

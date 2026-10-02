@@ -1,5 +1,14 @@
 # DockTail Setup
 
+## Contents
+
+- [One-time Tailscale configuration](#one-time-tailscale-configuration)
+- [Preview Hub credential](#preview-hub-credential)
+- [Docker socket acceptance](#docker-socket-acceptance)
+- [Start and verify](#start-and-verify)
+- [Recovery](#recovery)
+- [Security boundaries](#security-boundaries)
+
 The router is one persistent tagged Tailscale sidecar plus DockTail. Each preview is
 a native Tailscale Service tagged `tag:agent-preview`, not a separate tailnet device.
 

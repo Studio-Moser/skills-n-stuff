@@ -1,5 +1,16 @@
 # Interview question bank
 
+## Contents
+
+- [Project questions (only when there is no frozen brief)](#project-questions-only-when-there-is-no-frozen-brief)
+- [Stage 1: the seed](#stage-1-the-seed)
+- [Stage 2: references](#stage-2-references)
+- [Stage 3: the premise](#stage-3-the-premise)
+- [Stage 4: the system](#stage-4-the-system)
+- [Stage 5: wins and loses](#stage-5-wins-and-loses)
+- [Stage 6: the copy direction](#stage-6-the-copy-direction)
+- [Before handing over](#before-handing-over)
+
 Ask a question only when the project's documents and the references do not
 already answer it. Each question lists when to skip it. Open questions are
 asked in plain text and the answer is kept verbatim; choice questions offer the

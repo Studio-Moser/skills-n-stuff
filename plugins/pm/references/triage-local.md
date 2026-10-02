@@ -1,5 +1,16 @@
 # Triage — Local Backend Detail
 
+## Contents
+
+- [Phase 0.2: Pull Needs-Triage Items — Local](#phase-02-pull-needs-triage-items--local)
+- [Phase 0.3: Load Existing Open Items (dedup pool) — Local](#phase-03-load-existing-open-items-dedup-pool--local)
+- [Phase 1: Process rejections — Local](#phase-1-process-rejections--local)
+- [Phase 1: Process duplicates — Local](#phase-1-process-duplicates--local)
+- [Phase 2, Step 2b.1: Create XL epic and children — Local](#phase-2-step-2b1-create-xl-epic-and-children--local)
+- [Phase 2, Step 2c: Write spec to backend — Local](#phase-2-step-2c-write-spec-to-backend--local)
+- [Phase 4.2: Update backend (promote) — Local](#phase-42-update-backend-promote--local)
+- [Phase 4.3: Link to a parent epic — Local](#phase-43-link-to-a-parent-epic--local)
+
 Backend-specific procedure blocks for `/pm:triage`, split out of `triage/SKILL.md` so GitHub/Trello users don't have to read past them. Only relevant when `backend == local`; skip this whole file otherwise. Variables (`$items_dir`, `$item_file`, `{number}`, etc.) are the same ones resolved earlier in the SKILL.md flow — read this file in-session and continue where you left off.
 
 ## Phase 0.2: Pull Needs-Triage Items — Local

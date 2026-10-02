@@ -1,5 +1,16 @@
 # Reconcile — CONTEXT.md maintenance and ADR proposals
 
+## Contents
+
+- [Phase 4: CONTEXT.md Maintenance](#phase-4-contextmd-maintenance)
+  - [4.1 Collect new files and significant changes](#41-collect-new-files-and-significant-changes)
+  - [4.2 Extract candidate domain terms](#42-extract-candidate-domain-terms)
+  - [4.3 Propose additions](#43-propose-additions)
+- [Phase 5: ADR Proposals](#phase-5-adr-proposals)
+  - [5.1 Identify decision-worthy commits](#51-identify-decision-worthy-commits)
+  - [5.2 Propose ADRs](#52-propose-adrs)
+  - [5.3 Write ADRs](#53-write-adrs)
+
 Loaded by `pm:reconcile` at Phase 4. Both phases are backend-independent — they read git history and write repo docs, never the issue tracker.
 
 ---

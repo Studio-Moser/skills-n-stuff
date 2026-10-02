@@ -1,5 +1,12 @@
 # GitHub Backend Setup for /pm:setup
 
+## Contents
+
+- [Backend Interview](#backend-interview)
+- [Generate .pm/config.yml](#generate-pmconfigyml)
+- [Phase 6G: Set Up GitHub Labels (skip if backend != github)](#phase-6g-set-up-github-labels-skip-if-backend--github)
+- [Edge Cases](#edge-cases)
+
 Load this only when the user selects the GitHub Issues backend. It covers the
 backend interview, Phase 3 config generation, and Phase 6 provisioning. Return
 to the main skill between sections.

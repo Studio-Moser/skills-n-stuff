@@ -1,5 +1,14 @@
 # Triage — Phase 3: Score
 
+## Contents
+
+- [Submit the scorecard request](#submit-the-scorecard-request)
+- [Agent-Ready Scorecard](#agent-ready-scorecard)
+- [Readiness gate](#readiness-gate)
+- [Present results](#present-results)
+- [Verdict thresholds](#verdict-thresholds)
+- [User decision](#user-decision)
+
 Loaded by `pm:triage` at Phase 3. Backend-independent — scoring reads the item and its
 spec. The inline fix loop may persist spec content through the Phase 2 Step 2c path, but
 Phase 3 must not write tracker status, owner, or verdict fields; Phase 4 owns those

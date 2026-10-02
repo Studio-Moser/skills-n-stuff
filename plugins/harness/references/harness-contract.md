@@ -1,5 +1,11 @@
 # Harness Contract
 
+## Contents
+
+- [HarnessRequest](#harnessrequest)
+- [HarnessResult](#harnessresult)
+- [Payload boundary](#payload-boundary)
+
 Harness accepts one provider-neutral request and returns one evidence-bearing
 result. Consumers describe the work and its semantic altitude; Harness owns
 concrete routing and execution.

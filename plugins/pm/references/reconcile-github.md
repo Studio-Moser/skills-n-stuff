@@ -1,5 +1,17 @@
 # Reconcile — GitHub Backend Detail
 
+## Contents
+
+- [Phase 0.2: Load Backend Config — GitHub](#phase-02-load-backend-config--github)
+- [Phase 1.2: Completion Tracking — GitHub](#phase-12-completion-tracking--github)
+- [Phase 1.3: Epic Rollup — GitHub](#phase-13-epic-rollup--github)
+- [Phase 1.3b: Orphan-epic Sweep — GitHub](#phase-13b-orphan-epic-sweep--github)
+- [Phase 1.3c: Epic Normalization — GitHub](#phase-13c-epic-normalization--github)
+- [Phase 2.1: Stale Detection — GitHub](#phase-21-stale-detection--github)
+- [Phase 2.2: Stale Item Actions — GitHub](#phase-22-stale-item-actions--github)
+- [Phase 3.1: Pull Spawned Items — GitHub](#phase-31-pull-spawned-items--github)
+- [Phase 3.2: Classify Spawned Items — GitHub](#phase-32-classify-spawned-items--github)
+
 Backend-specific procedure blocks for `/pm:reconcile`, split out of `reconcile/SKILL.md` so Trello/local users don't have to read past them. Only relevant when `backend == github`; skip this whole file otherwise. Variables (`$gh_owner`, `$gh_repo`, `$stale_threshold`, `$default_branch`, etc.) are the same ones resolved earlier in the SKILL.md flow — read this file in-session and continue where you left off.
 
 Epic rollup, orphan-epic sweep, and epic normalization (Phase 1.3 / 1.3b / 1.3c) are GitHub-only entirely — sub-issues are a GitHub feature, so these phases don't exist for other backends.
