@@ -109,7 +109,7 @@ repos:
 
 # Optional with defaults
 default_branch: main             # branch PRs target; default: main
-auto_merge: true                 # auto-squash-merge research PRs if mergeable; default: true
+auto_merge: false                # auto-squash-merge research PRs if mergeable; default: false
 
 memory:
   connector: shelby              # optional provider handled through Harness canonical scope

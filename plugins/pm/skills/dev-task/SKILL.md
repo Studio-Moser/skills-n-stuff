@@ -8,7 +8,7 @@ allowed-tools: "Bash Read Write Edit Skill"
 # PM — Dev Task
 
 Guide one person through one development task with visible plan and approval gates.
-This is **manual only**. Execution follows Harness’s execution-choice rule; risk
+This is **approval-gated**: nothing is built until you approve the plan. Execution follows Harness’s execution-choice rule; risk
 determines verification and review separately.
 
 Use `pm:house-rules` for branch, commit, PR, test, and security conventions. Classify

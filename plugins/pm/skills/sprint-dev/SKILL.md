@@ -3,6 +3,7 @@ name: sprint-dev
 description: >-
   Builds ready owner/ai backlog items from the configured tracker as one sprint. Use when the user asks for a sprint.
 effort: high
+disable-model-invocation: true
 allowed-tools: "Bash Read Write Edit Skill"
 ---
 

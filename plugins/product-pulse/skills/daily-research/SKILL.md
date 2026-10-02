@@ -57,7 +57,7 @@ fi
 primary_repo_root="$(cd "$research_dir" && git rev-parse --show-toplevel)"
 
 default_branch="$(yq '.default_branch // "main"' "$config_path")"
-auto_merge="$(yq '.auto_merge // true' "$config_path")"
+auto_merge="$(yq '.auto_merge // false' "$config_path")"
 project_id="$(yq '.project_id' "$config_path")"
 memory_connector="$(yq '.memory.connector // "shelby"' "$config_path")"
 
@@ -65,7 +65,7 @@ echo "Using config: $config_path"
 echo "Research dir: $research_dir"
 ```
 
-Parse the YAML. Required fields: `project_id`, `repos`. Optional with defaults: `default_branch` (default `main`), `auto_merge` (default `true`), `memory.connector` (default `shelby`; set to `null` to disable).
+Parse the YAML. Required fields: `project_id`, `repos`. Optional with defaults: `default_branch` (default `main`), `auto_merge` (default `false`), `memory.connector` (default `shelby`; set to `null` to disable).
 
 Find the entry in `repos:` with `role: primary`. Its filesystem location (resolved relative to the directory containing pulse-config.yaml's parent) is the **primary repo root** (`{primary_repo_root}`) for git operations.
 
