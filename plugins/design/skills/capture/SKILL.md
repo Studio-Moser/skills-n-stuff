@@ -27,6 +27,16 @@ Requirements: `@playwright/test` (or `playwright`) with Chromium installed, and
 the script also searches `node_modules/.pnpm` for sharp. Every target's preview
 must be running; the script does not start servers.
 
+From the project root, check both before the first run:
+
+```sh
+node -e "try{require.resolve('@playwright/test')}catch{require.resolve('playwright')}" 2>/dev/null || echo "missing: playwright"
+node -e "require.resolve('sharp')" 2>/dev/null || echo "missing: sharp (in a pnpm monorepo the script also searches node_modules/.pnpm)"
+```
+
+If one is missing, add it with the project's package manager (for example
+`npm i -D @playwright/test sharp`) and run `npx playwright install chromium`.
+
 Output, under `--out` (default `design-shots`, add it to `.gitignore`):
 
 - `<slug>.png`: the stitched page at the configured width and scale, archive copy.

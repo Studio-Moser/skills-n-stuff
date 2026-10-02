@@ -64,9 +64,9 @@ viewport: no scaling or letterboxing.
 
 ## 3. Convert, verify, and clean up
 
-When `ffmpeg` is available, convert the native Playwright video to H.264 MP4 with
+Check `command -v ffmpeg ffprobe` first; both ship in the ffmpeg package. When `ffmpeg` is available, convert the native Playwright video to H.264 MP4 with
 `-pix_fmt yuv420p -movflags +faststart`. If it is unavailable, preserve the WebM and
-report that limitation. Verify each final artifact with `ffprobe` (codec, dimensions,
+report that limitation, including any `ffprobe` check that could not run. Verify each final artifact with `ffprobe` (codec, dimensions,
 and duration) and a full decode, for example:
 
 ```bash

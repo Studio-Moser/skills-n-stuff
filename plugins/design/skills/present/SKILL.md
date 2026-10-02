@@ -115,6 +115,10 @@ root:
 node "${CLAUDE_PLUGIN_ROOT}/skills/present/scripts/frames.mjs" --dir "docs/Design Directions" [--only <NN>] [--force]
 ```
 
+`frames.mjs` and `import-build.mjs` need Playwright with Chromium and `sharp`
+resolvable from the project root; run the dependency check under Requirements in
+`design:capture` first if this project has not captured before.
+
 It pictures each variant one screen at a time, at two sizes, so every image
 is one full screen of the page: usable alone as a thumbnail, and stacked as
 the whole scroll.

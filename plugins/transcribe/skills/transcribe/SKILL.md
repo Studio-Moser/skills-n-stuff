@@ -60,6 +60,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/install.sh
 ```
 
 Apple Silicon only in v0.1. Install deps: yt-dlp, ffmpeg, Node.js ≥ 20, Playwright Chromium, mlx-whisper.
+Check them with `bash ${CLAUDE_PLUGIN_ROOT}/scripts/verify-deps.sh`, which names anything missing.
 
 ## Model
 

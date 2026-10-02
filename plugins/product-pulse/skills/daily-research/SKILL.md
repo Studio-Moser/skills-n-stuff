@@ -54,6 +54,12 @@ if [ -z "$config_path" ]; then
   exit 1
 fi
 
+# Required tools: stop before pulling or publishing if any is missing.
+for tool in git gh yq realpath; do
+  command -v "$tool" >/dev/null || { echo "Missing required tool: $tool" >&2; exit 1; }
+done
+gh auth status >/dev/null 2>&1 || { echo "GitHub CLI is not signed in. Run: gh auth login" >&2; exit 1; }
+
 primary_repo_root="$(cd "$research_dir" && git rev-parse --show-toplevel)"
 
 default_branch="$(yq '.default_branch // "main"' "$config_path")"
