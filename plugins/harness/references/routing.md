@@ -1,5 +1,15 @@
 # Routing
 
+## Contents
+
+- [Execution choice](#execution-choice)
+- [Top-level orchestration](#top-level-orchestration)
+- [Semantic routes](#semantic-routes)
+- [Ordered candidate resolution](#ordered-candidate-resolution)
+- [Bounded selection loop](#bounded-selection-loop)
+- [Provider health circuits](#provider-health-circuits)
+- [Fallback versus escalation](#fallback-versus-escalation)
+
 Routing translates a consumer's semantic route into one explicit model, effort,
 provider, and executor. Only Harness reads the rubric or interprets executor
 metadata.

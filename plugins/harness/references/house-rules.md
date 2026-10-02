@@ -1,5 +1,19 @@
 # Studio Moser House Rules
 
+## Contents
+
+- [Branches](#branches)
+- [Concurrent sessions in one repo](#concurrent-sessions-in-one-repo)
+- [Commits](#commits)
+- [Pull Requests](#pull-requests)
+- [File & documentation naming](#file--documentation-naming)
+- [Change class](#change-class)
+- [Implementation discipline](#implementation-discipline)
+- [Testing](#testing)
+- [Verification](#verification)
+- [Pre-commit security check](#pre-commit-security-check)
+- [Project overrides](#project-overrides)
+
 Harness-owned conventions for code changes across Studio Moser projects. The `pm:house-rules` skill and every repo's managed `AGENTS.md` block defer here. These rules apply to any agent or developer; project instructions override them where stated below.
 
 <!-- the relocated sections follow verbatim -->

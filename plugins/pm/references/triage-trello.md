@@ -1,5 +1,16 @@
 # Triage — Trello Backend Detail
 
+## Contents
+
+- [Phase 0.2: Pull Needs-Triage Items — Trello](#phase-02-pull-needs-triage-items--trello)
+- [Phase 0.3: Load Existing Open Items (dedup pool) — Trello](#phase-03-load-existing-open-items-dedup-pool--trello)
+- [Phase 1: Process rejections — Trello](#phase-1-process-rejections--trello)
+- [Phase 1: Process duplicates — Trello](#phase-1-process-duplicates--trello)
+- [Phase 2, Step 2b.1: Create XL epic and children — Trello](#phase-2-step-2b1-create-xl-epic-and-children--trello)
+- [Phase 2, Step 2c: Write spec to backend — Trello](#phase-2-step-2c-write-spec-to-backend--trello)
+- [Phase 4.2: Update backend (promote) — Trello](#phase-42-update-backend-promote--trello)
+- [Phase 4: Approval cues — Trello](#phase-4-approval-cues--trello)
+
 Backend-specific procedure blocks for `/pm:triage`, split out of `triage/SKILL.md` so GitHub/local users don't have to read past them. Only relevant when `backend == trello`; skip this whole file otherwise. Variables (`$trello_boards_json`, `$card_id`, etc.) are the same ones resolved earlier in the SKILL.md flow — read this file in-session and continue where you left off.
 
 ## Phase 0.2: Pull Needs-Triage Items — Trello

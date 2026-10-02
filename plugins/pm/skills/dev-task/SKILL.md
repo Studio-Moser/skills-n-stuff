@@ -1,13 +1,14 @@
 ---
 name: dev-task
-description: "Use when one large, multi-file Feature-class change needs the managed, approval-gated workflow, or the user asks for it. Never for Polish or Small work."
+description: >-
+  Runs the managed, approval-gated workflow for one large, multi-file Feature-class change. Use when such a change needs that workflow or the user asks for it. Never for Polish or Small work.
 allowed-tools: "Bash Read Write Edit Skill"
 ---
 
 # PM — Dev Task
 
 Guide one person through one development task with visible plan and approval gates.
-This is **manual only**. Execution follows Harness’s execution-choice rule; risk
+This is **approval-gated**: nothing is built until you approve the plan. Execution follows Harness’s execution-choice rule; risk
 determines verification and review separately.
 
 Use `pm:house-rules` for branch, commit, PR, test, and security conventions. Classify

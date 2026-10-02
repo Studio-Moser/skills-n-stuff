@@ -1,6 +1,6 @@
 ---
 name: sync
-description: Run the guarded Harness script that reconciles and publishes this machine's portable personal agent configuration.
+description: Reconciles and publishes this machine's portable agent configuration with the guarded Harness sync script. Use when asked to sync agent config.
 disable-model-invocation: true
 effort: low
 allowed-tools: "Bash Read"

@@ -1,5 +1,13 @@
 # Reconcile — Trello Backend Detail
 
+## Contents
+
+- [Phase 0: Discover Config — board validation](#phase-0-discover-config--board-validation)
+- [Phase 1.2T: Completion tracking — Trello](#phase-12t-completion-tracking--trello)
+- [Phase 2.1: Stale detection — Trello](#phase-21-stale-detection--trello)
+- [Phase 2.2: Stale item actions — Trello](#phase-22-stale-item-actions--trello)
+- [Phase 3: Deferred blocker handling — Trello fallback](#phase-3-deferred-blocker-handling--trello-fallback)
+
 Backend-specific procedure blocks for `/pm:reconcile`, split out of `reconcile/SKILL.md` so GitHub/local users don't have to read past them. Only relevant when `backend == trello`; skip this whole file otherwise. Variables ($BOARD_ID, $trello_boards_json, etc.) are the same ones resolved earlier in the SKILL.md flow — read this file in-session and continue where you left off.
 
 ## Phase 0: Discover Config — board validation

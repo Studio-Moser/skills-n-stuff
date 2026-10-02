@@ -53,7 +53,7 @@ PY
   [ "$status" -eq 0 ]
 }
 
-@test "PM skill descriptions are concise invocation conditions" {
+@test "PM skill descriptions say what the skill does, then when to use it" {
   run python3 - "$REPO" <<'PY'
 from pathlib import Path
 import re
@@ -73,8 +73,9 @@ for path in sorted((repo / "plugins/pm/skills").glob("*/SKILL.md")):
         continue
     description = yaml.safe_load(match.group(1))["description"].strip()
     relative = path.relative_to(repo)
-    if not description.startswith("Use when "):
-        failures.append(f"{relative}: description must start with 'Use when '")
+    # Anthropic's skill-authoring guide: third person, what the skill does, then when to use it.
+    if not description.split()[0].endswith("s") or "Use when " not in description:
+        failures.append(f"{relative}: description must say what the skill does in third person, then 'Use when ...'")
     if len(description) > 500:
         failures.append(f"{relative}: description exceeds 500 characters")
     for process_marker in ("Trigger:", "Triggers include", "Workflow:"):

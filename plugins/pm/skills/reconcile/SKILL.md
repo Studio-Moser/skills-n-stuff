@@ -1,9 +1,7 @@
 ---
 name: reconcile
 description: >-
-  Use when the issue tracker may be stale after merges or sprints, or needs a periodic
-  reality check against git history and current project state. Do not use for deciding
-  new items or implementing ready work.
+  Reconciles the issue tracker against git history and current project state. Use when the tracker may be stale after merges or sprints, or for a periodic reality check. Not for deciding new items or implementing ready work.
 effort: medium
 allowed-tools: "Bash Read Write Edit"
 disable-model-invocation: true
@@ -71,7 +69,7 @@ fi
 
 ### 0.2 Load Backend Config
 
-**Backend dispatch.** PM uses one backend per project. Load ONLY `references/reconcile-<backend>.md` (`reconcile-github.md`, `reconcile-trello.md`, or `reconcile-local.md`) and follow its steps wherever a phase below is marked **(backend step)**. Ignore the other backends' files. Note: epic rollup/orphan/normalization is GitHub-only; it lives in `reconcile-github.md`.
+**Backend dispatch.** PM uses one backend per project. Load ONLY `references/reconcile-<backend>.md` (`reconcile-github.md`, `reconcile-trello.md`, or `reconcile-local.md`) and follow its steps wherever a phase below is marked **(backend step)**. Ignore the other backends' files. Note: epic rollup/orphan/normalization is GitHub-only; it lives in `reconcile-github.md`. On GitHub, parent and sub-issue links follow `references/github-sub-issues.md`.
 
 **(backend step)** — follow your loaded `references/reconcile-<backend>.md` (§ Phase 0.2: Load Backend Config). Trello: § Phase 0: Discover Config — board validation. (Skip if backend != trello.)
 

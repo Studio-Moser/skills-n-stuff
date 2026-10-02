@@ -1,15 +1,7 @@
 ---
 name: present
 description: >-
-  Use to put a design round in front of the owner: picture each variant a
-  screen at a time, place the round in a Figma file with every variant hooked
-  to its live page, bring a framework build's static export into the
-  repository, edit a variant in the page with impeccable live, or run the
-  optional local gallery of directions. Also sets a project up for the
-  workflow. Triggers: "put the round in Figma", "place the variants in Figma",
-  "hook this frame up to its page", "take the pictures", "present the round",
-  "edit this variant", "let me tweak variant C", "import the build", "open the
-  gallery", "set up design exploration here".
+  Puts a design round in front of the owner: per-screen pictures, a Figma file with each variant linked to its live page, static build imports, live editing with impeccable, and an optional local gallery. Also sets a project up for the workflow. Use when asked to present a round, put it in Figma, take the pictures, tweak a variant, import a build, or open the gallery.
 ---
 
 # Present
@@ -123,6 +115,10 @@ root:
 node "${CLAUDE_PLUGIN_ROOT}/skills/present/scripts/frames.mjs" --dir "docs/Design Directions" [--only <NN>] [--force]
 ```
 
+`frames.mjs` and `import-build.mjs` need Playwright with Chromium and `sharp`
+resolvable from the project root; run the dependency check under Requirements in
+`design:capture` first if this project has not captured before.
+
 It pictures each variant one screen at a time, at two sizes, so every image
 is one full screen of the page: usable alone as a thumbnail, and stacked as
 the whole scroll.
@@ -172,7 +168,7 @@ Place a round through the Figma MCP:
    padding holding one frame per screen, each `1440 × <screen height>` from
    `Frames.json` (900, the last one shorter). A mobile column beside it is the
    same with `360 × <height>` frames from the `mobile` list.
-2. Upload the screens with `upload_assets`, passing the frames' ids in order,
+2. Upload the screens with the Figma MCP server's `Figma:upload_assets`, passing the frames' ids in order,
    then send each `Frames/<variant>/desktop/NN.webp` (or `mobile/NN.webp`) to
    its returned address. Re-uploading to the same frames replaces the pictures
    and keeps the layout.

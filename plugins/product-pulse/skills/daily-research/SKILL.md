@@ -1,8 +1,7 @@
 ---
 name: daily-research
 description: >-
-  Use when configured research domains need a daily source scan, strategic
-  filtering, and a dated report for PM ingestion and publication.
+  Scans configured research domains, filters findings strategically, and writes a dated report for PM ingestion and publication. Use when the daily research scan is due.
 allowed-tools: "Bash Read Write Edit Skill"
 disable-model-invocation: true
 ---
@@ -55,10 +54,16 @@ if [ -z "$config_path" ]; then
   exit 1
 fi
 
+# Required tools: stop before pulling or publishing if any is missing.
+for tool in git gh yq realpath; do
+  command -v "$tool" >/dev/null || { echo "Missing required tool: $tool" >&2; exit 1; }
+done
+gh auth status >/dev/null 2>&1 || { echo "GitHub CLI is not signed in. Run: gh auth login" >&2; exit 1; }
+
 primary_repo_root="$(cd "$research_dir" && git rev-parse --show-toplevel)"
 
 default_branch="$(yq '.default_branch // "main"' "$config_path")"
-auto_merge="$(yq '.auto_merge // true' "$config_path")"
+auto_merge="$(yq '.auto_merge // false' "$config_path")"
 project_id="$(yq '.project_id' "$config_path")"
 memory_connector="$(yq '.memory.connector // "shelby"' "$config_path")"
 
@@ -66,7 +71,7 @@ echo "Using config: $config_path"
 echo "Research dir: $research_dir"
 ```
 
-Parse the YAML. Required fields: `project_id`, `repos`. Optional with defaults: `default_branch` (default `main`), `auto_merge` (default `true`), `memory.connector` (default `shelby`; set to `null` to disable).
+Parse the YAML. Required fields: `project_id`, `repos`. Optional with defaults: `default_branch` (default `main`), `auto_merge` (default `false`), `memory.connector` (default `shelby`; set to `null` to disable).
 
 Find the entry in `repos:` with `role: primary`. Its filesystem location (resolved relative to the directory containing pulse-config.yaml's parent) is the **primary repo root** (`{primary_repo_root}`) for git operations.
 

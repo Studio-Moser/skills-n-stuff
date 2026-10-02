@@ -1,6 +1,7 @@
 ---
 name: risk-gate
-description: "Use before repository work touching security, money, persisted data, a public contract, several repositories, no testing seam, or more than one context window, or when the user explicitly requests planning, delegation, or review. Do not invoke merely to select a worker for routine work."
+description: >-
+  Decides whether repository work needs a written plan, recovery point, or independent review under Harness risk rules. Use before work touching security, money, persisted data, a public contract, several repositories, no testing seam, or more than one context window, or when the user explicitly requests planning, delegation, or review. Not for picking a worker for routine work.
 allowed-tools: "Read"
 ---
 

@@ -1,6 +1,7 @@
 ---
 name: generate
-description: "Use when the user wants images, video, music, or speech generated through Kie.ai with a budget check and local archive."
+description: >-
+  Generates images, video, music, or speech through Kie.ai with a budget check and a local archive. Use when the user wants media generated.
 ---
 
 # Generate

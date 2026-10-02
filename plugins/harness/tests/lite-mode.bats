@@ -49,7 +49,7 @@ dev = " ".join((repo / "plugins/pm/skills/dev-task/SKILL.md").read_text().split(
 sprint = " ".join((repo / "plugins/pm/skills/sprint-dev/SKILL.md").read_text().split()).lower()
 
 for phrase in (
-    "manual only",
+    "approval-gated",
     "execution choice",
     "harness:risk-gate",
     "delegate only",

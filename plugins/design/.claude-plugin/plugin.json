@@ -1,6 +1,6 @@
 {
   "name": "design",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Design exploration rounds for marketing sites and product UI: interview the owner into a direction brief with saved references, fan it out into independent HTML variants built by different skills and models, gate first drafts with fresh-context critics that push toward each premise instead of the mean, picture every variant and place the round in a Figma file where each variant opens its live page, edit variants in the page with impeccable live, and carry what the owner wants into the next brief.",
   "author": {
     "name": "Studio Moser",

@@ -1,5 +1,14 @@
 # GitHub Projects v2 Setup for /pm:setup
 
+## Contents
+
+- [Phase 6P: GitHub Project (optional, skip if backend != github)](#phase-6p-github-project-optional-skip-if-backend--github)
+  - [6P.1 Ask the user](#6p1-ask-the-user)
+  - [6P.2 Check MCP availability](#6p2-check-mcp-availability)
+  - [6P.3 Path A — Create new project (choice 1)](#6p3-path-a--create-new-project-choice-1)
+  - [6P.4 Path B — Link existing project (choice 2)](#6p4-path-b--link-existing-project-choice-2)
+  - [6P.5 Closing summary contribution](#6p5-closing-summary-contribution)
+
 This is the GitHub Projects v2 setup detail for `/pm:setup` (Phase 6P), split
 out of the main `SKILL.md` for progressive disclosure — only load this when
 the backend is `github` and the user wants the optional Projects

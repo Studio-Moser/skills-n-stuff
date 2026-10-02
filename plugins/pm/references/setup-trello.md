@@ -1,5 +1,15 @@
 # Trello Backend Setup for /pm:setup
 
+## Contents
+
+- [Backend Interview](#backend-interview)
+- [Generate .pm/config.yml](#generate-pmconfigyml)
+- [Phase 6T: Set Up Trello Lists, Labels & Webhook (skip if backend != trello)](#phase-6t-set-up-trello-lists-labels--webhook-skip-if-backend--trello)
+  - [6T.1 For each board, create missing lists](#6t1-for-each-board-create-missing-lists)
+  - [6T.2 Validate board access](#6t2-validate-board-access)
+  - [6T.3 Register webhook (idempotent)](#6t3-register-webhook-idempotent)
+  - [6T.4 Summary line for Phase 8](#6t4-summary-line-for-phase-8)
+
 Load this only when the user selects the Trello backend. It covers the backend
 interview, Phase 3 config generation, and Phase 6 provisioning. Return to the
 main skill between sections.

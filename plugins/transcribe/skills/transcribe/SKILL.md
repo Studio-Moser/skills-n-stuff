@@ -1,10 +1,7 @@
 ---
 name: transcribe
 description: >-
-  Fetch a spoken-word transcript from a video URL. Supports YouTube, YouTube
-  Shorts, Instagram posts/Reels, TikTok, and Threads. Use whenever you need
-  the words said in a video — for research, summarization, or analysis.
-  Invoke with /transcribe:transcribe <url> or from Bash as `transcribe <url>`.
+  Fetches a spoken-word transcript from a YouTube, YouTube Shorts, Instagram, TikTok, or Threads video URL. Use when the words said in a video are needed for research, summarization, or analysis. Also runs from Bash as `transcribe <url>`.
 argument-hint: <video-url> [--json]
 allowed-tools: Bash
 disable-model-invocation: true
@@ -63,6 +60,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/install.sh
 ```
 
 Apple Silicon only in v0.1. Install deps: yt-dlp, ffmpeg, Node.js ≥ 20, Playwright Chromium, mlx-whisper.
+Check them with `bash ${CLAUDE_PLUGIN_ROOT}/scripts/verify-deps.sh`, which names anything missing.
 
 ## Model
 

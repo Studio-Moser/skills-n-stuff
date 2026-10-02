@@ -1,13 +1,7 @@
 ---
 name: capture
 description: >-
-  Use to turn the variants of a design round into reviewable artifacts: freeze
-  a running page or an HTML file into plates (every screen in one long
-  document), shoot per-viewport stills and motion strips for critics, or stitch banded
-  screenshots for Figma or a local gallery. Fails loudly on overflow, broken
-  images, a blank render, or a plate that differs from the live page. Triggers:
-  "freeze the round", "make plates", "capture the round", "shoot the variants",
-  "update the Figma shots".
+  Freezes a design round's variants into reviewable artifacts: full-page plates, per-viewport stills, motion strips, and banded screenshots for Figma or the local gallery, failing loudly on overflow, broken images, or a blank render. Use when asked to freeze, capture, or shoot a round's variants, make plates, or update the Figma shots.
 ---
 
 # Capture
@@ -32,6 +26,16 @@ Requirements: `@playwright/test` (or `playwright`) with Chromium installed, and
 `sharp`, both resolvable from the project's `package.json`. In a pnpm monorepo
 the script also searches `node_modules/.pnpm` for sharp. Every target's preview
 must be running; the script does not start servers.
+
+From the project root, check both before the first run:
+
+```sh
+node -e "try{require.resolve('@playwright/test')}catch{require.resolve('playwright')}" 2>/dev/null || echo "missing: playwright"
+node -e "require.resolve('sharp')" 2>/dev/null || echo "missing: sharp (in a pnpm monorepo the script also searches node_modules/.pnpm)"
+```
+
+If one is missing, add it with the project's package manager (for example
+`npm i -D @playwright/test sharp`) and run `npx playwright install chromium`.
 
 Output, under `--out` (default `design-shots`, add it to `.gitignore`):
 
@@ -181,7 +185,7 @@ MCP:
    labelled with the variant. Make it a vertical auto-layout with no spacing
    or padding, and give it one fixed child frame per band, sized
    `captureWidth` × that band's height.
-2. `upload_assets` with the band frame IDs in order, then POST each
+2. The Figma MCP server's `Figma:upload_assets` with the band frame IDs in order, then POST each
    `bands/<slug>/NN.jpg` to its returned URL.
 
 Never upload the whole-page JPEG to a frame. Figma's server renders it, its

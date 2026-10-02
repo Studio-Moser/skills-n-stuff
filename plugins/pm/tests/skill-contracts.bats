@@ -630,7 +630,8 @@ reference = reference_path.read_text()
 consumers = {
     "code-reviewer": (repo / "plugins/pm/agents/code-reviewer.md").read_text(),
     "dev-task": (repo / "plugins/pm/skills/dev-task/SKILL.md").read_text(),
-    "sprint-dev": (repo / "plugins/pm/skills/sprint-dev/SKILL.md").read_text(),
+    "sprint-dev": (repo / "plugins/pm/skills/sprint-dev/SKILL.md").read_text()
+    + (repo / "plugins/pm/references/sprint-review-loop.md").read_text(),
 }
 evaluation = (repo / "plugins/pm/evals/PM Skill Eval.md").read_text()
 

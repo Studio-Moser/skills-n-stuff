@@ -1,5 +1,16 @@
 # Critic prompts
 
+## Contents
+
+- [Explore](#explore)
+  - [Commitment critic (taste model, read-only)](#commitment-critic-taste-model-read-only)
+  - [Broken critic (cheap model, may run Playwright)](#broken-critic-cheap-model-may-run-playwright)
+- [Gauntlet](#gauntlet)
+  - [Brief critic (cheap model)](#brief-critic-cheap-model)
+  - [System critic (cheap model)](#system-critic-cheap-model)
+  - [Craft critic (taste model)](#craft-critic-taste-model)
+- [Aggregating a round](#aggregating-a-round)
+
 Spawn one fresh-context subagent per lens. Give each only the artifact, its
 rubric, and the reference, never the build conversation. Fill the `{{…}}`
 slots. Every critic returns a compact list, one line per item:

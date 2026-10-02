@@ -1,5 +1,17 @@
 # Triage — GitHub Backend Detail
 
+## Contents
+
+- [Phase 0.2: Pull Needs-Triage Items — GitHub](#phase-02-pull-needs-triage-items--github)
+- [Phase 0.3: Load Existing Open Items (dedup pool) — GitHub](#phase-03-load-existing-open-items-dedup-pool--github)
+- [Phase 1: Process rejections — GitHub](#phase-1-process-rejections--github)
+- [Phase 1: Process duplicates — GitHub](#phase-1-process-duplicates--github)
+- [Phase 2, Step 2b.1: Create XL epic and children — GitHub](#phase-2-step-2b1-create-xl-epic-and-children--github)
+- [Phase 2, Step 2c: Write spec to backend — GitHub](#phase-2-step-2c-write-spec-to-backend--github)
+- [Phase 4.2: Update backend (promote) — GitHub](#phase-42-update-backend-promote--github)
+- [Phase 4.2a: Mirror Status field to GitHub Project (optional) — GitHub](#phase-42a-mirror-status-field-to-github-project-optional--github)
+- [Phase 4.3: Link to a parent epic — GitHub](#phase-43-link-to-a-parent-epic--github)
+
 Backend-specific procedure blocks for `/pm:triage`, split out of `triage/SKILL.md` so Trello/local users don't have to read past them. Only relevant when `backend == github`; skip this whole file otherwise. Variables (`$gh_owner`, `$gh_repo`, `{number}`, etc.) are the same ones resolved earlier in the SKILL.md flow — read this file in-session and continue where you left off.
 
 ## Phase 0.2: Pull Needs-Triage Items — GitHub

@@ -1,6 +1,7 @@
 ---
 name: serve-preview
-description: "Use when a local website needs a durable private Tailscale preview created, checked, or stopped."
+description: >-
+  Creates, checks, or stops a durable private Tailscale preview of a local website. Use when a local site needs a private shareable preview.
 ---
 
 # Serve Preview
