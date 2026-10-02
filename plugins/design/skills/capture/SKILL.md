@@ -185,7 +185,7 @@ MCP:
    labelled with the variant. Make it a vertical auto-layout with no spacing
    or padding, and give it one fixed child frame per band, sized
    `captureWidth` × that band's height.
-2. `upload_assets` with the band frame IDs in order, then POST each
+2. The Figma MCP server's `Figma:upload_assets` with the band frame IDs in order, then POST each
    `bands/<slug>/NN.jpg` to its returned URL.
 
 Never upload the whole-page JPEG to a frame. Figma's server renders it, its

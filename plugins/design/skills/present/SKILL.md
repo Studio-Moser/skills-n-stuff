@@ -168,7 +168,7 @@ Place a round through the Figma MCP:
    padding holding one frame per screen, each `1440 × <screen height>` from
    `Frames.json` (900, the last one shorter). A mobile column beside it is the
    same with `360 × <height>` frames from the `mobile` list.
-2. Upload the screens with `upload_assets`, passing the frames' ids in order,
+2. Upload the screens with the Figma MCP server's `Figma:upload_assets`, passing the frames' ids in order,
    then send each `Frames/<variant>/desktop/NN.webp` (or `mobile/NN.webp`) to
    its returned address. Re-uploading to the same frames replaces the pictures
    and keeps the layout.
