@@ -27,7 +27,7 @@ You are NOT the ingestion agent — that's `/pm:ingest`. You receive items that 
 
 ---
 
-**Backend dispatch.** PM uses one backend per project. Load ONLY `references/triage-<backend>.md` (`triage-github.md`, `triage-trello.md`, or `triage-local.md`) and follow its steps wherever a phase below is marked **(backend step)**. Ignore the other backends' files.
+**Backend dispatch.** PM uses one backend per project. Load ONLY `references/triage-<backend>.md` (`triage-github.md`, `triage-trello.md`, or `triage-local.md`) and follow its steps wherever a phase below is marked **(backend step)**. Ignore the other backends' files. On GitHub, parent and sub-issue links follow `references/github-sub-issues.md`.
 
 ---
 
@@ -297,7 +297,8 @@ scorecard through the Harness request defined in `references/triage-scorecard.md
 The readiness gate is applied before any `status/ready` verdict, and the user accepts
 or fixes each verdict with an inline fix-and-rescore loop.
 
-**Load `references/triage-scorecard.md` and follow it for this phase.**
+**Load `references/triage-scorecard.md` and follow it for this phase.** It copies the
+evaluator instructions from `references/scorecard-evaluator.md` into each request.
 
 Carry forward for Phase 4: each item's accepted verdict — `status/ready` + `owner/ai`,
 `status/ready` + `owner/human`, or `needs-info`.
