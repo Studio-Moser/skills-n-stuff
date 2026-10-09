@@ -44,6 +44,7 @@ required = (
     "never for polish or small work",
     "ask once before implementing",
     "a progress update never ends the task",
+    "time matters: reach the named end state in the fewest turns",
     "for polish and small work the final report is five lines or fewer",
     "before substantial investigation",
     "context transfer, verification, and likely repairs",
