@@ -6,7 +6,7 @@ A backlog lifecycle plugin for [Claude Code](https://code.claude.com). Takes raw
 
 ## What It Does
 
-PM is a **seven-skill pipeline** that manages the full lifecycle of work items, from discovery through delivery:
+PM is an **eight-skill pipeline** that manages the full lifecycle of work items, from discovery through delivery:
 
 | Skill | Role | When | What |
 |-------|------|------|------|
@@ -17,6 +17,7 @@ PM is a **seven-skill pipeline** that manages the full lifecycle of work items, 
 | `/pm:dev-task` | Pair-programmer | When explicitly requested for one focused change | Guides one approved delivery slice through implementation, risk-gated review, and PR creation; works with or without `/pm:setup` |
 | `/pm:feature-walkthrough` | Demonstrator | When visual proof is explicitly requested | Produces a requested web-feature walkthrough from existing Playwright coverage; supplements, never replaces, test, build, and review proof |
 | `/pm:reconcile` | Janitor | After sprints or merges | Completion tracking, stale detection, blocker classification, CONTEXT.md and ADR proposals |
+| `/pm:tidy-up` | Housekeeper | After a PR merges | Fetches first, proves which branches, worktrees, and stashes are already in the base branch, then deletes them locally and remotely after one approved plan; can merge a named PR first |
 
 ### Two build modes
 
@@ -181,6 +182,8 @@ repos:
   - name: my-product
     path: .
     role: primary
+    base_branch: main            # where merged work lands; read by /pm:tidy-up
+    protected_branches: [main]   # never deleted by /pm:tidy-up
 default_branch: main
 memory:
   connector: shelby

@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Claude Code plugins by Studio Moser — strategy, research, design, and product development tools.",
-    "version": "0.25.0",
+    "version": "0.26.0",
     "pluginRoot": "./plugins"
   },
   "plugins": [
@@ -62,7 +62,7 @@
         "triage",
         "sprint"
       ],
-      "version": "0.23.0"
+      "version": "0.24.0"
     },
     {
       "name": "harness",
