@@ -143,6 +143,19 @@ Skip this batch if `pulse-config.yaml` already provided these values.
    - `null` (skip memory operations entirely)
    - Another provider identifier already supported by the configured Harness
 
+### Batch 5: Branch rules
+
+Skip a repo whose `pulse-config.yaml` entry already has both keys. For each other
+repo, `git fetch --prune` it, then ask together:
+
+1. **Which branch does merged work land in?** (`base_branch`; default: the repo's
+   GitHub default branch from `gh repo view --json defaultBranchRef`, else
+   `default_branch`)
+2. **Which branches must never be deleted?** (`protected_branches`; suggest existing
+   remote branches matching `main|master|develop|dev|staging|stage|production|prod|live|release*`)
+
+`/pm:tidy-up` reads these to decide what is merged and what to keep.
+
 ---
 
 ## Phase 3: Scaffold .pm/ Directory
@@ -218,9 +231,13 @@ repos:
   - name: {primary repo name}
     path: .
     role: primary
+    base_branch: {branch from Batch 5}
+    protected_branches: [{branches from Batch 5}]
   # Multi-repo: add sibling repos here
   # - name: {repo-name}
   #   path: ../{repo-name}
+  #   base_branch: {branch from Batch 5}
+  #   protected_branches: [{branches from Batch 5}]
 
 default_branch: {branch from interview, default main}
 
@@ -233,6 +250,10 @@ backlog:
 ```
 
 If `pulse-config.yaml` already exists but lacks a `backlog:` section, append the `backlog:` block to it.
+
+If it already exists, add Batch 5's `base_branch` and `protected_branches` to each
+answered repo entry (for example `yq -i '(.repos[] | select(.name == "{name}")).base_branch = "{branch}"'`).
+Leave every other key unchanged.
 
 ---
 

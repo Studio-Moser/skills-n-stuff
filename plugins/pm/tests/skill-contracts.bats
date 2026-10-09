@@ -46,6 +46,42 @@ PY
   [ "$status" -eq 0 ]
 }
 
+@test "tidy-up keeps its fetch-first, prove-before-delete safety rules" {
+  run python3 - "$REPO" <<'PY'
+from pathlib import Path
+import sys
+
+repo = Path(sys.argv[1])
+skill = " ".join((repo / "plugins/pm/skills/tidy-up/SKILL.md").read_text().split())
+setup = " ".join((repo / "plugins/pm/skills/setup/SKILL.md").read_text().split())
+failures = []
+for label, needle in {
+    "fetch before inventory": "fetch --all --prune",
+    "fast-forward-only base": "merge --ff-only",
+    "squash proof by PR head": "headRefOid == T",
+    "content proof": "git merge-tree --write-tree",
+    "remote lease": "--force-with-lease=refs/heads/",
+    "authored-only remote deletes": "authored by the authenticated `gh` user",
+    "no forced worktree removal": "Never use `git worktree remove --force`",
+    "single approval": "One approval.",
+    "recovery log": "$recovery_dir",
+    "base_branch config": "base_branch",
+    "protected_branches config": "protected_branches",
+}.items():
+    if needle not in skill: failures.append(f"tidy-up omits {label}")
+fetch = skill.find("fetch --all --prune")
+if fetch == -1 or fetch > skill.find("for-each-ref"):
+    failures.append("tidy-up must fetch before inventorying refs")
+for needle in ("Batch 5: Branch rules", "base_branch", "protected_branches"):
+    if needle not in setup: failures.append(f"setup omits {needle}")
+assert not failures, "; ".join(failures)
+PY
+  if [ "$status" -ne 0 ]; then
+    echo "$output"
+  fi
+  [ "$status" -eq 0 ]
+}
+
 @test "dev-task routes explicit visual proof through feature walkthroughs" {
   run python3 - "$REPO" <<'PY'
 from pathlib import Path
@@ -83,8 +119,8 @@ else:
 
 if "/pm:feature-walkthrough" not in readme:
     failures.append("README omits /pm:feature-walkthrough")
-if "seven-skill pipeline" not in readme:
-    failures.append("README does not describe a seven-skill pipeline")
+if "eight-skill pipeline" not in readme:
+    failures.append("README does not describe an eight-skill pipeline")
 pm = next((plugin for plugin in marketplace["plugins"] if plugin["name"] == "pm"), None)
 if pm is None or pm.get("version") != manifest.get("version"):
     failures.append("PM marketplace version does not match the PM manifest")
