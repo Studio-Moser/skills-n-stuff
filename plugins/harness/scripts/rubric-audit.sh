@@ -9,7 +9,7 @@
 #
 # Defaults: --days 7, --projects ${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects,
 #           --codex-sessions ${CODEX_HOME:-$HOME/.codex}/sessions
-# Exit 0 = clean. Exit 1 = findings (any UNSET model in either provider, or any haiku dispatch).
+# Exit 0 = clean. Exit 1 = findings (any UNSET model in either provider).
 # Exit 3 = python3 not available (needed to parse JSONL portably).
 set -euo pipefail
 
@@ -189,5 +189,5 @@ print(f"  Codex handoffs:    {handoffs} (codex exec/review Bash calls: {codex_ba
 print(f"  Codex:             {codex_sessions} session(s)")
 print(f"  spawn_agent:       {codex_total} total — model set: {codex_total - codex_unset}, UNSET: {codex_unset}{inherited_note(codex_inherited)}")
 print(f"    by model:        {codex_by}")
-sys.exit(1 if (unset or codex_unset or models.get("haiku", 0)) else 0)
+sys.exit(1 if (unset or codex_unset) else 0)
 PY

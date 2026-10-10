@@ -86,11 +86,11 @@ write_fixture() {
   echo "$output" | grep -qE 'Agent dispatches: +4 total — model set: 3, UNSET: 1'
 }
 
-@test "a haiku dispatch exits 1" {
+@test "a haiku dispatch is tallied without a finding" {
   write_fixture
   tool_use_line Agent '{"model":"haiku","prompt":"p"}' >> "$PROJ/abc123.jsonl"
   run "$SCRIPT" --projects "${BATS_TEST_TMPDIR}/projects"
-  [ "$status" -eq 1 ]
+  [ "$status" -eq 0 ]
   echo "$output" | grep -qE 'haiku 1'
 }
 

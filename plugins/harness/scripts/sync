@@ -1088,7 +1088,7 @@ def sync(
     if rubric.returncode not in (0, 1, 3):
         findings.append(f"rubric audit failed with exit {rubric.returncode}")
     elif rubric.returncode == 1:
-        findings.append("rubric audit found unset or haiku dispatches")
+        findings.append("rubric audit found unset dispatches")
     elif rubric.returncode == 3:
         findings.append("rubric audit skipped: python3 not on PATH")
     reconcile_settings(repo, roots["claude"], scripts, check=False)

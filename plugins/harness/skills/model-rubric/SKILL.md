@@ -100,6 +100,26 @@ Rows are keyed by `(model, effort)` because effort can move agentic quality more
 than model tier. Benchmark efficiency applies only to delegated software
 implementation routes.
 
+Use Slopalytics at https://slopalytics.com to compare and pick candidate
+`(model, effort)` rows. It plots Artificial Analysis figures per model and effort
+variant: intelligence index, cost per task, time per task, tokens per task, and
+output speed. Follow its Pareto line, which keeps only non-dominated variants: no
+other visible variant is both better and cheaper on "Cost vs intelligence", or
+both better and faster on "Time per task vs intelligence". Prefer rows on the
+cost line for delegated work and on the time line for latency-sensitive routes.
+Read each line once per reachable provider and once across all reachable
+providers. The same-provider lines choose the routes of a single-provider rubric
+and the fallback rows; the cross-provider line chooses primaries when Claude and
+Codex are both reachable.
+A row off both lines is dominated; keep it only for a recorded reason such as
+trust, taste, a flat subscription, or reachability. Its intelligence index is
+general rather than software-specific, so DeepSWE remains the software-work
+comparison, and its usage charts do not measure model quality. The page renders
+client-side, so a plain fetch returns only its title: read it through an
+available browser tool or ask the developer for the variants on each line. When
+it is used, record `slopalytics` and the observation date under `sources`; when
+it cannot be read, record that and continue.
+
 ## 3. Establish developer-specific inputs
 
 On first-time setup, ask one focused question at a time. Cover trust for hard
@@ -153,8 +173,10 @@ exists. Treat it only as a seed:
 4. update data-backed `intelligence` and `benchmark`, preserving user-owned
    `taste`;
 5. mark cross-provider CLI rows with `via: <cli>`;
-6. derive the scalar `routing` primaries from the reachable rows; offer the seed's
-   commented house routing as the default when every row it names is reachable;
+6. derive the scalar `routing` primaries from the reachable rows; the seed carries
+   commented house routing for cross-provider, Claude-only, and Codex-only
+   capabilities, so offer the block matching this developer's capabilities as the
+   default when every row it names is reachable;
 7. record positive `delegation.max_children`, `delegation.max_depth`, and
    `delegation.default_token_budget` from the developer's limits;
 8. derive and validate the route-specific `fallbacks` chains below;

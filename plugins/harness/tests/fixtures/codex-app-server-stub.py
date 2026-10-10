@@ -12,7 +12,7 @@ from pathlib import Path
 RAW_MARKER = "RAW_SECRET_MARKER"
 
 
-def write_schema(output: Path, compatible: bool) -> None:
+def write_schema(output: Path, compatible: bool, union: str = "oneOf") -> None:
     output.mkdir(parents=True, exist_ok=True)
     thread_properties = {
         name: {} for name in (
@@ -57,7 +57,7 @@ def write_schema(output: Path, compatible: bool) -> None:
             },
             "TurnError": {"properties": error_properties},
             "CodexErrorInfo": {
-                "oneOf": [
+                union: [
                     {"enum": variants},
                     *[
                         {
@@ -197,7 +197,11 @@ def main() -> int:
     mode = os.environ.get("HARNESS_CODEX_STUB_MODE", "success")
     if sys.argv[1:3] == ["app-server", "generate-json-schema"]:
         output = Path(sys.argv[sys.argv.index("--out") + 1])
-        write_schema(output, compatible=mode != "incompatible")
+        write_schema(
+            output,
+            compatible=mode != "incompatible",
+            union="anyOf" if mode == "anyof_schema" else "oneOf",
+        )
         return 0
     if sys.argv[1:] == ["app-server", "--stdio"]:
         env_capture = os.environ.get("HARNESS_CODEX_ENV_CAPTURE")
