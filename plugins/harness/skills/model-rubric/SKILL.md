@@ -148,11 +148,13 @@ exists. Treat it only as a seed:
 1. remove rows whose provider/executor is unavailable;
 2. add current candidate `(model, effort)` rows for newly available providers;
 3. fill `provider`, `trust`, and `efficiency` from verified capabilities and the
-   developer interview;
+   developer interview; the seed's values are the house defaults, so keep them when
+   the developer has no preference;
 4. update data-backed `intelligence` and `benchmark`, preserving user-owned
    `taste`;
 5. mark cross-provider CLI rows with `via: <cli>`;
-6. derive the scalar `routing` primaries from the reachable rows;
+6. derive the scalar `routing` primaries from the reachable rows; offer the seed's
+   commented house routing as the default when every row it names is reachable;
 7. record positive `delegation.max_children`, `delegation.max_depth`, and
    `delegation.default_token_budget` from the developer's limits;
 8. derive and validate the route-specific `fallbacks` chains below;
