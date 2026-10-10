@@ -51,9 +51,9 @@ exploration converges.
 2. The round sheet lists up to seven variants. Diversity comes from direction,
    reference pack, and dials before model; two rows differing only in model are
    an ablation and say so.
-3. `fan-out` dispatches. Claude builders run as local subagents; when a
-   personal agent named `design-builder-<skill>` exists it is used, so one skill
-   is preloaded and no other. Other rows go through `harness:delegate` with a
+3. `fan-out` dispatches. Claude builders run as local subagents; the plugin's
+   `design:design-builder-<skill>` agent is used, so one skill is preloaded and
+   no other. Other rows go through `harness:delegate` with a
    semantic route; Harness resolves the model.
 4. `first-draft-critic` in explore mode gives each variant one fix pass against
    its own Wins if / Loses if and the craft gates. No system lens, no taste
@@ -75,9 +75,10 @@ exploration converges.
   a `PRODUCT.md` at the project root.
 - For `capture`, and `design:present`'s `frames.mjs` and `import-build.mjs`:
   Playwright with Chromium and `sharp` resolvable from the project root.
-- Optional personal agents `design-builder-*` and `design-critic-*` in
-  `~/.claude/agents`; the skills fall back to general-purpose subagents with
-  the bundled prompts.
+- The builder agents (`design:design-builder-*`) each preload one design skill
+  (`impeccable`, `hallmark`, `frontend-design`, `design-taste-frontend`), which
+  must be installed separately; without it the skills fall back to
+  general-purpose subagents with the bundled prompts.
 
 ## Verification
 

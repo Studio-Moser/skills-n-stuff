@@ -75,10 +75,11 @@ batching every question, then run to the end state: a round index handed back.
    `code`: the worktree, the route, and the running server). The build brief
    says a builder asks if one is missing.
 4. **Dispatch in parallel.**
-   - A row whose `route` is a Claude alias runs as a local subagent. If a
-     personal agent named `design-builder-<method>` exists, use it with the
-     row's model; otherwise spawn a general-purpose subagent, tell it to invoke
-     exactly that skill, and pass the packet.
+   - A row whose `route` is a Claude alias runs as a local subagent. Use the
+     plugin's `design:design-builder-<method>` agent with the row's model; it
+     preloads that one skill and no other. When the method has no such agent,
+     or its skill is not installed, spawn a general-purpose subagent, tell it
+     to invoke exactly that skill, and pass the packet.
    - A row whose `route` is a Harness semantic route (`taste`, `default`,
      `bulk`) goes through `harness:delegate` with `operation: execute`, the
      packet as context, the project root (`html`) or the worktree (`code`) as
