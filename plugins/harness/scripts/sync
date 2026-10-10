@@ -542,10 +542,17 @@ def reconcile_settings(repo: Path, claude: Path, scripts: Path, *, check: bool) 
     return True
 
 
-def render(repo: Path, scripts: Path) -> str:
-    result = run([helper(scripts, "render-codex-agents.sh"), str(repo)], check=False)
+def render(repo: Path, scripts: Path, adopt: bool) -> str:
+    command = [helper(scripts, "render-global-instructions.sh"), *(["--adopt"] if adopt else []), str(repo)]
+    result = run(command, check=False)
+    if result.returncode == 4:
+        raise Stop(
+            EXIT_DECISION,
+            "SYNC_DECISION_REQUIRED=claude/CLAUDE.md is hand-written; pass --adopt-profile to replace it "
+            "with the Harness profile (its Shelby block is kept, the rest stays in git history)",
+        )
     if result.returncode:
-        raise Stop(EXIT_FAILED, "SYNC_STATE=failed: derived AGENTS.md render failed")
+        raise Stop(EXIT_FAILED, "SYNC_STATE=failed: global instructions render failed")
     return next((line.partition("=")[2] for line in result.stdout.splitlines() if line.startswith("RENDER_STATE=")), "unknown")
 
 
@@ -1003,6 +1010,7 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--replace-repo-path", action="store_true")
     result.add_argument("--relink", action="append", default=[], metavar="NAME")
     result.add_argument("--relink-all", action="store_true")
+    result.add_argument("--adopt-profile", action="store_true")
     result.add_argument("--keep-live", action="append", default=[], metavar="NAME")
     result.add_argument("--discard-live", action="append", default=[], metavar="NAME")
     result.add_argument("--mcp-mode", choices=("match", "replace", "merge"))
@@ -1068,7 +1076,7 @@ def sync(
         adopt_loose(repo, roots, runtime_mcp, scripts)
     ok, relinked, attention = reconcile_links(args, repo, roots, scripts)
     reconcile_settings(repo, roots["claude"], scripts, check=False)
-    derived = render(repo, scripts)
+    derived = render(repo, scripts, args.adopt_profile)
     # A missing derived target may now exist; reconcile links once more.
     if any(item.startswith("AGENTS.md:") for item in attention):
         _ok2, relinked2, attention2 = reconcile_links(args, repo, roots, scripts)
@@ -1093,7 +1101,7 @@ def sync(
         findings.append("rubric audit skipped: python3 not on PATH")
     reconcile_settings(repo, roots["claude"], scripts, check=False)
     final_mcp(repo, runtime_mcp, scripts, prune_to_local=prune_to_local)
-    derived = render(repo, scripts)
+    derived = render(repo, scripts, args.adopt_profile)
     final_links, _ = read_link_plan(scripts, repo)
     unresolved_links = [name for name, _rel, state in final_links if state != "ok"]
     if unresolved_links:

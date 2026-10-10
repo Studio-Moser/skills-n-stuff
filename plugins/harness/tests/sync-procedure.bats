@@ -25,6 +25,8 @@ name: House Style
 # Local policy
 EOF
   cat > "$target/claude/CLAUDE.md" <<'EOF'
+<!-- harness:profile:start -->
+<!-- harness:profile:end -->
 # Rules
 
 1. **No hallucination** — If you don't know, say so.
@@ -109,7 +111,7 @@ required = (
     "link-plan.sh",
     "localize-skill-overrides.py",
     "reconcile_shared_settings.py",
-    "render-codex-agents.sh",
+    "render-global-instructions.sh",
     "mcp-manifest.sh",
     "mcp-reconcile.sh",
     "mcp-secrets.sh",
@@ -196,6 +198,8 @@ name: House Style
 # Local policy
 EOF
   cat > "$AGENTS/claude/CLAUDE.md" <<'EOF'
+<!-- harness:profile:start -->
+<!-- harness:profile:end -->
 # Rules
 
 1. **No hallucination** — If you don't know, say so.
