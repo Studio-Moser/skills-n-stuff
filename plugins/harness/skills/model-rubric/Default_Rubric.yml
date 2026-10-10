@@ -7,7 +7,7 @@
 # an unpersonalized copy fails loudly instead of silently mis-routing.
 seed: true                  # remove this key when personalized
 reviewed: null              # interview sets today's date; refresh after 14 days
-sources: [seed-2026-10-09]  # interview appends current evidence sources / judgment
+sources: [seed-2026-10-09, slopalytics-2026-10-08]  # interview appends current evidence sources / judgment
 capabilities: {}            # interview: one entry per provider/CLI, each verified with command -v
 models:
   # Rows are keyed by (name, effort) — the same model at two efforts is two rows,
@@ -24,7 +24,18 @@ models:
     trust: preferred
     efficiency: 5
   # Provisional: GPT-6.1 Sol shipped 2026-09-29. Scores are house assumption, not measured;
-  # no DeepSWE run yet.
+  # no DeepSWE run yet. Slopalytics 2026-10-08 (Artificial Analysis index / cost per task /
+  # time per task): low 42.1 / $0.13 / 80s, medium 47.8 / $0.21 / 158s, high 50.2 / $0.32 /
+  # 258s. Every rung is on the cross-provider cost line; low replaces gpt-5.6-terra@high
+  # (34.2 / $0.34 / 124s) and gpt-5.6-sol@low (33.5 / $0.26 / 58s) for bulk and quick.
+  - name: gpt-6.1-sol
+    effort: low
+    provider: openai
+    via: codex
+    intelligence: 8
+    taste: 8
+    trust: trusted
+    efficiency: 9
   - name: gpt-6.1-sol
     effort: medium
     provider: openai
@@ -41,6 +52,20 @@ models:
     taste: 9
     trust: trusted
     efficiency: 7
+  # Provisional: GPT-6 Luna shipped 2026-09-22 and carries gpt-5.6-luna@max's judgment
+  # scores until measured; no DeepSWE run yet. Slopalytics 2026-10-08: max 38.1 / $0.07 /
+  # 389s against gpt-5.6-luna@max 37.3 / $0.18 / 348s.
+  - name: gpt-6-luna
+    effort: max
+    provider: openai
+    via: codex
+    intelligence: 8
+    taste: 5
+    trust: batch-only
+    efficiency: 10
+  # The gpt-5.6 rows, claude-sonnet-5, claude-opus-5, and claude-fable-5 are superseded on
+  # the Slopalytics lines and no longer routed. They stay as the only DeepSWE-measured
+  # rows until their successors have a DeepSWE run.
   - name: gpt-5.6-luna
     effort: max
     provider: openai
@@ -106,6 +131,17 @@ models:
   # Opus 5 on every row). Harness Testing 2026-09-24, 19 controlled tasks at medium: 18-19/19
   # correct at $0.12-0.18 per task depending on harness, so medium is the default rung and
   # high is for work that measurably needs it. No DeepSWE run yet.
+  # Slopalytics 2026-10-08: low 42.3 / $0.55 / 82s, medium 51.2 / $1.34 / 205s, high 53.6 /
+  # $1.82 / 282s. Low is on the Claude time line, so it is the Claude quick rung. Opus 5.5
+  # leads claude-fable-5-1 (high 51.2 / $3.91 / 408s) at every rung on index, cost, and
+  # time, so Opus holds orchestration and taste and Fable 5.1 has no row.
+  - name: claude-opus-5-5
+    effort: low
+    provider: anthropic
+    intelligence: 8
+    taste: 8
+    trust: eligible-secondary
+    efficiency: 8
   - name: claude-opus-5-5
     effort: medium
     provider: anthropic
@@ -118,7 +154,7 @@ models:
     provider: anthropic
     intelligence: 10
     taste: 9
-    trust: eligible-secondary
+    trust: preferred
     efficiency: 5
   - name: claude-fable-5
     effort: high
@@ -128,42 +164,75 @@ models:
     trust: preferred
     efficiency: 3
     benchmark: { suite: deepswe, version: "1.1", observed: 2026-09-10, pass_at_1: 0.686, mean_task_cost_usd: 9.18, cost_per_success_usd: 13.38, mean_output_tokens: 57000, mean_steps: 59, mean_duration_seconds: 1062 }
-  # Provisional: Fable 5's successor at the same price; Claude Code 2.1.281 offers it in
-  # place of Fable 5. Carries Fable 5's judgment scores until measured.
-  - name: claude-fable-5-1
-    effort: high
+  # Provisional: Haiku 5.5 shipped 2026-10-07. Scores are house assumption, not measured;
+  # no DeepSWE run yet. Slopalytics 2026-10-08: xhigh 41.2 / $0.12 / 293s at 89k tokens per
+  # task, on the cross-provider cost line. It explores, searches, and classifies; it does
+  # not implement or orchestrate.
+  - name: claude-haiku-5-5
+    effort: xhigh
     provider: anthropic
-    intelligence: 10
-    taste: 10
-    trust: preferred
-    efficiency: 3
+    intelligence: 7
+    taste: 6
+    trust: trusted-for-exploration
+    efficiency: 8
 routing: {}
 # routing is DERIVED from this developer's capabilities, trust, and efficiency at
 # interview time. Values are <model>@<effort>. The house routing below is what these
-# scores derive to with both Claude and Codex available; offer it as the default when
-# the developer has no preference and every named row is reachable.
+# scores derive to for each capability scenario; offer the block that matches the
+# developer's capabilities as the default when they have no preference and every named
+# row is reachable.
+#
+# Cross-provider — Claude and Codex:
 #
 #   routing:
-#     orchestrator: gpt-6-astra@high      # preferred top-level context, judgment, synthesis, and delegation
+#     orchestrator: claude-opus-5-5@high # preferred top-level context, judgment, synthesis, and delegation
 #     default: gpt-6.1-sol@medium        # everyday delegated software work
-#     bulk: gpt-5.6-terra@high          # clear-spec mechanical work at lower cost per success
-#     quick: gpt-5.6-sol@low            # short latency-sensitive delegated work
+#     bulk: gpt-6.1-sol@low              # clear-spec mechanical work at lower cost per task
+#     quick: gpt-6.1-sol@low             # short latency-sensitive delegated work
 #     explore: gpt-6.1-sol@high          # read-only investigation that returns directly to the orchestrator
-#     batch: gpt-5.6-luna@max            # unattended fan-out only
+#     batch: gpt-6-luna@max              # unattended fan-out only
+#     taste_min: 9
+#     taste: claude-opus-5-5@high
+#     review: claude-opus-5-5@high       # strong review of a fixed target
+#     independent: gpt-6.1-sol@high      # cross-provider adversarial review of work the Opus orchestrator's provider authored
+#   fallbacks:
+#     orchestrator: [gpt-6-astra@high]
+#     default: [claude-opus-5-5@medium]
+#     bulk: [claude-opus-5-5@low]
+#     quick: [claude-opus-5-5@low]
+#     explore: [claude-haiku-5-5@xhigh]
+#     batch: [claude-opus-5-5@medium]
+#     taste: [gpt-6-astra@high]
+#     review: [gpt-6.1-sol@high]
+#     independent: []
+#
+# Same provider — Claude only. No bulk or batch: no Claude row implements clear-spec work
+# for less than default, and Haiku is trusted for exploration only. No independent and no
+# fallback chains.
+#
+#   routing:
+#     orchestrator: claude-opus-5-5@high
+#     default: claude-opus-5-5@medium
+#     quick: claude-opus-5-5@low
+#     explore: claude-haiku-5-5@xhigh
+#     taste_min: 9
+#     taste: claude-opus-5-5@high
+#     review: claude-opus-5-5@high
+#   fallbacks: {}
+#
+# Same provider — Codex only. No independent and no fallback chains.
+#
+#   routing:
+#     orchestrator: gpt-6-astra@high
+#     default: gpt-6.1-sol@medium
+#     bulk: gpt-6.1-sol@low
+#     quick: gpt-6.1-sol@low
+#     explore: gpt-6.1-sol@high
+#     batch: gpt-6-luna@max
 #     taste_min: 9
 #     taste: gpt-6-astra@high
-#     review: gpt-6.1-sol@high            # strong review of a fixed target
-#     independent: claude-opus-5-5@high  # cross-provider adversarial review of work the Astra orchestrator's provider authored
-#   fallbacks:
-#     orchestrator: [claude-opus-5-5@high]
-#     default: [claude-opus-5-5@medium]
-#     bulk: [claude-opus-5-5@medium]
-#     quick: []
-#     explore: [claude-sonnet-5@high]
-#     batch: [claude-opus-5-5@medium]
-#     taste: [claude-opus-5-5@high]
-#     review: [claude-opus-5-5@high]
-#     independent: []
+#     review: gpt-6.1-sol@high
+#   fallbacks: {}
 fallbacks: {}               # Setup derives values only after the developer interview
 delegation:
   max_children: null        # interview: recommend 1 unless measured parallel work needs more
@@ -174,3 +243,10 @@ delegation:
 #   - luna below max is worthless for agentic work; at max it's unattended-batch-only
 #     (~158s TTFT).
 #   - Effort beats tier: raise a model's effort before reaching for a bigger model.
+#   - Max effort is the worst-value rung on most models: claude-sonnet-5-5@max costs $5.46
+#     per task against $0.88 at high. Route max only where a row is batch-only.
+#   - claude-sonnet-5-5 is off the cross-provider cost line at every rung below max, so it
+#     has no row: Haiku 5.5 and Opus 5.5 cover the Claude range.
+#   - Haiku 5.5's xhigh rung averages 89k tokens per task, and its launch pricing is
+#     reported to rise 5x past 100k context tokens (not verified against Anthropic's price
+#     list). Keep its tracks short on metered billing.
