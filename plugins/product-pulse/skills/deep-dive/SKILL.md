@@ -1,8 +1,8 @@
 ---
 name: deep-dive
 description: >-
-  Researches an external video, article, repository, or document and compares it against the current project in a cited report. Use when the user asks to research, analyze, or compare an external resource against the project.
-allowed-tools: "Bash Read Write Edit Skill"
+  Researches an external video, article, repository, or document against the current project, as a quick conversational take, full research in chat, or a saved cited report. Use when the user asks to research, analyze, or compare an external resource against the project.
+allowed-tools: "Bash Read Write Edit Skill AskUserQuestion"
 ---
 
 # Product Pulse — Deep Dive
@@ -19,9 +19,41 @@ or blocked route inside Product Pulse; consume and report the typed Harness Resu
 
 ---
 
+## Choose the Path
+
+A deep dive is the start of a conversation, not always a report. Before researching,
+ask what the user wants in one round of questions. Use the runtime's structured
+question UI (`AskUserQuestion` in Claude Code); where none exists, ask the same
+questions in one plain message. Skip any question the request already answers, and
+never ask just because a link was shared without a research request.
+
+1. **Depth** (pick one):
+   - **Quick take** — read the resources, check them against the project, and answer
+     in chat. No setup, no files, no delegation.
+   - **Full research in chat** — the complete ecosystem research and project
+     comparison, delivered in chat. Nothing is saved.
+   - **Saved report and PR** — full research, saved to the research directory and
+     opened as a pull request.
+2. **Focus** (pick any): whether to adopt it, how the project compares, what the
+   project is missing or risking, or simply understanding the resource. Lead the
+   answer with the chosen focus and scope the project audit to it.
+
+| Path | Runs | Does not run |
+|------|------|--------------|
+| Quick take | Phases 2 and 4, your own reading of the ecosystem, then the Phase 7 sections that apply | Phase 0, Harness requests, Phases 8–10; `pulse-config.yaml` is not required |
+| Full research in chat | Phases 0–7; without a config, skip Phases 0.1, 0.2, 1 and memory and continue | Phases 8–10 |
+| Saved report and PR | Every phase | — |
+
+A quick take states that it is a single-pass read and gives a confidence level for
+each finding; it has no Research Coverage section because no branches were scheduled.
+
+---
+
 ## Phase 0: Load Context
 
 ### 0.0 Discover Configuration
+
+Quick take skips this phase. Full research in chat uses the configuration when one exists and continues without it; the saved path requires it and stops when it is missing.
 
 Walk up from cwd, checking each directory for `pulse-config.yaml` directly and in common research-dir subdirs (`research/`, `Research/`, `docs/research/`). The first match wins; that file's parent directory is the **research directory** (`{research_dir}`).
 
@@ -405,7 +437,26 @@ Each item states: what to do, why it matters, rough effort (quick win / moderate
 
 ---
 
+## Keep the Conversation Going
+
+On the two chat paths, the delivered findings are an opening, not an ending. After
+Phase 7, ask what comes next with the structured question UI:
+
+- **Dig deeper into a finding** — ask which one, research that thread, and answer in
+  chat. This is a follow-up, not a new report.
+- **Go to the next depth** — a quick take becomes full research; full research becomes
+  a saved report and PR, running Phases 8–10 on the research already accepted.
+- **Done** — stop without writing files or opening a pull request.
+
+Ask again after each follow-up until the user is done. A quick take is never saved
+directly: a saved report carries proven Research Coverage, so it goes through full
+research first.
+
+---
+
 ## Phase 8: Save Report
+
+Saved path only.
 
 Save the same report content from Phase 7 to `{output_dir}/{slug}.md`. The slug is derived from the primary topic (e.g., `react-server-components.md`, `auth-middleware-comparison.md`). Use kebab-case, no dates in the slug. If a file with the same slug already exists, append `-2` (or the next available number) to avoid overwriting prior research.
 
@@ -426,6 +477,8 @@ provider directly.
 ---
 
 ## Phase 10: Branch + Commit + PR
+
+Saved path only.
 
 Inside the primary repo:
 
@@ -470,8 +523,8 @@ gh pr merge "$pr_url" --squash --delete-branch --auto || \
 
 ## Error Handling
 
-- **Config missing**: Stop and tell the user to run `/product-pulse:setup`.
-- **Research context missing**: Stop and tell the user to run `/product-pulse:setup`.
+- **Config missing**: On the saved path, stop and tell the user to run `/product-pulse:setup`. On the chat paths, continue without a research directory and say that saving needs setup.
+- **Research context missing**: Same rule as a missing config.
 - **Memory unavailable**: Continue without memory — skip Phase 9.
 - **Transcribe failure**: Surface the error to the user and stop analysis of that resource. Do not guess at video content.
 - **Git/PR failure**: Save the report locally and surface the error. The research is still valuable even if the PR fails.
