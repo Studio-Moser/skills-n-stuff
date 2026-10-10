@@ -49,8 +49,9 @@ Round cap: **2**. One critique, one fix pass by the builder, one re-check of
 what changed. Then stop and report the remaining fails into the round index;
 the owner decides whether they matter.
 
-If personal agents named `design-critic-craft` and `design-critic-mechanical`
-exist, use them; otherwise spawn general-purpose subagents with the prompts in
+Use the plugin's `design:design-critic-craft` and
+`design:design-critic-mechanical` agents; where the runtime has no plugin
+agents, spawn general-purpose subagents with the prompts in
 `references/critic-prompts.md` § Explore.
 
 ## Gauntlet mode (convergence and hero pieces)
