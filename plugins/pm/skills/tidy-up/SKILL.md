@@ -130,9 +130,16 @@ Classify each item:
 | Remote branch | unmerged | keep; list |
 | Worktree | branch merged, clean, not current, not locked | remove |
 | Worktree | dirty, current, locked, or branch unmerged | keep; list dirty files |
-| Worktree | under a host tool's directory (T3, Codex, Cursor, Conductor, `.claude/worktrees`) | keep unless the user selects it |
+| Worktree | under a host tool's directory (T3, Codex, Cursor, Conductor, `.claude/worktrees`), branch merged, clean, not current, not locked | remove; list in its own plan table |
+| Worktree | under a host tool's directory, otherwise | keep; list |
 | Stash | merged by rule 4, no untracked files (`git rev-parse -q --verify 'stash@{n}^3'` fails) | drop |
 | Stash | otherwise | keep; summarize contents |
+
+Host tools do not reliably clean their own worktrees: T3 Code, for one, skips any
+worktree that holds ignored files other than `node_modules` and judges "merged" only
+by ancestry on the default branch, so squash merges and other base branches never
+qualify. Their merged worktrees therefore default to removal here, under the same
+proof and the same approval as any other.
 
 "Clean" means `git -C <wt> status --porcelain --ignored=no` is empty. Ignored build
 output (`node_modules`, `.build`) does not make a worktree dirty, but it can make
