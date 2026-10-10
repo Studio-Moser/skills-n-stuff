@@ -1,87 +1,169 @@
 # Studio Moser seed rubric — the starting point /harness:model-rubric copies before
-# the interview. What's here is distributable: intelligence and taste scores are
-# house judgment; benchmark blocks are public DeepSWE workload evidence. What's NOT
-# here is per-developer: trust, efficiency, capabilities, and routing — the
-# interview fills those in. The null/empty placeholders are invalid on purpose so
+# the interview. Every score here is the house default: intelligence, taste, trust,
+# and efficiency are Studio Moser's own judgment, and benchmark blocks are public
+# DeepSWE workload evidence. A developer with no opinion yet can keep them; the
+# interview overrides any of them. Capabilities, routing, fallbacks, and delegation
+# limits stay per-developer: their null/empty placeholders are invalid on purpose so
 # an unpersonalized copy fails loudly instead of silently mis-routing.
 seed: true                  # remove this key when personalized
 reviewed: null              # interview sets today's date; refresh after 14 days
-sources: [seed-2026-08-24]  # interview appends current evidence sources / judgment
+sources: [seed-2026-10-09]  # interview appends current evidence sources / judgment
 capabilities: {}            # interview: one entry per provider/CLI, each verified with command -v
 models:
   # Rows are keyed by (name, effort) — the same model at two efforts is two rows,
   # because effort moves agentic quality more than model tier does. At creation,
   # DROP rows whose provider is absent from this developer's capabilities.
+  # Provisional: judgment scores are house assumption, not measured. Harness Testing ran
+  # Astra at medium as a kickoff model (every harness 24/25 correct on that campaign).
+  - name: gpt-6-astra
+    effort: high
+    provider: openai
+    via: codex
+    intelligence: 10
+    taste: 9
+    trust: preferred
+    efficiency: 5
+  # Provisional: GPT-6.1 Sol shipped 2026-09-29. Scores are house assumption, not measured;
+  # no DeepSWE run yet.
+  - name: gpt-6.1-sol
+    effort: medium
+    provider: openai
+    via: codex
+    intelligence: 9
+    taste: 8
+    trust: trusted
+    efficiency: 8
+  - name: gpt-6.1-sol
+    effort: high
+    provider: openai
+    via: codex
+    intelligence: 9
+    taste: 9
+    trust: trusted
+    efficiency: 7
   - name: gpt-5.6-luna
     effort: max
     provider: openai
     via: codex
     intelligence: 8
     taste: 5
-    trust: null
-    efficiency: null
-    benchmark: { suite: deepswe, version: "1.1", observed: 2026-08-24, pass_at_1: 0.672, mean_task_cost_usd: 0.61, cost_per_success_usd: 0.91, mean_output_tokens: 73000, mean_duration_seconds: 1122 }
+    trust: batch-only
+    efficiency: 10
+    benchmark: { suite: deepswe, version: "1.1", observed: 2026-09-10, pass_at_1: 0.672, mean_task_cost_usd: 0.61, cost_per_success_usd: 0.91, mean_output_tokens: 73000, mean_steps: 102, mean_duration_seconds: 1122 }
   - name: gpt-5.6-sol
     effort: low
     provider: openai
     via: codex
     intelligence: 6
     taste: 7
-    trust: null
-    efficiency: null
+    trust: trusted
+    efficiency: 7
+    benchmark: { suite: deepswe, version: "1.1", observed: 2026-09-10, pass_at_1: 0.454, mean_task_cost_usd: 1.07, cost_per_success_usd: 2.36, mean_output_tokens: 11000, mean_steps: 23, mean_duration_seconds: 262 }
   - name: gpt-5.6-sol
     effort: medium
     provider: openai
     via: codex
     intelligence: 8
     taste: 8
-    trust: null
-    efficiency: null
-    benchmark: { suite: deepswe, version: "1.1", observed: 2026-08-24, pass_at_1: 0.611, mean_task_cost_usd: 1.86, cost_per_success_usd: 3.04, mean_output_tokens: 18000, mean_duration_seconds: 426 }
+    trust: trusted
+    efficiency: 8
+    benchmark: { suite: deepswe, version: "1.1", observed: 2026-09-10, pass_at_1: 0.611, mean_task_cost_usd: 1.86, cost_per_success_usd: 3.04, mean_output_tokens: 18000, mean_steps: 31, mean_duration_seconds: 426 }
   - name: gpt-5.6-sol
     effort: high
     provider: openai
     via: codex
     intelligence: 9
     taste: 9
-    trust: null
-    efficiency: null
+    trust: trusted
+    efficiency: 7
+    benchmark: { suite: deepswe, version: "1.1", observed: 2026-09-10, pass_at_1: 0.694, mean_task_cost_usd: 3.47, cost_per_success_usd: 5.00, mean_output_tokens: 28000, mean_steps: 37, mean_duration_seconds: 594 }
   - name: gpt-5.6-terra
     effort: high
     provider: openai
     via: codex
     intelligence: 7
     taste: 7
-    trust: null
-    efficiency: null
-    benchmark: { suite: deepswe, version: "1.1", observed: 2026-08-24, pass_at_1: 0.538, mean_task_cost_usd: 0.91, cost_per_success_usd: 1.69, mean_output_tokens: 22000, mean_duration_seconds: 366 }
+    trust: trusted-for-bulk
+    efficiency: 9
+    benchmark: { suite: deepswe, version: "1.1", observed: 2026-09-10, pass_at_1: 0.538, mean_task_cost_usd: 0.91, cost_per_success_usd: 1.69, mean_output_tokens: 22000, mean_steps: 34, mean_duration_seconds: 366 }
   - name: claude-sonnet-5
     effort: high
     provider: anthropic
     intelligence: 6
     taste: 7
-    trust: null
-    efficiency: null
+    trust: trusted-for-exploration
+    efficiency: 2
+    benchmark: { suite: deepswe, version: "1.1", observed: 2026-09-10, pass_at_1: 0.482, mean_task_cost_usd: 7.43, cost_per_success_usd: 15.41, mean_output_tokens: 87000, mean_steps: 147, mean_duration_seconds: 1728 }
   - name: claude-opus-5
     effort: high
     provider: anthropic
     intelligence: 9
     taste: 9
-    trust: null
-    efficiency: null
-    benchmark: { suite: deepswe, version: "1.1", observed: 2026-08-24, pass_at_1: 0.728, mean_task_cost_usd: 6.08, cost_per_success_usd: 8.35, mean_output_tokens: 64000, mean_duration_seconds: 1164 }
+    trust: eligible-secondary
+    efficiency: 4
+    benchmark: { suite: deepswe, version: "1.1", observed: 2026-09-10, pass_at_1: 0.728, mean_task_cost_usd: 6.08, cost_per_success_usd: 8.35, mean_output_tokens: 64000, mean_steps: 73, mean_duration_seconds: 1164 }
+  # Provisional: scored from Anthropic's 2026-09-22 launch table (ahead of Fable 5.1 and
+  # Opus 5 on every row). Harness Testing 2026-09-24, 19 controlled tasks at medium: 18-19/19
+  # correct at $0.12-0.18 per task depending on harness, so medium is the default rung and
+  # high is for work that measurably needs it. No DeepSWE run yet.
+  - name: claude-opus-5-5
+    effort: medium
+    provider: anthropic
+    intelligence: 9
+    taste: 9
+    trust: eligible-secondary
+    efficiency: 7
+  - name: claude-opus-5-5
+    effort: high
+    provider: anthropic
+    intelligence: 10
+    taste: 9
+    trust: eligible-secondary
+    efficiency: 5
   - name: claude-fable-5
     effort: high
     provider: anthropic
     intelligence: 10
     taste: 10
-    trust: null
-    efficiency: null
-    benchmark: { suite: deepswe, version: "1.1", observed: 2026-08-24, pass_at_1: 0.686, mean_task_cost_usd: 9.18, cost_per_success_usd: 13.38, mean_output_tokens: 57000, mean_duration_seconds: 1062 }
+    trust: preferred
+    efficiency: 3
+    benchmark: { suite: deepswe, version: "1.1", observed: 2026-09-10, pass_at_1: 0.686, mean_task_cost_usd: 9.18, cost_per_success_usd: 13.38, mean_output_tokens: 57000, mean_steps: 59, mean_duration_seconds: 1062 }
+  # Provisional: Fable 5's successor at the same price; Claude Code 2.1.281 offers it in
+  # place of Fable 5. Carries Fable 5's judgment scores until measured.
+  - name: claude-fable-5-1
+    effort: high
+    provider: anthropic
+    intelligence: 10
+    taste: 10
+    trust: preferred
+    efficiency: 3
 routing: {}
 # routing is DERIVED from this developer's capabilities, trust, and efficiency at
-# interview time — never copied from a seed or another developer. Values are
-# <model>@<effort>.
+# interview time. Values are <model>@<effort>. The house routing below is what these
+# scores derive to with both Claude and Codex available; offer it as the default when
+# the developer has no preference and every named row is reachable.
+#
+#   routing:
+#     orchestrator: gpt-6-astra@high      # preferred top-level context, judgment, synthesis, and delegation
+#     default: gpt-6.1-sol@medium        # everyday delegated software work
+#     bulk: gpt-5.6-terra@high          # clear-spec mechanical work at lower cost per success
+#     quick: gpt-5.6-sol@low            # short latency-sensitive delegated work
+#     explore: gpt-6.1-sol@high          # read-only investigation that returns directly to the orchestrator
+#     batch: gpt-5.6-luna@max            # unattended fan-out only
+#     taste_min: 9
+#     taste: gpt-6-astra@high
+#     review: gpt-6.1-sol@high            # strong review of a fixed target
+#     independent: claude-opus-5-5@high  # cross-provider adversarial review of work the Astra orchestrator's provider authored
+#   fallbacks:
+#     orchestrator: [claude-opus-5-5@high]
+#     default: [claude-opus-5-5@medium]
+#     bulk: [claude-opus-5-5@medium]
+#     quick: []
+#     explore: [claude-sonnet-5@high]
+#     batch: [claude-opus-5-5@medium]
+#     taste: [claude-opus-5-5@high]
+#     review: [claude-opus-5-5@high]
+#     independent: []
 fallbacks: {}               # Setup derives values only after the developer interview
 delegation:
   max_children: null        # interview: recommend 1 unless measured parallel work needs more
