@@ -57,6 +57,7 @@ required = (
     "parent agents reproduce",
     "do not run setup merely because",
     "worktree only for actual parallel work",
+    "placeholder branch (`t3code/*`): rename it to `{type}/{desc}`",
     "explicitly requests isolation",
     "task names a working directory",
     "stay there unless the user explicitly authorizes moving it",
