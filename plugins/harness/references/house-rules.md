@@ -22,12 +22,14 @@ Harness-owned conventions for code changes across Studio Moser projects. The `pm
 
 - Branch from the repo's default branch. Confirm it: `gh repo view --json defaultBranchRef -q .defaultBranchRef.name`
 - Never commit directly to `main`/`master`.
-- Name: `{type}/{short-desc}` — a Gitflow type prefix, then a kebab-case summary. Pick the prefix by intent:
-  - `feature/` — new functionality (`feature/dark-mode-toggle`)
-  - `bugfix/` — fix a non-urgent bug (`bugfix/settings-crash-on-rotation`)
+- Name: `{type}/{short-desc}` — the Conventional Commit type of the work, then a kebab-case summary:
+  - `feat/` — new functionality (`feat/dark-mode-toggle`)
+  - `fix/` — a bug fix (`fix/settings-crash-on-rotation`)
+  - `style/` — visual or copy polish with no logic change (`style/pricing-card-spacing`)
+  - `chore/`, `docs/`, `refactor/`, `test/`, `perf/` — as in Conventional Commits (`chore/bump-eslint`)
   - `hotfix/` — urgent fix to ship straight away (`hotfix/login-500`)
   - `release/` — release prep (`release/1.4.0`)
-  - `chore/` — tooling, deps, docs, refactors with no behavior change (`chore/bump-eslint`)
+- A repository that already uses Gitflow names (`feature/`, `bugfix/`) keeps them; see Project overrides.
 - Exception: automated sprint batches (pm:sprint-dev) use a `pulse/{cluster}-{date}` prefix — that's expected.
 
 ## Concurrent sessions in one repo
