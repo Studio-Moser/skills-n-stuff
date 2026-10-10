@@ -20,6 +20,8 @@ name: House Style
 # Local policy
 EOF
   cat > "$REPO/claude/CLAUDE.md" <<'EOF'
+<!-- harness:profile:start -->
+<!-- harness:profile:end -->
 # Rules
 
 1. **No hallucination** — If you don't know, say so.
@@ -59,7 +61,7 @@ EOF
   git clone -q "$REMOTE" "$UPDATER"
   git -C "$UPDATER" config user.email updater@example.com
   git -C "$UPDATER" config user.name "Remote Updater"
-  printf '\nRemote-only policy.\n' >> "$UPDATER/claude/output-styles/House Style.md"
+  printf '\nRemote-only policy.\n' >> "$UPDATER/claude/CLAUDE.md"
   cat > "$UPDATER/claude/settings.json" <<'EOF'
 {
   "enabledPlugins": {
@@ -73,16 +75,16 @@ EOF
 }
 
 @test "ahead remote is ingested before every reconciliation and derived output" {
-  ! grep -qF "Remote-only policy." "$REPO/claude/output-styles/House Style.md"
+  ! grep -qF "Remote-only policy." "$REPO/claude/CLAUDE.md"
 
   run "$SCRIPTS/sync-preflight.sh" "$REPO"
   [ "$status" -eq 0 ]
   [[ "$output" == *"SYNC_PREFLIGHT=ready"* ]] || return 1
-  grep -qF "Remote-only policy." "$REPO/claude/output-styles/House Style.md"
+  grep -qF "Remote-only policy." "$REPO/claude/CLAUDE.md"
 
   "$SCRIPTS/reconcile_shared_settings.py" "$REPO/claude/settings.json"
   "$SCRIPTS/mcp-manifest.sh" "$RUNTIME_MCP" "$REPO/mcp.manifest.json"
-  "$SCRIPTS/render-codex-agents.sh" "$REPO"
+  "$SCRIPTS/render-global-instructions.sh" "$REPO"
   "$SCRIPTS/portability-lint.sh" "$REPO"
 
   run "$SCRIPTS/sync-finalize.sh" "$REPO" "harness: sync complete workflow"
@@ -114,7 +116,7 @@ EOF
   [[ "$output" == *"remote moved while local work exists"* ]] || return 1
   [[ "$output" == *"rerun sync"* ]] || return 1
   [ "$(git -C "$REPO" rev-parse HEAD)" = "$before" ]
-  ! grep -qF "Remote-only policy." "$REPO/claude/output-styles/House Style.md"
+  ! grep -qF "Remote-only policy." "$REPO/claude/CLAUDE.md"
   [ -f "$REPO/local-change.txt" ]
 }
 
@@ -129,7 +131,7 @@ EOF
   [[ "$output" == *"remote has commits not present locally while local work exists"* ]] || return 1
   [[ "$output" == *"rerun sync"* ]] || return 1
   [ "$(git -C "$REPO" rev-parse HEAD)" = "$before" ]
-  ! grep -qF "Remote-only policy." "$REPO/claude/output-styles/House Style.md"
+  ! grep -qF "Remote-only policy." "$REPO/claude/CLAUDE.md"
   [ -f "$REPO/local-change.txt" ]
 }
 

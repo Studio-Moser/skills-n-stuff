@@ -35,12 +35,16 @@ The script resolves the same configuration roots as the helpers:
 
 ## Execution policy portability
 
-The shared [Execution choice](../../references/routing.md#execution-choice) ships
-with Harness. Personal overrides belong in the agents repository's
-`claude/CLAUDE.md` Engineering discipline section; Sync renders that section into
-`codex/AGENTS.md` and links both runtimes to their portable sources. Edit the source,
-never the generated Codex file. Plugin reconciliation updates installed Harness/PM
-skills; it does not rewrite the personal rubric or select cheaper model rows.
+The developer's global instructions are built, not hand-written. Their source is
+the Harness profile (`profile/Global Instructions.md` and `profile/House Style.md`);
+Sync renders it into the managed block of the agents repository's
+`claude/CLAUDE.md` and writes an identical `codex/AGENTS.md`, so Claude and Codex
+read the same text. Change the profile through a Harness release, never the built
+files. Text outside the managed block in `claude/CLAUDE.md` is the developer's own,
+is kept on every sync, and reaches Codex with it. The shared
+[Execution choice](../../references/routing.md#execution-choice) also ships with
+Harness. Plugin reconciliation updates installed Harness/PM skills; it does not
+rewrite the personal rubric or select cheaper model rows.
 
 For an execution-policy rollout, verify the rendered instructions preserve silent
 classification, semantic routing, and risk-based verification. Existing project
@@ -57,6 +61,9 @@ rerun with explicit flags:
 - first run: `--source existing --repo-url URL`, or
   `--source loose --remote-url URL --confirm-private-remote`; replacing an occupied
   repository path additionally needs `--replace-repo-path`;
+- a hand-written `claude/CLAUDE.md` (no managed block): `--adopt-profile` replaces
+  it with the Harness profile, keeping only its Shelby block; the rest stays in git
+  history. Show the user what will be dropped before passing it;
 - live-path conflicts: `--keep-live NAME`, `--discard-live NAME`, `--relink NAME`,
   or `--relink-all`;
 - MCP set: `--mcp-mode match|replace|merge`; replace also needs
