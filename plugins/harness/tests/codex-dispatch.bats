@@ -47,6 +47,12 @@ PY
   [ "$status" -eq 0 ]
   assert_result 'result == {"status": "available"}'
 
+  # codex-cli 0.162 emits the error variants under anyOf instead of oneOf.
+  export HARNESS_CODEX_STUB_MODE=anyof_schema
+  run "$DRIVER" check --codex-bin "$STUB"
+  [ "$status" -eq 0 ]
+  assert_result 'result == {"status": "available"}'
+
   export HARNESS_CODEX_STUB_MODE=incompatible
   run "$DRIVER" check --codex-bin "$STUB"
   [ "$status" -eq 69 ]

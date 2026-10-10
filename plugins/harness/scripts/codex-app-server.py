@@ -109,7 +109,8 @@ def validate_protocol_schema(root: Path) -> None:
     }.issubset(schema_properties(turn)):
         raise MissingExecutor
 
-    definitions = completed.get("definitions")
+    # Codex releases move between JSON Schema spellings of the same seam; accept each.
+    definitions = completed.get("definitions") or completed.get("$defs")
     if not isinstance(definitions, dict):
         raise MissingExecutor
     turn_error = definitions.get("TurnError")
@@ -118,7 +119,7 @@ def validate_protocol_schema(root: Path) -> None:
         raise MissingExecutor
     if "codexErrorInfo" not in schema_properties(turn_error):
         raise MissingExecutor
-    variants = error_info.get("oneOf")
+    variants = error_info.get("oneOf") or error_info.get("anyOf")
     if not isinstance(variants, list):
         raise MissingExecutor
     strings: set[str] = set()
