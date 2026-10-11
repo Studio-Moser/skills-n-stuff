@@ -1,7 +1,7 @@
 ---
 name: generate
 description: >-
-  Generates images, video, music, or speech through Kie.ai with a budget check and a local archive. Use when the user wants media generated.
+  Generates images, video, music, or speech through Kie.ai with a budget check and a local archive, or on a Flora canvas that keeps every prompt and iteration round visible. Use when the user wants media generated, or wants illustrations and visuals explored, catalogued, or iterated on a Flora canvas.
 ---
 
 # Generate
@@ -18,6 +18,8 @@ and a folder of URLs that expire. That is the failure this skill exists to preve
 The Kie.ai MCP (`mcp__kie-ai__*` tools). Confirm at least one generation tool is
 available before planning any work. If the tools are absent, say so and stop —
 do not fall back to describing images in SVG or suggesting another provider.
+
+Canvas mode needs the Flora MCP instead; see [Canvas mode](#canvas-mode).
 
 ## Hard rules
 
@@ -45,6 +47,8 @@ Establish, asking only for what you cannot infer:
 - **What** — how many assets, of what kind, at what aspect ratio and resolution.
 - **Where** — the output directory. Default `./Generations/<YYYY-MM-DD>/`, or the
   plugin's configured `output_dir` if set.
+- **Surface** — Kie with a local archive (the default), or a Flora canvas. See
+  [Canvas mode](#canvas-mode) for when the canvas is the right call.
 - **Budget** — the ceiling in dollars. Default **$2.00** per invocation unless the
   user names another, or `default_budget_usd` is configured.
 
@@ -159,6 +163,27 @@ Close with:
 - What each model produced, so the user can judge which to keep using.
 - Anything that failed, and what it cost.
 
+## Canvas mode
+
+A Flora canvas is the better surface when the work is exploration rather than
+production: several rounds of illustrations or visual directions where the user
+picks favourites and asks for more like them. The canvas keeps every prompt on the
+node that ran it, editable in place, and keeps each round beside the one it came
+from. A dated folder keeps the files but not the path between them.
+
+Use it when the user asks for Flora or a canvas. When the job is multi-round visual
+exploration and the Flora MCP is connected, propose it in the plan — the price table
+already waits for a yes, so this adds no round-trip. One-off assets and anything
+Flora has no model for stay on Kie.
+
+Read `references/Flora_Canvas.md` before the first Flora call. It replaces steps
+3b and 4 with the canvas workflow: lay the round out as nodes, let the user edit
+prompts on the board, read the board back, then run. The hard rules above are
+unchanged, and step 5 still saves and logs every result locally.
+
+Flora is a second provider with its own bill, charged to the Flora workspace in USD.
+Name it in the price table so the user sees which account each line spends from.
+
 ## Model quick reference
 
 The MCP tool descriptions carry the real detail. This is only for picking fast:
@@ -211,10 +236,10 @@ wrong person is still a failure.
 ## When Kie is unavailable
 
 Kie is the cheapest aggregator and the least reliable one; outages happen. Report
-the failure and stop. This skill deliberately has **no fal.ai or WaveSpeed
-fallback** — a second provider means a second API key, a second price table, and a
-silent path where the user gets billed somewhere they were not expecting. Add one
-only if Kie's downtime actually becomes a recurring problem.
+the failure and stop. This skill deliberately has **no automatic fallback** — not to
+fal.ai or WaveSpeed, and not to Flora either. Canvas mode is a surface the user
+chooses, not a place work lands when Kie is down: a silent switch bills an account
+the user was not expecting. Offer it; do not take it.
 
 ## Housekeeping
 

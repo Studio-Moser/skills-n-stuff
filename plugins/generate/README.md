@@ -50,11 +50,32 @@ budget $3, output design/_generated
 
 # Image to video — the local file is auto-hosted so Kie can fetch it
 /generate:generate animate design/_generated/003-hero.png with kling, slow push in
+
+# Explore on a Flora canvas — prompts and rounds stay on the board
+/generate:generate six illustration directions for the landing page hero,
+on a Flora canvas, budget $4
 ```
 
 Every run: prices the batch and waits for confirmation before spending, generates
 sequentially so the budget can actually halt it, downloads each result locally, and
 appends the prompt to `Generations.jsonl` beside the files.
+
+## Flora canvas
+
+For exploration — rounds of illustrations or visual directions you pick from and
+iterate on — the skill can run the job on a [Flora](https://flora.ai) canvas instead.
+Each round is a labelled group, each generation a node carrying its own prompt, and
+each variant is connected to the node it came from. You can rewrite a prompt on the
+board before it runs; the skill reads the board back and runs what is there.
+
+Needs the Flora MCP, which bills your Flora workspace separately from Kie:
+
+```bash
+claude mcp add --scope user --transport http flora https://agents.flora.ai/mcp
+```
+
+The budget check, the confirmation step, and the local archive all still apply.
+The workflow lives in `skills/generate/references/Flora_Canvas.md`.
 
 ## Output
 
@@ -85,9 +106,12 @@ Each JSONL line: `file`, `model`, `prompt`, `source_url`, `est_cost_usd`, `at`.
   `safetyTolerance` is passed explicitly, `midjourney_generate` reference modes do
   not work in the current server build, and `z_image` accepts no reference image at
   all. See the Model gotchas section in the skill.
-- **Kie only.** No fal.ai or WaveSpeed fallback, deliberately — a second provider
-  means a second key, a second price table, and a silent path to unexpected
-  billing. Add one if Kie's downtime becomes a recurring problem, not before.
+- **No automatic fallback.** When Kie is down the skill stops; it does not move the
+  job to fal.ai, WaveSpeed, or Flora. Flora is used only when you choose the canvas,
+  so no account gets billed that you were not expecting.
+- **Flora tool names can drift.** The names in `Flora_Canvas.md` were checked against
+  the live tool schemas on 2026-10-11. The skill is told to trust the tools' own
+  schemas over that file.
 
 ## License
 
