@@ -93,8 +93,8 @@
     {
       "name": "generate",
       "source": "./plugins/generate",
-      "description": "Governed image, video, and audio generation over the Kie.ai MCP. The models are the easy part — this adds the discipline around them: prices a batch and stops for confirmation before spending, downloads every result locally before URLs expire, and logs the prompt that produced each file.",
-      "version": "0.1.3",
+      "description": "Governed image, video, and audio generation over the Kie.ai MCP. The models are the easy part — this adds the discipline around them: prices a batch and stops for confirmation before spending, downloads every result locally before URLs expire, and logs the prompt that produced each file. Can run exploration rounds on a Flora canvas, where every prompt and iteration stays visible and editable.",
+      "version": "0.2.0",
       "author": {
         "name": "Studio Moser"
       },
@@ -103,6 +103,7 @@
         "image-generation",
         "video-generation",
         "kie-ai",
+        "flora",
         "nano-banana",
         "gpt-image",
         "veo3",
