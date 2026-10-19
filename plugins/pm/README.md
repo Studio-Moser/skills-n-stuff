@@ -10,7 +10,7 @@ PM is an **eight-skill pipeline** that manages the full lifecycle of work items,
 
 | Skill | Role | When | What |
 |-------|------|------|------|
-| `/pm:setup` | Scaffolder | Once per workspace | Detects the workspace, loads only the selected backend reference, creates PM config and domain files, and stamps the shared agent baseline |
+| `/pm:setup` | Scaffolder | Once per workspace | Detects the workspace, creates PM config and domain files, stamps shared agent and review contracts, and optionally provisions GitHub verification and merge enforcement |
 | `/pm:ingest` | Discoverer | After new research lands | Separates source evidence from proposed outcomes, deduplicates candidates, and files `status/needs-triage` items through the selected backend |
 | `/pm:triage` | Classifier | When items need decisions | Verifies claims before design, prepares independently verifiable delivery slices, splits XL work under goal epics, scores, and promotes |
 | `/pm:sprint-dev` | Builder | When you're ready to ship | Selects the unblocked frontier, schedules collisions, and builds approved slices directly or through bounded Harness delegation when risk justifies it |
@@ -36,6 +36,10 @@ Two canonical references govern PM's shared decisions:
 
 - [`references/work-readiness.md`](references/work-readiness.md) owns verified claims, testing seams, delivery slices, blockers, the unblocked frontier, and scheduling collisions.
 - [`references/review-proof.md`](references/review-proof.md) owns PM's development review axes, Blast Radius triggers, and acceptance constraints.
+
+Each initialized repository's root `REVIEW.md` adds project-specific failure modes,
+sensitive paths, checks, and exclusions. It may strengthen or focus PM's contract but
+cannot weaken PM or Harness evidence requirements.
 
 Skills load those references only at the branch where their rules apply. This README describes the resulting behavior; the references own the definitions.
 
@@ -147,12 +151,17 @@ and scaffolds:
 └── state.yml                 # Ingestion watermarks and reconcile state
 
 CONTEXT.md                    # Domain glossary — agents read this before working
+REVIEW.md                     # Managed review baseline + project-owned policy
 docs/adr/
 └── 0000-template.md          # Architecture Decision Record template
 ```
 
 If `pulse-config.yaml` already exists (from Product Pulse setup), PM reads shared infrastructure from it. If not, setup creates a minimal one.
 After backend selection, setup loads exactly the selected backend reference; GitHub, local, and Trello procedures are not loaded together.
+Code-host review setup is separate from issue tracking: any configured repository with
+an accessible GitHub remote can opt into a PR template, verified-command workflow,
+CODEOWNERS, and a merge ruleset. Setup previews remote mutations and requires explicit
+approval; it never guesses commands or owners.
 
 ## Backends
 

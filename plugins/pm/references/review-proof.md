@@ -26,6 +26,18 @@ evidence levels, invalidation, and parent reverification.
 PM does not approve a changed target or reinterpret an unproven Harness Result. It
 submits a new review request whenever Harness reports that the target or oracle changed.
 
+## Project review contract
+
+When the repository root contains `REVIEW.md`, include it in the Reviewer Input Set and
+apply its project-specific failure modes, sensitive paths, required checks, and
+exclusions. The project contract is additive: it may strengthen or focus this reference,
+but it cannot weaken Harness evidence semantics, omit a required review axis, authorize
+an unproven result, or expand the reviewer's authority.
+
+If `REVIEW.md` changes after the target was fixed, the review oracle changed. Materialize
+a new target and submit a new review request. If it conflicts with this reference, keep
+the non-negotiable PM and Harness requirement and report the conflict as a blocker.
+
 ## Review axes
 
 One reviewer reports each applicable axis separately so evidence on one cannot hide a
@@ -64,10 +76,34 @@ blockers beside the PM axis report. PM may require additional checks aimed at a 
 Radius assumption, but their evidence classification and acceptance follow the linked
 Harness verification contract. A missing check stays visible as a PM review blocker.
 
+## Actionable findings
+
+A blocking finding names its severity, file and line or narrowest location, trigger or
+execution path, concrete failure mode and consequence, evidence that the reviewed
+change introduced or exposed it, and a fix direction or proof needed to dispute it.
+Block on actionable correctness, security, specification, or Blast Radius failures.
+
+Do not use a numerical confidence threshold as an acceptance gate. Report a severe
+concern without enough proof as an unresolved risk, not a proven defect. Omit optional
+cleanup, style preferences, and speculative maintainability suggestions unless the
+approved task requires them. Mark a verified pre-existing issue separately from a
+regression in the fixed target. If nothing actionable remains, state `No findings`.
+
+## Rereview convergence
+
+The first review covers the full fixed target. After a remediation, review the delta
+from the previously reviewed head and the behavior affected by that delta while retaining
+unresolved earlier blockers. Verify every prior disposition, suppress repeated findings
+without new evidence, and report all observed instances of one bug class together.
+
+Stop early when neither the target nor a relevant risk changed. The two-round PM limit
+stops automated correction; it never authorizes merging with residual blockers. A new
+unrelated discovery becomes separate work unless it blocks the approved outcome.
+
 ### Reviewer Input Set
 
 Give the reviewer only the approved requirements, immutable fixed target and exact
-artifact, relevant project files, and current Testing Seam proof. Exclude builder reasoning,
+artifact, relevant project files, applicable root `REVIEW.md`, and current Testing Seam proof. Exclude builder reasoning,
 summaries, proposed verdicts, and prior review conclusions; they are claims, not reviewer
 inputs or evidence.
 
@@ -82,4 +118,5 @@ Review is complete only when Harness returns current proven evidence for the req
 fixed target; Quality and Spec Fidelity are reported; every triggered Blast Radius
 entry names its central safety assumption and required check; PM reproduces the
 relevant verification with a positive acceptance signal; and every blocker is resolved or disputed
-with evidence. Any unproven assumption or changed target requires a new Harness review request.
+with evidence. Every applicable `REVIEW.md` requirement must also be satisfied. Any
+unproven assumption, changed target, or changed review contract requires a new Harness review request.

@@ -1,7 +1,7 @@
 {
   "name": "pm",
-  "version": "0.24.1",
-  "description": "Backend-agnostic project management for AI-native teams. Ingests research reports, triages and specs work items, coordinates risk-gated sprint execution, and syncs with GitHub Issues, Trello boards, or local YAML. Includes backlog execution and an explicit single-task managed workflow.",
+  "version": "0.25.0",
+  "description": "Backend-agnostic project management for AI-native teams. Ingests research reports, triages and specs work items, initializes project review contracts and merge checks, coordinates risk-gated sprint execution, and syncs with GitHub Issues, Trello boards, or local YAML.",
   "author": {
     "name": "Studio Moser",
     "url": "https://github.com/Studio-Moser"

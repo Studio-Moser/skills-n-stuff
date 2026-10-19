@@ -9,7 +9,7 @@ allowed-tools: "Bash Read Write Edit ToolSearch Skill"
 
 # PM — Setup
 
-You are the onboarding wizard for **PM**, a backend-agnostic project management system for AI-native teams. Your job is to detect the workspace layout, interview the user about their issue tracking preferences and domain knowledge, then scaffold everything needed for the ingest, triage, reconcile, and sprint-dev skills to operate.
+You are the onboarding wizard for **PM**, a backend-agnostic project management system for AI-native teams. Your job is to detect the workspace layout, interview the user about their issue tracking preferences and domain knowledge, then scaffold everything needed for the ingest, triage, reconcile, sprint-dev, and project review workflows to operate.
 
 **PM pairs with Product Pulse.** Product Pulse handles intelligence gathering (daily research, weekly strategy, deep-dives). PM handles the backlog lifecycle from ingestion through execution. They share infrastructure config via `pulse-config.yaml`.
 
@@ -399,6 +399,19 @@ structure Product Pulse setup creates so PM works standalone.
 
 ---
 
+## Phase 7.5: Install the Review System
+
+Load `references/setup-review-system.md` and follow it for every configured repository.
+This phase is independent of the issue-tracker backend: every repository receives the
+managed `REVIEW.md` contract, while GitHub-hosted repositories may also receive the PR
+template, verification workflow, CODEOWNERS mappings, and approved merge rules.
+
+Local documentation may be created or refreshed without remote enforcement. Never
+guess verification commands, owners, or GitHub settings, and never mutate a ruleset
+without the reference's combined preview and explicit approval.
+
+---
+
 ## Phase 8: Print Summary
 
 After all scaffolding is complete, print a summary of everything created and next steps.
@@ -418,6 +431,8 @@ Files created:
   .pm/out-of-scope/README.md  — rejection KB documentation
   CONTEXT.md                  — domain glossary ({N} terms seeded)
   docs/adr/0000-template.md   — ADR template
+  REVIEW.md                   — managed review baseline plus project-owned policy
+  {GitHub PR/workflow/CODEOWNERS files if created}
   {planning files if created}
 
 Harness: configured for provider-neutral execution and review (verified by Harness)
@@ -426,12 +441,16 @@ Plugin updates: {studio-moser auto-updating | auto-update OFF — enable via /pl
 Backend provisioning:
   {summary lines required by the selected backend reference}
 
+Review system:
+  {summary lines required by setup-review-system.md for each repository}
+
 --- Next Steps ---
 
 1. Review generated config:
    - .pm/config.yml — backend settings, research dirs, triage thresholds
    - CONTEXT.md — add domain terms as they come up
    - pulse-config.yaml — shared infra config (repos, branches, memory)
+   - REVIEW.md — add project failure modes, sensitive paths, checks, and exclusions
 
 2. Populate the backlog:
    - If you have research reports: run /pm:ingest
@@ -466,6 +485,15 @@ Adjust the summary based on what was actually created and omit skipped phases.
   items manually; setup does not migrate tracker state.
 
 - **Existing CONTEXT.md at a different path**: If `.pm/config.yml` points `context_md` at a non-default path, respect it. Don't create a second copy.
+
+- **Existing REVIEW.md or GitHub files**: Use the review-system reference's managed
+  block and merge rules. Never replace project-owned content. An incomplete managed
+  marker, symlink, ambiguous workflow merge, or unrelated existing ruleset is a visible
+  blocker for that artifact, not permission to overwrite it.
+
+- **Ruleset permission or plan unavailable**: Keep the local review documentation,
+  report merge enforcement as unmet, and offer the approved branch-protection fallback.
+  Do not claim enforcement from a successful local write.
 
 - **No research reports**: That's fine. Set `research_dirs` to an empty list and skip the ingest recommendation in next steps. The user can add research directories later by editing `.pm/config.yml`.
 

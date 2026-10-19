@@ -91,7 +91,8 @@ of scope.
 
 Self-review the fixed work against the approved slice and the loaded house rules.
 Load `references/review-proof.md` for its Quality, Spec Fidelity, and Blast Radius
-axes.
+axes. When root `REVIEW.md` exists, load it as additive project policy; it cannot
+weaken PM or Harness requirements.
 
 Request a separate review only when the risk gate says **independent review** or the
 user explicitly asks for one. Ordinary structured work uses the current agent's
@@ -104,8 +105,8 @@ route: review
 outcome: Report whether the fixed target satisfies the approved delivery slice
 context:
   mode: fresh
-  state: {approved requirements and current Testing Seam Proof}
-  files: [{changed and review-relevant paths}]
+  state: {approved requirements, current Testing Seam Proof, and applicable project REVIEW.md requirements}
+  files: [{changed and review-relevant paths, plus root REVIEW.md when present}]
 authority:
   working_directory: {absolute repository root or worktree}
   allowed_paths: [{read-only review scope}]
@@ -122,7 +123,9 @@ constraints:
     permissions, or another security boundary; or Shared runtime, dependency, build,
     deployment, or configuration behavior, name the central safety assumption and
     require a focused check. Otherwise record Blast Radius as not applicable.
-  - Report each finding with severity, file, line, failure mode, and fix direction
+  - Root REVIEW.md is additive project policy when present; it cannot weaken these axes, Harness evidence semantics, or reviewer authority
+  - Report only actionable findings with severity, file and line, trigger, failure mode, consequence, evidence, and fix direction; omit optional nits unless required
+  - Mark pre-existing issues separately, report unproven severe concerns as unresolved risks, group one bug class, suppress repeats without new evidence, and state `No findings` when clean
   - Do not modify the target
 verification:
   seam: {Testing Seam plus applicable Blast Radius checks}
@@ -131,8 +134,11 @@ verification:
 ```
 
 Any fix creates a new fixed target and, when separate review remains required, a new
-Harness review request. Run at most two fix/review rounds; report residual blockers
-instead of starting a third round.
+Harness review request. On rereview, inspect the remediation delta and affected
+behavior, retain unresolved blockers, verify prior dispositions, suppress repeated
+findings without new evidence, and group every observed instance of one bug class.
+Stop early when neither the target nor a relevant risk changed. Run at most two
+fix/review rounds; report residual blockers instead of starting a third round.
 
 ## 6. Verify — GATE
 
@@ -153,7 +159,8 @@ does not gate completion.
 
 ## 8. PR
 
-Open the PR per `pm:house-rules` with What, Why, and Testing, then share the URL.
+Open the PR per `pm:house-rules` with What, Why, Testing, Risk / Blast Radius, and How
+to revert, then share the URL.
 
 ## 9. Wrap
 
