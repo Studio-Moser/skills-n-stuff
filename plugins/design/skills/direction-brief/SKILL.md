@@ -28,6 +28,14 @@ What it produces, all owned by the project:
 The brief is named `Brief.md`; `design:present` reads it, the references, and
 `DESIGN.md` from this folder and shows them on the direction's page.
 
+The scripts below live in the plugin root. Resolve it once and put the absolute
+path it prints wherever a command says `$design`, because `$CLAUDE_PLUGIN_ROOT` is not
+set in the Bash tool and shell variables do not carry over between tool calls:
+
+```bash
+design="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/design/*/ 2>/dev/null | sort -V | tail -1)}"; echo "${design%/}"
+```
+
 ## How to run the interview
 
 - **Read before asking.** Never ask what a project document already answers.
@@ -86,7 +94,7 @@ even a sentence describing something they cannot find again. For each one:
 1. **Save it** under `References/` with a number and a Title Case name.
    - **A URL**: capture it with `design:capture`'s `views.mjs`, from the
      project root:
-     `node "${CLAUDE_PLUGIN_ROOT}/skills/capture/scripts/views.mjs" <url> "<direction folder>/References/NN <Source>" --widths 1440,390`.
+     `node "$design/skills/capture/scripts/views.mjs" <url> "<direction folder>/References/NN <Source>" --widths 1440,390`.
      It writes one still per screen, a motion strip per transition, and
      `report.json`. Exit code 1 here usually means the third-party page logged
      console errors, which does not matter; open `1440-01.png` and check the
@@ -158,7 +166,7 @@ has to write (labels, alt text, captions).
 Run the readiness check from the project root:
 
 ```sh
-node "${CLAUDE_PLUGIN_ROOT}/skills/direction-brief/scripts/check-brief.mjs" "<direction folder>" [--copy "<copy direction file>"]
+node "$design/skills/direction-brief/scripts/check-brief.mjs" "<direction folder>" [--copy "<copy direction file>"]
 ```
 
 It fails on a missing section, an unfilled `{slot}`, a Reference pack with

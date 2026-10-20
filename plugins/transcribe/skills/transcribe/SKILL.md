@@ -47,14 +47,22 @@ The `transcribe` executable is on PATH once the plugin is installed.
 
 ## Dependencies
 
+The scripts below live in the plugin root. Resolve it once and put the absolute
+path it prints wherever a command says `$transcribe`, because `$CLAUDE_PLUGIN_ROOT` is not
+set in the Bash tool and shell variables do not carry over between tool calls:
+
+```bash
+transcribe="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/transcribe/*/ 2>/dev/null | sort -V | tail -1)}"; echo "${transcribe%/}"
+```
+
 Install with:
 
-```
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/install.sh
+```bash
+bash "$transcribe/scripts/install.sh"
 ```
 
 Install deps: yt-dlp, ffmpeg, Node.js ≥ 20, Playwright Chromium, mlx-whisper.
-Check them with `bash ${CLAUDE_PLUGIN_ROOT}/scripts/verify-deps.sh`, which names anything missing.
+Check them with `bash "$transcribe/scripts/verify-deps.sh"`, which names anything missing.
 
 ## Model
 

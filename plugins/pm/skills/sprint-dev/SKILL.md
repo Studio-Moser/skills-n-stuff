@@ -64,13 +64,19 @@ If neither file/directory exists, continue without them — they're optional.
 
 ### 0.2 Pull Latest (all configured repos)
 
-Iterate `repos:` from `pulse-config.yaml`. For each repo, resolve its absolute path relative to `{primary_repo_root}`'s parent directory, then pull the default branch:
+Iterate `repos:` from `pulse-config.yaml`. For each repo, resolve its absolute path relative to `{primary_repo_root}`'s parent directory, then update it. Other sessions may share these checkouts, so never switch their branch: fast-forward a repo that is already on the default branch with a clean tree, and only fetch the rest.
 
 ```bash
 yq '.repos[].path' "$config_path" | while read -r repo_path; do
   abs="$(realpath "$primary_repo_root/$repo_path")"
-  echo "=== Pulling $abs ==="
-  { git -C "$abs" checkout "$default_branch" && git -C "$abs" pull origin "$default_branch"; } || echo "pull failed for $abs"
+  branch="$(git -C "$abs" branch --show-current)"
+  if [ "$branch" = "$default_branch" ] && [ -z "$(git -C "$abs" status --porcelain)" ]; then
+    echo "=== Pulling $abs ==="
+    git -C "$abs" pull --ff-only origin "$default_branch" || echo "pull failed for $abs"
+  else
+    echo "=== Fetching $abs (on '$branch' or has local changes; not switching) ==="
+    git -C "$abs" fetch origin "$default_branch" || echo "fetch failed for $abs"
+  fi
 done
 ```
 
@@ -280,14 +286,16 @@ For each approved PR, in priority order:
 
 ### 2A. Create Branch
 
+Branch from the fetched remote default branch, so the local default branch is
+never switched to or pulled in a checkout other sessions may share:
+
 ```bash
-git checkout "$default_branch" && git pull origin "$default_branch"
-git checkout -b pulse/{cluster}-{YYYY-MM-DD}
+git fetch origin "$default_branch" && git checkout -b pulse/{cluster}-{YYYY-MM-DD} "origin/$default_branch"
 ```
 
 For worktree-capable projects:
 ```bash
-git worktree add .claude/worktrees/pulse-{cluster}-{date} -b pulse/{cluster}-{YYYY-MM-DD} "$default_branch"
+git fetch origin "$default_branch" && git worktree add .claude/worktrees/pulse-{cluster}-{date} -b pulse/{cluster}-{YYYY-MM-DD} "origin/$default_branch"
 ```
 
 ### 2B. Implement approved slices

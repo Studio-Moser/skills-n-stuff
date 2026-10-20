@@ -69,17 +69,23 @@ directory; git operations run there. Every `repos[].path` resolves relative to i
 
 ## Pull Latest
 
-Pull the default branch of every configured repo:
+Update every configured repo. Other sessions may share these checkouts, so never switch their branch: fast-forward a repo that is already on the default branch with a clean tree, and only fetch the rest.
 
 ```bash
-for repo_path in $(yq '.repos[].path' "$config_path"); do
+yq '.repos[].path' "$config_path" | while read -r repo_path; do
   abs="$(realpath "$primary_repo_root/$repo_path")"
-  echo "=== Pulling $abs ==="
-  cd "$abs" && git checkout "$default_branch" && git pull origin "$default_branch" || echo "pull failed for $abs"
+  branch="$(git -C "$abs" branch --show-current)"
+  if [ "$branch" = "$default_branch" ] && [ -z "$(git -C "$abs" status --porcelain)" ]; then
+    echo "=== Pulling $abs ==="
+    git -C "$abs" pull --ff-only origin "$default_branch" || echo "pull failed for $abs"
+  else
+    echo "=== Fetching $abs (on '$branch' or has local changes; not switching) ==="
+    git -C "$abs" fetch origin "$default_branch" || echo "fetch failed for $abs"
+  fi
 done
 ```
 
-If a pull fails, note it and continue. A single-element `repos:` is the monorepo case.
+If a pull or fetch fails, note it and continue. A single-element `repos:` is the monorepo case.
 
 ## Publish
 
@@ -88,7 +94,10 @@ Run only when `save_report=true`. The calling skill supplies `branch`, `publish_
 
 ```bash
 cd "$primary_repo_root"
-git checkout -b "$branch" 2>/dev/null || git checkout "$branch"  # reuse the branch on a same-day rerun
+previous_branch="$(git branch --show-current)"
+git fetch origin "$default_branch"
+# Base the report on the remote default branch; reuse the branch on a same-day rerun.
+git checkout -b "$branch" "origin/$default_branch" 2>/dev/null || git checkout "$branch"
 git add "$publish_path"
 git commit -m "$title"
 git push -u origin "$branch"
@@ -104,6 +113,11 @@ if [ "$auto_merge" = true ]; then
   sleep 8  # let GitHub finalize the mergeability check
   gh pr merge "$pr_url" --squash --delete-branch --auto || \
     echo "Auto-merge declined; PR sits for human review at $pr_url"
+fi
+
+# Leave the shared checkout on the branch it started on.
+if [ -n "$previous_branch" ] && [ "$previous_branch" != "$branch" ]; then
+  git checkout "$previous_branch"
 fi
 ```
 

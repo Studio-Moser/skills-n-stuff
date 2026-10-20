@@ -920,3 +920,32 @@ assert orphans == ["orphan marketplace: stray — remove with: claude plugin mar
 PY
   [ "$status" -eq 0 ]
 }
+
+@test "sync leaves @builtin plugins to Claude Code instead of installing them" {
+  stub="$BATS_TEST_TMPDIR/bin"; mkdir -p "$stub"
+  cat > "$stub/claude" <<'SH'
+#!/bin/sh
+echo "$*" >> "$CLAUDE_LOG"
+case "$*" in
+  "plugin marketplace list --json") echo '[{"name":"claude-plugins-official"}]' ;;
+  "plugin list --json") echo '[]' ;;
+esac
+exit 0
+SH
+  chmod +x "$stub/claude"
+  export CLAUDE_LOG="$BATS_TEST_TMPDIR/claude.log"
+  repo="$BATS_TEST_TMPDIR/agents"; mkdir -p "$repo/claude" "$BATS_TEST_TMPDIR/claude"
+  printf '{"enabledPlugins":{"cc-plugin-you-should-know@builtin":true}}\n' > "$repo/claude/settings.json"
+  run env PATH="$stub:/usr/bin:/bin" CLAUDE_LOG="$CLAUDE_LOG" python3 - "$REPO/plugins/harness/scripts/sync" "$repo" "$BATS_TEST_TMPDIR/claude" <<'PY'
+import importlib.machinery, importlib.util, sys
+from pathlib import Path
+loader = importlib.machinery.SourceFileLoader("sync_script", sys.argv[1])
+spec = importlib.util.spec_from_loader("sync_script", loader)
+sync = importlib.util.module_from_spec(spec)
+loader.exec_module(sync)
+_state, findings = sync.plugin_reconcile(Path(sys.argv[2]), Path(sys.argv[3]))
+assert not findings, findings
+PY
+  [ "$status" -eq 0 ]
+  ! grep -q "@builtin" "$CLAUDE_LOG" || return 1
+}

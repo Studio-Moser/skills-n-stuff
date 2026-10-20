@@ -36,7 +36,7 @@
         "growth",
         "deep-dive"
       ],
-      "version": "0.8.2"
+      "version": "0.8.3"
     },
     {
       "name": "pm",
@@ -62,7 +62,7 @@
         "triage",
         "sprint"
       ],
-      "version": "0.25.2"
+      "version": "0.25.3"
     },
     {
       "name": "harness",
@@ -88,7 +88,7 @@
         "sync",
         "agent-config"
       ],
-      "version": "2.4.1"
+      "version": "2.4.2"
     },
     {
       "name": "generate",
@@ -149,7 +149,7 @@
       "name": "preview",
       "source": "./plugins/preview",
       "description": "Create durable private local previews with stable Tailscale Service URLs and a tailnet-wide Preview Hub.",
-      "version": "0.1.10",
+      "version": "0.1.11",
       "author": {
         "name": "Studio Moser"
       },
@@ -174,7 +174,7 @@
       "name": "design",
       "source": "./plugins/design",
       "description": "Design exploration rounds: fan one brief out into independent HTML variants built by named skills and models, gate first drafts with fresh-context critics, picture them and place the round in a Figma file where each variant opens its live page, edit variants in the page with impeccable live, and carry what the owner wants into the next brief.",
-      "version": "0.6.2",
+      "version": "0.6.3",
       "author": {
         "name": "Studio Moser"
       },

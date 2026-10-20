@@ -37,9 +37,13 @@ bad = []
 for path in sorted(glob.glob(os.path.join(repo, "plugins/*/skills/*/SKILL.md"))):
     src = open(path).read()
     rel = os.path.relpath(path, repo)
-    for block in re.findall(r"```bash\n(.*?)\n```", src, re.S):
+    blocks = re.findall(r"```(?:bash|sh|shell|zsh)?\n(.*?)\n```", src, re.S)
+    # Inline code the agent would paste into Bash; a `!` prefix marks load-time substitution.
+    prose = re.sub(r"```.*?```", "", src, flags=re.S)
+    blocks += re.findall(r"(?<![!`])`([^`\n]+)`", prose)
+    for block in blocks:
         for line in block.split("\n"):
-            if line.lstrip().startswith("#"):
+            if line.lstrip().startswith(("#", "!`")):
                 continue
             # Using it as a path prefix is the bug: "$CLAUDE_PLUGIN_ROOT/scripts/…".
             # Reading it with a fallback is the *fix* and must not be flagged:

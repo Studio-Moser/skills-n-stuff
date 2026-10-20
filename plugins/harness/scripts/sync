@@ -586,6 +586,9 @@ def plugin_reconcile(repo: Path, claude: Path) -> tuple[str, list[str]]:
     marketplaces = shared.get("extraKnownMarketplaces", {})
     enabled = dict(shared.get("enabledPlugins", {}))
     enabled.update(local.get("enabledPlugins", {}))
+    # Claude Code bundles @builtin plugins; the enabledPlugins flag is all they need,
+    # and `claude plugin install` cannot find them in any marketplace.
+    enabled = {name: on for name, on in enabled.items() if not name.endswith("@builtin")}
     findings: list[str] = []
 
     # JSON lists only CLI-managed entries; the text form also shows claude.ai ones as "(no CLI name)".
