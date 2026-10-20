@@ -15,6 +15,7 @@ set -euo pipefail
 
 days=7
 projects="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects"
+config_dir="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 codex_sessions="${CODEX_HOME:-$HOME/.codex}/sessions"
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -27,12 +28,12 @@ done
 
 command -v python3 >/dev/null 2>&1 || { echo "rubric-audit.sh: python3 required" >&2; exit 3; }
 
-python3 - "$projects" "$days" "$codex_sessions" << 'PY'
-import json, os, re, sys, time
+python3 - "$projects" "$days" "$codex_sessions" "$config_dir" << 'PY'
+import glob, json, os, re, sys, time
 from collections import Counter
 from datetime import datetime
 
-root, days, codex_root = sys.argv[1], int(sys.argv[2]), sys.argv[3]
+root, days, codex_root, config_dir = sys.argv[1], int(sys.argv[2]), sys.argv[3], sys.argv[4]
 cutoff = time.time() - days * 86400
 CODEX_RE = re.compile(r'(^|[^A-Za-z0-9_-])codex (exec|review)\b')
 # An invocation, not a mention (grep, ls, docs): the script always takes --operation.
@@ -79,6 +80,35 @@ if os.path.isdir(root):
             if prior is None or size > prior[0]:
                 transcripts[session_id] = (size, path)
 
+declared_cache = {}
+
+def declared_model(agent_type):
+    """The `model:` an agent definition declares, from the newest installed plugin copy
+    (`plugin:name`) or the user agents dir (`name`). None when absent or not found."""
+    # ponytail: plugin and user agents only; project agents would need the session cwd.
+    if not agent_type:
+        return None
+    if agent_type not in declared_cache:
+        plugin, _, name = agent_type.rpartition(":")
+        if plugin:
+            versions = sorted(
+                (d for d in glob.glob(os.path.join(config_dir, "plugins", "cache", "*", plugin, "*")) if os.path.isdir(d)),
+                key=lambda d: [int(x) if x.isdigit() else x for x in re.split(r"[.-]", os.path.basename(d))],
+            )
+            path = os.path.join(versions[-1], "agents", name + ".md") if versions else ""
+        else:
+            path = os.path.join(config_dir, "agents", name + ".md")
+        model = None
+        try:
+            text = open(path, encoding="utf-8").read()
+            front = re.match(r"---\n(.*?)\n---", text, re.S)
+            found = front and re.search(r"^model:\s*(\S+)", front.group(1), re.M)
+            model = found.group(1) if found else None
+        except OSError:
+            pass
+        declared_cache[agent_type] = model
+    return declared_cache[agent_type]
+
 def family(model):
     found = re.search(r"fable|opus|sonnet|haiku", model)
     return found.group(0) if found else model
@@ -113,7 +143,7 @@ for _size, path in transcripts.values():
                     if inp.get("model"):
                         models[inp["model"]] += 1
                     else:
-                        unset_calls.append((c.get("id"), (obj.get("message") or {}).get("model") or "unknown"))
+                        unset_calls.append((c.get("id"), (obj.get("message") or {}).get("model") or "unknown", inp.get("subagent_type")))
                 elif name == "Bash" and DISPATCH_RE.search(inp.get("command") or ""):
                     codex_dispatch += 1
                 elif name == "Bash" and CODEX_RE.search(inp.get("command") or ""):
@@ -122,10 +152,13 @@ for _size, path in transcripts.values():
                     codex_skill += 1
     # An agent type can define its own model. A dispatch without a model param that ran
     # on a different model than the session's was routed by its definition, not inherited.
-    for call_id, session_model in unset_calls:
+    # An agent definition that declares `model: inherit` chose the session model on purpose.
+    for call_id, session_model, agent_type in unset_calls:
         ran_on = resolved.get(call_id)
         if ran_on and ran_on != session_model:
             models[family(ran_on)] += 1
+        elif declared_model(agent_type) == "inherit":
+            models["inherit"] += 1
         else:
             models["UNSET"] += 1
             inherited[session_model] += 1

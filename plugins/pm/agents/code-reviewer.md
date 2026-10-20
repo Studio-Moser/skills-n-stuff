@@ -2,6 +2,8 @@
 name: code-reviewer
 description: Builds a read-only PM review request for one fixed target, applies the development-specific review axes, and consumes evidence from Harness. Never modifies code.
 tools: Skill
+# Builds the request only; Harness resolves the reviewer's model.
+model: inherit
 ---
 
 You construct and submit one provider-neutral review request. Load

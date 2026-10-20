@@ -182,6 +182,35 @@ write_fixture() {
   echo "$output" | grep -qE 'UNSET: 1 \(inherited: claude-opus-5-5 1\)'
 }
 
+write_agent_definition() { # model-line-or-empty
+  local dir="${BATS_TEST_TMPDIR}/cfg/plugins/cache/mk/pm/1.0.0/agents"
+  mkdir -p "$dir"
+  printf -- '---\nname: code-reviewer\ntools: Skill\n%b---\nbody\n' "$1" > "$dir/code-reviewer.md"
+}
+
+reviewer_dispatch() {
+  printf '{"type":"assistant","message":{"role":"assistant","model":"claude-opus-5-5","content":[{"type":"tool_use","id":"tr","name":"Agent","input":{"subagent_type":"pm:code-reviewer","prompt":"p"}}]}}\n' >> "$PROJ/abc123.jsonl"
+}
+
+@test "an agent definition that declares model: inherit is deliberate, not UNSET" {
+  write_fixture
+  write_agent_definition 'model: inherit\n'
+  reviewer_dispatch
+  run env CLAUDE_CONFIG_DIR="${BATS_TEST_TMPDIR}/cfg" "$SCRIPT" --projects "${BATS_TEST_TMPDIR}/projects"
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -qE 'UNSET: 0'
+  echo "$output" | grep -qE 'inherit 1'
+}
+
+@test "an agent definition without a model leaves its dispatch UNSET" {
+  write_fixture
+  write_agent_definition ''
+  reviewer_dispatch
+  run env CLAUDE_CONFIG_DIR="${BATS_TEST_TMPDIR}/cfg" "$SCRIPT" --projects "${BATS_TEST_TMPDIR}/projects"
+  [ "$status" -eq 1 ]
+  echo "$output" | grep -qE 'UNSET: 1 \(inherited: claude-opus-5-5 1\)'
+}
+
 @test "Codex spawn_agent calls are tallied by model and effort; sub-agent threads skipped" {
   write_codex_fixture
   run "$SCRIPT" --projects "${BATS_TEST_TMPDIR}/nope"

@@ -62,7 +62,7 @@
         "triage",
         "sprint"
       ],
-      "version": "0.25.3"
+      "version": "0.25.4"
     },
     {
       "name": "harness",
@@ -88,7 +88,7 @@
         "sync",
         "agent-config"
       ],
-      "version": "2.4.2"
+      "version": "2.4.3"
     },
     {
       "name": "generate",
