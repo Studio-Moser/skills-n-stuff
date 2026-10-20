@@ -7,8 +7,9 @@ description: >-
 # Harness Setup
 
 Configure the personal Harness by composing its existing setup skills. Do not
-copy their shell procedures into this skill. Sync and Model Rubric are slash-only:
-wherever this skill says to invoke `harness:sync` or `harness:model-rubric`, read
+copy their shell procedures into this skill. Sync and Model Rubric are slash-only
+(`disable-model-invocation: true`, which also blocks the Skill tool), so wherever
+this skill says to invoke `harness:sync` or `harness:model-rubric`, read
 and follow `$harness/skills/sync/SKILL.md` or `$harness/skills/model-rubric/SKILL.md`
 instead of calling the Skill tool.
 
@@ -34,13 +35,14 @@ links, repositories, or remote state.
    check exits 0 with `{"status":"available"}`:
 
    ```bash
-   "$harness/scripts/codex-app-server.py" check --codex-bin "$HARNESS_CODEX_BIN"
+   harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
+   "$harness/scripts/codex-app-server.py" check --codex-bin "$(command -v codex)"
    ```
 
    A `{"status":"missing_executor"}` result removes or refreshes `codex` from the
    callable executor inventory without a timed circuit or dispatch attempt.
 3. Resolve the rubric through `scripts/rubric-path.sh --check`. When it is set,
-   first require the Harness 0.7 completion markers: `routing.orchestrator`,
+   first require the completed-rubric fields: `routing.orchestrator`,
    `routing.default`, `routing.quick`, and `routing.review` are present and every
    completed model row's `efficiency` is an integer from 1 through 10. Then run
    the canonical validator against the current native provider and callable
@@ -60,8 +62,8 @@ links, repositories, or remote state.
    proves exact model rows, unique providers within chains, taste thresholds,
    the persistent orchestrator-provider boundary, any named authoring-provider
    exclusions in current Setup context, and current provider/executor reachability
-   without rewriting the rubric. A
-   rubric that satisfies only the pre-0.7 execute/review checks is not configured.
+   without rewriting the rubric. A rubric missing any required field above is not
+   configured, even when its older execute and review routes still resolve.
 4. Return the complete HarnessResult defined by the Harness contract. Use
    `status: accepted` with `evidence.outcome: proven` only when the Sync dry run and
    current rubric/capability validation all pass. Otherwise use `status: blocked` with
@@ -88,6 +90,7 @@ non-blocking, as in Ordered setup.
    current rubric, plus the known supported agent runtimes:
 
    ```bash
+   harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
    for capability in claude gemini pi hermes; do
      if command -v "$capability" >/dev/null 2>&1; then
        printf '%s\tpresent\n' "$capability"
@@ -136,14 +139,9 @@ non-blocking, as in Ordered setup.
 
 ## Execution policy
 
-Use the shared [Execution choice](../../references/routing.md#execution-choice)
-with any main model. Setup establishes available routes; task difficulty chooses
-among them and risk determines verification. Do not change rubric values merely
-to adopt this policy. Personal policy belongs in `claude/CLAUDE.md` under Engineering
-discipline so Sync carries it into both runtimes; follow Sync's execution-policy
-portability checks when installing or updating that policy. Refresh an authorized
-project's managed baseline with `scripts/stamp-baseline.sh <project>/AGENTS.md`.
-Keep classifications and routine routing decisions internal.
+Setup establishes the available routes; the shared
+[Execution choice](../../references/routing.md#execution-choice) governs how they
+are used, and Sync installs that policy.
 
 ## Completion
 

@@ -15,13 +15,13 @@ requests to Harness. PM retains the issue tracker and PR lifecycle.
 
 **Manual only.** You decide when to run this and what to build.
 
-**Note on GitHub Project sync.** If `github.project_sync.enabled` is set in `.pm/config.yml`, sprint-dev relies on the project's built-in workflows to handle Status transitions when PRs are linked or merged (`Ready → In Progress` when a PR draft is linked, `In Progress → In Review` when the PR is opened for review, `In Review → Done` when merged). No MCP calls are made from this skill — the GitHub-side workflows do the work. Status field bootstrapping for items spawned during sprint execution happens later, via `/pm:triage` or `/pm:reconcile`.
+**GitHub Project sync.** When `github.project_sync.enabled` is set in `.pm/config.yml`, the project's built-in workflows move the Status field as PRs are linked, opened, and merged; this skill makes no Project calls. `/pm:triage` or `/pm:reconcile` sets Status on items spawned during the sprint.
 
 ---
 
 ## Ground Rules
 
-- **Never auto-build.** Always present the proposal and wait for user approval.
+- **Approval before building.** Present the Phase 1.6 proposal and build only the PRs the user approves, because each PR spends worker budget and pushes branches.
 - **Work the frontier.** Dispatch only delivery slices on the unblocked frontier.
 - **Schedule collisions.** Apply the scheduling-collision rule in `references/work-readiness.md`; choose isolation or run sequentially for each collision.
 - **Every PR must pass.** Run one verification pass at the highest stable Testing Seam
@@ -46,9 +46,9 @@ All config values are pre-resolved at skill load time. If you see `ERROR:` in th
 !`${CLAUDE_PLUGIN_ROOT}/scripts/discover-config.sh`
 ```
 
-Parse the key=value pairs above. The `backend` value (`github` or `local`) determines how items are loaded and updated throughout the rest of this skill. When using the GitHub backend, `gh_owner` and `gh_repo` identify the target repository for all `gh` CLI commands.
+Parse the key=value pairs above. The `backend` value (`github`, `trello`, or `local`) determines how items are loaded and updated throughout the rest of this skill. When using the GitHub backend, `gh_owner` and `gh_repo` identify the target repository for all `gh` CLI commands.
 
-**Backend dispatch.** PM uses one backend per project. Load ONLY `references/sprint-dev-<backend>.md` (`sprint-dev-github.md`, `sprint-dev-trello.md`, or `sprint-dev-local.md`) and follow its steps wherever a phase below is marked **(backend step)**. Ignore the other backends' files.
+**Backend dispatch.** PM uses one backend per project. Load only `references/sprint-dev-<backend>.md` (`sprint-dev-github.md`, `sprint-dev-trello.md`, or `sprint-dev-local.md`) and follow its steps wherever a phase below is marked **(backend step)**; the other backends' commands would fail against this tracker.
 
 ### 0.1 Read Product Context
 
@@ -67,10 +67,10 @@ If neither file/directory exists, continue without them — they're optional.
 Iterate `repos:` from `pulse-config.yaml`. For each repo, resolve its absolute path relative to `{primary_repo_root}`'s parent directory, then pull the default branch:
 
 ```bash
-for repo_path in $(yq '.repos[].path' pulse-config.yaml); do
+yq '.repos[].path' "$config_path" | while read -r repo_path; do
   abs="$(realpath "$primary_repo_root/$repo_path")"
   echo "=== Pulling $abs ==="
-  cd "$abs" && git checkout "$default_branch" && git pull origin "$default_branch" || echo "pull failed for $abs"
+  { git -C "$abs" checkout "$default_branch" && git -C "$abs" pull origin "$default_branch"; } || echo "pull failed for $abs"
 done
 ```
 
@@ -93,7 +93,7 @@ Note any in-flight branches with open PRs.
 
 ### 0.5 Reconcile items with `status/in-review` status
 
-The standalone **Awaiting PR** section was retired — items in flight now carry the `status/in-review` (or `status/in-progress`) status inline in their sprint-section row. Scan both backlog files:
+Items in flight carry `status/in-review` or `status/in-progress` inline in their sprint-section row. Scan both backlog files:
 
 ```bash
 grep -E '\| (status/in-review|status/in-progress) \|' "$backlog_active" "$backlog_ideas"
@@ -134,8 +134,7 @@ Load items based on the configured backend.
 
 **(backend step)** — follow your loaded `references/sprint-dev-<backend>.md` (§ Phase 1.1: Load Ready Items). Trello's variant also covers how per-board `worker_instructions`/`review_policy` flow to Phase 2B and 2D.5.
 
-**Fallback:**
-If no backend items found, fall back to reading `planning/todos.md` Ready section (backward compatibility with product-pulse workflow).
+**Fallback:** If the backend returns no items, read the Ready section of `planning/todos.md`.
 
 Additionally, from `{backlog.ideas}` (`$backlog_ideas`), collect S-sized items that could be promoted directly (S items don't need specs). Present these separately as "quick wins available if you want to promote them." Skip the **Expired / passed-deadline** table — those items are explicitly idle.
 
@@ -209,9 +208,9 @@ batch-boundary rules from `references/work-readiness.md`.
 
 For multi-repo projects, also route each item to its target repo based on the product context.
 
-### 1.6 Present the Proposal (STOP HERE — INTERACTIVE)
+### 1.6 Present the Proposal
 
-Present the full proposal and **wait for user approval**:
+Present the full proposal:
 
 ```
 PM — Sprint Proposal
@@ -220,8 +219,8 @@ PM — Sprint Proposal
 Weekly Direction: {theme or "No weekly brief"}
 Top Priorities: {p1} | {p2} | {p3}
 
-Backend: {github|local}
-Items loaded: {N} ready | {N} awaiting PR | {N} ideas
+Backend: {github|trello|local}
+Items loaded: {N} ready | {N} in review | {N} ideas
 Domain terms: {N} loaded from CONTEXT.md (or "none")
 Out-of-scope constraints: {N} loaded from .pm/out-of-scope/
 
@@ -273,8 +272,6 @@ PR 2: ...
 
 Ask: **"Which PRs should I build? Say 'all', list specific numbers (e.g. '1 and 3'), or 'none' to just review. You can also promote quick wins or drop individual items."**
 
-**WAIT FOR RESPONSE.** Do not proceed without explicit approval.
-
 ---
 
 ## Phase 2: Build Approved PRs
@@ -297,7 +294,7 @@ git worktree add .claude/worktrees/pulse-{cluster}-{date} -b pulse/{cluster}-{YY
 
 For each approved delivery slice, load `harness:risk-gate`. Record its mode, matched
 triggers, testing seam, delegation decision, and review decision internally. Choose
-direct execution or a rubric worker through Harness’s [Execution choice](../../../harness/references/routing.md#execution-choice).
+direct execution or a rubric worker through Harness’s [Execution choice](https://raw.githubusercontent.com/Studio-Moser/skills-n-stuff/main/plugins/harness/references/routing.md#execution-choice).
 
 Delegate only when that rule justifies a bounded worker with its own outcome and
 verification seam. When delegation is justified, invoke `harness:delegate` with
@@ -420,7 +417,7 @@ For each item in the batch:
 **(backend step)** — follow your loaded `references/sprint-dev-<backend>.md` (§ Phase 2E: Sync Backlog). Trello: N/A — its card sync happens in 2D.5; the `#{number}` token in `planning/todos.md` rows is the Trello card's short id (e.g. `t-AbCdEfGh`) and the embedded PR link is the same `[#N](https://github.com/...)` form, otherwise the sync logic below is identical.
 
 **Backlog file sync (both backends):**
-If `$backlog_active` and `$backlog_ideas` exist (backward-compatible with product-pulse workflow):
+If `$backlog_active` and `$backlog_ideas` exist:
 - **PR open, not yet merged** -> flip the status in its sprint-section row from `status/ready` -> `status/in-review` and embed the PR link inline in the item description
 - **PR already merged** before the Harness Result returned -> remove the row from its sprint section and add a row to `## Done (last 7 days)` in `$backlog_active`
 - **Skipped/failed** -> leave in its current section with status unchanged
@@ -443,7 +440,11 @@ clean up the worktree if used. PM does not call a memory provider directly.
 
 - **Implementation failure**: Preserve any returned commits, otherwise clean up the branch. Report the direct failure or delegated typed status and blockers, then ask whether to retry or skip.
 - **Repo failure**: Return to `$default_branch`, log affected items, continue with next batch.
-- **Never**: force push, modify `$default_branch` directly (except backlog), delete remote branches, skip verification, proceed without user approval.
+- **Never**:
+  - force push, because it rewrites history other sessions may have pulled;
+  - commit code directly to `$default_branch` (backlog files excepted), because code reaches it only through a reviewed PR;
+  - delete remote branches, because open PRs and other sessions may still use them;
+  - skip verification, because an unverified PR hands its risk to the reviewer.
 
 ---
 

@@ -15,8 +15,8 @@ root = Path(sys.argv[1])
 expected_references = {
     "setup": {"harness-contract.md", "routing.md", "shelby-integration.md"},
     "delegate": {
-        "context.md", "handoff.md", "harness-contract.md", "routing.md",
-        "shelby-integration.md", "verification.md",
+        "codex-adapter.md", "context.md", "handoff.md", "harness-contract.md",
+        "routing.md", "shelby-integration.md", "verification.md",
     },
 }
 
@@ -69,6 +69,9 @@ assert not missing, f"missing Harness skills: {', '.join(missing)}"
 for retired in ("execute", "review", "computer-use"):
     assert not (root / retired).exists(), f"retired Harness skill remains: {retired}"
 skills = {name: path.read_text() for name, path in skill_paths.items()}
+adapter_path = root.parent / "references" / "codex-adapter.md"
+assert adapter_path.is_file(), f"missing Codex adapter reference: {adapter_path}"
+adapter_text = adapter_path.read_text()
 
 result_fields = (
     "status", "route.requested", "route.model", "route.effort",
@@ -97,7 +100,7 @@ for name, text in skills.items():
         "quota", "authentication", "rate_limit", "provider_unavailable",
         "missing_executor", "codex-app-server.py", "availability_failure",
     ):
-        if token not in text:
+        if token not in text + adapter_text:
             failures.append(f"{name}: resolver loop omits {token}")
     for clause in (
         "bounded selection loop",
@@ -106,7 +109,11 @@ for name, text in skills.items():
     ):
         if clause not in normalized:
             failures.append(f"{name}: missing fallback boundary: {clause}")
-    adapter = normalized.split("### Internal Codex adapter", 1)[-1]
+    adapter = " ".join(adapter_text.split())
+    if "When the resolver returns `executor: codex`, read [references/codex-adapter.md](../../references/codex-adapter.md)" not in normalized:
+        failures.append(f"{name}: does not load the Codex adapter reference when the resolver selects Codex")
+    if 'include `codex` in `HARNESS_EXECUTORS` only when `codex-app-server.py check` returns `{"status":"available"}`' not in normalized:
+        failures.append(f"{name}: executor inventory does not gate codex on the App Server check")
     clause = (
         "Enter this adapter only when the selected candidate is non-native and the resolver returned "
         "`executor: codex`; a native selection remains native even when its model row declares `via: codex`"
@@ -116,7 +123,6 @@ for name, text in skills.items():
     if '--authoring-providers "$HARNESS_AUTHORING_PROVIDERS"' not in text:
         failures.append(f"{name}: independent selection omits request authoring providers")
     for clause in (
-        'include `codex` in `HARNESS_EXECUTORS` only when `codex-app-server.py check` returns `{"status":"available"}`',
         "remove `codex` from the callable inventory and reselect without `record-failure` or an appended dispatch attempt",
         'Only exit 75 with `{"status":"availability_failure","reason":"..."}` authorizes a timed availability record',
         'Exit 1 with `{"status":"failed"}` stops without changing providers',
@@ -125,12 +131,17 @@ for name, text in skills.items():
             failures.append(f"{name}: missing typed Codex adapter boundary: {clause}")
 
 execute = " ".join(skills["delegate"].split())
+adapter = " ".join(adapter_text.split())
 for clause in (
-    "Default delegated implementation to `fresh`",
-    "If `via` is absent, dispatch through the native runtime",
     "outcome, working directory, allowed paths, constraints, verification seam, and the required HarnessResult return shape",
     "Never put secrets in the prompt",
     "never widen sandbox, path, tool, or approval authority",
+):
+    if clause not in adapter:
+        failures.append(f"codex-adapter: missing adapter clause: {clause}")
+for clause in (
+    "Default delegated implementation to `fresh`",
+    "If `via` is absent, dispatch through the native runtime",
     "Every terminal path returns the complete HarnessResult",
     "prose is not a substitute for the result",
     "For a bounded non-code file transformation",
@@ -139,8 +150,10 @@ for clause in (
 ):
     if clause not in execute:
         failures.append(f"execute: missing adapter clause: {clause}")
-for token in ('command -v codex', 'codex-dispatch.sh', '`approval: never`'):
-    if token not in skills["delegate"]:
+if 'command -v codex' not in skills["delegate"]:
+    failures.append("execute: executor inventory omits command -v codex")
+for token in ('codex-dispatch.sh', '`approval: never`'):
+    if token not in adapter_text:
         failures.append(f"execute: Codex adapter omits {token}")
 
 for name in ("delegate",):
@@ -150,6 +163,7 @@ for name in ("delegate",):
         "`list_agents` reports active agents; an empty result does not mean `spawn_agent` is unavailable",
         "Do not report `missing_executor` or `blocked` while `spawn_agent` is advertised and has not been called",
         "After the call, apply the availability classification below to its typed result",
+        "In Claude Code, the equivalent native dispatch is the Agent tool: pass the resolved model and effort",
     ):
         if clause not in native:
             failures.append(f"{name}: missing native dispatch clause: {clause}")
@@ -286,7 +300,6 @@ for clause in (
     "Codex only",
     "one reachable model-effort row",
     "no reachable model-effort row",
-    "Opus remains eligible",
     "A running agent cannot replace itself",
     "Benchmark efficiency applies only to delegated software implementation routes",
     "User-owned trust and preferences govern orchestration, taste, exploration, and review; benchmark data is supporting evidence only",
@@ -296,6 +309,10 @@ for clause in (
     "`--authoring-providers \"$HARNESS_AUTHORING_PROVIDERS\"`",
 ):
     assert clause in normalized, f"model-rubric missing procedure: {clause}"
+
+migration = Path(sys.argv[1]).parents[2] / "references" / "rubric-migration.md"
+assert "[references/rubric-migration.md](../../references/rubric-migration.md)" in normalized, "model-rubric does not point to its migration reference"
+assert "coding cost alone never outranks the developer's stated orchestration preference" in " ".join(migration.read_text().split()), "migration lets coding cost override orchestration preference"
 
 example = text.split("The completed file has this shape:", 1)[1].split("```yaml", 1)[1].split("```", 1)[0]
 for field in ("provider", "trust", "efficiency", "benchmark", "orchestrator", "fallback"):
@@ -318,7 +335,7 @@ for clause in (
     "Codex only -> derive required routes from Codex, omit `routing.independent`",
     "every single-provider setup must omit `routing.independent`",
     "provider distinct from the provider of `routing.orchestrator` and from the provider of any named authoring model",
-    "Reject `routing.independent` when its provider matches either the orchestrator's provider or a named authoring provider",
+    "rejects `routing.independent` when its provider matches either the orchestrator's provider or a named authoring provider",
 ):
     assert clause in normalized, f"model-rubric missing independence constraint: {clause}"
 PY

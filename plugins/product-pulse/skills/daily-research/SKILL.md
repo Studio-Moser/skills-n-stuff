@@ -8,9 +8,7 @@ disable-model-invocation: true
 
 # Product Pulse — Daily Research
 
-You are the daily research scanner. Your job is to find what changed today across the product's configured research domains, filter it through the week's strategic direction, and produce an actionable report.
-
-You are NOT a strategist — that's the weekly skill. You gather intel and surface findings. Keep it focused.
+Find what changed today across the product's configured research domains, filter it through the week's strategic direction, and produce an actionable report. Leave direction-setting to the weekly strategist: this scan gathers and surfaces evidence, and the weekly brief decides what it means.
 
 ---
 
@@ -31,49 +29,7 @@ You are NOT a strategist — that's the weekly skill. You gather intel and surfa
 
 ### 0.0 Discover Configuration
 
-Walk up from cwd, checking each directory for `pulse-config.yaml` directly and in common research-dir subdirs (`research/`, `Research/`, `docs/research/`). The first match wins; that file's parent directory is the **research directory** (`{research_dir}`). Load the YAML config; the rest of the skill uses values from it.
-
-```bash
-config_path=""
-research_dir=""
-dir="$PWD"
-while [ "$dir" != "/" ]; do
-  for sub in "" "research/" "Research/" "docs/research/"; do
-    candidate="$dir/${sub}pulse-config.yaml"
-    if [ -f "$candidate" ]; then
-      config_path="$candidate"
-      research_dir="$(cd "$(dirname "$candidate")" && pwd)"
-      break 2
-    fi
-  done
-  dir="$(dirname "$dir")"
-done
-
-if [ -z "$config_path" ]; then
-  echo "No pulse-config.yaml found. Run /product-pulse:setup first." >&2
-  exit 1
-fi
-
-# Required tools: stop before pulling or publishing if any is missing.
-for tool in git gh yq realpath; do
-  command -v "$tool" >/dev/null || { echo "Missing required tool: $tool" >&2; exit 1; }
-done
-gh auth status >/dev/null 2>&1 || { echo "GitHub CLI is not signed in. Run: gh auth login" >&2; exit 1; }
-
-primary_repo_root="$(cd "$research_dir" && git rev-parse --show-toplevel)"
-
-default_branch="$(yq '.default_branch // "main"' "$config_path")"
-auto_merge="$(yq '.auto_merge // false' "$config_path")"
-project_id="$(yq '.project_id' "$config_path")"
-memory_connector="$(yq '.memory.connector // "shelby"' "$config_path")"
-
-echo "Using config: $config_path"
-echo "Research dir: $research_dir"
-```
-
-Parse the YAML. Required fields: `project_id`, `repos`. Optional with defaults: `default_branch` (default `main`), `auto_merge` (default `false`), `memory.connector` (default `shelby`; set to `null` to disable).
-
-Find the entry in `repos:` with `role: primary`. Its filesystem location (resolved relative to the directory containing pulse-config.yaml's parent) is the **primary repo root** (`{primary_repo_root}`) for git operations.
+Run § Discover Configuration in [Config_and_Publish.md](../../references/Config_and_Publish.md) with `save_report=true`. It sets `{research_dir}`, `{primary_repo_root}`, `default_branch`, `auto_merge`, `project_id`, and `memory_connector`, and stops when the config, a required tool, or the `gh` login is missing.
 
 ### 0.1 Read Product Context
 
@@ -81,17 +37,7 @@ Read `{research_dir}/research-context.md`. If missing, stop and tell the user to
 
 ### 0.2 Pull Latest (all configured repos)
 
-Iterate `repos:` from `pulse-config.yaml`. For each repo, resolve its absolute path relative to `{primary_repo_root}`'s parent directory, then pull the default branch:
-
-```bash
-for repo_path in $(yq '.repos[].path' pulse-config.yaml); do
-  abs="$(realpath "$primary_repo_root/$repo_path")"
-  echo "=== Pulling $abs ==="
-  cd "$abs" && git checkout "$default_branch" && git pull origin "$default_branch" || echo "pull failed for $abs"
-done
-```
-
-If any pull fails, note it and continue. Single-element `repos:` is the monorepo case — same loop, one iteration.
+Run § Pull Latest in [Config_and_Publish.md](../../references/Config_and_Publish.md).
 
 ### 0.3 Read the Weekly Strategy Brief
 
@@ -126,9 +72,9 @@ Parse the `## Always Check` section of `{research_dir}/research-context.md`. Thi
 - **Hit definition** — what counts as a meaningful change
 - **Search terms** — terms that must run every scan, no rotation
 
-If the section is missing or empty, skip this phase — the user hasn't configured Always Check items yet. Do NOT fabricate items.
+If the section is missing or empty, skip this phase. Don't invent items: each one records the user's decision about which facts are load-bearing.
 
-Include each domain's Always Check items (if any) in its Phase 2 request. The research worker must run **every** Always Check search term on **every** run, in addition to its 3-5 rotating terms.
+Include each domain's Always Check items (if any) in its Phase 2 request. The packet requires every Always Check term on every run, beside the 3-5 rotating terms, because a watch item only helps if a change is caught the day it lands.
 
 ---
 
@@ -248,10 +194,12 @@ constraints:
     Product Pulse daily synthesis:
     Extract every **ALWAYS-CHECK HIT** first; it bypasses ranking and the strategic
     filter, appears in Escalations and Action Items, and does not count against the
-    5-item cap. Note any required Guide doc update. Deduplicate across domains by exact
-    URL or 3 or more shared significant keywords without merging distinct claims.
+    5-item cap. When a hit's Reference names a Guide doc, note "Guide doc update
+    required: {path}". Deduplicate across domains by exact URL or 3 or more shared
+    significant keywords without merging distinct claims.
   - |
-    Rank remaining findings by impact and effort. Apply the weekly strategic filter:
+    Rank remaining findings by impact and effort: high impact/low effort, high/high,
+    medium/low, then the rest. When a weekly brief exists, apply the strategic filter:
     +2 for direct support of a top-3 priority, +1 for the weekly theme, +0 otherwise;
     always retain security, hard-deadline, and blocker findings. Select at most 5 normal
     action items by alignment and then impact/effort. Preserve every citation, caveat,
@@ -273,31 +221,9 @@ verification:
 Require `status: accepted` and `evidence.outcome: proven`, reproduce the seam, and
 reject any draft that changes a citation, drops a required section, or invents a claim.
 
-### 3.0 Extract Always Check Hits
-
-Before deduping or ranking, separate out any findings tagged `**ALWAYS-CHECK HIT**`. These bypass the normal ranking and strategic filter — they always surface at the top of the report in a dedicated **Escalations** section and always appear in the Action Items table (they don't count against the 5-item cap, since they're triggered by pre-approved watch items). If an Always Check hit references a Guide doc in its Reference field, note "Guide doc update required: {path}" so the user knows to refresh it.
-
-### 3.1 Deduplicate Across Domains
-
-Remove cross-domain duplicates (same URL or 3+ shared keywords).
-
-### 3.2 Rank All Findings
-
-Sort by:
-1. High impact + Low effort (quick wins)
-2. High impact + High effort (strategic)
-3. Medium impact + Low effort (easy pickups)
-4. Lower priority combinations
-
-### 3.3 Apply Strategic Filter
-
-If a weekly brief exists, score each finding:
-- **+2** if it directly supports a top 3 priority
-- **+1** if it's in a domain related to the week's theme
-- **+0** if unrelated
-- **Always include** P0-level findings regardless (security, hard deadlines, blockers)
-
-Take the top 5 by alignment score, then by impact/effort ratio. Only these appear in the report's Action Items table.
+Before accepting, confirm the draft applied the packet's rules: Always Check hits
+extracted first into Escalations, cross-domain deduplication, impact/effort ranking,
+the strategic filter, and the 5-item Action Items cap.
 
 ---
 
@@ -386,35 +312,16 @@ reproduces its proof, retain any returned Harness memory identifiers in the run
 summary. If memory is disabled or unavailable, continue with the report and leave
 those optional identifiers empty; do not call a provider directly.
 
-### 5.2 Branch + commit + PR (always)
+### 5.2 Publish
 
-Inside the primary repo:
+Run § Publish in [Config_and_Publish.md](../../references/Config_and_Publish.md) with:
 
-```bash
-cd "$primary_repo_root"
-branch="daily-research/{YYYY-MM-DD}"
-git checkout -b "$branch"
-git add "$research_dir"
-git commit -m "research: daily scan {today} — {N} findings across {M} domains"
-git push -u origin "$branch"
-pr_url=$(gh pr create --base "$default_branch" --head "$branch" \
-  --title "research: daily scan {today} — {N} findings across {M} domains" \
-  --body "Daily research scan for {today}. {N} findings across {M} domains; {K} action items. Auto-generated by product-pulse daily-research." \
-  | tail -n1)
-echo "PR opened: $pr_url"
-```
+- `branch="daily-research/{today}"`
+- `publish_path="$research_dir"`
+- `title="research: daily scan {today} — {N} findings across {M} domains"`
+- `body="Daily research scan for {today}. {N} findings across {M} domains; {K} action items. Auto-generated by product-pulse daily-research."`
 
-### 5.3 Auto-merge (if enabled and mergeable)
-
-If `auto_merge: true` in config:
-
-```bash
-sleep 8  # let GitHub finalize mergeability check
-gh pr merge "$pr_url" --squash --delete-branch --auto || \
-  echo "Auto-merge declined; PR sits for human review at $pr_url"
-```
-
-`--auto` queues the merge if checks are still running. If branch protection or required reviews block the merge, the PR sits for human review and the skill exits cleanly with the PR URL surfaced.
+It opens the PR with `gh pr create` and queues a squash merge only when `auto_merge` is true.
 
 ---
 

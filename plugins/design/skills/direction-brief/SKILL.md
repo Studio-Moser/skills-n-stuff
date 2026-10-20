@@ -1,7 +1,7 @@
 ---
 name: direction-brief
 description: >-
-  Runs a guided interview that turns the owner's hunch and references into a direction brief and copy direction, saves every reference into the direction's folder, and drafts the round sheet. Use when starting or revising a design direction, writing a design or copy brief, or when the user shares design references.
+  Runs a guided interview that turns the owner's hunch and references into a direction brief and copy direction, saves every reference into the direction's folder, and drafts the round sheet. Use when starting or revising a design direction, writing a design or copy brief, or when the user shares design references. Not for building or critiquing a page.
 ---
 
 # Direction brief
@@ -16,13 +16,13 @@ What it produces, all owned by the project:
 
 ```
 {directions dir}/{NN Name}/
-  Brief.md                 from templates/Direction Brief.md
+  Brief.md                 from ../../templates/Direction Brief.md
   References/
     References.md          one entry per reference: source, date, the owner's words, files
     01 {Source}/           a captured URL: view stills, motion strips, report.json
     02 {Name}.png          an image or file the owner supplied
   DESIGN.md                the direction's design context, once it is being refined
-{copy dir}/{NN Name}/{Page}.md   from templates/Copy Direction.md (when the copy is new)
+{copy dir}/{NN Name}/{Page}.md   from ../../templates/Copy Direction.md (when the copy is new)
 ```
 
 The brief is named `Brief.md`; `design:present` reads it, the references, and

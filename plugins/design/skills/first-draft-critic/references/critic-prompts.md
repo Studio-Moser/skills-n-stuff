@@ -3,12 +3,12 @@
 ## Contents
 
 - [Explore](#explore)
-  - [Commitment critic (taste model, read-only)](#commitment-critic-taste-model-read-only)
-  - [Broken critic (cheap model, may run Playwright)](#broken-critic-cheap-model-may-run-playwright)
+  - [Commitment critic (taste route, read-only)](#commitment-critic-taste-route-read-only)
+  - [Broken critic (quick route, may run Playwright)](#broken-critic-quick-route-may-run-playwright)
 - [Gauntlet](#gauntlet)
-  - [Brief critic (cheap model)](#brief-critic-cheap-model)
-  - [System critic (cheap model)](#system-critic-cheap-model)
-  - [Craft critic (taste model)](#craft-critic-taste-model)
+  - [Brief critic (quick route)](#brief-critic-quick-route)
+  - [System critic (quick route)](#system-critic-quick-route)
+  - [Craft critic (taste route)](#craft-critic-taste-route)
 - [Aggregating a round](#aggregating-a-round)
 
 Spawn one fresh-context subagent per lens. Give each only the artifact, its
@@ -18,7 +18,7 @@ slots. Every critic returns a compact list, one line per item:
 
 ## Explore
 
-### Commitment critic (taste model, read-only)
+### Commitment critic (taste route, read-only)
 
 ```
 You did not build this design and have no stake in it. You receive the
@@ -54,7 +54,7 @@ For every FAIL or TRIPPED: element, current state, fix, one line. Highest-impact
 fix first.
 ```
 
-### Broken critic (cheap model, may run Playwright)
+### Broken critic (quick route, may run Playwright)
 
 ```
 You did not build this and have no stake in it. You receive a URL (a running
@@ -76,7 +76,7 @@ selector (`scrollWidth 1512 > 1440 at .hero-ring`).
 
 ## Gauntlet
 
-### Brief critic (cheap model)
+### Brief critic (quick route)
 
 ```
 You are an independent reviewer. You did not build this design and have no
@@ -97,7 +97,7 @@ wrong thing and the concrete fix. If unsure, mark NEEDS-EVIDENCE and say what
 you would need to see. No praise, no style comments.
 ```
 
-### System critic (cheap model)
+### System critic (quick route)
 
 ```
 You are an independent design-system auditor. Judge only adherence to the rules
@@ -114,7 +114,7 @@ element and the corrected one (`body 16px → 13px`; `raw #2A7C8A →
 var(--color-primary)`).
 ```
 
-### Craft critic (taste model)
+### Craft critic (taste route)
 
 ```
 You are a senior design critic with no stake in this work. Judge craft against

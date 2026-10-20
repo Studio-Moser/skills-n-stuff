@@ -9,18 +9,16 @@ disable-model-invocation: true
 
 # PM -- Reconcile
 
-You are the project janitor. Your job is to walk through git history, the issue tracker, and the planning files to make sure everything reflects reality. You close what's done, flag what's stale, classify deferred blockers, update epic rollups, normalize epics (strip stray status labels, reshape bodies to Goal/Why), and propose CONTEXT.md and ADR additions when the codebase has evolved.
-
-You are NOT the triage agent -- that's `/pm:triage`. You sync state; others classify and prioritize new work.
+Bring the tracker and planning files in line with git history: close what merged, flag what is stale, classify deferred blockers, roll up and normalize epics, and propose CONTEXT.md and ADR additions. Classifying and prioritizing new work belongs to `/pm:triage`.
 
 ---
 
 ## Ground Rules
 
 - **Partially interactive.** Completion tracking presents evidence and asks for confirmation before closing issues. Blocker classification runs automatically. Stale item decisions, CONTEXT.md proposals, and ADR proposals require user confirmation.
-- **Multi-repo aware.** Scan git history across ALL configured repos, not just primary.
+- **Multi-repo aware.** Scan git history in every configured repo, not just the primary, because a fix often lands in a sibling repo.
 - **Idempotent.** Running reconcile twice in succession produces no additional changes -- the `last_reconcile` timestamp prevents re-processing.
-- **Non-destructive.** Never close or modify an issue without evidence (a merged commit on the default branch, user confirmation for stale items). When in doubt, flag for the user.
+- **Non-destructive.** Close or modify an issue only with evidence (a merged commit on the default branch, or user confirmation for stale items), because a wrong close hides live work. When in doubt, flag it for the user.
 - **No fabrication.** Domain term proposals and ADR proposals are grounded in actual commits and diffs. Do not invent terms or decisions.
 - **Error tolerant.** If one repo or one phase fails, log the error and continue with the rest.
 
@@ -69,7 +67,7 @@ fi
 
 ### 0.2 Load Backend Config
 
-**Backend dispatch.** PM uses one backend per project. Load ONLY `references/reconcile-<backend>.md` (`reconcile-github.md`, `reconcile-trello.md`, or `reconcile-local.md`) and follow its steps wherever a phase below is marked **(backend step)**. Ignore the other backends' files. Note: epic rollup/orphan/normalization is GitHub-only; it lives in `reconcile-github.md`. On GitHub, parent and sub-issue links follow `references/github-sub-issues.md`.
+**Backend dispatch.** PM uses one backend per project. Load only `references/reconcile-<backend>.md` (`reconcile-github.md`, `reconcile-trello.md`, or `reconcile-local.md`) and follow its steps wherever a phase below is marked **(backend step)**; the other backends' commands would fail against this tracker. Note: epic rollup/orphan/normalization is GitHub-only; it lives in `reconcile-github.md`. On GitHub, parent and sub-issue links follow `references/github-sub-issues.md`.
 
 Each **(backend step)** below names a phase. Run the section this table gives for your backend; "skip" means the phase does not apply to it.
 
@@ -94,12 +92,14 @@ Scan git history across all repos for issue references, then check whether those
 
 ### 1.1 Collect issue references from git history
 
-For each configured repo, extract issue numbers mentioned in commits since the last reconcile:
+For each configured repo, extract issue numbers mentioned in commits on the default branch since the last reconcile. Only merged work counts as completion evidence, so unmerged feature branches are not scanned:
 
 ```bash
 all_refs=()
 for repo in "${repos[@]}"; do
-  refs=$(cd "$repo" && git log --since="$last_reconcile" --oneline --all 2>/dev/null | grep -oE '#[0-9]+' | sort -u)
+  ref="origin/$default_branch"
+  git -C "$repo" rev-parse -q --verify "$ref" >/dev/null || ref="$default_branch"
+  refs=$(git -C "$repo" log "$ref" --since="$last_reconcile" --oneline 2>/dev/null | grep -oE '#[0-9]+' | sort -u)
   for ref in $refs; do
     num="${ref#\#}"
     all_refs+=("$num")
@@ -134,7 +134,7 @@ Every open todo should sit under exactly one epic (that's what makes the board's
 
 ### 1.3c Epic normalization — status labels + body (GitHub only)
 
-Epics are **goal containers** (see `/pm:triage` Phase 4.3): they carry no workflow status, and their body is a Goal/Why statement — not a checklist of constituent items (the sub-issue tree is the source of truth for membership). This phase brings existing epics into line with both rules. It's the retrofit for epics created before the convention, or by hand.
+Epics are **goal containers** (see `/pm:triage`): they carry no workflow status, and their body is a Goal/Why statement rather than a checklist, because the sub-issue tree is the source of truth for membership. This phase brings any epic that breaks either rule back into line.
 
 **(backend step)** — Phase 1.3c.
 
@@ -362,5 +362,5 @@ Next reconcile: run /pm:reconcile again after your next sprint or merge cycle.
 - **planning/todos.md missing**: Skip planning file updates in Phase 1.4 and Phase 2. Warn: `"planning/todos.md not found -- skipping backlog updates."`.
 - **State file missing**: Create with `last_reconcile: null`. This triggers a full scan on first run (defaults to 2 weeks of history).
 - **No issues referenced in git history**: Not an error. Skip to Phase 2 with a note.
-- **User stops mid-reconcile**: Print a partial summary covering completed phases. State is NOT updated (Phase 6 only runs at the end) so the next reconcile re-covers the same period.
+- **User stops mid-reconcile**: Print a partial summary covering completed phases. Leave the state file unchanged (Phase 6 runs only at the end) so the next reconcile re-covers the same period.
 - **Zero items across all phases**: Print: `"Nothing to reconcile -- project state is clean."` Update the state timestamp so the next run starts fresh.

@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 # Product Pulse — Setup
 
-You are the onboarding wizard for **Product Pulse**, a three-cadence strategic intelligence system. Your job is to interview the user about their product and project, then scaffold everything needed for the weekly strategist, daily research, and sprint dev skills to operate.
+You are the onboarding wizard for **Product Pulse**, a three-cadence strategic intelligence system. Your job is to interview the user about their product and project, then scaffold everything the weekly strategist, daily research, and deep-dive skills need to operate.
 
 **Run once per project.** If files already exist, ask before overwriting.
 
@@ -70,7 +70,7 @@ Ask these together:
 ### Batch 4: Configuration
 
 1. **What's your project_id slug?** (suggested: `{lowercased-hyphenated-product-name}` — e.g. `shelby` or `the-crooked-line`. Used to tag memory entries and as a prefix for scheduled-task names. Confirm with the user before using the suggested slug — they may want a different one.)
-2. **Where should research files live?** (default: `docs/research/`, or use the `research_dir` userConfig value if set)
+2. **Where should research files live?** (default: the `research_dir` userConfig value, which defaults to `research`)
 3. **Which git branch should research be committed to?** (default: `main` — some projects use `master`, `develop`, etc.)
 4. **Is this a monorepo or multi-repo project?** If multi-repo, which repos and what does each one do?
 5. **Auto-merge research PRs?** (default: yes — research output PRs are auto-merged when mergeable; you can review the PR if you want by setting this to no)
@@ -157,32 +157,14 @@ Create the following structure:
 └── deep-dives/                 # Standalone research reports
 ```
 
-### Folder Organization
-
-Reports are organized by month and week. Each week folder contains that week's strategy brief, recommendations, and all daily reports — keeping a complete picture of each week together:
-
-```
-{research_dir}/
-├── 2026-04/
-│   ├── W15/
-│   │   ├── 2026-W15-strategy-brief.md
-│   │   ├── 2026-W15-recommendations.md
-│   │   ├── 2026-04-07-daily-research.md
-│   │   └── 2026-04-08-daily-research.md
-│   └── W16/
-│       └── ...
-├── 2026-05/
-│   └── ...
-```
-
-The daily and weekly skills create the month/week subdirectories automatically as they run. The setup skill creates the top-level structure.
+Daily and weekly runs create `{YYYY-MM}/W{NN}/` folders as they go, so each week's brief, recommendations, and daily reports sit together; setup creates only the top level.
 
 ### Generate pulse-config.yaml
 
 This is the operational config the daily-research, weekly-strategist, and deep-dive skills will discover at runtime (PM's sprint-dev skill also reads this). Place at `{research_dir}/pulse-config.yaml`:
 
 ```yaml
-project_id: {slug derived from product name, lowercase with hyphens}
+project_id: {project_id confirmed in Batch 4}
 
 repos:
   - name: {primary repo name}
@@ -233,13 +215,10 @@ Use web search to find real, relevant sources for each domain. Don't fabricate U
 
 ---
 
-## Phase 4: Validate Context and Configure Optional Memory Intent
+## Phase 4: Validate Context
 
 Re-read the generated files and trace every context fact to a confirmed interview
-answer. Do not infer missing details. The `memory.connector` value only enables or
-disables intent carried by the daily, weekly, and deep-dive Harness requests; Setup
-does not discover, call, or capture through a memory provider. When disabled or
-unavailable, every workflow continues from the generated file context.
+answer.
 
 ---
 

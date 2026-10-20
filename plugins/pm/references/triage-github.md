@@ -8,9 +8,9 @@
 - [Phase 1: Process duplicates — GitHub](#phase-1-process-duplicates--github)
 - [Phase 2, Step 2b.1: Create XL epic and children — GitHub](#phase-2-step-2b1-create-xl-epic-and-children--github)
 - [Phase 2, Step 2c: Write spec to backend — GitHub](#phase-2-step-2c-write-spec-to-backend--github)
-- [Phase 4.2: Update backend (promote) — GitHub](#phase-42-update-backend-promote--github)
-- [Phase 4.2a: Mirror Status field to GitHub Project (optional) — GitHub](#phase-42a-mirror-status-field-to-github-project-optional--github)
-- [Phase 4.3: Link to a parent epic — GitHub](#phase-43-link-to-a-parent-epic--github)
+- [Phase 4.2: Link to a parent epic — GitHub](#phase-42-link-to-a-parent-epic--github)
+- [Phase 4.3: Update backend (promote) — GitHub](#phase-43-update-backend-promote--github)
+- [Phase 4.3a: Mirror Status field to GitHub Project (optional) — GitHub](#phase-43a-mirror-status-field-to-github-project-optional--github)
 
 Backend-specific procedure blocks for `/pm:triage`, split out of `triage/SKILL.md` so Trello/local users don't have to read past them. Only relevant when `backend == github`; skip this whole file otherwise. Variables (`$gh_owner`, `$gh_repo`, `{number}`, etc.) are the same ones resolved earlier in the SKILL.md flow — read this file in-session and continue where you left off.
 
@@ -113,7 +113,34 @@ gh issue edit {number} \
   --repo "$gh_owner/$gh_repo"
 ```
 
-## Phase 4.2: Update backend (promote) — GitHub
+## Phase 4.2: Link to a parent epic — GitHub
+
+Listing open epics (for the "infer from open epics" step):
+
+```bash
+gh issue list --label epic --state open --repo "$gh_owner/$gh_repo"
+```
+
+Match by area (memory work → the memory epic; a specific UI surface → that surface's epic; sync/reliability → the reliability epic; etc.).
+
+Creating a new epic (when none fits), using the Goal/Why body template from SKILL.md:
+
+```bash
+gh issue create \
+  --title "{epic title}" \
+  --body "{Goal/Why body from the template above}" \
+  --label "epic" \
+  --repo "$gh_owner/$gh_repo"
+```
+
+Capture the new epic's number to use as `{epic_number}` below.
+
+Create the **native sub-issue relationship**; this is the canonical mechanism that drives epic grouping and the epic progress bar. Follow `references/github-sub-issues.md`, using `{epic_number}` as the parent and `{number}` as the child (GraphQL `addSubIssue`, with the comment-based fallback).
+
+- An issue can have **only one parent**. If the child already has a different parent, `removeSubIssue` from the old parent first, then `addSubIssue` to the correct one — otherwise the add fails with a VALIDATION error.
+- If `github.project_sync.enabled` AND the project has a custom **Epic** field, also set it (`gh project item-edit --id {item_id} --field-id {epic_field_id} --project-id {project_id} --text "#{epic_number} {epic_title}"`, or the `projects_write` `update_item_field_value` MCP call) so the native sub-issue tree and the group-by-Epic-field view agree.
+
+## Phase 4.3: Update backend (promote) — GitHub
 
 ```bash
 # Combine all labels into one edit call
@@ -129,7 +156,7 @@ gh issue edit {number} --add-label "repo/{target_repo_name}" --repo "$gh_owner/$
 
 Where `{owner_label}` is `owner/ai` (6/6 verdict) or `owner/human` (4-5/6 verdict).
 
-## Phase 4.2a: Mirror Status field to GitHub Project (optional) — GitHub
+## Phase 4.3a: Mirror Status field to GitHub Project (optional) — GitHub
 
 After the `gh issue edit` calls above succeed, if `github.project_sync.enabled: true` AND `github.project_sync.status_field_sync: true` in `.pm/config.yml`, mirror the new `status/ready` value onto the project's Status field.
 
@@ -160,30 +187,3 @@ If the tools load:
 3. Call `mcp__github__projects_write` with method `update_item_field_value`, passing the item ID, field ID, and option ID.
 
 On any MCP error, log it and continue — never block the canonical label update on a Project mirror failure.
-
-## Phase 4.3: Link to a parent epic — GitHub
-
-Listing open epics (for the "infer from open epics" step):
-
-```bash
-gh issue list --label epic --state open --repo "$gh_owner/$gh_repo"
-```
-
-Match by area (memory work → the memory epic; a specific UI surface → that surface's epic; sync/reliability → the reliability epic; etc.).
-
-Creating a new epic (when none fits), using the Goal/Why body template from SKILL.md:
-
-```bash
-gh issue create \
-  --title "{epic title}" \
-  --body "{Goal/Why body from the template above}" \
-  --label "epic" \
-  --repo "$gh_owner/$gh_repo"
-```
-
-Capture the new epic's number to use as `{epic_number}` below.
-
-Create the **native sub-issue relationship**; this is the canonical mechanism that drives epic grouping and the epic progress bar. Follow `references/github-sub-issues.md`, using `{epic_number}` as the parent and `{number}` as the child (GraphQL `addSubIssue`, with the comment-based fallback).
-
-- An issue can have **only one parent**. If the child already has a different parent, `removeSubIssue` from the old parent first, then `addSubIssue` to the correct one — otherwise the add fails with a VALIDATION error.
-- If `github.project_sync.enabled` AND the project has a custom **Epic** field, also set it (`gh project item-edit --id {item_id} --field-id {epic_field_id} --project-id {project_id} --text "#{epic_number} {epic_title}"`, or the `projects_write` `update_item_field_value` MCP call) so the native sub-issue tree and the group-by-Epic-field view agree.

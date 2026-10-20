@@ -139,11 +139,11 @@ Orphan todos (no parent epic):
 {N} orphan(s). Parent them now? (yes / skip)
 ```
 
-On `yes`, infer the epic by area (same matching as `/pm:triage` Phase 4.3 — memory→memory epic, a UI surface→that surface's epic, sync/reliability→reliability, etc.), confirm ambiguous ones, then `addSubIssue` (and set the project **Epic** field if `project_sync` is on). Items that genuinely belong nowhere get a `no-epic` label rather than a parent. This is the safety net for items promoted before this rule existed, or linked by hand.
+On `yes`, infer the epic by area (same matching as `/pm:triage` Phase 4.2 — memory→memory epic, a UI surface→that surface's epic, sync/reliability→reliability, etc.), confirm ambiguous ones, then `addSubIssue` (and set the project **Epic** field if `project_sync` is on). Items that genuinely belong nowhere get a `no-epic` label rather than a parent. This is the safety net for items promoted before this rule existed, or linked by hand.
 
 ## Phase 1.3c: Epic Normalization — GitHub
 
-Epics are **goal containers** (see `/pm:triage` Phase 4.3): they carry no workflow status, and their body is a Goal/Why statement — not a checklist of constituent items (the sub-issue tree is the source of truth for membership). This phase brings existing epics into line with both rules. It's the retrofit for epics created before the convention, or by hand.
+Epics are **goal containers** (see `/pm:triage` Phase 4.2): they carry no workflow status, and their body is a Goal/Why statement — not a checklist of constituent items (the sub-issue tree is the source of truth for membership). This phase brings existing epics into line with both rules. It's the retrofit for epics created before the convention, or by hand.
 
 Pull every open epic with its labels and body:
 
@@ -165,7 +165,7 @@ jq -r '[.[] | select((.labels|map(.name)) as $l | ($l|any(startswith("status/"))
 - **Why** — the outcome/value once it's done.
 - **Preserve genuine prose.** If the body holds real context, constraints, or design notes beyond the checklist, fold them into Goal/Why (or keep a short `## Notes` tail) — only the item checklist and bare `#N` enumerations get dropped, since those duplicate the sub-issue tree.
 
-Use the `Epic body template` from `/pm:triage` Phase 4.3 as the target shape. Don't fabricate a goal you can't support from the title/body — if an epic's intent is genuinely unreadable, list it for manual attention instead of guessing.
+Use the `Epic body template` from `/pm:triage` Phase 4.2 as the target shape. Don't fabricate a goal you can't support from the title/body — if an epic's intent is genuinely unreadable, list it for manual attention instead of guessing.
 
 Present both corrections together:
 

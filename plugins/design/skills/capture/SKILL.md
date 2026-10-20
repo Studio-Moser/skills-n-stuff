@@ -1,33 +1,29 @@
 ---
 name: capture
 description: >-
-  Freezes a design round's variants into reviewable artifacts: full-page plates, per-viewport stills, motion strips, and banded screenshots for Figma or the local gallery, failing loudly on overflow, broken images, or a blank render. Use when asked to freeze, capture, or shoot a round's variants, make plates, or update the Figma shots.
+  Freezes a design round's variants into reviewable artifacts: full-page plates, per-viewport stills, motion strips, and stitched archive shots, failing loudly on overflow, broken images, or a blank render. Use when asked to freeze, capture, or shoot a round's variants, make plates, or get views for a critic. Not for placing a round in Figma, which is design:present.
 ---
 
 # Capture
 
-Views are what critics and builders see (§ Views for critique); plates hold
-every screen of a viewport-driven page in one long document (§ Freeze a page
-into plates), which `design:present` pictures. The stitched capture below is
-for Figma. Two things paint blank without an
-error and have each cost a day: Chromium's full-page capture past 16384 device
-pixels, and Figma's editor when handed a tall image. The bundled script routes
-around both. Do not replace it with `page.screenshot({ fullPage: true })`.
+Pick the script by what the output is for:
 
-## Run it
+| Goal | Script | Section |
+|---|---|---|
+| Views and motion strips a critic or builder reads | `views.mjs` | § Views for critique |
+| Plates of a viewport-driven page, which `design:present` pictures | `freeze.mjs` | § Freeze a page into plates |
+| One stitched whole-page shot, cut into bands, for an archive | `capture.mjs` | § Stitched shots |
 
-From the project root, where Playwright and sharp resolve:
+Placing a round in Figma is `design:present` § Review in Figma; it uploads
+the per-screen pictures from `frames.mjs`, not anything made here.
 
-```sh
-node "${CLAUDE_PLUGIN_ROOT}/skills/capture/scripts/capture.mjs" <targets.json> [--out <dir>] [--only <direction key>]
-```
+## Requirements
 
-Requirements: `@playwright/test` (or `playwright`) with Chromium installed, and
-`sharp`, both resolvable from the project's `package.json`. In a pnpm monorepo
-the script also searches `node_modules/.pnpm` for sharp. Every target's preview
-must be running; the script does not start servers.
-
-From the project root, check both before the first run:
+All three scripts need `@playwright/test` (or `playwright`) with Chromium
+installed, and `sharp`, both resolvable from the project's `package.json`, and
+each target's page running: the scripts start no servers (run dev previews one
+at a time when several would not fit in memory together). Check both from the
+project root before the first run:
 
 ```sh
 node -e "try{require.resolve('@playwright/test')}catch{require.resolve('playwright')}" 2>/dev/null || echo "missing: playwright"
@@ -37,13 +33,25 @@ node -e "require.resolve('sharp')" 2>/dev/null || echo "missing: sharp (in a pnp
 If one is missing, add it with the project's package manager (for example
 `npm i -D @playwright/test sharp`) and run `npx playwright install chromium`.
 
+## Stitched shots
+
+Two things paint blank without an error and have each cost a day: Chromium's
+full-page capture past 16384 device pixels, and Figma's editor when handed a
+tall image. `capture.mjs` routes around both, so do not replace it with
+`page.screenshot({ fullPage: true })`.
+
+From the project root:
+
+```sh
+node "${CLAUDE_PLUGIN_ROOT}/skills/capture/scripts/capture.mjs" <targets.json> [--out <dir>] [--only <direction key>]
+```
+
 Output, under `--out` (default `design-shots`, add it to `.gitignore`):
 
 - `<slug>.png`: the stitched page at the configured width and scale, archive copy.
-- `bands/<slug>/NN.jpg`: the shot cut into bands of at most 2048 CSS px. **These
-  are the files that go into Figma.**
-- `figma/<slug>.jpg`: the whole page as one JPEG for anything that is not
-  Figma's editor.
+- `bands/<slug>/NN.jpg`: the shot cut into bands of at most 2048 CSS px.
+- `figma/<slug>.jpg`: the whole page as one JPEG, sized under Figma's asset
+  limit.
 - `manifest.json`: every shot with `display` size, band list with heights, and
   the stats below. A filtered run merges into the existing manifest by slug.
 
@@ -83,7 +91,7 @@ units, `animation-timeline: view()`) must stitch: full-page capture grows the
 viewport to the page height, nothing ever scrolls, and the page renders in its
 initial state with the fixed layer missing.
 
-## What the script does per target
+## What `capture.mjs` does per target
 
 1. Opens the URL at `captureWidth` × 900 and `captureScale`, waits for network
    idle, walks the page so lazy images load and scroll-driven sections settle,
@@ -171,31 +179,3 @@ screenshot of the live page at that stop. `plateDiff` records the difference
 per plate; 0.0005 is typical, and the run exits 1 above 1%. Read the flagged
 plate numbers before trusting a file: the diff is what catches a plate frozen
 mid-fade or a display face that silently fell back.
-
-Needs Playwright with Chromium and `sharp` resolvable from the project root,
-and each page running (the script starts no servers; run dev previews one at a
-time when several would not fit in memory together).
-
-## Placing shots in Figma
-
-One row per direction, variants side by side. Upload runs through the Figma
-MCP:
-
-1. For each shot create a frame at its `display` size from the manifest,
-   labelled with the variant. Make it a vertical auto-layout with no spacing
-   or padding, and give it one fixed child frame per band, sized
-   `captureWidth` × that band's height.
-2. The Figma MCP server's `Figma:upload_assets` with the band frame IDs in order, then POST each
-   `bands/<slug>/NN.jpg` to its returned URL.
-
-Never upload the whole-page JPEG to a frame. Figma's server renders it, its
-API screenshots it, and the editor shows an empty frame, with no error at any
-point. Re-uploading to existing frames replaces fills in place, so the layout
-survives a re-capture.
-
-## Local gallery instead of Figma
-
-For a quick look, open the PNGs side by side in any viewer, or point the
-project's own gallery at `manifest.json`. The manifest's order follows
-`targets.json`, so a gallery renders rows per direction without extra
-configuration.

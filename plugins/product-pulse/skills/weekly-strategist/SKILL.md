@@ -8,17 +8,12 @@ disable-model-invocation: true
 
 # Product Pulse — Weekly Strategist
 
-You are the weekly strategist for a product team. Your job is to step back from the daily tactical grind and answer: **"What should we focus on this week and why?"**
-
-You are NOT a research scanner (that's the daily skill). You are a strategic **advisor** that reads the week's research, understands the market, and sets direction.
-
-**You recommend — you don't implement.** PM:triage handles backlog promotion and dismissal.
+Step back from the daily scans and answer: **"What should we focus on this week and why?"** Read the week's research, understand the market, and set direction. Recommend only, and never promote, dismiss, or edit backlog items: PM:ingest reads the recommendations file and PM:triage owns the backlog.
 
 ---
 
 ## Ground Rules
 
-- **Advisor only** — produce recommendations. PM:triage handles promotion.
 - **Brevity over comprehensiveness** — The brief should be readable in 5 minutes. Each analyst produces max 500 words.
 - **Opinionated** — Make recommendations. Say "do X" not "you could do X or Y."
 - **Error tolerant** — If a Harness request fails, continue with the other research packets. If no daily reports exist, use web research. If memory is unavailable, use file-based data.
@@ -30,49 +25,7 @@ You are NOT a research scanner (that's the daily skill). You are a strategic **a
 
 ### 0.0 Discover Configuration
 
-Walk up from cwd, checking each directory for `pulse-config.yaml` directly and in common research-dir subdirs (`research/`, `Research/`, `docs/research/`). The first match wins; that file's parent directory is the **research directory** (`{research_dir}`). Load the YAML config; the rest of the skill uses values from it.
-
-```bash
-config_path=""
-research_dir=""
-dir="$PWD"
-while [ "$dir" != "/" ]; do
-  for sub in "" "research/" "Research/" "docs/research/"; do
-    candidate="$dir/${sub}pulse-config.yaml"
-    if [ -f "$candidate" ]; then
-      config_path="$candidate"
-      research_dir="$(cd "$(dirname "$candidate")" && pwd)"
-      break 2
-    fi
-  done
-  dir="$(dirname "$dir")"
-done
-
-if [ -z "$config_path" ]; then
-  echo "No pulse-config.yaml found. Run /product-pulse:setup first." >&2
-  exit 1
-fi
-
-# Required tools: stop before pulling or publishing if any is missing.
-for tool in git gh yq realpath; do
-  command -v "$tool" >/dev/null || { echo "Missing required tool: $tool" >&2; exit 1; }
-done
-gh auth status >/dev/null 2>&1 || { echo "GitHub CLI is not signed in. Run: gh auth login" >&2; exit 1; }
-
-primary_repo_root="$(cd "$research_dir" && git rev-parse --show-toplevel)"
-
-default_branch="$(yq '.default_branch // "main"' "$config_path")"
-auto_merge="$(yq '.auto_merge // false' "$config_path")"
-project_id="$(yq '.project_id' "$config_path")"
-memory_connector="$(yq '.memory.connector // "shelby"' "$config_path")"
-
-echo "Using config: $config_path"
-echo "Research dir: $research_dir"
-```
-
-Parse the YAML. Required fields: `project_id`, `repos`. Optional with defaults: `default_branch` (default `main`), `auto_merge` (default `false`), `memory.connector` (default `shelby`; set to `null` to disable).
-
-Find the entry in `repos:` with `role: primary`. Its filesystem location (resolved relative to the directory containing pulse-config.yaml's parent) is the **primary repo root** (`{primary_repo_root}`) for git operations.
+Run § Discover Configuration in [Config_and_Publish.md](../../references/Config_and_Publish.md) with `save_report=true`. It sets `{research_dir}`, `{primary_repo_root}`, `default_branch`, `auto_merge`, `project_id`, and `memory_connector`, and stops when the config, a required tool, or the `gh` login is missing.
 
 ### 0.1 Read Product Context
 
@@ -82,17 +35,7 @@ If the file doesn't exist, stop and tell the user to run `/product-pulse:setup` 
 
 ### 0.2 Pull Latest (all configured repos)
 
-Iterate `repos:` from `pulse-config.yaml`. For each repo, resolve its absolute path relative to `{primary_repo_root}`'s parent directory, then pull the default branch:
-
-```bash
-for repo_path in $(yq '.repos[].path' pulse-config.yaml); do
-  abs="$(realpath "$primary_repo_root/$repo_path")"
-  echo "=== Pulling $abs ==="
-  cd "$abs" && git checkout "$default_branch" && git pull origin "$default_branch" || echo "pull failed for $abs"
-done
-```
-
-If any pull fails, note it and continue. Single-element `repos:` is the monorepo case — same loop, one iteration.
+Run § Pull Latest in [Config_and_Publish.md](../../references/Config_and_Publish.md).
 
 ### 0.3 Read Last Weekly Brief
 
@@ -118,7 +61,7 @@ Extract:
 
 If `memory.connector` is set in `pulse-config.yaml` (not `null`), define recall
 intents for prior weekly decisions and recent daily-research outcomes. Attach them
-to each Phase 2 Harness request. Product Pulse does not discover or call a memory
+to each Phase 1 Harness request. Product Pulse does not discover or call a memory
 provider; when Harness returns no enrichment, continue from repository reports.
 
 ### 0.6 Build Context Package
@@ -127,7 +70,7 @@ Compile a ~1000-word context package summarizing product status, market context,
 
 ---
 
-## Phase 2: Request Five Analyst Briefs
+## Phase 1: Request Five Analyst Briefs
 
 Invoke `harness:delegate` five times with `operation: execute` and `route: bulk`, once
 for each named analyst role. Submit independent requests concurrently. Product Pulse
@@ -204,7 +147,7 @@ corroborate any claim that could drive a top-three priority.
 
 ---
 
-## Phase 3: Adjudicate Evidence and Synthesize Strategy
+## Phase 2: Adjudicate Evidence and Synthesize Strategy
 
 When accepted sources remain contradictory or a high-impact claim is not adequately
 corroborated, materialize the disputed claim, full citations, credibility assessments,
@@ -292,7 +235,8 @@ constraints:
   - |
     Produce an opinionated strategy brief readable in 5 minutes plus recommendations:
     at most 5 Suggested for Speccing items with rationale, served priority, and size;
-    Monitor Alerts; Quick Wins; Roadmap Notes; and 1-3 cross-domain opportunities.
+    Monitor Alerts; Quick Wins; Roadmap Notes; and 1-3 opportunities the daily scans
+    might miss (cross-domain plays, timing-sensitive moves, audience expansion).
     Recommend only—do not promote, dismiss, or modify backlog items.
   - |
     Include the intended report paths {week_dir}/{YYYY}-W{NN}-strategy-brief.md and
@@ -309,38 +253,12 @@ verification:
 
 Require `status: accepted` and `evidence.outcome: proven`, then reproduce the seam.
 
-### 3.1 Identify the Week's Theme
-
-One overarching insight from the analyst briefs + daily report patterns. Be specific to this product.
-
-### 3.2 Set Top 3 Priorities
-
-Exactly 3. Each must be: specific, achievable in a week, tied to evidence, and have a clear "done" definition. For multi-repo projects, note which repo each affects.
-
-### 3.3 Write Recommendations
-
-Based on the analyst briefs and daily report patterns, write recommendations:
-
-**Suggested for speccing** (max 5 items):
-- Identify up to 5 opportunities from the week's findings that deserve deeper investigation and speccing
-- Explain why each is recommended and which priority it serves
-- Note the suggested size
-
-**Monitor alerts:**
-- Flag any external developments that should be tracked (competitor launches, API changes, regulatory moves)
-
-**Quick wins:**
-- S-sized opportunities that could be fast wins if capacity allows
-
-These recommendations are written to the recommendations file for PM:ingest to process. The weekly strategist does NOT modify any backlog files directly.
-
-### 3.4 Spot Opportunities
-
-1-3 opportunities the daily scans might miss: cross-domain plays, timing-sensitive moves, audience expansion.
+Before accepting, confirm the draft has one product-specific theme, exactly 3
+evidence-tied priorities, and every recommendations section the packet requires.
 
 ---
 
-## Phase 4: Write Output
+## Phase 3: Write Output
 
 ### Determine paths
 
@@ -361,95 +279,33 @@ unproven{ — degraded coverage when accepted < expected}`.
 
 ### Write Recommendations
 
-Write to `{week_dir}/{YYYY}-W{NN}-recommendations.md`:
-
-```markdown
-# Weekly Recommendations — W{NN}
-
-Research Coverage: {accepted}/{expected} accepted/proven; {failed} failed; {blocked} blocked; {abandoned} abandoned; {unproven} unproven{ — degraded coverage when accepted < expected}
-
-Strategic recommendations from the weekly review.
-
-## Strategic Direction
-
-{1-2 sentence direction from the weekly brief}
-
-## Top 3 Priorities
-
-1. {priority 1}
-2. {priority 2}
-3. {priority 3}
-
-## Suggested for Speccing
-
-Items recommended for the user to spec and promote to Ready.
-
-| # | Item | Size | Domain | Priority | Rationale |
-|---|------|------|--------|----------|-----------|
-
-## Monitor Alerts
-
-Items in Monitor with approaching deadlines or fired triggers.
-
-| # | Item | Alert | Recommended Action |
-|---|------|-------|--------------------|
-
-## Roadmap Notes
-
-{Comments on Roadmap priorities based on this week's intelligence}
-
-## Quick Wins
-
-S-sized Ideas that could be fast wins if capacity allows.
-
-| # | Item | Domain | Why Now |
-|---|------|--------|---------|
-```
+Write to `{week_dir}/{YYYY}-W{NN}-recommendations.md` using the template in `references/recommendations-template.md`.
 
 ---
 
-## Phase 5: Persist
+## Phase 4: Persist
 
-### 5.1 Confirm optional memory enrichment
+### 4.1 Confirm optional memory enrichment
 
-The Phase 3 Harness request carries the weekly capture intent. After Product Pulse
+The Phase 2 taste request carries the weekly capture intent. After Product Pulse
 reproduces its proof, retain any returned Harness memory identifiers in the run
 summary. If memory is disabled or unavailable, continue with the brief and leave
 those optional identifiers empty; do not call a provider directly.
 
-### 5.2 Branch + commit + PR (always)
+### 4.2 Publish
 
-Inside the primary repo:
+Run § Publish in [Config_and_Publish.md](../../references/Config_and_Publish.md) with:
 
-```bash
-cd "$primary_repo_root"
-branch="weekly-brief/W{NN}"
-git checkout -b "$branch"
-git add "$research_dir"
-git commit -m "strategy: weekly brief W{NN} — {theme short}"
-git push -u origin "$branch"
-pr_url=$(gh pr create --base "$default_branch" --head "$branch" \
-  --title "strategy: weekly brief W{NN} — {theme short}" \
-  --body "Weekly strategy brief and recommendations for W{NN}. Auto-generated by product-pulse weekly-strategist." \
-  | tail -n1)
-echo "PR opened: $pr_url"
-```
+- `branch="weekly-brief/W{NN}"`
+- `publish_path="$research_dir"`
+- `title="strategy: weekly brief W{NN} — {theme short}"`
+- `body="Weekly strategy brief and recommendations for W{NN}. Auto-generated by product-pulse weekly-strategist."`
 
-### 5.3 Auto-merge (if enabled and mergeable)
-
-If `auto_merge: true` in config:
-
-```bash
-sleep 8  # let GitHub finalize mergeability check
-gh pr merge "$pr_url" --squash --delete-branch --auto || \
-  echo "Auto-merge declined; PR sits for human review at $pr_url"
-```
-
-`--auto` queues the merge if checks are still running. If branch protection or required reviews block the merge, the PR sits for human review and the skill exits cleanly with the PR URL surfaced.
+It opens the PR with `gh pr create` and queues a squash merge only when `auto_merge` is true.
 
 ---
 
-## Phase 6: Summary
+## Phase 5: Summary
 
 ```
 Product Pulse — Weekly Strategy W{NN}

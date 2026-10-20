@@ -1,7 +1,7 @@
 ---
 name: variant-brief
 description: >-
-  Creates or revises the variant build brief, the document handed to every agent that builds one design variant, from the plugin template plus the project's fixed items, off-limits files, traps, and verify commands. Use when setting up or updating what variant builders get handed.
+  Creates or revises the variant build brief, the document handed to every agent that builds one design variant, from the plugin template plus the project's fixed items, off-limits files, traps, and verify commands. Use when setting up or updating what variant builders get handed, writing a build brief or builder instructions, or asked to add a trap.
 ---
 
 # Variant brief

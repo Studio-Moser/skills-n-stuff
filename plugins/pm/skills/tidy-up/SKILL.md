@@ -12,22 +12,7 @@ Leave the current repository with nothing but the base branch, protected branche
 and work that is still in flight. Scope is git and GitHub for **the current repository
 only**; issue state belongs to `/pm:reconcile`.
 
-## Hard rules
-
-- **Fetch before reading anything.** Every classification uses refs fetched in this
-  run. Never classify against a stale local base.
-- **Never overwrite the base.** Fast-forward only. If the local base has diverged from
-  its remote, stop and report it.
-- **Prove before deleting.** Delete a branch only when §4 proves its tip is in the
-  base. "Upstream gone" and "not an ancestor" prove nothing on their own.
-- **Remote branches: yours only.** Delete a remote branch only when a merged PR from
-  it was authored by the authenticated `gh` user. List everything else; never
-  delete it.
-- **No force on worktrees.** Never use `git worktree remove --force` or `rm -rf` on a
-  worktree. A dirty worktree is kept and its files are listed.
-- **One approval.** Nothing destructive runs before the user approves the §5 plan.
-  Do only what the plan names.
-- **Never push to the base or a protected branch.** Integrated work lands through a PR.
+Never push to the base or a protected branch; integrated work lands through a PR.
 
 ## 1. Resolve the repository and its branch rules
 
@@ -70,6 +55,9 @@ Ask every open question in one batch before touching anything:
 Do not ask anything else before the plan. Decide implementation details yourself.
 
 ## 3. Freshen
+
+Every classification uses refs fetched in this run, because a stale local base makes
+merged work look unmerged and the reverse.
 
 ```bash
 git -C "$main_root" fetch --all --prune --tags
@@ -115,8 +103,9 @@ the base and protected branches, the tip is **merged** when the first of these h
 4. The first line of `git merge-tree --write-tree origin/$base T` equals
    `git rev-parse "origin/$base^{tree}"` (the tip adds nothing the base lacks).
 
-Record which proof matched. A tip that matches none is **unmerged**, even if its
-upstream is `[gone]` or a PR with the same name merged at a different head.
+Record which proof matched. Delete a branch only on one of these proofs. A tip that
+matches none is **unmerged**, even if its upstream is `[gone]` or a PR with the same
+name merged at a different head.
 
 Classify each item:
 
@@ -135,22 +124,24 @@ Classify each item:
 | Stash | merged by rule 4, no untracked files (`git rev-parse -q --verify 'stash@{n}^3'` fails) | drop |
 | Stash | otherwise | keep; summarize contents |
 
-Host tools do not reliably clean their own worktrees: T3 Code, for one, skips any
-worktree that holds ignored files other than `node_modules` and judges "merged" only
-by ancestry on the default branch, so squash merges and other base branches never
-qualify. Their merged worktrees therefore default to removal here, under the same
-proof and the same approval as any other.
+Delete a remote branch only when a merged PR from it was authored by the authenticated
+`gh` user, because other people's branches are not yours to remove; list everything else.
+
+Host tools do not reliably clean their own worktrees (T3 Code misses squash merges), so their merged worktrees default to removal here under the same proof and approval.
 
 "Clean" means `git -C <wt> status --porcelain --ignored=no` is empty. Ignored build
 output (`node_modules`, `.build`) does not make a worktree dirty, but it can make
 `git worktree remove` refuse. In that case, list the ignored paths, delete only
-ignored paths with `git -C <wt> clean -fdX`, and retry without `--force`.
+ignored paths with `git -C <wt> clean -fdX`, and retry. Never use `git worktree remove --force`
+or `rm -rf` on a worktree, because either destroys uncommitted work; keep a dirty
+worktree and list its files.
 
 ## 5. Plan and approve
 
-Present one table per class: item, tip SHA, proof, action. Then list in-flight work
-being kept and anything you could not classify. Ask for one approval. The user may
-change any row; apply their edits and do not re-ask.
+**One approval.** Nothing destructive runs before the user approves this plan, and
+afterward only what it names runs. Present one table per class: item, tip SHA, proof,
+action. Then list in-flight work being kept and anything you could not classify. The
+user may change any row; apply their edits and do not re-ask.
 
 ## 6. Execute in this order
 

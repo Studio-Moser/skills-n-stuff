@@ -27,7 +27,7 @@ You are NOT the ingestion agent — that's `/pm:ingest`. You receive items that 
 
 ---
 
-**Backend dispatch.** PM uses one backend per project. Load ONLY `references/triage-<backend>.md` (`triage-github.md`, `triage-trello.md`, or `triage-local.md`) and follow its steps wherever a phase below is marked **(backend step)**. Ignore the other backends' files. On GitHub, parent and sub-issue links follow `references/github-sub-issues.md`.
+**Backend dispatch.** PM uses one backend per project. Load only `references/triage-<backend>.md` (`triage-github.md`, `triage-trello.md`, or `triage-local.md`) and follow its steps wherever a phase below is marked **(backend step)**; the other backends' commands would fail against this tracker. On GitHub, parent and sub-issue links follow `references/github-sub-issues.md`.
 
 ---
 
@@ -75,8 +75,6 @@ Print: `"Loaded {N} domain terms from CONTEXT.md and {M} out-of-scope rejections
 
 **(backend step)** — follow your loaded `references/triage-<backend>.md` (§ Phase 0.2: Pull Needs-Triage Items).
 
-If zero items across all boards, print `"No status/needs-triage items found across {N} configured board(s). Nothing to do."` and exit cleanly.
-
 If zero items are found, print `"No status/needs-triage items found. Nothing to do."` and exit cleanly.
 
 Otherwise print: `"Found {N} status/needs-triage item(s). Starting triage pipeline."`
@@ -105,8 +103,7 @@ Criteria for reject recommendation:
 **Duplicate** — The item substantially overlaps an existing open item.
 
 Criteria for duplicate recommendation:
-- The item's title or description shares > 80% significant-word overlap with an existing open item (significant words = 3+ characters, excluding stop words)
-- Similarity = `(shared significant words) / (min(words_in_A, words_in_B))`
+- The item asks for the same outcome as an existing open item, judged by concept rather than wording: "night theme" duplicates "dark mode". Heavy shared vocabulary is a hint to look closer, not proof.
 
 **Keep** — The item is in scope, not a duplicate, and should proceed to speccing/scoring.
 
@@ -139,33 +136,14 @@ Ask the user: `"Confirm? (yes / reject / keep / duplicate / skip)"`
 
 Out-of-scope entries record **rejected enhancements only** — one file per concept. Never write one for a bug (bugs are fixed or closed, not scoped out) or for an already-implemented item (point to where it lives instead; a false rejection would poison future dedup). If the rejected concept already has an entry, append to its Prior requests instead of creating a new file.
 
-When an enhancement is rejected (by recommendation or override), create an out-of-scope entry using the template at `plugins/pm/templates/out-of-scope-entry.md`:
+When an enhancement is rejected (by recommendation or override), create an out-of-scope entry from `../../templates/out-of-scope-entry.md` (relative to this skill's directory):
 
 ```bash
 slug=$(echo "{title}" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/^-//;s/-$//' | cut -c1-60)
 oos_file="$oos_dir/${slug}.md"
 ```
 
-Write the rejection file:
-
-```markdown
-# {Item Title}
-
-**Decided:** {TODAY's DATE}
-**Status:** Rejected
-
-## Decision
-
-{User-provided reason, or: "Rejected during triage — {your recommendation reason}"}
-
-## Reasoning
-
-{Brief trade-off analysis based on the item's content and project context}
-
-## Prior requests
-
-- {TODAY's DATE}: {source — e.g. "product-pulse daily research" or "manual submission"} — {one-line context}
-```
+Fill it with today's date, the user's reason (or `Rejected during triage — {your recommendation reason}`) as the Decision, a brief trade-off analysis as the Reasoning, and the item's source (for example "product-pulse daily research" or "manual submission") as the first Prior request.
 
 Then close the item in the backend:
 
@@ -318,24 +296,14 @@ For each promoted item, gather:
 - **Priority label**: `priority/p0` / `priority/p1` / `priority/p2` / `priority/p3` (set if known; otherwise leave to the user)
 - **Target repo label**: `repo/{repo-name}` for multi-repo workspaces
 
-### 4.2 Update backend
+### 4.2 Link to a parent epic
 
-**(backend step)** — follow your loaded `references/triage-<backend>.md` (§ Phase 4.2: Update backend (promote)). Where applicable, `{owner_label}` is `owner/ai` (6/6 verdict) or `owner/human` (4-5/6 verdict).
-
-GitHub also has an optional Project Status-field mirror step — see § Phase 4.2a in `references/triage-github.md` if `github.project_sync` is enabled.
-
-### Approval cues (Trello-specific)
-
-**Trello backend:** see [`references/triage-trello.md`](../../references/triage-trello.md) — the synchronous/asynchronous confirmation modes and natural-language approval-cue detection for Trello cards. (Skip if backend != trello.)
-
-### 4.3 Link to a parent epic (REQUIRED — every promoted item gets exactly one)
-
-**Every item you promote must land under exactly one parent epic — no orphans.** A todo with no epic parent does not group under any epic in the project's "Sprint Plan" / group-by-Parent-issue view, which is the whole point of the board. So this is a required step, not an optional one. Do not promote an item to `status/ready` until it has an epic.
+Link each item to its epic before promoting it. A todo with no epic parent does not group under any epic in the project's "Sprint Plan" / group-by-Parent-issue view, which is the point of the board, so an item reaches `status/ready` only with an epic or the `no-epic` exception below.
 
 Determine the item's epic, in order of preference:
 
 1. **Explicit reference** in the item body (e.g. "Part of Epic 1 (#236)").
-2. **Infer from the open epics.** List currently open epics **(backend step — see `references/triage-<backend>.md` § Phase 4.3)** and match by area (memory work → the memory epic; a specific UI surface → that surface's epic; sync/reliability → the reliability epic; etc.). Per-surface UI work goes under that surface's epic, not a generic one.
+2. **Infer from the open epics.** List currently open epics **(backend step — see `references/triage-<backend>.md` § Phase 4.2)** and match by area (memory work → the memory epic; a specific UI surface → that surface's epic; sync/reliability → the reliability epic; etc.). Per-surface UI work goes under that surface's epic, not a generic one.
 3. **Ask** if still ambiguous: "Which epic does this belong under? {short list}". Pick before promoting.
 
 If the item already has the selected parent relationship, capture that epic identifier
@@ -344,7 +312,7 @@ normal path for children created by the Phase 2 XL split.
 
 **Creating a new epic (when none fits).** If the area genuinely has no epic yet, create one before linking — don't force the item under an ill-fitting parent. An epic is a **goal container**, so author it accordingly:
 
-- **Labels: `epic` only.** Never give an epic a `status/*` label and never place it in a board status column. An epic carries no workflow status — its progress *is* the native sub-issue progress bar, and its membership *is* the sub-issue tree. (Lifecycle still applies: `/pm:reconcile` closes an epic once all its sub-issues close.)
+- **Labels: `epic` only.** An epic gets no `status/*` label and no board status column, because its progress *is* the native sub-issue progress bar and its membership *is* the sub-issue tree. (Lifecycle still applies: `/pm:reconcile` closes an epic once all its sub-issues close.)
 - **Body = the goal, nothing else.** State the end-state and why it matters, written like a goal prompt you'd hand Claude Code — not a checklist of constituent items (that just drifts from the sub-issue tree, which is the real source of truth for membership). Use this shape:
 
   **Epic body template:**
@@ -357,9 +325,15 @@ normal path for children created by the Phase 2 XL split.
   {Why this matters — what's true once this is done.}
   ```
 
-**(backend step)** — follow your loaded `references/triage-<backend>.md` (§ Phase 4.3: Link to a parent epic) to create the epic and link the promoted item to it. Capture the new epic's number to use as `{epic_number}`.
+**(backend step)** — follow your loaded `references/triage-<backend>.md` (§ Phase 4.2: Link to a parent epic) to create the epic and link the item to it. Capture the new epic's number to use as `{epic_number}`.
 
-**No-epic escape hatch.** If an item genuinely belongs to no epic (rare — e.g. a standalone strategy/positioning note or a pure competitor-watch item), do NOT leave it silently unparented. Add a `no-epic` label so it's a deliberate, auditable choice rather than an oversight, and `/pm:reconcile` can surface accidental orphans (todos that are neither under an epic nor labelled `no-epic`).
+**The `no-epic` exception.** When an item genuinely belongs to no epic (rare — e.g. a standalone strategy/positioning note or a pure competitor-watch item), add a `no-epic` label instead of a parent. The label makes the choice deliberate and auditable, so `/pm:reconcile` can still surface accidental orphans (todos that are neither under an epic nor labelled `no-epic`).
+
+### 4.3 Update backend (promote)
+
+**(backend step)** — follow your loaded `references/triage-<backend>.md` (§ Phase 4.3: Update backend (promote)). Where applicable, `{owner_label}` is `owner/ai` (6/6 verdict) or `owner/human` (4-5/6 verdict).
+
+GitHub also has an optional Project Status-field mirror step — see § Phase 4.3a in `references/triage-github.md` if `github.project_sync` is enabled.
 
 ### 4.4 Update planning/todos.md
 
@@ -373,7 +347,7 @@ Read the current `planning/todos.md`. Find the `## Ready` section and the `### S
 | #{number} | {title} | {size} | priority/p{priority} | status/ready ({owner_label}) | {spec path or "—"} | {TODAY} | — |
 ```
 
-For `needs-info` items, do NOT add to Ready — they stay in triage. For items promoted with `owner/human`, add to Ready with status `status/ready` and the `owner/human` label (these still need code work, but a human should review the spec gaps first):
+Leave `needs-info` items out of Ready; they stay in triage until the missing details arrive. For items promoted with `owner/human`, add to Ready with status `status/ready` and the `owner/human` label (these still need code work, but a human should review the spec gaps first):
 
 ```markdown
 | #{number} | {title} | {size} | priority/p{priority} | status/ready (owner/human) | {spec path or "—"} | {TODAY} | {failing criteria} |
@@ -420,5 +394,3 @@ Left as needs-info (status/needs-triage): {C}
 - **planning/todos.md missing**: Skip the backlog update step. Warn: `"planning/todos.md not found — skipping backlog row insertion. Run /pm:setup to create the backlog."`.
 - **User stops mid-pipeline**: This is expected and fine. Items that haven't been processed remain as `status/needs-triage`. Print a partial summary of what was completed.
 - **Item body is empty or malformed**: Flag it to the user during sorting. Recommend reject or keep with a note that it needs a description before speccing.
-- **Trello card moved by user mid-skill**: If the skill loaded a card from `LIST_NEEDS_TRIAGE` and the user moved it to another list during the run, the move-to-target call from this skill will fail with "card already in list X". Surface the error, skip the item, and continue. Reconcile will catch up next run.
-- **Approval cue ambiguous**: When neither a clear approval cue nor an explicit user response is available, ALWAYS ask. Do not infer.

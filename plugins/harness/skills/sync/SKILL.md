@@ -35,18 +35,9 @@ The script resolves the same configuration roots as the helpers:
 
 ## Execution policy portability
 
-The developer's global instructions are built, not hand-written. Their source is
-the Harness profile (`profile/Global Instructions.md` and `profile/House Style.md`);
-Sync renders it into the managed block of the agents repository's
-`claude/CLAUDE.md` and writes an identical `codex/AGENTS.md`, so Claude and Codex
-read the same text. Change the profile through a Harness release, never the built
-files. Text outside the managed block in `claude/CLAUDE.md` is the developer's own,
-is kept on every sync, and reaches Codex with it. The shared
-[Execution choice](../../references/routing.md#execution-choice) also ships with
-Harness. Plugin reconciliation updates installed Harness/PM skills; it does not
-rewrite the personal rubric or select cheaper model rows.
-
-For an execution-policy rollout, verify the rendered instructions preserve silent
+Sync renders the global instructions from the Harness profile, so change the
+profile through a Harness release rather than editing the built files. For an
+execution-policy rollout, verify the rendered instructions preserve silent
 classification, semantic routing, and risk-based verification. Existing project
 baseline blocks update through `scripts/stamp-baseline.sh <project>/AGENTS.md` when
 that repository update is authorized; Sync does not scan or rewrite other projects.

@@ -1,7 +1,7 @@
 ---
 name: house-rules
 description: >-
-  Provides Studio Moser conventions for change classes, branches, file naming, commits, pull requests, testing, and pre-commit security checks. Use when a code change needs those conventions.
+  Provides Studio Moser conventions for change classes, branches, file naming, commits, pull requests, testing, and pre-commit security checks. Use when naming a branch or file, writing a commit message or PR body, choosing tests for a change, or running the pre-commit security check.
 ---
 
 # House Rules

@@ -118,7 +118,7 @@ and exit cleanly.
 | `*-recommendations.md` | `weekly-recommendations` |
 | `deep-dives/*.md` | `deep-dive` |
 
-Read `plugins/pm/references/ingestion-analyst.md` in the PM orchestrator. Copy its complete
+Read `../../references/ingestion-analyst.md` (relative to this skill's directory) in the PM orchestrator. Copy its complete
 output schema and extraction rules into each request; do not pass the PM-private path
 to Harness. For each report, invoke `harness:delegate` with `operation: execute` and
 `route: bulk`. Submit independent requests concurrently; PM does not resolve how
@@ -164,16 +164,8 @@ verification:
   expected: Every candidate is source-supported, complete, and contains no fabricated or strengthened claim
 ```
 
-Each accepted Harness Result supplies a report artifact whose returned items contain:
-
-- `evidence`: what the source actually reports
-- `proposed outcome`: the source's candidate result or follow-up
-- `rationale`: why that proposal follows from the evidence
-- `source`: report filename and section
-- `confidence`: High, Medium, or Low
-- `target repo`: best-supported repo, or `unknown`
-
-Collect all items and per-report counts. Reproduce the request's verification seam
+Each accepted Harness Result supplies a report artifact whose items follow the
+schema in the request above. Collect all items and per-report counts. Reproduce the request's verification seam
 before accepting the candidates. Log a `failed`, `blocked`, or `abandoned` Harness
 Result with its blockers and continue with the remaining reports.
 
@@ -203,14 +195,12 @@ overlap with a rejected feature or decision is out of scope. Record
 
 ### 3.3 Current code
 
-For a candidate that implies a concrete implementation, search configured repos:
+For a candidate that implies a concrete implementation, search each configured
+repo from its root so no source directory or language is missed:
 
 ```bash
-for repo_path in $(yq '.repos[].path' "$config_path"); do
-  abs="$(realpath "$primary_repo_root/$repo_path")"
-  grep -r --include="*.swift" --include="*.ts" --include="*.py" --include="*.js" \
-    --include="*.rb" --include="*.go" --include="*.rs" --include="*.java" \
-    -l "$search_term" "$abs/Sources" "$abs/src" "$abs/lib" "$abs/app" 2>/dev/null
+yq '.repos[].path' "$config_path" | while read -r repo_path; do
+  git -C "$(realpath "$primary_repo_root/$repo_path")" grep -l -I -i -e "$search_term"
 done
 ```
 
@@ -288,14 +278,12 @@ backend; and the destination recorded by the selected reference. End with
 If nothing was created, explain that every extracted item was a duplicate,
 out-of-scope, or already implemented, and confirm that watermarks were updated.
 
-## Shared Error Handling
+## Error Handling
+
+Cases not already covered by the Ground Rules and phases above:
 
 - Missing `pulse-config.yaml` or `.pm/config.yml`: stop and direct the user to
   Product Pulse setup or `/pm:setup`.
-- Missing research directory: warn and continue.
-- Unreadable report or failed analyst: log and continue with partial results.
 - Empty `research_dirs`: fall back to `research_dir` from `pulse-config.yaml`.
-- Failed repo pull: note and continue.
-- Missing state or watermark: initialize it as described in Phase 0.
 - Backend read, authentication, or create failure: follow the selected reference;
-  do not switch backends during the run.
+  do not switch backends mid-run, because items would split across trackers.
