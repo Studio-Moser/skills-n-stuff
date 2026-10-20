@@ -57,7 +57,12 @@ Quick take skips this phase. Full research in chat uses the configuration when o
 
 Walk up from cwd, checking each directory for `pulse-config.yaml` directly and in common research-dir subdirs (`research/`, `Research/`, `docs/research/`). The first match wins; that file's parent directory is the **research directory** (`{research_dir}`).
 
+Set `save_report=true` on the saved path and `false` on the chat path. Only the
+saved path stops for a missing config or a missing `gh` login, because only it
+writes files and opens a PR.
+
 ```bash
+save_report=false   # true on the saved path
 config_path=""
 research_dir=""
 dir="$PWD"
@@ -74,24 +79,32 @@ while [ "$dir" != "/" ]; do
 done
 
 if [ -z "$config_path" ]; then
-  echo "No pulse-config.yaml found. Run /product-pulse:setup first." >&2
-  exit 1
+  if [ "$save_report" = true ]; then
+    echo "No pulse-config.yaml found. Run /product-pulse:setup first." >&2
+    exit 1
+  fi
+  echo "No pulse-config.yaml found; continuing in chat without a research directory."
+else
+  # Required tools: stop before pulling if any is missing.
+  for tool in git yq realpath; do
+    command -v "$tool" >/dev/null || { echo "Missing required tool: $tool" >&2; exit 1; }
+  done
+
+  primary_repo_root="$(cd "$research_dir" && git rev-parse --show-toplevel)"
+  default_branch="$(yq '.default_branch // "main"' "$config_path")"
+  auto_merge="$(yq '.auto_merge // false' "$config_path")"
+  project_id="$(yq '.project_id' "$config_path")"
+  memory_connector="$(yq '.memory.connector // "shelby"' "$config_path")"
+
+  output_dir="$research_dir/deep-dives"
+  if [ "$save_report" = true ]; then mkdir -p "$output_dir"; fi
 fi
 
-# Required tools: stop before pulling or publishing if any is missing.
-for tool in git gh yq realpath; do
-  command -v "$tool" >/dev/null || { echo "Missing required tool: $tool" >&2; exit 1; }
-done
-gh auth status >/dev/null 2>&1 || { echo "GitHub CLI is not signed in. Run: gh auth login" >&2; exit 1; }
-
-primary_repo_root="$(cd "$research_dir" && git rev-parse --show-toplevel)"
-default_branch="$(yq '.default_branch // "main"' "$config_path")"
-auto_merge="$(yq '.auto_merge // false' "$config_path")"
-project_id="$(yq '.project_id' "$config_path")"
-memory_connector="$(yq '.memory.connector // "shelby"' "$config_path")"
-
-output_dir="$research_dir/deep-dives"
-mkdir -p "$output_dir"
+# Publishing needs gh: stop before research rather than after it.
+if [ "$save_report" = true ]; then
+  command -v gh >/dev/null || { echo "Missing required tool: gh" >&2; exit 1; }
+  gh auth status >/dev/null 2>&1 || { echo "GitHub CLI is not signed in. Run: gh auth login" >&2; exit 1; }
+fi
 ```
 
 Parse the YAML. Required fields: `project_id`, `repos`. Optional with defaults: `default_branch` (default `main`), `auto_merge` (default `false`), `memory.connector` (default `shelby`; set to `null` to disable).
@@ -107,7 +120,7 @@ Read `{research_dir}/research-context.md`. If missing, stop and tell the user to
 Iterate `repos:` from `pulse-config.yaml`. For each repo, resolve its absolute path relative to `{primary_repo_root}`'s parent directory, then pull the default branch:
 
 ```bash
-for repo_path in $(yq '.repos[].path' pulse-config.yaml); do
+for repo_path in $(yq '.repos[].path' "$config_path"); do
   abs="$(realpath "$primary_repo_root/$repo_path")"
   echo "=== Pulling $abs ==="
   cd "$abs" && git checkout "$default_branch" && git pull origin "$default_branch" || echo "pull failed for $abs"

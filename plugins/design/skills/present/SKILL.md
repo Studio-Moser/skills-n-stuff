@@ -1,7 +1,7 @@
 ---
 name: present
 description: >-
-  Puts a design round in front of the owner: per-screen pictures, a Figma file with each variant linked to its live page, static build imports, live editing with impeccable, and an optional local gallery. Also sets a project up for the workflow. Use when asked to present a round, put it in Figma, take the pictures, tweak a variant, import a build, or open the gallery.
+  Puts a design round in front of the owner: per-screen pictures, a Figma file with each variant linked to its live page, static build imports, live editing with impeccable, and an optional local gallery. Use when asked to present a round, put it in Figma, take the pictures, tweak a variant, import a build, or open the gallery.
 ---
 
 # Present

@@ -12,8 +12,8 @@ This is **approval-gated**: nothing is built until you approve the plan. Executi
 determines verification and review separately.
 
 Use `pm:house-rules` for branch, commit, PR, test, and security conventions. Classify
-internally. Polish runs its checkpoint gates without a separate plan. Small and
-Feature changes use the workflow below.
+internally. Polish and Small work does not need these gates: unless the user asked for
+this workflow by name, do it directly under `pm:house-rules` instead.
 
 ## 1. Frame
 

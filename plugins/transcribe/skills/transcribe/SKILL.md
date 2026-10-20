@@ -14,7 +14,7 @@ Fetch a spoken-word transcript from a video URL. YouTube URLs try the uploader's
 ## When to invoke
 
 - The user gives you a YouTube, Shorts, Instagram, TikTok, or Threads URL and asks for a transcript, summary, analysis, or quote
-- Another skill needs the spoken content of a video to do its job (e.g. research-scout analyzing a reference video)
+- Another skill needs the spoken content of a video to do its job (e.g. `product-pulse:deep-dive` analyzing a reference video). Model invocation is disabled for this skill, so other skills call the `transcribe` command from Bash rather than the Skill tool.
 
 ## How to invoke
 
@@ -27,12 +27,6 @@ transcribe <url> --force-whisper  # skip YouTube captions, always run whisper
 ```
 
 The `transcribe` executable is on PATH once the plugin is installed.
-
-From another skill, use the Skill tool:
-
-```
-Skill({ skill: "transcribe:transcribe", args: "<url>" })
-```
 
 ## Output
 
@@ -59,7 +53,7 @@ Install with:
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/install.sh
 ```
 
-Apple Silicon only in v0.1. Install deps: yt-dlp, ffmpeg, Node.js ≥ 20, Playwright Chromium, mlx-whisper.
+Install deps: yt-dlp, ffmpeg, Node.js ≥ 20, Playwright Chromium, mlx-whisper.
 Check them with `bash ${CLAUDE_PLUGIN_ROOT}/scripts/verify-deps.sh`, which names anything missing.
 
 ## Model
