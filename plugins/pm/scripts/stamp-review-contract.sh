@@ -42,6 +42,10 @@ if [ -e "$target" ] && [ ! -f "$target" ]; then
   echo "stamp-review-contract: target '$target' is not a regular file" >&2
   exit 2
 fi
+if [ -f "$target" ] && LC_ALL=C grep -q $'\r' "$target"; then
+  echo "stamp-review-contract: REVIEW.md contains carriage returns; normalize it to LF before stamping" >&2
+  exit 2
+fi
 
 tmp="$(mktemp "$repo/.REVIEW.md.tmp.XXXXXX")"
 trap 'rm -f "$tmp"' EXIT HUP INT TERM

@@ -258,9 +258,9 @@ else:
     packet = packets[0]
     files = re.findall(r"^\s*files:\s*(.+)$", packet, re.MULTILINE)
     allowed = re.findall(r"^\s*allowed_paths:\s*(.+)$", packet, re.MULTILINE)
-    if files != ["[{changed and review-relevant repository paths, plus ${REVIEW_ARTIFACT_REL}}]"]:
+    if files != ["[{changed and review-relevant repository paths, root REVIEW.md when present, plus ${REVIEW_ARTIFACT_REL}}]"]:
         failures.append(f"context.files is not repository-relative: {files}")
-    if allowed != ["[{read-only PR scope, plus ${REVIEW_ARTIFACT_REL}}]"]:
+    if allowed != ["[{read-only PR scope, root REVIEW.md when present, plus ${REVIEW_ARTIFACT_REL}}]"]:
         failures.append(f"allowed_paths is not repository-relative: {allowed}")
     for leak in ("${REVIEW_PATCH}", "${REVIEW_ARTIFACT_ABS}", "${WORKTREE_ROOT}", "${TMPDIR", "/tmp/"):
         if leak in "\n".join(files + allowed):
@@ -275,6 +275,11 @@ for required in (
     'REVIEW_ARTIFACT_REL="{exact repository-relative artifact path from the request}"',
     '[ "$REVIEW_ARTIFACT_REL" = ".harness-review/review-${REVIEW_DIGEST}.patch" ] || exit 1',
     'REVIEW_ARTIFACT_DIR_ABS="$WORKTREE_ROOT/.harness-review"',
+    'REVIEW_CONTRACT_ABS="$WORKTREE_ROOT/REVIEW.md"',
+    'REVIEW_CONTRACT_STATE="{exact present or absent state from the request}"',
+    'REVIEW_CONTRACT_DIGEST="{exact SHA-256 digest from the request, or none when absent}"',
+    'RECOMPUTED_REVIEW_CONTRACT_DIGEST=',
+    '[ "$RECOMPUTED_REVIEW_CONTRACT_DIGEST" = "$REVIEW_CONTRACT_DIGEST" ] || exit 1',
     'rm -f "$REVIEW_ARTIFACT_ABS"',
 ):
     if required not in text:

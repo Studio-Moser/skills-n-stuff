@@ -38,6 +38,11 @@ If `REVIEW.md` changes after the target was fixed, the review oracle changed. Ma
 a new target and submit a new review request. If it conflicts with this reference, keep
 the non-negotiable PM and Harness requirement and report the conflict as a blocker.
 
+Record the contract oracle as `present` plus the SHA-256 digest of its exact bytes, or
+as `absent`, when constructing the request. Give the reviewer those exact bytes and
+recompute the state and digest before accepting the result. Creation, removal, or a
+digest change invalidates the review even when the code artifact is unchanged.
+
 ## Review axes
 
 One reviewer reports each applicable axis separately so evidence on one cannot hide a
@@ -103,7 +108,7 @@ unrelated discovery becomes separate work unless it blocks the approved outcome.
 ### Reviewer Input Set
 
 Give the reviewer only the approved requirements, immutable fixed target and exact
-artifact, relevant project files, applicable root `REVIEW.md`, and current Testing Seam proof. Exclude builder reasoning,
+artifact, relevant project files, the pinned root `REVIEW.md` oracle when present, and current Testing Seam proof. Exclude builder reasoning,
 summaries, proposed verdicts, and prior review conclusions; they are claims, not reviewer
 inputs or evidence.
 

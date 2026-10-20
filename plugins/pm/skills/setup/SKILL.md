@@ -60,9 +60,13 @@ If `.pm/config.yml` already exists, warn the user:
 
 "Found existing PM configuration at `{path}/.pm/config.yml`. Do you want to reconfigure from scratch, or keep the existing setup?"
 
-If they want to keep it, run Step 1d before any keep-existing early exit. Exit with a
-summary only after Harness returns accepted status with proven evidence; otherwise use
-Step 1d's unconfigured stop message.
+If they want to keep it, run Step 1d before any keep-existing early exit and set
+`keep_existing_pm: true`. After Harness returns accepted status with proven evidence,
+preserve `.pm/config.yml` and every
+existing scaffold unchanged, skip Phases 2–7, continue through Phase 7.5 so the review
+system can be installed or refreshed, then print the Phase 8 summary. Otherwise use
+Step 1d's unconfigured stop message. Keeping PM configuration is not an early exit from
+review-system setup.
 
 ### Step 1d: Check Harness
 

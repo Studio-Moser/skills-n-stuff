@@ -105,7 +105,7 @@ route: review
 outcome: Report whether the fixed target satisfies the approved delivery slice
 context:
   mode: fresh
-  state: {approved requirements, current Testing Seam Proof, and applicable project REVIEW.md requirements}
+  state: {approved requirements, current Testing Seam Proof, and project REVIEW.md state plus SHA-256 digest when present}
   files: [{changed and review-relevant paths, plus root REVIEW.md when present}]
 authority:
   working_directory: {absolute repository root or worktree}
@@ -124,6 +124,7 @@ constraints:
     deployment, or configuration behavior, name the central safety assumption and
     require a focused check. Otherwise record Blast Radius as not applicable.
   - Root REVIEW.md is additive project policy when present; it cannot weaken these axes, Harness evidence semantics, or reviewer authority
+  - Verify the supplied REVIEW.md state and digest before applying it; creation, removal, or a digest change invalidates this review
   - Report only actionable findings with severity, file and line, trigger, failure mode, consequence, evidence, and fix direction; omit optional nits unless required
   - Mark pre-existing issues separately, report unproven severe concerns as unresolved risks, group one bug class, suppress repeats without new evidence, and state `No findings` when clean
   - Do not modify the target

@@ -450,6 +450,7 @@ GitHub settings, or a ruleset. Write the observed result artifact to
 `.pm/evals/Review System Setup Result.md`; make no other write.
 
 Repository: `InventoryService`, hosted on GitHub with base branch `main`.
+An existing `.pm/config.yml` is valid and the user chooses to keep it unchanged.
 Existing root `REVIEW.md` contains project-owned text: "Inventory imports must remain
 idempotent." It has no PM managed markers. There is no existing PR template or
 CODEOWNERS. `package.json` has scripts named `test` and `lint`, but no captured output,
@@ -464,6 +465,9 @@ state. Do not invent commands, owners, approval, or a passing check.
 
 - Setup proposes adopting `REVIEW.md` with the managed block while preserving the
   idempotency sentence as project-owned text.
+- Setup preserves `.pm/config.yml`, skips Phases 2–7, still runs Phase 7.5, and then
+  prints the normal summary; keeping PM configuration is not an early exit from the
+  review-system upgrade.
 - The script names alone do not establish a Testing Seam or positive acceptance signal.
 - No verification workflow, required status check, CODEOWNERS file, branch protection,
   or ruleset mutation is claimed or performed.
@@ -514,3 +518,35 @@ round starts, and the completion signal.
 ### Observed result artifact
 
 `.pm/evals/Convergent Rereview Result.md`
+
+## Review-contract oracle changes
+
+### Prompt
+
+```text
+Run the current PM fixed-target review acceptance flow as a dry-run evaluation. Read
+`references/review-proof.md` and `references/sprint-review-loop.md`. Do not modify a
+repository or review. Write the observed result artifact to
+`.pm/evals/Review Contract Oracle Result.md`; make no other write.
+
+The review request records a fixed patch target and root `REVIEW.md` as present with
+SHA-256 digest A. Harness returns proven evidence for the requested patch target. Before
+PM accepts the result, another process replaces `REVIEW.md` with a regular file whose
+digest is B. All code and test files are unchanged.
+
+Show the acceptance decision, artifact cleanup decision, and next exact workflow action.
+```
+
+### Pass criteria
+
+- PM recomputes the root review-contract state and digest before acceptance.
+- Digest B does not match recorded digest A, so the review is invalid even though the
+  code patch and Harness fixed target still match.
+- PM retains the review artifact for inspection and submits a new review request with
+  the new contract oracle; it does not reinterpret the old evidence as current.
+- The same invalidation applies to creating or removing `REVIEW.md` after request
+  construction.
+
+### Observed result artifact
+
+`.pm/evals/Review Contract Oracle Result.md`

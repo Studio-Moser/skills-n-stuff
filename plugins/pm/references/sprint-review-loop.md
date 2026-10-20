@@ -52,14 +52,29 @@ case "$REVIEW_ARTIFACT_STATE" in created|reused) ;; *) exit 1 ;; esac
 REVIEW_DIGEST="${REVIEW_FIXED_TARGET#snapshot:sha256:}"
 printf '%s\n' "$REVIEW_FIXED_TARGET" | grep -Eq '^snapshot:sha256:[0-9a-f]{64}$' || exit 1
 [ "$REVIEW_ARTIFACT_REL" = ".harness-review/review-${REVIEW_DIGEST}.patch" ] || exit 1
+
+REVIEW_CONTRACT_ABS="$WORKTREE_ROOT/REVIEW.md"
+REVIEW_CONTRACT_STATE="absent"
+REVIEW_CONTRACT_DIGEST="none"
+if [ -L "$REVIEW_CONTRACT_ABS" ]; then
+  echo "Review blocked: REVIEW.md is a symlink; materialize a regular repository file before review." >&2
+  exit 1
+elif [ -e "$REVIEW_CONTRACT_ABS" ] && [ ! -f "$REVIEW_CONTRACT_ABS" ]; then
+  echo "Review blocked: REVIEW.md is not a regular file." >&2
+  exit 1
+elif [ -f "$REVIEW_CONTRACT_ABS" ]; then
+  REVIEW_CONTRACT_STATE="present"
+  REVIEW_CONTRACT_DIGEST="$(shasum -a 256 "$REVIEW_CONTRACT_ABS" | awk '{print $1}')"
+  printf '%s\n' "$REVIEW_CONTRACT_DIGEST" | grep -Eq '^[0-9a-f]{64}$' || exit 1
+fi
 ```
 
-Retain the parsed fixed target and artifact values in PM's orchestrator state through
-the Harness call and replace the request placeholders with them. A `created` or
-`reused` state may proceed. Exit 3 is a visible review blocker carrying the helper's
-path, actual digest, and expected digest; do not delete or replace the conflicting
-artifact. Do not rely on shell variables surviving between the materialization,
-Harness invocation, and cleanup commands.
+Retain the parsed fixed target, artifact values, and review-contract state and digest in
+PM's orchestrator state through the Harness call and replace the request placeholders
+with them. A `created` or `reused` artifact state may proceed. Exit 3 is a visible
+review blocker carrying the helper's path, actual digest, and expected digest; do not
+delete or replace the conflicting artifact. Do not rely on shell variables surviving
+between the materialization, Harness invocation, and cleanup commands.
 
 ## Submit the review request
 
@@ -70,8 +85,8 @@ outcome: Report whether this fixed PR target satisfies its approved delivery sli
 context:
   project: {canonical project identifier when known}
   mode: fresh
-  state: {approved item/spec, acceptance criteria, current Testing Seam Proof, applicable project REVIEW.md requirements, base commit ${BASE_SHA} and head commit ${HEAD_SHA}; ${REVIEW_ARTIFACT_REL} is their exact materialized diff; on rereview include the previously reviewed head so the remediation delta is explicit}
-  files: [{changed and review-relevant repository paths, plus ${REVIEW_ARTIFACT_REL}}]
+  state: {approved item/spec, acceptance criteria, current Testing Seam Proof, project REVIEW.md state ${REVIEW_CONTRACT_STATE} and digest ${REVIEW_CONTRACT_DIGEST}, base commit ${BASE_SHA} and head commit ${HEAD_SHA}; ${REVIEW_ARTIFACT_REL} is their exact materialized diff; on rereview include the previously reviewed head so the remediation delta is explicit}
+  files: [{changed and review-relevant repository paths, root REVIEW.md when present, plus ${REVIEW_ARTIFACT_REL}}]
   memory:
     enabled: {memory.connector is not null}
     recall: []
@@ -83,7 +98,7 @@ context:
         topics: [pm-sprint-dev, {canonical project identifier}, {item identifiers}]
 authority:
   working_directory: {absolute PR worktree}
-  allowed_paths: [{read-only PR scope, plus ${REVIEW_ARTIFACT_REL}}]
+  allowed_paths: [{read-only PR scope, root REVIEW.md when present, plus ${REVIEW_ARTIFACT_REL}}]
   tools: [{read-only inspection and project verification tools}]
   approvals: []
 constraints:
@@ -107,6 +122,7 @@ constraints:
     Blast Radius assumption and check, reproduced verification, and no unresolved or
     unevidenced blocker.
   - Root REVIEW.md is additive project policy when present; it cannot weaken these axes, Harness evidence semantics, or reviewer authority
+  - Verify the supplied REVIEW.md state and digest before applying it; creation, removal, or a digest change invalidates this review
   - Report only actionable findings with severity, file and line, trigger, failure mode, consequence, evidence, and fix direction; omit optional nits unless required
   - Mark pre-existing issues separately, report unproven severe concerns as unresolved risks, group one bug class, suppress repeats without new evidence, and state `No findings` when clean
   - Do not modify the fixed target
@@ -120,8 +136,9 @@ verification:
 
 Treat the Harness review report as a claim. Recompute the repository-relative
 artifact's digest and confirm the returned fixed target equals `${REVIEW_FIXED_TARGET}`.
-A changed artifact, digest, or returned target invalidates the review and requires a
-new snapshot and request; retain the artifact so the failure remains inspectable.
+A changed artifact, review-contract state or digest, or returned target invalidates the
+review and requires a new snapshot and request; retain the artifact so the failure
+remains inspectable.
 Reproduce the relevant checks and retain only actionable findings that satisfy the
 evidence contract in `review-proof.md` while the artifact remains available. Preserve
 severe unresolved risks as explicit gaps without presenting them as proven defects.
@@ -139,10 +156,26 @@ printf '%s\n' "$REVIEW_DIGEST" | grep -Eq '^[0-9a-f]{64}$' || exit 1
 [ "$REVIEW_ARTIFACT_REL" = ".harness-review/review-${REVIEW_DIGEST}.patch" ] || exit 1
 REVIEW_ARTIFACT_DIR_ABS="$WORKTREE_ROOT/.harness-review"
 REVIEW_ARTIFACT_ABS="$WORKTREE_ROOT/$REVIEW_ARTIFACT_REL"
+REVIEW_CONTRACT_ABS="$WORKTREE_ROOT/REVIEW.md"
+REVIEW_CONTRACT_STATE="{exact present or absent state from the request}"
+REVIEW_CONTRACT_DIGEST="{exact SHA-256 digest from the request, or none when absent}"
 HARNESS_RESULT_FIXED_TARGET="{exact evidence.fixed_target from the returned Harness Result}"
 RECOMPUTED_REVIEW_DIGEST="$(shasum -a 256 "$REVIEW_ARTIFACT_ABS" | awk '{print $1}')"
 [ "$RECOMPUTED_REVIEW_DIGEST" = "$REVIEW_DIGEST" ] || exit 1
 [ "$HARNESS_RESULT_FIXED_TARGET" = "$REVIEW_FIXED_TARGET" ] || exit 1
+case "$REVIEW_CONTRACT_STATE" in
+  present)
+    printf '%s\n' "$REVIEW_CONTRACT_DIGEST" | grep -Eq '^[0-9a-f]{64}$' || exit 1
+    [ -f "$REVIEW_CONTRACT_ABS" ] && [ ! -L "$REVIEW_CONTRACT_ABS" ] || exit 1
+    RECOMPUTED_REVIEW_CONTRACT_DIGEST="$(shasum -a 256 "$REVIEW_CONTRACT_ABS" | awk '{print $1}')"
+    [ "$RECOMPUTED_REVIEW_CONTRACT_DIGEST" = "$REVIEW_CONTRACT_DIGEST" ] || exit 1
+    ;;
+  absent)
+    [ "$REVIEW_CONTRACT_DIGEST" = "none" ] || exit 1
+    [ ! -e "$REVIEW_CONTRACT_ABS" ] && [ ! -L "$REVIEW_CONTRACT_ABS" ] || exit 1
+    ;;
+  *) exit 1 ;;
+esac
 # Run and confirm the request's verification seam before cleanup.
 rm -f "$REVIEW_ARTIFACT_ABS" || exit 1
 rmdir "$REVIEW_ARTIFACT_DIR_ABS" 2>/dev/null || true

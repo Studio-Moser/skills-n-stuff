@@ -60,6 +60,18 @@ teardown() {
   [ "$status" -eq 2 ]
 }
 
+@test "review contract refuses CRLF without altering project-owned text" {
+  printf '# Existing policy\r\n\r\nKeep me.\r\n' > "$TMPROOT/REVIEW.md"
+  cp "$TMPROOT/REVIEW.md" "$TMPROOT/original"
+  run "$SCRIPT" "$TMPROOT"
+  [ "$status" -eq 2 ]
+  case "$output" in
+    *"normalize it to LF"*) ;;
+    *) return 1 ;;
+  esac
+  cmp "$TMPROOT/original" "$TMPROOT/REVIEW.md"
+}
+
 @test "PM setup installs review policy and guards GitHub enforcement" {
   run python3 - "$REPO" <<'PY'
 from pathlib import Path
@@ -89,6 +101,9 @@ for needle in (
     "every configured repository",
     "managed `REVIEW.md` contract",
     "explicit approval",
+    "keep_existing_pm: true",
+    "skip Phases 2–7",
+    "Keeping PM configuration is not an early exit",
 ):
     if needle not in setup:
         failures.append(f"setup omits {needle}")
@@ -145,6 +160,8 @@ failures = []
 
 for needle in (
     "## Project review contract",
+    "Record the contract oracle",
+    "recompute the state and digest",
     "## Actionable findings",
     "Do not use a numerical confidence threshold",
     "## Rereview convergence",
@@ -167,6 +184,9 @@ for forbidden in ("above 24", ">24", "score each finding from 0–100"):
 
 for needle in (
     "actionable blockers",
+    "REVIEW_CONTRACT_STATE",
+    "REVIEW_CONTRACT_DIGEST",
+    "RECOMPUTED_REVIEW_CONTRACT_DIGEST",
     "previously reviewed head",
     "remediation delta",
     "suppress repeated findings",
@@ -178,8 +198,10 @@ for needle in (
 for needle in (
     "## Review-system setup safety",
     "## Convergent rereview",
+    "## Review-contract oracle changes",
     "Review System Setup Result.md",
     "Convergent Rereview Result.md",
+    "Review Contract Oracle Result.md",
 ):
     if needle not in evaluation:
         failures.append(f"evals omit {needle}")
