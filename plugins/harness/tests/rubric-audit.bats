@@ -159,6 +159,29 @@ write_fixture() {
   echo "$output" | grep -qE 'UNSET: 1 \(inherited: claude-opus-5 1\)'
 }
 
+@test "a dispatch without a model param that its agent type routed elsewhere is not UNSET" {
+  write_fixture
+  {
+    printf '{"type":"assistant","message":{"role":"assistant","model":"claude-fable-5-1","content":[{"type":"tool_use","id":"tx","name":"Agent","input":{"subagent_type":"Explore","prompt":"p"}}]}}\n'
+    printf '{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"tx","content":"ok"}]},"toolUseResult":{"agentId":"a1","resolvedModel":"claude-opus-5-5"}}\n'
+  } >> "$PROJ/abc123.jsonl"
+  run "$SCRIPT" --projects "${BATS_TEST_TMPDIR}/projects"
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -qE 'UNSET: 0'
+  echo "$output" | grep -qE 'opus 2'
+}
+
+@test "a dispatch without a model param that ran on the session model is still UNSET" {
+  write_fixture
+  {
+    printf '{"type":"assistant","message":{"role":"assistant","model":"claude-opus-5-5","content":[{"type":"tool_use","id":"ty","name":"Agent","input":{"prompt":"p"}}]}}\n'
+    printf '{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"ty","content":"ok"}]},"toolUseResult":{"agentId":"a2","resolvedModel":"claude-opus-5-5"}}\n'
+  } >> "$PROJ/abc123.jsonl"
+  run "$SCRIPT" --projects "${BATS_TEST_TMPDIR}/projects"
+  [ "$status" -eq 1 ]
+  echo "$output" | grep -qE 'UNSET: 1 \(inherited: claude-opus-5-5 1\)'
+}
+
 @test "Codex spawn_agent calls are tallied by model and effort; sub-agent threads skipped" {
   write_codex_fixture
   run "$SCRIPT" --projects "${BATS_TEST_TMPDIR}/nope"

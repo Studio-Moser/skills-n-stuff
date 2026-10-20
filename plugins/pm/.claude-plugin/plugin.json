@@ -1,6 +1,6 @@
 {
   "name": "pm",
-  "version": "0.25.2",
+  "version": "0.25.3",
   "description": "Backend-agnostic project management for AI-native teams. Ingests research reports, triages and specs work items, initializes project review contracts and merge checks, coordinates risk-gated sprint execution, and syncs with GitHub Issues, Trello boards, or local YAML.",
   "author": {
     "name": "Studio Moser",

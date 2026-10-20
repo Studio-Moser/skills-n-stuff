@@ -20,6 +20,14 @@ into something the owner can look at and act on:
 - **A local gallery**, optional: a small server that shows every direction
   with its brief, references, design system, and variants (§ The local gallery). It changes nothing on disk except when the owner presses Edit.
 
+The scripts below live in the plugin root. Resolve it once and put the absolute
+path it prints wherever a command says `$design`, because `$CLAUDE_PLUGIN_ROOT` is not
+set in the Bash tool and shell variables do not carry over between tool calls:
+
+```bash
+design="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/design/*/ 2>/dev/null | sort -V | tail -1)}"; echo "${design%/}"
+```
+
 ## Requirements
 
 `frames.mjs` needs Playwright with Chromium and `sharp` resolvable from the
@@ -36,7 +44,7 @@ refresh the pictures whenever variants are built or edited, from the project
 root:
 
 ```sh
-node "${CLAUDE_PLUGIN_ROOT}/skills/present/scripts/frames.mjs" --dir "docs/Design Directions" [--only <NN>] [--force]
+node "$design/skills/present/scripts/frames.mjs" --dir "docs/Design Directions" [--only <NN>] [--force]
 ```
 
 It pictures each variant one screen at a time, at two sizes, so every image
@@ -111,7 +119,7 @@ A variant built in the project's real stack is not a file the gallery can
 open. Export the build as a static site and bring it into the direction:
 
 ```sh
-node "${CLAUDE_PLUGIN_ROOT}/skills/present/scripts/import-build.mjs" --from <export dir> --dir "docs/Design Directions" --direction "<NN Name>" [--routes /v/a/,/v/b/]
+node "$design/skills/present/scripts/import-build.mjs" --from <export dir> --dir "docs/Design Directions" --direction "<NN Name>" [--routes /v/a/,/v/b/]
 ```
 
 It serves the export at a temporary local address, opens each variant's page
@@ -186,7 +194,7 @@ it reads from a direction folder.
 From the project root:
 
 ```sh
-node "${CLAUDE_PLUGIN_ROOT}/skills/present/scripts/gallery.mjs" [--dir "docs/Design Directions"] [--port 4600] [--project "<Name>"]
+node "$design/skills/present/scripts/gallery.mjs" [--dir "docs/Design Directions"] [--port 4600] [--project "<Name>"]
 ```
 
 It prints its address (`http://127.0.0.1:4600`). Leave it running in the background for the session;

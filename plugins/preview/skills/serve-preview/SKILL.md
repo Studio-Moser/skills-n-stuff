@@ -10,8 +10,9 @@ Use the shared Docker and DockTail preview plane. A preview belongs to the machi
 not to the agent process that created it.
 
 Resolve the controller from this skill's installed location before running a command.
-Claude plugins expose it at
-`$CLAUDE_PLUGIN_ROOT/skills/serve-preview/scripts/Preview.sh`; a Harness-managed
+A Claude plugin install exposes it at
+`skills/serve-preview/scripts/Preview.sh` inside the newest
+`$HOME/.claude/plugins/cache/*/preview/*/` directory; a Harness-managed
 skills install normally exposes it at
 `${AGENTS_REPO:-$HOME/.agents}/skills/serve-preview/scripts/Preview.sh`. If neither
 applies, use the `scripts/Preview.sh` next to this `SKILL.md`. Set that absolute path

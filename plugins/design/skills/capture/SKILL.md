@@ -17,6 +17,14 @@ Pick the script by what the output is for:
 Placing a round in Figma is `design:present` § Review in Figma; it uploads
 the per-screen pictures from `frames.mjs`, not anything made here.
 
+The scripts below live in the plugin root. Resolve it once and put the absolute
+path it prints wherever a command says `$design`, because `$CLAUDE_PLUGIN_ROOT` is not
+set in the Bash tool and shell variables do not carry over between tool calls:
+
+```bash
+design="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/design/*/ 2>/dev/null | sort -V | tail -1)}"; echo "${design%/}"
+```
+
 ## Requirements
 
 All three scripts need `@playwright/test` (or `playwright`) with Chromium
@@ -43,7 +51,7 @@ tall image. `capture.mjs` routes around both, so do not replace it with
 From the project root:
 
 ```sh
-node "${CLAUDE_PLUGIN_ROOT}/skills/capture/scripts/capture.mjs" <targets.json> [--out <dir>] [--only <direction key>]
+node "$design/skills/capture/scripts/capture.mjs" <targets.json> [--out <dir>] [--only <direction key>]
 ```
 
 Output, under `--out` (default `design-shots`, add it to `.gitignore`):
@@ -115,7 +123,7 @@ Stitched pages are for side-by-side review; critics and builders need what a
 reader sees, one viewport at a time, and how the page moves between views.
 
 ```sh
-node "${CLAUDE_PLUGIN_ROOT}/skills/capture/scripts/views.mjs" <url> <outDir> [--widths 1440,390] [--hide "sel"]
+node "$design/skills/capture/scripts/views.mjs" <url> <outDir> [--widths 1440,390] [--hide "sel"]
 ```
 
 For each width it scrolls to every screen-height stop, waits for the page to
@@ -141,7 +149,7 @@ The output stacks those screens in one long, self-contained file whose height
 is `plates × viewport height`.
 
 ```sh
-node "${CLAUDE_PLUGIN_ROOT}/skills/capture/scripts/freeze.mjs" <targets.json> --dir "docs/Design Directions" [--only <direction key>] [--variant <id>] [--flow]
+node "$design/skills/capture/scripts/freeze.mjs" <targets.json> --dir "docs/Design Directions" [--only <direction key>] [--variant <id>] [--flow]
 ```
 
 Same `targets.json` as above; a variant's `url` is an http(s) address (a

@@ -79,14 +79,25 @@ if os.path.isdir(root):
             if prior is None or size > prior[0]:
                 transcripts[session_id] = (size, path)
 
+def family(model):
+    found = re.search(r"fable|opus|sonnet|haiku", model)
+    return found.group(0) if found else model
+
 for _size, path in transcripts.values():
     active = False
+    unset_calls = []        # (tool_use id, session model) per dispatch without a model param
+    resolved = {}           # tool_use id -> model the dispatch actually ran on
     with open(path, encoding="utf-8", errors="replace") as fh:
         for line in fh:
             try:
                 obj = json.loads(line)
             except ValueError:
                 continue
+            result = obj.get("toolUseResult")
+            if obj.get("type") == "user" and isinstance(result, dict) and result.get("resolvedModel"):
+                for c in (obj.get("message") or {}).get("content") or []:
+                    if isinstance(c, dict) and c.get("type") == "tool_result":
+                        resolved[c.get("tool_use_id")] = result["resolvedModel"]
             if obj.get("type") != "assistant" or not in_window(obj):
                 continue
             active = True
@@ -99,16 +110,25 @@ for _size, path in transcripts.values():
                 name = c.get("name")
                 inp = c.get("input") or {}
                 if name in ("Task", "Agent"):
-                    model = inp.get("model") or "UNSET"
-                    models[model] += 1
-                    if model == "UNSET":
-                        inherited[(obj.get("message") or {}).get("model") or "unknown"] += 1
+                    if inp.get("model"):
+                        models[inp["model"]] += 1
+                    else:
+                        unset_calls.append((c.get("id"), (obj.get("message") or {}).get("model") or "unknown"))
                 elif name == "Bash" and DISPATCH_RE.search(inp.get("command") or ""):
                     codex_dispatch += 1
                 elif name == "Bash" and CODEX_RE.search(inp.get("command") or ""):
                     codex_bash += 1
                 elif name == "Skill" and str(inp.get("skill") or "").startswith("pm:codex-"):
                     codex_skill += 1
+    # An agent type can define its own model. A dispatch without a model param that ran
+    # on a different model than the session's was routed by its definition, not inherited.
+    for call_id, session_model in unset_calls:
+        ran_on = resolved.get(call_id)
+        if ran_on and ran_on != session_model:
+            models[family(ran_on)] += 1
+        else:
+            models["UNSET"] += 1
+            inherited[session_model] += 1
     if active:
         sessions += 1
 
