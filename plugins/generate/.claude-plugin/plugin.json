@@ -1,6 +1,6 @@
 {
   "name": "generate",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Governed image, video, and audio generation over the Kie.ai MCP. Prices a batch and stops for confirmation before spending, downloads every result locally, and logs the prompt that made it. Can run exploration rounds on a Flora canvas, where every prompt and iteration stays visible and editable.",
   "author": {
     "name": "Studio Moser",

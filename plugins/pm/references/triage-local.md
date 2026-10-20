@@ -8,8 +8,8 @@
 - [Phase 1: Process duplicates — Local](#phase-1-process-duplicates--local)
 - [Phase 2, Step 2b.1: Create XL epic and children — Local](#phase-2-step-2b1-create-xl-epic-and-children--local)
 - [Phase 2, Step 2c: Write spec to backend — Local](#phase-2-step-2c-write-spec-to-backend--local)
-- [Phase 4.2: Update backend (promote) — Local](#phase-42-update-backend-promote--local)
-- [Phase 4.3: Link to a parent epic — Local](#phase-43-link-to-a-parent-epic--local)
+- [Phase 4.2: Link to a parent epic — Local](#phase-42-link-to-a-parent-epic--local)
+- [Phase 4.3: Update backend (promote) — Local](#phase-43-update-backend-promote--local)
 
 Backend-specific procedure blocks for `/pm:triage`, split out of `triage/SKILL.md` so GitHub/Trello users don't have to read past them. Only relevant when `backend == local`; skip this whole file otherwise. Variables (`$items_dir`, `$item_file`, `{number}`, etc.) are the same ones resolved earlier in the SKILL.md flow — read this file in-session and continue where you left off.
 
@@ -122,13 +122,7 @@ Also update the local item's YAML to reference the spec:
 yq -i ".spec = \"${specs_dir#$primary_repo_root/}/${number}-${slug}.md\"" "$item_file"
 ```
 
-## Phase 4.2: Update backend (promote) — Local
-
-```bash
-yq -i '.labels -= ["status/needs-triage"] | .labels += ["status/ready", "{owner_label}", "{size_label}", "priority/p{priority}"]' "$item_file"
-```
-
-## Phase 4.3: Link to a parent epic — Local
+## Phase 4.2: Link to a parent epic — Local
 
 Listing open epics (for the "infer from open epics" step) — same iteration pattern as Phase 0.2, filtering for the `epic` label instead:
 
@@ -146,3 +140,9 @@ yq -i '.parent_epic = {epic_number}' "$item_file"
 ```
 
 There is no local-backend equivalent of GitHub's native sub-issue relationship or progress bar — `parent_epic` on the child item is the sole source of epic membership for this backend.
+
+## Phase 4.3: Update backend (promote) — Local
+
+```bash
+yq -i '.labels -= ["status/needs-triage"] | .labels += ["status/ready", "{owner_label}", "{size_label}", "priority/p{priority}"]' "$item_file"
+```

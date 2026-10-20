@@ -146,16 +146,17 @@ for path in sorted((pm / "agents").glob("*.md")):
     if not path.read_text().startswith("---\n"):
         failures.append(f"agent has no frontmatter: {path.relative_to(repo)}")
 
+# Skills resolve the installed plugin root; references keep the repo path.
 packets = {
-    "references/ingestion-analyst.md": "skills/ingest/SKILL.md",
-    "references/scorecard-evaluator.md": "references/triage-scorecard.md",
+    "references/ingestion-analyst.md": ("skills/ingest/SKILL.md", "../../"),
+    "references/scorecard-evaluator.md": ("references/triage-scorecard.md", "plugins/pm/"),
 }
-for packet, consumer in packets.items():
+for packet, (consumer, root) in packets.items():
     packet_path = pm / packet
     if not packet_path.is_file():
         failures.append(f"missing private prompt packet: plugins/pm/{packet}")
-    if f"plugins/pm/{packet}" not in (pm / consumer).read_text():
-        failures.append(f"{consumer} does not load plugins/pm/{packet}")
+    if f"{root}{packet}" not in (pm / consumer).read_text():
+        failures.append(f"{consumer} does not load {root}{packet}")
 
 if failures:
     print("invalid PM agent/reference classification: " + "; ".join(failures))

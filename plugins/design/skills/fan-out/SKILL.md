@@ -15,29 +15,28 @@ Read `../../templates/Round Sheet.md` for the input shape.
 
 ## Inputs
 
-A round needs four documents, all owned by the project, none invented here.
-`design:direction-brief` produces the second and third with the owner, saves
-the references they point at, and drafts the round sheet:
+A round needs four documents, all owned by the project, none invented here:
 
 1. **The frozen brief** (identity brief, brand brief, whatever the project
    calls it). What is fixed, what is banned, character words, personas.
-2. **One direction brief per direction in the round**, in the shape of
-   `templates/Direction Brief.md`: premise, type, hard rules, Wins if /
+2. **One direction brief per direction in the round**, from
+   `design:direction-brief`, in the shape of
+   `../../templates/Direction Brief.md`: premise, type, hard rules, Wins if /
    Loses if, and a **Reference pack**.
-3. **One copy direction**, verbatim lines plus the rules for lines the builder
-   has to write.
+3. **One copy direction**, from `design:direction-brief`: verbatim lines plus
+   the rules for lines the builder has to write.
 4. **The project's variant build brief**, produced with `design:variant-brief`.
    It owns the done gates, the off-limits files, the report format, and the
    project's own traps.
 
-Plus **the round sheet**: its `medium` (`html`, the default: one
-self-contained page per variant beside the direction brief; or `code`: a
-route in the project's real stack on a direction branch), and one row per
-variant with `id`, `direction`, `copy`, `method` (exactly one design skill, or
-`none`), `route` (a Harness semantic route, or a Claude model alias for a local
-subagent), optional `dials`, and the reference entries this variant borrows
-from. If any input is missing, ask once,
-batching every question, then run to the end state: a round index handed back.
+Plus **the round sheet**, drafted by `design:direction-brief`: its `medium`
+(`html`, the default: one self-contained page per variant beside the direction
+brief; or `code`: a route in the project's real stack on a direction branch),
+and one row per variant with `id`, `direction`, `copy`, `method` (exactly one
+design skill, or `none`), `route` (a Harness semantic route, or a Claude model
+alias for a local subagent), optional `dials`, and the reference entries this
+variant borrows from. If any input is missing, ask once, batching every
+question, then run to the end state: a round index handed back.
 
 ## Rules that make the round worth its cost
 
@@ -80,8 +79,7 @@ batching every question, then run to the end state: a round index handed back.
      preloads that one skill and no other. When the method has no such agent,
      or its skill is not installed, spawn a general-purpose subagent, tell it
      to invoke exactly that skill, and pass the packet.
-   - A row whose `route` is a Harness semantic route (`taste`, `default`,
-     `bulk`) goes through `harness:delegate` with `operation: execute`, the
+   - A row whose `route` is any Harness semantic route goes through `harness:delegate` with `operation: execute`, the
      packet as context, the project root (`html`) or the worktree (`code`) as
      `authority.working_directory`, allowed paths limited to the variant's own
      output (`html`: its file, plus `tokens.css` for a direction's first
@@ -105,12 +103,9 @@ batching every question, then run to the end state: a round index handed back.
      build as a static site and bring it in with `design:present`'s
      `import-build.mjs`, then run `frames.mjs`.
    - **Figma**, when the round sheet names a file: follow `design:present`
-     § Review in Figma. For every variant, create its column, place its
-     screens, and store its page address on the column frame
-     (`setSharedPluginData('design_gallery', 'page', …)`), which is what makes
-     the variant open its live page in the Figma plugin. Read each address
-     back after writing it, and check one of them answers from the server the
-     round sheet names. A variant placed without its address is not finished.
+     § Review in Figma for every variant. A variant placed without its page
+     address on its column frame is not finished: the address is what opens
+     its live page in the Figma plugin.
    - **Gallery**, otherwise: make sure it is running and give the owner the
      direction's address.
 7. **Write the round index** into the round sheet's Results section: for each

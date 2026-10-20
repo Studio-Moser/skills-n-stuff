@@ -1,7 +1,7 @@
 ---
 name: serve-preview
 description: >-
-  Creates, checks, or stops a durable private Tailscale preview of a local website. Use when a local site needs a private shareable preview.
+  Creates, checks, or stops a durable private Tailscale preview of a local website. Use when a local site needs a private shareable preview: sharing a localhost site, getting a tailnet URL for it, showing a client the site in progress, or stopping or pruning a preview. Not for public deploys such as Railway.
 ---
 
 # Serve Preview
@@ -17,16 +17,28 @@ skills install normally exposes it at
 applies, use the `scripts/Preview.sh` next to this `SKILL.md`. Set that absolute path
 as `preview` in the examples below.
 
+## First run
+
+1. `"$preview" doctor` checks prerequisites and router readiness.
+2. If the router is not healthy, read [DockTail Setup](references/DockTail_Setup.md)
+   and run `"$preview" router-up`. Previews refuse to start without a healthy router.
+3. `"$preview" up-static <name> <directory>` for a static site, or
+   `"$preview" prepare <name>` before starting an existing application container.
+4. `"$preview" verify <name>`.
+5. Report the URL, the verify result, and the command to stop it later.
+
 ## Invariants
 
-- Keep previews private to the tailnet. Never enable Funnel.
+- Keep previews private to the tailnet. Do not enable Funnel: it exposes the
+  preview to the public internet.
 - Accept a lowercase DNS-safe short name and advertise it only inside the reserved
   `preview-*` Service namespace. A short name matches `^[a-z][a-z0-9-]{0,54}$`.
 - Treat Service names as tailnet-wide. Refuse an existing name associated with a
   different preview router instead of silently creating a load-balanced Service.
 - Give every preview `restart: unless-stopped` behavior.
 - Give every preview container a memory limit (`mem_limit`). Development servers
-  get `2g` at most; `verify` refuses a preview without one.
+  get `2g` at most because they grow as pages compile; `verify` refuses a preview
+  without a limit.
 - Put the application process itself in the managed container. A host process behind
   a proxy container or LaunchAgent is a migration bridge, not a finished preview.
 - Give every preview its own managed Docker network. Connect only the DockTail
@@ -36,9 +48,12 @@ as `preview` in the examples below.
   environment. The router reads the secret from
   `~/.config/agent-previews/secrets/`; the non-secret OAuth client ID may appear in
   container metadata.
-- Do not enable DockTail's `DELETE_UNUSED_SERVICES` or
-  `SKIP_SHUTDOWN_CLEANUP` settings.
-- Report the stable URL: `https://preview-<name>.<tailnet>.ts.net`.
+- Do not enable DockTail's `DELETE_UNUSED_SERVICES`: `down` keeps the Service
+  definition so the same stable name can be reused. Do not enable
+  `SKIP_SHUTDOWN_CLEANUP`: graceful shutdown is what drains a stopped preview's
+  advertisement.
+- Report the stable URL `https://preview-<name>.<tailnet>.ts.net`, the `verify`
+  result, and the `down <name>` / `prune <name>` commands that stop and remove it.
 
 ## Static previews
 

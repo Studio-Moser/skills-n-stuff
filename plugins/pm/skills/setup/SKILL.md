@@ -88,8 +88,10 @@ Harness is not configured. Run /harness:setup, then rerun /pm:setup.
 
 This is a dependency check, not Harness setup. PM must not inspect or create Harness
 routing configuration, discover execution runtimes, or restate Harness setup
-mechanics. Point only to `/harness:setup`. Retain the accepted result as the proof used
-by the Phase 8 summary; never infer or default the displayed status.
+mechanics, because Harness owns that configuration and a second writer would drift
+from it. Point only to `/harness:setup`. Retain the accepted result as the proof used
+by the Phase 8 summary; never infer or default the displayed status, because only
+Harness can prove it is configured.
 
 ---
 
@@ -222,7 +224,7 @@ last_reconcile: null
 
 ### Generate .pm/out-of-scope/README.md
 
-Read the template from `templates/oos-readme.md` (relative to this skill's plugin directory at `plugins/pm/`). Write it to `.pm/out-of-scope/README.md`.
+Read `$pm/templates/oos-readme.md` and write it to `.pm/out-of-scope/README.md`.
 
 ### Create or update pulse-config.yaml (if it doesn't exist)
 
@@ -263,7 +265,7 @@ Leave every other key unchanged.
 
 ## Phase 4: Create CONTEXT.md
 
-Read the template from `templates/context-md.md` (relative to this skill's plugin directory at `plugins/pm/`).
+Read the template from `$pm/templates/context-md.md`.
 
 **Placement:**
 - **Single-repo**: Write to `{primary_repo_root}/CONTEXT.md`
@@ -287,79 +289,12 @@ After writing, print: "Created CONTEXT.md at `{path}`. Agents will read this bef
 
 ---
 
-## Phase 4.4: Stamp the Harness baseline block
+## Phases 4.4–4.5: Harness Baseline and Plugin Updates
 
-Every repo—regardless of who works on it—gets the same managed baseline block in its
-`AGENTS.md`. PM only stamps the shared block; Harness owns its execution guidance and
-setup surface.
-
-1. Follow the repository's existing instruction-file convention: use `AGENTS.md` if
-   it exists, or if neither `AGENTS.md` nor `CLAUDE.md` exists; use `CLAUDE.md`
-   directly only when it is the sole file present.
-
-```bash
-if [ -f "$primary_repo_root/AGENTS.md" ]; then
-  TARGET="$primary_repo_root/AGENTS.md"
-elif [ -f "$primary_repo_root/CLAUDE.md" ]; then
-  TARGET="$primary_repo_root/CLAUDE.md"
-else
-  TARGET="$primary_repo_root/AGENTS.md"
-fi
-```
-
-   If `$TARGET` is `AGENTS.md`, make sure `CLAUDE.md` imports it: if `CLAUDE.md` exists but has no `@AGENTS.md` line, add one; if `CLAUDE.md` doesn't exist, create a minimal one containing just `@AGENTS.md`.
-
-2. Read the canonical Harness template. Harness is already a proven prerequisite
-   from Step 1d, so PM does not keep or reconstruct a second copy. The public source
-   path is `plugins/harness/templates/AGENTS_Baseline.md`; use the installed Harness
-   copy so setup also works offline:
-
-```bash
-harness="${HARNESS_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
-pm="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/pm/*/ 2>/dev/null | sort -V | tail -1)}"; pm="${pm%/}"
-[ -d "$harness" ] || harness="$pm/../harness"
-BODY="$harness/templates/AGENTS_Baseline.md"
-```
-
-3. Stamp it with Harness's idempotent writer. An empty or missing template must
-   leave any existing block unchanged, so skip the stamp and report the missing
-   Harness installation rather than falling back to a duplicate:
-
-```bash
-if [ ! -s "$BODY" ]; then
-  echo "Could not obtain the Harness baseline template. Run /harness:setup, then rerun /pm:setup."
-else
-  "$harness/scripts/stamp-baseline.sh" "$TARGET"
-fi
-```
-
-4. If the stamp ran, tell the user the block was stamped/refreshed and that it's committed with the rest of setup, so every teammate inherits it on clone.
-
----
-
-## Phase 4.5: Plugin freshness (referral)
-
-pm ships through the `studio-moser` marketplace. **Third-party marketplaces have
-auto-update off by default**, so a developer who added it once may be running a
-months-old pm without knowing. Check, report, offer — do not change their
-Claude Code configuration for them.
-
-```bash
-if command -v claude >/dev/null 2>&1; then
-  claude plugin marketplace list 2>/dev/null | grep -q 'studio-moser' && echo "marketplace: registered" || echo "marketplace: missing"
-  python3 - << 'PY' 2>/dev/null || echo "autoupdate: unknown"
-import json, os
-d = json.load(open(os.path.expanduser("~/.claude/plugins/known_marketplaces.json")))
-print("autoupdate:", "on" if d.get("studio-moser", {}).get("autoUpdate") else "off")
-PY
-else
-  echo "claude CLI not on PATH — skip"
-fi
-```
-
-- `marketplace: missing` → tell the user: `"The studio-moser marketplace isn't registered on this machine, so pm can't update. Add it with /plugin marketplace add Studio-Moser/skills-n-stuff, then enable auto-update (below)."` — and stop there; do not also give the `autoupdate: off` message or offer the update commands, since they cannot succeed without the marketplace.
-- `autoupdate: off` (or `unknown`) → tell the user: `"Auto-update is off for studio-moser (Claude Code's default for third-party marketplaces), so pm won't pick up new versions on its own. Turn it on: /plugin → Marketplaces → studio-moser → Enable auto-update. Want me to pull the latest now? I'd run: claude plugin marketplace update studio-moser && claude plugin update pm@studio-moser"` — and run those two commands only if they say yes. Both need a restart or `/reload-plugins` to apply; say so.
-- `marketplace: registered` and `autoupdate: on` → one line: `"studio-moser marketplace is registered and auto-updating."`
+Load `references/setup-baseline-and-updates.md` and follow it: stamp the managed
+Harness baseline block from `plugins/harness/templates/AGENTS_Baseline.md` into the
+repo's instruction file, then report whether the `studio-moser` marketplace is
+registered and auto-updating. Carry its plugin-update line into the Phase 8 summary.
 
 ---
 
@@ -375,7 +310,7 @@ mkdir -p "{primary_repo_root}/docs/adr"
 
 ### Copy ADR template
 
-Read the template from `templates/adr-template.md` (relative to this skill's plugin directory at `plugins/pm/`). Write it to:
+Read the template from `$pm/templates/adr-template.md`. Write it to:
 
 ```
 {primary_repo_root}/docs/adr/0000-template.md
@@ -425,7 +360,7 @@ PM — Setup Complete
 ====================
 
 Project: {project_id}
-Backend: {github or local}
+Backend: {github | trello | local}
 Workspace: {single-repo or multi-repo ({N} repos)}
 Primary repo: {repo name} ({path})
 
@@ -476,7 +411,7 @@ Adjust the summary based on what was actually created and omit skipped phases.
 
 ## Edge Cases
 
-- **Files already exist**: Always ask before overwriting. For `.pm/config.yml`, offer to show a diff of what would change. For `CONTEXT.md`, offer to merge new seed terms into the existing file.
+- **Files already exist**: Ask before overwriting, because these files often hold hand-edited project knowledge. For `.pm/config.yml`, offer to show a diff of what would change. For `CONTEXT.md`, offer to merge new seed terms into the existing file.
 
 - **Backend-specific failures**: **(backend step)** — follow the errors section in
   the loaded backend reference.
@@ -490,17 +425,4 @@ Adjust the summary based on what was actually created and omit skipped phases.
 
 - **Existing CONTEXT.md at a different path**: If `.pm/config.yml` points `context_md` at a non-default path, respect it. Don't create a second copy.
 
-- **Existing REVIEW.md or GitHub files**: Use the review-system reference's managed
-  block and merge rules. Never replace project-owned content. An incomplete managed
-  marker, symlink, ambiguous workflow merge, or unrelated existing ruleset is a visible
-  blocker for that artifact, not permission to overwrite it.
-
-- **Ruleset permission or plan unavailable**: Keep the local review documentation,
-  report merge enforcement as unmet, and offer the approved branch-protection fallback.
-  Do not claim enforcement from a successful local write.
-
 - **No research reports**: That's fine. Set `research_dirs` to an empty list and skip the ingest recommendation in next steps. The user can add research directories later by editing `.pm/config.yml`.
-
-- **Harness later reports incomplete configuration**: stop the PM operation, preserve
-  its tracker state, and point only to `/harness:setup`. Rerun the PM operation after
-  Harness is configured.

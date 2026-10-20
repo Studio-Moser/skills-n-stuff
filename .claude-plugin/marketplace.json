@@ -36,7 +36,7 @@
         "growth",
         "deep-dive"
       ],
-      "version": "0.8.1"
+      "version": "0.8.2"
     },
     {
       "name": "pm",
@@ -62,7 +62,7 @@
         "triage",
         "sprint"
       ],
-      "version": "0.25.1"
+      "version": "0.25.2"
     },
     {
       "name": "harness",
@@ -88,13 +88,13 @@
         "sync",
         "agent-config"
       ],
-      "version": "2.4.0"
+      "version": "2.4.1"
     },
     {
       "name": "generate",
       "source": "./plugins/generate",
       "description": "Governed image, video, and audio generation over the Kie.ai MCP. The models are the easy part — this adds the discipline around them: prices a batch and stops for confirmation before spending, downloads every result locally before URLs expire, and logs the prompt that produced each file. Can run exploration rounds on a Flora canvas, where every prompt and iteration stays visible and editable.",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "author": {
         "name": "Studio Moser"
       },
@@ -149,7 +149,7 @@
       "name": "preview",
       "source": "./plugins/preview",
       "description": "Create durable private local previews with stable Tailscale Service URLs and a tailnet-wide Preview Hub.",
-      "version": "0.1.9",
+      "version": "0.1.10",
       "author": {
         "name": "Studio Moser"
       },
@@ -174,7 +174,7 @@
       "name": "design",
       "source": "./plugins/design",
       "description": "Design exploration rounds: fan one brief out into independent HTML variants built by named skills and models, gate first drafts with fresh-context critics, picture them and place the round in a Figma file where each variant opens its live page, edit variants in the page with impeccable live, and carry what the owner wants into the next brief.",
-      "version": "0.6.1",
+      "version": "0.6.2",
       "author": {
         "name": "Studio Moser"
       },

@@ -21,12 +21,19 @@ do not fall back to describing images in SVG or suggesting another provider.
 
 Canvas mode needs the Flora MCP instead; see [Canvas mode](#canvas-mode).
 
-## Hard rules
+The scripts used in steps 3b and 5 live in the plugin root. Resolve it once and put
+the absolute path it prints wherever a command below says `$gen`, because shell
+variables do not carry over between tool calls:
 
-These are not suggestions. Each one exists because skipping it costs the user money
-or work.
+```bash
+gen="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/generate/*/ 2>/dev/null | sort -V | tail -1)}"; echo "${gen%/}"
+```
 
-1. **Price before you generate.** Never call a generation tool before stating
+## Rules
+
+Each rule exists because skipping it costs the user money or work.
+
+1. **Price before you generate.** Do not call a generation tool before stating
    `count × model × unit cost = estimate` and comparing it to the budget.
 2. **Confirm before a batch.** More than 4 assets, or more than half the budget in
    one go, means stop and ask. Waiting costs a round-trip; not waiting costs money.
@@ -81,10 +88,10 @@ Craft the prompts yourself — this is the part worth Claude's attention.
 - Show the prompts before firing when the batch is large or the style is unsettled.
   Re-prompting is free; re-generating is not.
 
-**Reference images must be URLs.** The `image_input` (nano banana), `input_urls`
-(GPT Image 2), and `imageUrls` (Veo3) parameters take URLs only — this MCP server
-has no upload tool and accepts neither local paths nor base64. Never pass a local
-path and hope; host it first (next section).
+**Reference images must be URLs.** This MCP server has no upload tool and accepts
+neither local paths nor base64, so a local file has to be hosted first (next
+section). The reference parameter name differs per model; the table is in
+[Model Gotchas](references/Model_Gotchas.md#reference-parameter-names).
 
 ### 3b. Host local references
 
@@ -92,7 +99,6 @@ To use a local file as a reference — a brand asset, a previous generation you 
 to edit or animate — upload it to a temporary public host and pass the returned URL:
 
 ```bash
-gen="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/generate/*/ 2>/dev/null | sort -V | tail -1)}"; gen="${gen%/}"
 "$gen/scripts/host-reference.sh" path/to/brand-mark.png
 # → https://litterbox.catbox.moe/abc123.png
 ```
@@ -129,8 +135,9 @@ Generate sequentially unless the user asked for a comparison fan-out. Sequential
 work lets rule 3 actually stop the spend partway. A model comparison **is** the
 fan-out case — fire those together.
 
-Read the per-model gotchas below before the first call to any of them. Each one
-listed there fails every single time until the workaround is applied.
+Before the first call to a model, read its entry in
+[Model Gotchas](references/Model_Gotchas.md). The models listed there fail until
+their workaround is applied.
 
 ### 5. Save
 
@@ -138,7 +145,6 @@ Every returned URL goes through the archiver, which downloads the asset and appe
 its provenance line to `Generations.jsonl` in the same folder:
 
 ```bash
-gen="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/generate/*/ 2>/dev/null | sort -V | tail -1)}"; gen="${gen%/}"
 "$gen/scripts/save-generation.sh" \
   --url "RESULT_URL" \
   --dir "OUTPUT_DIR" \
@@ -178,7 +184,7 @@ Flora has no model for stay on Kie.
 
 Read `references/Flora_Canvas.md` before the first Flora call. It replaces steps
 3b and 4 with the canvas workflow: lay the round out as nodes, let the user edit
-prompts on the board, read the board back, then run. The hard rules above are
+prompts on the board, read the board back, then run. The rules above are
 unchanged, and step 5 still saves and logs every result locally.
 
 Flora is a second provider with its own bill, charged to the Flora workspace in USD.
@@ -200,43 +206,10 @@ The MCP tool descriptions carry the real detail. This is only for picking fast:
 | Upscale a keeper | `topaz_upscale_image` |
 | Cut out a subject | `recraft_remove_background` |
 
-## Model gotchas
-
-Verified against a live six-model batch on 2026-08-12. These are defects in the
-defaults or the server, not in your parameters — each fails 100% of the time until
-worked around. All of them are rejected before dispatch, so they cost nothing except
-the round-trip.
-
-**`flux_kontext_image` — always pass `safetyTolerance` when editing.** The tool
-defaults it to 6, but editing mode only accepts 0–2, so *every* call with
-`inputImage` set fails until you pass `safetyTolerance: 2` explicitly. Text-to-image
-is unaffected.
-
-**`midjourney_generate` — reference modes are broken in this server build.** Kie's
-API rejects omni-reference with "speed cannot be empty", and the server forwards
-neither `speed` nor `processMode`, so there is no parameter combination that works.
-Its own `parameter_guidance` claims speed is "not required for omni tasks", which is
-wrong. Do not spend attempts on it — pick another model and say why. Re-test after
-`@felores/kie-ai-mcp-server` updates.
-
-**`z_image` takes no reference image.** Text-to-image only, so it cannot do a
-likeness. Cheap and fast for backgrounds and textures, useless for anything that has
-to resemble a source.
-
-**Reference parameter names differ per model.** One hosted URL feeds them all, but
-the key changes: `input_urls` (GPT Image 2, Flux 2), `image_input` (nano banana),
-`inputImage` (Flux Kontext, singular string), `image_urls` (Seedream), `image_url`
-(Qwen, singular string), `fileUrls` (Midjourney).
-
-**Likeness quality is not the same as image quality.** In that batch the most
-polished render had the weakest likeness, and one model read a Death Star on a
-sweater as a Batman logo. Always read the saved file — a beautiful image of the
-wrong person is still a failure.
-
 ## When Kie is unavailable
 
 Kie is the cheapest aggregator and the least reliable one; outages happen. Report
-the failure and stop. This skill deliberately has **no automatic fallback** — not to
+the failure and stop. This skill has no automatic fallback — not to
 fal.ai or WaveSpeed, and not to Flora either. Canvas mode is a surface the user
 chooses, not a place work lands when Kie is down: a silent switch bills an account
 the user was not expecting. Offer it; do not take it.
@@ -252,12 +225,4 @@ for line in open('Generations.jsonl'):
     r = json.loads(line)
     print(r['file'], '|', r['model'], '|', r['prompt'][:80])
 "
-```
-
-Self-check the scripts after editing either one (both run offline):
-
-```bash
-gen="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/generate/*/ 2>/dev/null | sort -V | tail -1)}"; gen="${gen%/}"
-"$gen/scripts/save-generation.sh" --self-check
-"$gen/scripts/host-reference.sh" --self-check
 ```

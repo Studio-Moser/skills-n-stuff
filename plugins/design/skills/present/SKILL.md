@@ -20,89 +20,13 @@ into something the owner can look at and act on:
 - **A local gallery**, optional: a small server that shows every direction
   with its brief, references, design system, and variants (§ The local gallery). It changes nothing on disk except when the owner presses Edit.
 
-## The local gallery (optional)
+## Requirements
 
-From the project root:
-
-```sh
-node "${CLAUDE_PLUGIN_ROOT}/skills/present/scripts/gallery.mjs" [--dir "docs/Design Directions"] [--port 4600] [--project "<Name>"]
-```
-
-It needs Node and nothing else, and prints its address
-(`http://127.0.0.1:4600`). Leave it running in the background for the session;
-pages reflect the files at the moment they load. Anyone with the repository
-runs it the same way on their own machine; nothing it shows depends on another
-host.
-
-It binds to this machine only. To look at it from another device, put the
-whole server on a private network instead of pointing parts of it elsewhere:
-`tailscale serve --bg 4600` publishes it to the tailnet, or pass `--host` with
-a private interface's address. Every link in the gallery is relative, so it
-works under either address.
-
-Editing is local by design. The pencil and the route behind it are offered
-only to a browser on the machine running the gallery (an address of
-`localhost` or `127.0.0.1`), because impeccable's helper listens on that
-machine alone. Reached through any other host name, such as a tailnet address
-or a dev server, the same gallery is for looking: no pencil, and the route
-refuses. `--view-only` turns editing off everywhere. Do not put the gallery on
-a public address.
-
-## What the gallery shows
-
-**`/`: every direction.** A tile per direction folder: its number, name, and
-phase, the premise at reading size, pictures of its first four variants laid
-out like prints on a desk, and counts of variants and references.
-
-**`/direction/<NN Name>`: one direction**, in four tabs. Variants opens first;
-the tab is part of the address, so a link lands on the same one.
-
-- **Variants.** Every variant as a picture of its whole scroll, side by side,
-  with a small title above it. Hovering a variant shows three
-  tools beside the title:
-  - **Notes** opens the variant's details and its notes file
-    (`Homepage <X> - <Title>.md`) in a scrolling dialog over the page.
-  - **Preview** (or a click on the frame) opens the live page in a dialog at
-    90% of the window. Drag its right or bottom edge to resize it, or pick a
-    size from the bar underneath: fill the window, laptop (1440 × 900), tablet
-    (834 × 1112), or phone (390 × 844). A size larger than the window is
-    scaled to fit and the bar says by how much. An open preview is part of
-    the address (`/direction/<NN Name>?preview=t`), so a link from anywhere
-    opens one variant straight into it.
-  - **Edit** starts live editing for the variant and opens it in a new tab
-    (below). A variant built in a framework has no Edit; its preview is its
-    page in the direction's static build (below), or its plates when there is
-    no build.
-
-  Every picture and preview is served from the files in the directions folder,
-  never from another host, so the gallery works the same on any machine that
-  has the repository. A build hosted elsewhere is linked from a variant's notes
-  only when the direction has no build of its own.
-
-- **Brief.** The whole `Brief.md`, rendered. Links to other project documents
-  (the frozen brief, copy directions, variant notes) open rendered too.
-- **References.** `References/References.md`, then a card per saved reference:
-  an image, or a captured site whose card opens every view still and motion
-  strip `design:direction-brief` saved for it.
-- **Design system.** The direction's `tokens.css` as colour swatches, typeface
-  names, and a table of the remaining tokens, and its `DESIGN.md` when it has
-  one.
-
-What it reads, per direction folder:
-
-```
-{directions dir}/{NN Name}/
-  Brief.md                      the direction brief
-  References/                   References.md, images, captured sites
-  tokens.css                    shared type and tokens, written by the first variant
-  DESIGN.md                     the direction's design context, for live editing
-  Homepage <X> - <Title>.html   a variant's source page
-  Homepage <X> - <Title>.md     optional notes on a variant
-  Homepage <X> - <Title>.plates.html   frozen plates, for framework builds
-  Snapshots.json                labels, and each variant's page in Build/
-  Frames/                       a picture of each variant's whole scroll
-  Build/                        the static export of a framework build
-```
+`frames.mjs` needs Playwright with Chromium and `sharp` resolvable from the
+project root; `import-build.mjs` needs Playwright with Chromium (`--rebase`
+needs nothing); `gallery.mjs` needs only Node. If this project has not
+captured before, run the dependency check in `design:capture` § Requirements
+first.
 
 ## Pictures of the variants
 
@@ -114,10 +38,6 @@ root:
 ```sh
 node "${CLAUDE_PLUGIN_ROOT}/skills/present/scripts/frames.mjs" --dir "docs/Design Directions" [--only <NN>] [--force]
 ```
-
-`frames.mjs` and `import-build.mjs` need Playwright with Chromium and `sharp`
-resolvable from the project root; run the dependency check under Requirements in
-`design:capture` first if this project has not captured before.
 
 It pictures each variant one screen at a time, at two sizes, so every image
 is one full screen of the page: usable alone as a thumbnail, and stacked as
@@ -140,8 +60,7 @@ is a page in the direction's `Build/` is opened from there with its motion
 running and pictured as it is scrolled a screen at a time. A variant with
 neither has no mobile pictures. The gallery marks a picture whose page has
 changed since with an amber dot, and shows a short live thumbnail for a variant
-that has no picture yet. Needs Playwright with Chromium and `sharp` resolvable
-from the project.
+that has no picture yet.
 
 ## Review in Figma
 
@@ -168,8 +87,8 @@ Place a round through the Figma MCP:
    padding holding one frame per screen, each `1440 × <screen height>` from
    `Frames.json` (900, the last one shorter). A mobile column beside it is the
    same with `360 × <height>` frames from the `mobile` list.
-2. Upload the screens with the Figma MCP server's `Figma:upload_assets`, passing the frames' ids in order,
-   then send each `Frames/<variant>/desktop/NN.webp` (or `mobile/NN.webp`) to
+2. Upload the screens with the Figma MCP `upload_assets` tool, passing the
+   frames' ids in order, then send each `Frames/<variant>/desktop/NN.webp` (or `mobile/NN.webp`) to
    its returned address. Re-uploading to the same frames replaces the pictures
    and keeps the layout.
 3. Read each column's address back
@@ -206,8 +125,7 @@ folder's own address as a prefix (recorded in `Build/Build.json`), so the pages
 are plain static files that any server rooted at the project serves, the
 gallery included. Run it from the project root so the prefix matches.
 `import-build.mjs --rebase --dir … --direction …` applies or changes the prefix
-of a build already in place. Importing needs Playwright with Chromium
-resolvable from the project; `--rebase` needs nothing.
+of a build already in place.
 
 ## Edit a variant
 
@@ -259,6 +177,36 @@ this workflow adds:
 
 Live mode refines a direction that already has an identity. To explore a
 different premise, write a new direction and run a round.
+
+## The local gallery (optional)
+
+Read `references/Gallery.md` when the owner asks how the gallery works or what
+it reads from a direction folder.
+
+From the project root:
+
+```sh
+node "${CLAUDE_PLUGIN_ROOT}/skills/present/scripts/gallery.mjs" [--dir "docs/Design Directions"] [--port 4600] [--project "<Name>"]
+```
+
+It prints its address (`http://127.0.0.1:4600`). Leave it running in the background for the session;
+pages reflect the files at the moment they load. Anyone with the repository
+runs it the same way on their own machine; nothing it shows depends on another
+host.
+
+It binds to this machine only. To look at it from another device, put the
+whole server on a private network instead of pointing parts of it elsewhere:
+`tailscale serve --bg 4600` publishes it to the tailnet, or pass `--host` with
+a private interface's address. Every link in the gallery is relative, so it
+works under either address.
+
+Editing is local by design. The pencil and the route behind it are offered
+only to a browser on the machine running the gallery (an address of
+`localhost` or `127.0.0.1`), because impeccable's helper listens on that
+machine alone. Reached through any other host name, such as a tailnet address
+or a dev server, the same gallery is for looking: no pencil, and the route
+refuses. `--view-only` turns editing off everywhere. Do not put the gallery on
+a public address.
 
 ## What the gallery does not do
 

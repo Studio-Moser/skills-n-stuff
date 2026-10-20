@@ -47,11 +47,9 @@ after verification: missing or indirect assertions remain coverage gaps; close t
 with direct proof or require independent review. Keep this mapping in working notes;
 report only gaps that affect the review decision.
 
-Delegation is separate from risk classification. Use
-[Execution choice](../../references/routing.md#execution-choice) to select direct
-execution or one bounded rubric worker by capability, verifiability, and total cost.
-Tiny edits and individual tool calls stay local. A cheaper worker never reduces
-required verification or review.
+Delegation is separate from risk classification; choose the executor through
+[Execution choice](../../references/routing.md#execution-choice). A cheaper worker
+never reduces required verification or review.
 
 ## Limits
 

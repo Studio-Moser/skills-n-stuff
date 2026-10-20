@@ -1,7 +1,7 @@
 ---
 name: first-draft-critic
 description: >-
-  Sends a design variant to independent fresh-context critics instead of letting the generator grade its own work, in explore mode (two lenses, two rounds) or gauntlet mode (three lenses against a done bar, up to five rounds). Use when asked to critique a variant, run the critics or a gauntlet, or judge whether a design is done.
+  Sends a design variant to independent fresh-context critics instead of letting the generator grade its own work, in explore mode (two lenses, two rounds) or gauntlet mode (three lenses against a done bar, up to five rounds). Use when asked to critique a variant, run the critics or a gauntlet, or judge whether a design is done. For variants from a design round, not general UI critique.
 ---
 
 # First-draft critic
@@ -22,13 +22,13 @@ to its own premise and to catch what is broken, and nothing else.
 
 Two lenses, run in parallel as fresh-context subagents:
 
-- **Commitment** (taste model). Receives the direction brief's Premise and its
+- **Commitment** (Harness route `taste`). Receives the direction brief's Premise and its
   Wins if / Loses if lines, the reference pack, and the variant's screenshots.
   Returns PASS or FAIL per Wins if line, CLEAR or TRIPPED per Loses if line. A
   variant that hedges toward the mean fails commitment even when nothing is
   wrong with it. No taste comments, no "more like the sibling", no
   conventional-wisdom fixes.
-- **Broken** (cheap model, may run tools). Receives the variant's URL (a
+- **Broken** (Harness route `quick`, may run tools). Receives the variant's URL (a
   running route, or a `file://` page in the `html` medium) and the build
   brief's craft gates. Runs `design:capture`'s `views.mjs` for the
   per-width report and view stills, then measures each gate: overflow at 390
@@ -49,9 +49,10 @@ Round cap: **2**. One critique, one fix pass by the builder, one re-check of
 what changed. Then stop and report the remaining fails into the round index;
 the owner decides whether they matter.
 
-Use the plugin's `design:design-critic-craft` and
-`design:design-critic-mechanical` agents; where the runtime has no plugin
-agents, spawn general-purpose subagents with the prompts in
+Run Commitment with the plugin's `design:design-critic-craft` agent (named
+for craft, it judges commitment and only in explore mode) and Broken with
+`design:design-critic-mechanical`. Where the runtime has no plugin agents,
+dispatch each lens through `harness:delegate` on its route with the prompt in
 `references/critic-prompts.md` § Explore.
 
 ## Gauntlet mode (convergence and hero pieces)
@@ -78,14 +79,17 @@ the rubric and get a yes.
   motion discipline. Derive concrete criteria from the reference ("headline
   should dominate like the reference's ~64px"), not adjectives.
 
-### Phase 2 to 4: build, judge, fix, loop
+### Phase 2 to 4: judge, fix, re-judge
 
 One fresh-context critic per lens, in parallel, each receiving only the
 artifact, its lens's rubric, and the reference. Per item: PASS or FAIL, and for
 every FAIL an anchored fix (element, current value, target). Vague verdicts go
-back. Craft critic on a taste model; brief and system critics on a cheap
-model, since weak judges falsely reject faithful work on taste but are safe on
-mechanical checks.
+back. Dispatch each through `harness:delegate` with its prompt from
+`references/critic-prompts.md` § Gauntlet; the plugin's critic agents are for
+explore mode only (`design-critic-craft` judges commitment, not this Craft
+lens). Craft runs on route `taste`; Brief and System on route `quick`, since
+weak judges falsely reject faithful work on taste but are safe on mechanical
+checks.
 
 Collect fails, apply fixes, re-run the critics on what changed. Stop at zero
 actionable fails, at the round cap (**5**, raise for a hero piece), or when the

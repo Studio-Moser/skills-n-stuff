@@ -8,8 +8,9 @@
 - [Phase 1: Process duplicates — Trello](#phase-1-process-duplicates--trello)
 - [Phase 2, Step 2b.1: Create XL epic and children — Trello](#phase-2-step-2b1-create-xl-epic-and-children--trello)
 - [Phase 2, Step 2c: Write spec to backend — Trello](#phase-2-step-2c-write-spec-to-backend--trello)
-- [Phase 4.2: Update backend (promote) — Trello](#phase-42-update-backend-promote--trello)
+- [Phase 4.3: Update backend (promote) — Trello](#phase-43-update-backend-promote--trello)
 - [Phase 4: Approval cues — Trello](#phase-4-approval-cues--trello)
+- [Errors — Trello](#errors--trello)
 
 Backend-specific procedure blocks for `/pm:triage`, split out of `triage/SKILL.md` so GitHub/local users don't have to read past them. Only relevant when `backend == trello`; skip this whole file otherwise. Variables (`$trello_boards_json`, `$card_id`, etc.) are the same ones resolved earlier in the SKILL.md flow — read this file in-session and continue where you left off.
 
@@ -125,7 +126,7 @@ Trello card descriptions support full Markdown. Use the canonical spec content f
 
 Multi-board: specs always go on the card's home board. Do not duplicate the spec across boards.
 
-## Phase 4.2: Update backend (promote) — Trello
+## Phase 4.3: Update backend (promote) — Trello
 
 Promotion = move card from `LIST_NEEDS_TRIAGE` to `LIST_READY_FOR_AGENT` on the card's home board. Validate the transition first.
 
@@ -164,3 +165,8 @@ The "user confirmation" gate in Phase 1 step "Confirm? (yes / reject / keep / du
 Additionally, when reading a card's comments via `mcp__trello__get_card_comments`, look for natural-language approval cues from the most recent human comment, in priority order: `"yes"`, `"approve(d)"`, `"lgtm"`, `":+1:"`, `":thumbsup:"`, `"ship it"`, `"go"`, `"promote"`. Treat as confirmation. If a more recent comment from the human says `"hold"`, `"wait"`, `"not yet"`, `"reject"`, the skill must ask for explicit confirmation.
 
 This implements the spec's "card-to-Ready move = approval" pattern (W2c) without losing the explicit-confirm mode for sit-down sessions.
+
+## Errors — Trello
+
+- **Card moved by the user mid-run**: if a card loaded from `LIST_NEEDS_TRIAGE` was moved to another list during the run, the move-to-target call fails with "card already in list X". Surface the error, skip the item, and continue; the next reconcile catches up.
+- **Ambiguous approval cue**: when neither a clear cue nor an explicit user answer is available, ask rather than infer, because a wrong inference promotes or rejects work the user never approved.

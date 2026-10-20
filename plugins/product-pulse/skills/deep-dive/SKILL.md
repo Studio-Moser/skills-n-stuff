@@ -1,15 +1,13 @@
 ---
 name: deep-dive
 description: >-
-  Researches an external video, article, repository, or document against the current project, as a quick conversational take, full research in chat, or a saved cited report. Use when the user asks to research, analyze, or compare an external resource against the project.
+  Researches an external video, article, repository, or document against the current project, as a quick conversational take, full research in chat, or a saved cited report. Use when the user asks to research, analyze, or compare an external resource against the project, for example "what do you think of this link", "should we adopt X", or "compare this repo to ours".
 allowed-tools: "Bash Read Write Edit Skill AskUserQuestion"
 ---
 
 # Product Pulse — Deep Dive
 
-You are a senior technical research analyst. The user has shared one or more links to external resources — videos, articles, repos, docs — and wants you to thoroughly analyze them in the context of the project you're currently working in together.
-
-Your job is to go deep, not shallow. The user is counting on you to surface things they wouldn't find on their own.
+The user shared one or more external resources (videos, articles, repos, docs) and wants them judged against the current project: what applies, what the project lacks or risks, and what to do about it.
 
 Harness owns routing and execution. Invoke the named Harness skill through `Skill`;
 do not read Harness skill, reference, script, or rubric files, and do not perform
@@ -53,63 +51,7 @@ each finding; it has no Research Coverage section because no branches were sched
 
 ### 0.0 Discover Configuration
 
-Quick take skips this phase. Full research in chat uses the configuration when one exists and continues without it; the saved path requires it and stops when it is missing.
-
-Walk up from cwd, checking each directory for `pulse-config.yaml` directly and in common research-dir subdirs (`research/`, `Research/`, `docs/research/`). The first match wins; that file's parent directory is the **research directory** (`{research_dir}`).
-
-Set `save_report=true` on the saved path and `false` on the chat path. Only the
-saved path stops for a missing config or a missing `gh` login, because only it
-writes files and opens a PR.
-
-```bash
-save_report=false   # true on the saved path
-config_path=""
-research_dir=""
-dir="$PWD"
-while [ "$dir" != "/" ]; do
-  for sub in "" "research/" "Research/" "docs/research/"; do
-    candidate="$dir/${sub}pulse-config.yaml"
-    if [ -f "$candidate" ]; then
-      config_path="$candidate"
-      research_dir="$(cd "$(dirname "$candidate")" && pwd)"
-      break 2
-    fi
-  done
-  dir="$(dirname "$dir")"
-done
-
-if [ -z "$config_path" ]; then
-  if [ "$save_report" = true ]; then
-    echo "No pulse-config.yaml found. Run /product-pulse:setup first." >&2
-    exit 1
-  fi
-  echo "No pulse-config.yaml found; continuing in chat without a research directory."
-else
-  # Required tools: stop before pulling if any is missing.
-  for tool in git yq realpath; do
-    command -v "$tool" >/dev/null || { echo "Missing required tool: $tool" >&2; exit 1; }
-  done
-
-  primary_repo_root="$(cd "$research_dir" && git rev-parse --show-toplevel)"
-  default_branch="$(yq '.default_branch // "main"' "$config_path")"
-  auto_merge="$(yq '.auto_merge // false' "$config_path")"
-  project_id="$(yq '.project_id' "$config_path")"
-  memory_connector="$(yq '.memory.connector // "shelby"' "$config_path")"
-
-  output_dir="$research_dir/deep-dives"
-  if [ "$save_report" = true ]; then mkdir -p "$output_dir"; fi
-fi
-
-# Publishing needs gh: stop before research rather than after it.
-if [ "$save_report" = true ]; then
-  command -v gh >/dev/null || { echo "Missing required tool: gh" >&2; exit 1; }
-  gh auth status >/dev/null 2>&1 || { echo "GitHub CLI is not signed in. Run: gh auth login" >&2; exit 1; }
-fi
-```
-
-Parse the YAML. Required fields: `project_id`, `repos`. Optional with defaults: `default_branch` (default `main`), `auto_merge` (default `false`), `memory.connector` (default `shelby`; set to `null` to disable).
-
-Find the entry in `repos:` with `role: primary`. Its filesystem location (resolved relative to the directory containing pulse-config.yaml's parent) is the **primary repo root** (`{primary_repo_root}`) for git operations.
+Quick take skips this phase. Otherwise run § Discover Configuration in [Config_and_Publish.md](../../references/Config_and_Publish.md) with `save_report=true` on the saved path and `false` on full research in chat. The chat path continues without a config; the saved path stops for a missing config or `gh` login because only it writes files and opens a PR. On the saved path, set `output_dir="$research_dir/deep-dives"` and create it.
 
 ### 0.1 Read Product Context
 
@@ -117,17 +59,7 @@ Read `{research_dir}/research-context.md`. If missing, stop and tell the user to
 
 ### 0.2 Pull Latest (all configured repos)
 
-Iterate `repos:` from `pulse-config.yaml`. For each repo, resolve its absolute path relative to `{primary_repo_root}`'s parent directory, then pull the default branch:
-
-```bash
-for repo_path in $(yq '.repos[].path' "$config_path"); do
-  abs="$(realpath "$primary_repo_root/$repo_path")"
-  echo "=== Pulling $abs ==="
-  cd "$abs" && git checkout "$default_branch" && git pull origin "$default_branch" || echo "pull failed for $abs"
-done
-```
-
-If any pull fails, note it and continue. Single-element `repos:` is the monorepo case — same loop, one iteration.
+Run § Pull Latest in [Config_and_Publish.md](../../references/Config_and_Publish.md).
 
 ---
 
@@ -155,7 +87,9 @@ For each link the user provides, extract as much substance as possible:
 
 Record the full source content, canonical URL, title, author or publisher,
 publication date or last-update date, and access failures. Do not analyze a video when
-transcription fails and do not treat a snippet as the full source content.
+transcription fails and do not treat a snippet as the full source content. When a link
+is inaccessible (paywall, sign-in), say so up front and work from whatever context the
+user can provide.
 
 ---
 
@@ -238,7 +172,9 @@ constraints:
     evidence, corroboration, publication date or last update, currentness, disclosed
     incentives, and conflicts. Research current official documentation, alternatives,
     known issues, pitfalls, and material developments since publication. Separate source
-    claims, corroborating evidence, contradiction, and analyst inference.
+    claims, corroborating evidence, contradiction, and analyst inference. Flag a stale or
+    superseded source prominently; a two-year-old article on a fast-moving framework can
+    be dangerously outdated.
   - |
     Perform a bounded project comparison against the supplied current project facts and
     repository files: identify confirmed agreements, differences, applicable gaps,
@@ -246,8 +182,12 @@ constraints:
     behavior from absent evidence and do not modify files.
   - |
     Return Resource Extraction, Source Credibility and Freshness, Ecosystem Evidence,
-    Project Comparison, Contradictions and Unknowns, and Citations. Rate each significant
-    finding High, Medium, or Low confidence using the supplied Product Pulse definitions.
+    Project Comparison, Contradictions and Unknowns, and Citations. Rate every
+    significant finding so the user can weigh it: High = multiple corroborating
+    authoritative sources, data within 6 months, no conflict; Medium = one authoritative
+    source or several agreeing non-authoritative ones, data 6-18 months old, minor
+    caveats; Low = one non-authoritative source, data older than 18 months, conflicting
+    evidence, or extrapolation (worth investigating before acting).
 verification:
   seam: Reopen every citation and compare each extracted claim, credibility judgment, date, project reference, and confidence rating with the full source content and repository evidence
   expected: The extraction and project comparison are complete, current, citation-backed, explicit about unknowns, and contain no fabricated or strengthened claim
@@ -256,25 +196,6 @@ verification:
 Consume the exact Harness Result. Accept research only from `status: accepted` with
 `evidence.outcome: proven`, then reproduce the verification seam. A summary, exit code,
 or inaccessible citation is not proof.
-
-### Confidence Ratings
-
-Assign a confidence level to every significant finding or recommendation:
-
-- **High** — Multiple corroborating authoritative sources (official docs, well-known experts), recent data (within last 6 months), no conflicting information.
-- **Medium** — Single authoritative source, or multiple non-authoritative sources that agree. Data may be 6-18 months old. Minor caveats exist.
-- **Low** — Single non-authoritative source, stale data (18+ months), conflicting information from other sources, or the finding is speculative/extrapolated.
-
-Always show the confidence level. This is how the user calibrates how much weight to give each recommendation. A low-confidence finding can still be valuable — it just means "investigate further before acting."
-
-### Source Credibility and Freshness
-
-For each resource the user shared and each source you find during research, assess:
-- When it was published or last updated
-- Whether the information is still current (ecosystems move fast — a 2-year-old article about a fast-moving framework may be dangerously outdated)
-- Whether the source is authoritative (official docs vs. random blog post vs. well-known expert)
-
-If a resource is stale or its advice has been superseded, flag that prominently.
 
 ---
 
@@ -371,7 +292,15 @@ constraints:
     Prior Research when relevant; ## Sources with compact citation links; and concrete,
     prioritized Action Items. Each action includes why, effort, confidence, tradeoffs,
     and the evidence it follows from. Make actionable recommendations and say when the
-    project's current approach is better or source advice does not apply.
+    project's current approach is better or source advice does not apply. Be
+    opinionated: say "do X", and say plainly when something is a bad idea.
+  - |
+    Cross-reference resources, ecosystem research, prior reports, and the project:
+    features worth adding, over-engineering that a simpler approach would fix,
+    under-engineering that breaks at scale, latent bug or reliability risks, and
+    fundamentally different approaches with their tradeoffs. When a topic overlaps a
+    prior report, cite its slug, state its conclusion, and say whether this research
+    confirms, contradicts, or extends it; flag a contradiction prominently.
   - |
     The chat and saved report bodies must match. Include complete YAML frontmatter data
     and intended report path {research_dir}/deep-dives/{slug}.md; use the next numeric
@@ -390,63 +319,21 @@ Require `status: accepted` and `evidence.outcome: proven`, then reproduce the se
 Reject a draft that changes a citation, hides a contradiction, invents a project fact,
 or drops a required section.
 
-Cross-reference everything: resources, ecosystem research, prior reports, and the current project.
-
-- **Features and capabilities**: What do the resources suggest that the project doesn't currently do? Would those additions be valuable given the project's goals?
-- **Over-engineering**: Are there areas where the project is more complex than it needs to be? Do the resources or your research suggest simpler approaches?
-- **Under-engineering**: Are there areas where the project is cutting corners that could cause problems at scale?
-- **Bug risks**: Based on patterns discussed in the resources or known issues with the tools in use, are there latent bugs or reliability risks?
-- **Alternative approaches**: Are there fundamentally different ways to solve the same problems? What are the tradeoffs?
-
-### Reference Prior Research
-
-When a topic overlaps with a prior report from `{research_dir}/deep-dives/`, reference it explicitly:
-
-> "We investigated {topic} in `{report-slug}.md` and concluded {conclusion}. This new research {confirms/contradicts/extends} that finding because {reason}."
-
-If current research contradicts a prior conclusion, flag it clearly — the user needs to know their understanding has shifted.
-
 ---
 
 ## Phase 7: Deliver Report in Chat
 
-Present the full report directly in conversation using this structure:
-
-### Research Coverage
-Show expected, accepted/proven, failed, blocked, abandoned, and unproven counts; name
-the failed and blocked branch identities; append `— degraded coverage` whenever
-accepted/proven is fewer than expected.
-
-### Resource Summary
-Brief overview of each resource's key takeaways. Note publish dates and flag freshness concerns. Keep this concise — the user already knows what they shared.
-
-### Cross-Reference Analysis
-*(Only when multiple resources)* — Agreements, contradictions, complementary angles between the resources.
-
-### Ecosystem Context
-What you found in broader research that adds to or challenges what the resources presented. New developments, alternative tools, contrarian takes. Include links to useful sources. Tag each major finding with its confidence level.
-
-### Project Comparison
-The meat of the report. Walk through significant differences between what the resources recommend and how the current project operates. Be specific — reference actual files, patterns, and dependencies.
-
-### Risks & Gaps
-Areas where the project might be vulnerable. Things that could cause bugs, scaling issues, security problems, or maintenance headaches.
-
-### Prior Research
-*(Only when prior reports are relevant)* — References to past analyses and how current findings relate.
-
-### Sources
-Compact list of the most valuable links discovered during research.
-
-### Action Items
-Concrete, prioritized list of suggestions:
+Present the accepted draft in chat. Open with `### Research Coverage`: expected,
+accepted/proven, failed, blocked, abandoned, and unproven counts; the failed and blocked
+branch identities; and `— degraded coverage` whenever accepted/proven is fewer than
+expected. Then give the sections the Phase 6 synthesis packet lists, in its order,
+ending with an Action Items table:
 
 | # | Action | Why | Effort | Confidence |
 |---|--------|-----|--------|------------|
 
-Each item states: what to do, why it matters, rough effort (quick win / moderate / significant), and confidence level.
-
-**Be opinionated.** The user wants your honest assessment, not "it depends." If something is a bad idea, say so. If the project is already doing something better than the resources suggest, call that out.
+Effort is quick win, moderate, or significant. A quick take uses the sections that apply,
+the same confidence definitions from the Phase 5 packet, and the same opinionated stance.
 
 ---
 
@@ -493,44 +380,14 @@ provider directly.
 
 Saved path only.
 
-Inside the primary repo:
+Run § Publish in [Config_and_Publish.md](../../references/Config_and_Publish.md) with:
 
-```bash
-cd "$primary_repo_root"
-branch="deep-dive/{slug}"
-git checkout -b "$branch" 2>/dev/null || git checkout "$branch"  # reuse branch if re-running
-git add "$output_dir"
-git commit -m "research: deep dive on {topic}"
-git push -u origin "$branch"
-pr_url=$(gh pr create --base "$default_branch" --head "$branch" \
-  --title "research: deep dive on {topic}" \
-  --body "Deep-dive research report on {topic}. Auto-generated by product-pulse deep-dive." \
-  | tail -n1)
-echo "PR opened: $pr_url"
-```
+- `branch="deep-dive/{slug}"`
+- `publish_path="$output_dir"`
+- `title="research: deep dive on {topic}"`
+- `body="Deep-dive research report on {topic}. Auto-generated by product-pulse deep-dive."`
 
-### Auto-merge (if enabled)
-
-If `auto_merge: true` in config:
-
-```bash
-sleep 8
-gh pr merge "$pr_url" --squash --delete-branch --auto || \
-  echo "Auto-merge declined; PR sits for human review at $pr_url"
-```
-
-`--auto` queues the merge if checks are still running. If branch protection or required reviews block the merge, the PR sits for human review and the skill exits cleanly with the PR URL surfaced.
-
----
-
-## Important Notes
-
-- **Depth over speed.** Take the time to actually research — don't skim and summarize.
-- **Be specific about the project.** Generic advice like "consider adding tests" is useless. Point to actual code, actual gaps, actual files.
-- **Explain tradeoffs honestly.** There's rarely a universally "best" tool — it depends on constraints and goals.
-- **Flag stale information.** If a resource is outdated or conflicts with current best practices, say so clearly.
-- **If you can't access a link** (paywall, auth required, etc.), say so upfront and work with whatever context the user can provide.
-- **Confidence ratings are not optional.** Every significant finding or recommendation gets one. This is how the user decides what to act on vs. what to investigate further.
+It opens the PR with `gh pr create` and queues a squash merge only when `auto_merge` is true.
 
 ---
 

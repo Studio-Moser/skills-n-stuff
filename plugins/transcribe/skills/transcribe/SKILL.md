@@ -9,7 +9,7 @@ disable-model-invocation: true
 
 # transcribe
 
-Fetch a spoken-word transcript from a video URL. YouTube URLs try the uploader's captions first (seconds, no model download). Everything else — and YouTube videos without captions — falls through to audio extraction + mlx-whisper on Apple Silicon, with a headless-Playwright fallback for Threads and other yt-dlp-unsupported platforms.
+Fetch a spoken-word transcript from a video URL, trying the cheapest source first (see [Tiers](#tiers)).
 
 ## When to invoke
 
@@ -38,7 +38,7 @@ The `transcribe` executable is on PATH once the plugin is installed.
 **Source:** {url}
 **Platform:** {YouTube|Instagram|TikTok|Threads}
 **Duration:** {mm:ss or "unknown"}
-**Model:** mlx-community/whisper-large-v3-mlx
+**Model:** {whisper model, e.g. mlx-community/whisper-large-v3-mlx | youtube-manual-captions | youtube-auto-captions}
 
 {transcript}
 ```

@@ -105,13 +105,22 @@ Each JSONL line: `file`, `model`, `prompt`, `source_url`, `est_cost_usd`, `at`.
 - **Some models are broken or limited.** `flux_kontext_image` fails every edit unless
   `safetyTolerance` is passed explicitly, `midjourney_generate` reference modes do
   not work in the current server build, and `z_image` accepts no reference image at
-  all. See the Model gotchas section in the skill.
+  all. See `skills/generate/references/Model_Gotchas.md`.
 - **No automatic fallback.** When Kie is down the skill stops; it does not move the
   job to fal.ai, WaveSpeed, or Flora. Flora is used only when you choose the canvas,
   so no account gets billed that you were not expecting.
 - **Flora tool names can drift.** The names in `Flora_Canvas.md` were checked against
   the live tool schemas on 2026-10-11. The skill is told to trust the tools' own
   schemas over that file.
+
+## Development
+
+Self-check the scripts after editing either one (both run offline):
+
+```bash
+scripts/save-generation.sh --self-check
+scripts/host-reference.sh --self-check
+```
 
 ## License
 

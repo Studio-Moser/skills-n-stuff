@@ -58,7 +58,11 @@ from pathlib import Path
 import sys
 
 text = Path(sys.argv[1]).read_text()
+references = Path(sys.argv[1]).parents[2] / "references"
 normalized = " ".join(text.split())
+for name in ("rubric-fallbacks.md", "rubric-migration.md"):
+    assert f"[references/{name}](../../references/{name})" in normalized, f"model-rubric does not point to {name}"
+    normalized += " " + " ".join((references / name).read_text().split())
 required = (
     "derive an ordered `fallbacks.<route>` chain",
     "every fallback provider differs from every earlier provider in its chain",
@@ -67,9 +71,9 @@ required = (
     "legacy `routing.fallback` is never automatic authorization",
     "remove `routing.fallback` only after every replacement chain validates",
     "single-provider rubrics remain valid with no fallback chains",
-    "show the fallback chains before writing",
 )
 missing = [clause for clause in required if clause not in normalized]
+assert "show the fallback chains before writing" in " ".join(text.split()), "model-rubric does not show fallback chains before writing"
 assert not missing, "model-rubric fallback contract missing: " + ", ".join(missing)
 
 completed = """fallbacks:

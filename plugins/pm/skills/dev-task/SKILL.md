@@ -1,7 +1,7 @@
 ---
 name: dev-task
 description: >-
-  Runs the managed, approval-gated workflow for one large, multi-file Feature-class change. Use when such a change needs that workflow or the user asks for it. Never for Polish or Small work.
+  Runs the managed, approval-gated workflow for one large, multi-file Feature-class change. Use when such a change needs that workflow or the user asks for it, such as building a new feature across several files, implementing an approved spec or tracker item end to end, or wanting a plan to approve before any code is written. Never for Polish or Small work.
 allowed-tools: "Bash Read Write Edit Skill"
 ---
 
@@ -28,8 +28,8 @@ Proof: {current proof, normally unproven}
 ```
 
 Stop for an unresolved blocker. Load `harness:risk-gate` and record its mode, matched
-triggers, testing seam, delegation decision, and review decision. Use brainstorming
-only when the request remains materially ambiguous.
+triggers, testing seam, delegation decision, and review decision. Ask clarifying
+questions only when the request remains materially ambiguous.
 
 ## 2. Plan — GATE
 
@@ -45,7 +45,7 @@ default branch.
 ## 4. Execute
 
 Choose direct execution or a rubric worker through Harness’s
-[Execution choice](../../../harness/references/routing.md#execution-choice). Keep
+[Execution choice](https://raw.githubusercontent.com/Studio-Moser/skills-n-stuff/main/plugins/harness/references/routing.md#execution-choice). Keep
 the approved slice in context, use test-driven development for behavior changes, and stay inside the approved authority.
 
 Delegate only when that rule justifies a bounded worker with its own outcome and
@@ -89,15 +89,17 @@ of scope.
 
 ## 5. Review
 
-Self-review the fixed work against the approved slice and the loaded house rules.
-Load `references/review-proof.md` for its Quality, Spec Fidelity, and Blast Radius
-axes. When root `REVIEW.md` exists, load it as additive project policy; it cannot
-weaken PM or Harness requirements.
+Self-review the fixed work against the approved slice and the loaded house rules,
+using the Quality, Spec Fidelity, and Blast Radius axes from
+`references/review-proof.md`. When root `REVIEW.md` exists, load it as additive
+project policy; it cannot weaken PM or Harness requirements.
 
 Request a separate review only when the risk gate says **independent review** or the
 user explicitly asks for one. Ordinary structured work uses the current agent's
 self-review. A provider-separated `route: independent` still requires explicit cost
-approval. When review is required, submit a fixed-target `harness:delegate` request:
+approval. When review is required, submit a fixed-target `harness:delegate` request.
+The packet inlines the review axes on purpose: a fresh reviewer cannot read PM's
+private references.
 
 ```yaml
 operation: review

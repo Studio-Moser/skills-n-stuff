@@ -1,7 +1,7 @@
 ---
 name: fleet
 description: >-
-  Runs commands on the developer's other machines over SSH and enrolls or removes machines from the Harness fleet; inventory and public keys live in the private agents repo, never private keys. Use when an agent needs a shell on another machine to run a command, read a log, check a build, or restart a service. Not for GUI verification (computer-use) or config sync (sync).
+  Runs commands on the developer's other machines over SSH and enrolls or removes machines from the Harness fleet; inventory and public keys live in the private agents repo, never private keys. Run /harness:fleet to have the agent run a command, read a log, check a build, or restart a service on another machine, or to enroll this one. Not for GUI verification (computer-use) or config sync (sync).
 disable-model-invocation: true
 ---
 
@@ -88,6 +88,9 @@ network path to the others (for example, Tailscale MagicDNS names).
    passphrase and is protected by file mode and disk encryption. If they prefer
    a passphrase, they create the key themselves and load it with
    `ssh-add --apple-use-keychain`.
+
+   Replace `<this machine's Host alias>` with the alias from step 1 before
+   running the block; the placeholder is not valid shell.
 
    ```bash
    repo="${AGENTS_REPO:-$HOME/.agents}"; alias=<this machine's Host alias>

@@ -1,7 +1,7 @@
 ---
 name: feature-walkthrough
 description: >-
-  Records a browser walkthrough video of a finished web feature. Use when the user asks for, or accepts an offer of, a recorded walkthrough.
+  Records a browser walkthrough video of a finished web feature. Use when the user asks for, or accepts an offer of, a recorded walkthrough, demo video, or screen recording of a web feature. Not for native or simulator apps.
 allowed-tools: "Bash Read Write Edit AskUserQuestion"
 ---
 
@@ -64,10 +64,12 @@ viewport: no scaling or letterboxing.
 
 ## 3. Convert, verify, and clean up
 
-Check `command -v ffmpeg ffprobe` first; both ship in the ffmpeg package. When `ffmpeg` is available, convert the native Playwright video to H.264 MP4 with
-`-pix_fmt yuv420p -movflags +faststart`. If it is unavailable, preserve the WebM and
-report that limitation, including any `ffprobe` check that could not run. Verify each final artifact with `ffprobe` (codec, dimensions,
-and duration) and a full decode, for example:
+1. Check `command -v ffmpeg ffprobe`; both ship in the ffmpeg package.
+2. With `ffmpeg`, convert the native Playwright video to H.264 MP4 with
+   `-pix_fmt yuv420p -movflags +faststart`. Without it, keep the WebM and report that
+   limitation, including any `ffprobe` check that could not run.
+3. Verify each final artifact with `ffprobe` (codec, dimensions, and duration) and a
+   full decode, for example:
 
 ```bash
 ffprobe -v error -show_entries stream=codec_name,width,height -show_entries format=duration -of json "$artifact"

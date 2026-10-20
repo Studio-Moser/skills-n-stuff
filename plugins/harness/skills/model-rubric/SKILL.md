@@ -12,18 +12,17 @@ disable-model-invocation: true
 Owns creating and refreshing the per-developer model-routing rubric.
 
 When invoked by `harness:setup`, treat its `command -v` inventory as current
-machine evidence, including its native provider and callable executors. A current
-rubric does not stop this skill: first reconcile CLI-backed `capabilities`, show
-the changes, and derive `routing` fresh whenever reachability changed. Do not
-retain a route to an executor known to be absent. Preserve non-CLI subscription
-facts, taste, and billing semantics. Return the path, reviewed date, whether
-reconciliation ran, whether the file changed, validation checks, and any blocker
-to Setup.
+machine evidence, including its native provider and callable executors. Return
+the path, reviewed date, whether reconciliation ran, whether the file changed,
+validation checks, and any blocker to Setup.
 
-For Codex, the inventory is callable only after `codex-app-server.py check`
-proves the Codex App Server typed-error seam; `command -v codex` alone does not
-advertise an external executor. A missing or incompatible seam removes Codex
-from reachability without creating a timed provider circuit.
+Read these references only when their step needs them:
+[references/model-evidence.md](../../references/model-evidence.md) when
+refreshing evidence,
+[references/rubric-fallbacks.md](../../references/rubric-fallbacks.md) when
+deriving fallback chains, and
+[references/rubric-migration.md](../../references/rubric-migration.md) when
+migrating an older rubric.
 
 ## 1. Check current state
 
@@ -37,8 +36,11 @@ harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*
   `delegation.max_children`, `delegation.max_depth`, and
   `delegation.default_token_budget`) means report it and stop.
   When invoked by `harness:setup`, a current rubric does not stop this skill:
-  continue through capability reconciliation, then stop only if reconciliation
-  and validation prove that no write is needed.
+  first reconcile CLI-backed `capabilities` with Setup's inventory, show the
+  changes, and derive `routing` fresh whenever reachability changed, because a
+  route to an absent executor fails at dispatch. Preserve non-CLI subscription
+  facts, taste, and billing semantics. Stop only if reconciliation and
+  validation prove that no write is needed.
 - `unset` → first-time setup.
 
 ## 1.5 Decide where the rubric physically lives
@@ -59,12 +61,12 @@ if [ -d "$repo/.git" ]; then echo "repo"; else echo "plain"; fi
     `mkdir -p "$repo/config" && mv "$config/studio-moser" "$repo/config/studio-moser" && ln -s "$repo/config/studio-moser" "$config/studio-moser"`.
     Then ensure `$repo/.gitignore` contains `config/studio-moser/*.bak*`, and commit + push the repo.
   - Absent → `mkdir -p "$repo/config/studio-moser" && ln -s "$repo/config/studio-moser" "$config/studio-moser"`.
-  `/harness:sync` verifies this link on every run (it is one of the eight tracked entries).
+  `/harness:sync` verifies this link on every run (it is one of the tracked entries).
 - **`plain`** → no repo on this machine; write to `$config/studio-moser/` as a real
   directory (`mkdir -p`). Everything else proceeds identically.
 
-**Never replace the symlink with a real file/folder when writing or refreshing** — edit
-the file through the link. An atomic-replace of the directory severs sync silently.
+**Edit the file through the symlink when writing or refreshing.** Replacing the
+link with a real file or folder, as an atomic replace does, severs sync silently.
 
 ## 2. Gather current model evidence
 
@@ -89,36 +91,13 @@ harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*
   plus judgment only if it still fails; record the failure reason under
   `sources`, without credential values.
 
-Treat official provider list prices as source inputs, not as the software-work
-comparison. Read the current DeepSWE leaderboard and compare its observed
-`pass_at_1`, `mean_task_cost_usd`, output tokens, steps, and duration at each
-effort level. Define cost per successful task exactly as
-`mean_task_cost_usd / pass_at_1`; retain both observed inputs so the division can
-be checked. Preserve the benchmark source version and observation date. If
-DeepSWE is unavailable, record that and use provider evidence plus judgment.
 Rows are keyed by `(model, effort)` because effort can move agentic quality more
-than model tier. Benchmark efficiency applies only to delegated software
-implementation routes.
-
-Use Slopalytics at https://slopalytics.com to compare and pick candidate
-`(model, effort)` rows. It plots Artificial Analysis figures per model and effort
-variant: intelligence index, cost per task, time per task, tokens per task, and
-output speed. Follow its Pareto line, which keeps only non-dominated variants: no
-other visible variant is both better and cheaper on "Cost vs intelligence", or
-both better and faster on "Time per task vs intelligence". Prefer rows on the
-cost line for delegated work and on the time line for latency-sensitive routes.
-Read each line once per reachable provider and once across all reachable
-providers. The same-provider lines choose the routes of a single-provider rubric
-and the fallback rows; the cross-provider line chooses primaries when Claude and
-Codex are both reachable.
-A row off both lines is dominated; keep it only for a recorded reason such as
-trust, taste, a flat subscription, or reachability. Its intelligence index is
-general rather than software-specific, so DeepSWE remains the software-work
-comparison, and its usage charts do not measure model quality. The page renders
-client-side, so a plain fetch returns only its title: read it through an
-available browser tool or ask the developer for the variants on each line. When
-it is used, record `slopalytics` and the observation date under `sources`; when
-it cannot be read, record that and continue.
+than model tier. A row's benchmark records cost per successful task as
+`mean_task_cost_usd / pass_at_1`, with both observed inputs kept so the division
+can be checked. Benchmark efficiency applies only to delegated software
+implementation routes. Read
+[references/model-evidence.md](../../references/model-evidence.md) for the
+DeepSWE and Slopalytics method before choosing candidate rows.
 
 ## 3. Establish developer-specific inputs
 
@@ -127,8 +106,10 @@ problems explicitly; do not infer it from benchmark scores:
 
 1. **Capabilities and providers:** which native runtimes, providers, and CLIs are
    usable, and which subscriptions or metered APIs back them? Verify every
-   CLI-backed claim with `command -v`; Codex additionally requires the successful
-   App Server check above. A Setup-provided inventory is evidence for this step,
+   CLI-backed claim with `command -v`. Codex counts as callable only after
+   `codex-app-server.py check` proves the Codex App Server typed-error seam;
+   a missing or incompatible seam removes Codex from reachability without
+   creating a timed provider circuit. A Setup-provided inventory is evidence for this step,
    not permission to infer subscriptions. Carry any named authoring-provider
    exclusions from Setup through draft and final validation.
 2. **Billing and efficiency semantics:** per provider, record whether billing is
@@ -153,10 +134,7 @@ review; benchmark data is supporting evidence only. Do not treat an absent
 preference as permission for benchmark efficiency to choose those routes. On an
 ordinary data refresh, keep capabilities, taste, trust, orchestration preference,
 working style, and billing semantics; update data-sourced axes and `reviewed:`
-without re-interviewing. On a Setup invocation, reconcile each CLI-backed
-capability with the supplied inventory. Preserve non-CLI facts, show
-additions/removals, and continue even when the existing rubric is otherwise
-current.
+without re-interviewing.
 
 ## 4. Build or refresh the rubric
 
@@ -179,12 +157,12 @@ exists. Treat it only as a seed:
    default when every row it names is reachable;
 7. record positive `delegation.max_children`, `delegation.max_depth`, and
    `delegation.default_token_budget` from the developer's limits;
-8. derive and validate the route-specific `fallbacks` chains below;
+8. derive an ordered `fallbacks.<route>` chain for each route using
+   [references/rubric-fallbacks.md](../../references/rubric-fallbacks.md);
 9. remove `seed: true`, replace `reviewed:` with today's date, and record the
    actual sources used.
 
-For a Setup reconciliation, add/drop affected model rows and derive `routing`
-fresh whenever any provider or executor capability changed. For an ordinary
+For a Setup reconciliation, add or drop the affected model rows. For an ordinary
 stale-data refresh, retain the reachable row set unless current evidence says a
 model was superseded.
 
@@ -216,36 +194,16 @@ single-provider setup must omit `routing.independent`. When present,
 the provider of `routing.orchestrator` and from the provider of any named
 authoring model.
 
-After choosing each primary, derive an ordered `fallbacks.<route>` chain from the
-remaining rows. For every configured route:
-
-- Filter other-provider rows by the same trust, latency, batch, computer-use,
-  taste, independence, and operation constraints used to choose that route's
-  primary. Preserve the developer's preference order among the compatible rows.
-- The primary provider is first, and every fallback provider differs from every
-  earlier provider in its chain. Include at most one row from each provider.
-- A `taste` fallback meets `routing.taste_min`. An `independent` fallback remains
-  distinct from every named authoring provider as well as every earlier provider
-  in its chain.
-- A matching native provider is reachable natively even if its row declares
-  `via`; a non-native row is reachable only through its callable declared
-  executor.
-- Empty chains are allowed. Provider diversity never becomes a prerequisite:
-  single-provider rubrics remain valid with no fallback chains.
-
-Never infer a chain from generic rubric fields or raw executor errors; legacy
-`routing.fallback` is never automatic authorization. Only an explicit creation or
-refresh may derive route-specific chains, and consumers use only the validated
-`fallbacks.<route>` list as standing fallback authorization.
-
-`via` is executor metadata interpreted by Harness. Consumers never branch on it.
+`via` is executor metadata interpreted by Harness; consumers do not branch on it,
+so the executor choice stays in one place.
 Every eventual dispatch still passes model and effort explicitly.
 When a resolved candidate equals the active `model@effort`, Harness executes in the
 current context instead of delegating back to itself. Rubric routes select capability;
 they do not force a child process.
 
 Existing rubrics without `delegation` remain readable for routing compatibility, but
-they are incomplete for Lite. On the next setup or rubric refresh, ask for the missing
+they are incomplete for Lite execution, the bounded delegation mode that relies on
+those limits. On the next setup or rubric refresh, ask for the missing
 limits and write them before reporting the rubric current.
 
 The completed file has this shape:
@@ -289,9 +247,9 @@ delegation:
   default_token_budget: 80000
 ```
 
-Build the complete candidate document at a local temporary path. Before writing
-the user-global rubric, show the complete draft and show the fallback chains
-before writing. Developer edits override seed judgment. Validate the draft with
+Build the complete candidate document at a local temporary path. Show the complete
+draft to the developer, including the fallback chains, so they can correct it;
+always show the fallback chains before writing. Developer edits override seed judgment. Validate the draft with
 the same native-provider and callable-executor inventory used for derivation:
 
 ```bash
@@ -303,34 +261,26 @@ harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*
   --authoring-providers "$HARNESS_AUTHORING_PROVIDERS"
 ```
 
-This command never takes a health-state path. Require exit 0 and
+This command takes no health-state path. Require exit 0 and
 `{"status":"valid"}` before writing through the config-directory symlink. A
 missing resolver, `python3`, or `yq`, malformed output, or blocked result stops
-the write; do not reproduce or guess the resolver's semantics. The optional
+the write; do not reproduce or guess the resolver's semantics. The validator is
+the single structural gate. Validate both `provider` and `via` reachability for
+every routed row through it, against the inventory used for derivation, and
+block or rederive when either is unavailable. It also checks that every route
+names an exact row, rejects `routing.independent` when its provider matches
+either the orchestrator's provider or a named authoring provider, and enforces
+`routing.taste_min`, fallback-chain provider uniqueness, and positive delegation
+limits. The optional
 `--authoring-providers "$HARNESS_AUTHORING_PROVIDERS"` input uses the same
 CSV/JSON-list contract as request selection; the validator always enforces the
 persistent `routing.orchestrator` provider boundary even when that optional list
-is empty. Never write a
-credential, secret-bearing profile, absolute machine path, or temporary evidence
-into the rubric.
+is empty. Never write a credential, secret-bearing profile, absolute machine
+path, or temporary evidence into the rubric.
 
-For migration, a rubric without `routing.orchestrator` requires an explicit
-orchestration preference question; do not infer the preference from benchmark
-rank. Preserve capabilities, trust, taste, billing semantics, every developer
-score and preference, and the scalar `routing.<route>` primaries. Refresh
-benchmark evidence and replace `cost` with `efficiency`. If capability
-reconciliation must change an unreachable primary, complete and show that
-existing reconciliation before beginning fallback migration; migration itself
-does not silently replace primaries. Opus remains eligible when reachable and
-trusted, but never outranks a user's Fable orchestration preference through
-coding cost alone.
-
-Treat `routing.fallback` as legacy data only. During an explicit refresh, derive
-the compatible route-specific replacements while leaving the legacy value in
-the temporary draft, validate every replacement chain, then remove
-`routing.fallback` only after every replacement chain validates. Validate the
-final draft again before writing it. Status checks never migrate a rubric, and a
-failed migration leaves the original file unchanged.
+To migrate a rubric that lacks `routing.orchestrator`, still scores `cost`, or
+still contains `routing.fallback`, read
+[references/rubric-migration.md](../../references/rubric-migration.md) first.
 
 A running agent cannot replace itself. `routing.orchestrator` guides a future
 top-level session when its host supports explicit model selection; it never
@@ -345,17 +295,9 @@ harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*
 
 Expected: `set`. Report the path and the `reviewed:` date.
 
-Also verify that `seed: true`, `cost: null`, and `routing: {}` are absent. Reject
-a completed rubric when a required route is absent, a route lacks an exact row,
-a benchmark division is inconsistent beyond rounding, or no row is reachable.
-Validate both `provider` and `via` reachability for every routed row against the
-current capability inventory; block or rederive when either is unavailable.
-Reject `routing.independent` when its provider matches either the orchestrator's
-provider or a named authoring provider. Validation requires that every completed
-model row's `efficiency` is an integer from 1 through 10; reject any other value.
-Optional unavailable routes are omitted. When present,
-`routing.taste` must name a reachable row at or above `routing.taste_min`. Reject
-an unvalidated fallback chain or a completed rubric that still contains
-`routing.fallback`. Reject non-positive delegation limits or an unbounded
-`delegation.default_token_budget`. A Setup invocation reports `reconciled: true` even when the
-file did not change.
+Then check what the validator does not: `seed: true` and `cost: null` are
+absent; `orchestrator`, `default`, `quick`, and `review` routes are present;
+every benchmark division is consistent within rounding; every completed model
+row's `efficiency` is an integer from 1 through 10; and no `routing.fallback`
+remains. Optional unavailable routes are omitted. A Setup invocation reports
+`reconciled: true` even when the file did not change.
