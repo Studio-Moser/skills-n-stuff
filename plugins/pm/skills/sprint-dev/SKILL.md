@@ -284,13 +284,13 @@ For each approved PR, in priority order:
 ### 2A. Create Branch
 
 ```bash
-git checkout main && git pull
+git checkout "$default_branch" && git pull origin "$default_branch"
 git checkout -b pulse/{cluster}-{YYYY-MM-DD}
 ```
 
 For worktree-capable projects:
 ```bash
-git worktree add .claude/worktrees/pulse-{cluster}-{date} -b pulse/{cluster}-{YYYY-MM-DD} main
+git worktree add .claude/worktrees/pulse-{cluster}-{date} -b pulse/{cluster}-{YYYY-MM-DD} "$default_branch"
 ```
 
 ### 2B. Implement approved slices
@@ -442,8 +442,8 @@ clean up the worktree if used. PM does not call a memory provider directly.
 ## Error Recovery
 
 - **Implementation failure**: Preserve any returned commits, otherwise clean up the branch. Report the direct failure or delegated typed status and blockers, then ask whether to retry or skip.
-- **Repo failure**: Reset to main, log affected items, continue with next batch.
-- **Never**: force push, modify main directly (except backlog), delete remote branches, skip verification, proceed without user approval.
+- **Repo failure**: Return to `$default_branch`, log affected items, continue with next batch.
+- **Never**: force push, modify `$default_branch` directly (except backlog), delete remote branches, skip verification, proceed without user approval.
 
 ---
 

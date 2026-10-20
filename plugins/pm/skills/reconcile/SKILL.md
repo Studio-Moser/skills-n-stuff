@@ -71,7 +71,18 @@ fi
 
 **Backend dispatch.** PM uses one backend per project. Load ONLY `references/reconcile-<backend>.md` (`reconcile-github.md`, `reconcile-trello.md`, or `reconcile-local.md`) and follow its steps wherever a phase below is marked **(backend step)**. Ignore the other backends' files. Note: epic rollup/orphan/normalization is GitHub-only; it lives in `reconcile-github.md`. On GitHub, parent and sub-issue links follow `references/github-sub-issues.md`.
 
-**(backend step)** — follow your loaded `references/reconcile-<backend>.md` (§ Phase 0.2: Load Backend Config). Trello: § Phase 0: Discover Config — board validation. (Skip if backend != trello.)
+Each **(backend step)** below names a phase. Run the section this table gives for your backend; "skip" means the phase does not apply to it.
+
+| Phase | GitHub (`reconcile-github.md`) | Trello (`reconcile-trello.md`) | Local (`reconcile-local.md`) |
+|---|---|---|---|
+| 0.2 | § Phase 0.2 | § Phase 0: Discover Config — board validation | § Phase 0.2 |
+| 1.2 | § Phase 1.2 | § Phase 1.2T | § Phase 1.2 |
+| 1.3 | § Phase 1.3 | skip | § Phase 1.3 |
+| 1.3b, 1.3c | § Phase 1.3b, § Phase 1.3c | skip | skip |
+| 2.1, 2.2 | § Phase 2.1, § Phase 2.2 | § Phase 2.1, § Phase 2.2 | § Phase 2.1, § Phase 2.2 |
+| 3.1, 3.2 | § Phase 3.1, § Phase 3.2 | § Phase 3: Deferred blocker handling — Trello fallback, in place of 3.1–3.3 | § Phase 3.1, § Phase 3.2 |
+
+**(backend step)** — Phase 0.2.
 
 Print: `"Reconciling {N} repo(s) since {last_reconcile}. Backend: {backend}."`
 
@@ -105,33 +116,27 @@ If no issue references are found, print `"No issue references found in recent co
 
 For each unique issue number, determine whether it should be closed.
 
-**(backend step)** — follow your loaded `references/reconcile-<backend>.md` (§ Phase 1.2: Completion Tracking).
+**(backend step)** — Phase 1.2 (Trello runs § Phase 1.2T).
 
-### 1.2T Trello backend completion tracking
-
-**(backend step)** — follow your loaded `references/reconcile-trello.md` (§ Phase 1.2T: Completion tracking — Trello). (Skip if backend != trello.)
-
-Epic rollup is GitHub-only (sub-issues are a GitHub feature). Skip Phase 1.3 entirely when `backend == trello`.
-
-### 1.3 Epic rollup (GitHub-only — skip when backend != github.)
+### 1.3 Epic rollup (GitHub and local; Trello skips)
 
 Check whether any epics have all sub-issues now closed.
 
-**(backend step)** — follow your loaded `references/reconcile-github.md` (§ Phase 1.3: Epic Rollup — GitHub). Local backend: **(backend step)** — follow your loaded `references/reconcile-local.md` (§ Phase 1.3: Epic Rollup — Local).
+**(backend step)** — Phase 1.3.
 
 > Closing a finished epic is a **lifecycle** action (open → closed), not a workflow-status change. Epics never carry a `status/*` label — see the guard in Phase 1.3c.
 
-### 1.3b Orphan-epic sweep (GitHub-only — skip when backend != github.)
+### 1.3b Orphan-epic sweep (GitHub only)
 
 Every open todo should sit under exactly one epic (that's what makes the board's group-by-Parent-issue / Sprint Plan view readable). Flag any open issue that is **neither under an epic nor a deliberate exception** so it gets parented before it silently rots in "No Parent."
 
-**(backend step)** — follow your loaded `references/reconcile-github.md` (§ Phase 1.3b: Orphan-epic Sweep — GitHub).
+**(backend step)** — Phase 1.3b.
 
-### 1.3c Epic normalization — status labels + body (GitHub-only — skip when backend != github.)
+### 1.3c Epic normalization — status labels + body (GitHub only)
 
 Epics are **goal containers** (see `/pm:triage` Phase 4.3): they carry no workflow status, and their body is a Goal/Why statement — not a checklist of constituent items (the sub-issue tree is the source of truth for membership). This phase brings existing epics into line with both rules. It's the retrofit for epics created before the convention, or by hand.
 
-**(backend step)** — follow your loaded `references/reconcile-github.md` (§ Phase 1.3c: Epic Normalization — GitHub).
+**(backend step)** — Phase 1.3c.
 
 ### 1.4 Update planning files
 
@@ -174,7 +179,7 @@ Pull all open items and flag those with no activity past the threshold.
 
 ### 2.1 Identify stale items
 
-**(backend step)** — follow your loaded `references/reconcile-<backend>.md` (§ Phase 2.1: Stale Detection). Trello: § Phase 2.1: Stale detection — Trello. (Skip if backend != trello.)
+**(backend step)** — Phase 2.1.
 
 ### 2.2 Present stale items
 
@@ -196,7 +201,7 @@ Stale: #{number} — {title}
 
 Process the user's choice:
 
-**(backend step)** — follow your loaded `references/reconcile-<backend>.md` (§ Phase 2.2: Stale Item Actions) for the retriage/close/demote commands. Trello: § Phase 2.2: Stale item actions — Trello. (Skip if backend != trello.)
+**(backend step)** — Phase 2.2, for the retriage/close/demote commands.
 
 If demoting and `planning/todos.md` exists, move the item's row from `## Ready` to `## Monitor` with a note: `"Demoted from Ready — stale for {N} days"`.
 
@@ -206,13 +211,13 @@ Print: `"Phase 2 — {X} stale item(s) found. {Y} retriaged, {Z} closed, {W} dem
 
 ## Phase 3: Deferred Blocker Handling
 
-> Phase 3 (deferred blocker handling) is GitHub-specific (uses sub-issues). Skip this entire phase when `backend == trello`. **(backend step)** — follow your loaded `references/reconcile-trello.md` (§ Phase 3: Deferred blocker handling — Trello fallback) for the fallback handling of spawned-during-sprint items on Trello.
+> GitHub and local run 3.1–3.3 below. Trello has no sub-issues, so it runs § Phase 3: Deferred blocker handling — Trello fallback from its reference instead of 3.1–3.3.
 
 Classify items spawned during sprint execution as blocking or independent.
 
 ### 3.1 Pull spawned items
 
-**(backend step)** — follow your loaded `references/reconcile-<backend>.md` (§ Phase 3.1: Pull Spawned Items).
+**(backend step)** — Phase 3.1.
 
 If no spawned items are found, print `"No spawned-during-sprint items to classify."` and skip to Phase 4.
 
@@ -237,7 +242,7 @@ Spawned: #{number} — {title}
 
 Process automatically based on classification:
 
-**(backend step)** — follow your loaded `references/reconcile-<backend>.md` (§ Phase 3.2: Classify Spawned Items) for the blocking/independent commands.
+**(backend step)** — Phase 3.2, for the blocking/independent commands.
 
 ### 3.3 Report blocking chains
 

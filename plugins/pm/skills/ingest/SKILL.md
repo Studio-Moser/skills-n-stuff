@@ -67,13 +67,21 @@ The migration inherits the old state-file time once. A true first run uses the
 epoch. To replay a window, back-date `watermark_file`; dedup handles items that
 were already filed.
 
-Pull each configured repo's default branch. Note a failure and continue:
+Fast-forward each configured repo that is already on the default branch with a
+clean tree. Other sessions may share these checkouts, so never switch their
+branch; scan a repo on another branch or with local changes as it is. Note a
+failure and continue:
 
 ```bash
 for repo_path in $(yq '.repos[].path' "$config_path"); do
   abs="$(realpath "$primary_repo_root/$repo_path")"
+  branch="$(git -C "$abs" branch --show-current)"
+  if [ "$branch" != "$default_branch" ] || [ -n "$(git -C "$abs" status --porcelain)" ]; then
+    echo "Not pulling $abs (on '$branch' or has local changes); scanning it as is."
+    continue
+  fi
   echo "=== Pulling $abs ==="
-  cd "$abs" && git checkout "$default_branch" && git pull origin "$default_branch" || echo "pull failed for $abs"
+  git -C "$abs" pull --ff-only origin "$default_branch" || echo "pull failed for $abs"
 done
 ```
 

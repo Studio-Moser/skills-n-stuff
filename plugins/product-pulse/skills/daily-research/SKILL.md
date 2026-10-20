@@ -325,6 +325,19 @@ Write to `{week_dir}/{today}-daily-research.md`. Structure:
 **Weekly theme**: {theme or "No weekly brief"}
 **Research Coverage**: {accepted}/{expected} accepted/proven; {failed} failed; {blocked} blocked; {abandoned} abandoned; {unproven} unproven{ — degraded coverage when accepted < expected}
 **Findings**: {N} total, {N} action items
+**Escalations**: {N}
+
+---
+
+## Escalations (Always Check Hits)
+
+{Omit this section when no Always Check item hit.}
+
+### {Always Check ID} — {Topic}
+- **Source**: [{source name}]({URL})
+- **Change detected**: {what shifted vs the hit definition}
+- **Guide doc update required**: {path, or "none"}
+- **Action**: {what the user should do about this}
 
 ---
 

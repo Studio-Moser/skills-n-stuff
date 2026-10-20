@@ -2,24 +2,16 @@
 
 For skill authors who want to use the `transcribe` skill to fetch video transcripts.
 
-## Two ways to invoke
+## How to invoke
 
-### 1. From Bash (recommended for simple pipelines)
+Call the `transcribe` binary from Bash. It is on PATH once the plugin is installed. Output goes to stdout; logs go to stderr.
 
 ```
 transcribe <url>
 transcribe <url> --json
 ```
 
-The `transcribe` binary is on PATH once the plugin is installed. Output goes to stdout; logs go to stderr.
-
-### 2. Via the Skill tool (recommended when LLM reasoning over the transcript is needed)
-
-```
-Skill({ skill: "transcribe:transcribe", args: "<url>" })
-```
-
-The skill loads with full context, runs the bash pipeline, and returns the markdown-formatted transcript to your conversation.
+The skill sets `disable-model-invocation: true`, so the Skill tool cannot load it from another skill. Reason over the transcript in your own skill after the command returns.
 
 ## Pattern for research skills
 
