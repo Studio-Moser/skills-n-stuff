@@ -163,20 +163,24 @@ HARNESS_RESULT_FIXED_TARGET="{exact evidence.fixed_target from the returned Harn
 RECOMPUTED_REVIEW_DIGEST="$(shasum -a 256 "$REVIEW_ARTIFACT_ABS" | awk '{print $1}')"
 [ "$RECOMPUTED_REVIEW_DIGEST" = "$REVIEW_DIGEST" ] || exit 1
 [ "$HARNESS_RESULT_FIXED_TARGET" = "$REVIEW_FIXED_TARGET" ] || exit 1
-case "$REVIEW_CONTRACT_STATE" in
-  present)
-    printf '%s\n' "$REVIEW_CONTRACT_DIGEST" | grep -Eq '^[0-9a-f]{64}$' || exit 1
-    [ -f "$REVIEW_CONTRACT_ABS" ] && [ ! -L "$REVIEW_CONTRACT_ABS" ] || exit 1
-    RECOMPUTED_REVIEW_CONTRACT_DIGEST="$(shasum -a 256 "$REVIEW_CONTRACT_ABS" | awk '{print $1}')"
-    [ "$RECOMPUTED_REVIEW_CONTRACT_DIGEST" = "$REVIEW_CONTRACT_DIGEST" ] || exit 1
-    ;;
-  absent)
-    [ "$REVIEW_CONTRACT_DIGEST" = "none" ] || exit 1
-    [ ! -e "$REVIEW_CONTRACT_ABS" ] && [ ! -L "$REVIEW_CONTRACT_ABS" ] || exit 1
-    ;;
-  *) exit 1 ;;
-esac
+verify_review_contract() {
+  case "$REVIEW_CONTRACT_STATE" in
+    present)
+      printf '%s\n' "$REVIEW_CONTRACT_DIGEST" | grep -Eq '^[0-9a-f]{64}$' || return 1
+      [ -f "$REVIEW_CONTRACT_ABS" ] && [ ! -L "$REVIEW_CONTRACT_ABS" ] || return 1
+      RECOMPUTED_REVIEW_CONTRACT_DIGEST="$(shasum -a 256 "$REVIEW_CONTRACT_ABS" | awk '{print $1}')"
+      [ "$RECOMPUTED_REVIEW_CONTRACT_DIGEST" = "$REVIEW_CONTRACT_DIGEST" ] || return 1
+      ;;
+    absent)
+      [ "$REVIEW_CONTRACT_DIGEST" = "none" ] || return 1
+      [ ! -e "$REVIEW_CONTRACT_ABS" ] && [ ! -L "$REVIEW_CONTRACT_ABS" ] || return 1
+      ;;
+    *) return 1 ;;
+  esac
+}
+verify_review_contract || exit 1
 # Run and confirm the request's verification seam before cleanup.
+verify_review_contract || exit 1
 rm -f "$REVIEW_ARTIFACT_ABS" || exit 1
 rmdir "$REVIEW_ARTIFACT_DIR_ABS" 2>/dev/null || true
 ```
