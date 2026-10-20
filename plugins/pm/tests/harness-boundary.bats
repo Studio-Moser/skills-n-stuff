@@ -258,9 +258,9 @@ else:
     packet = packets[0]
     files = re.findall(r"^\s*files:\s*(.+)$", packet, re.MULTILINE)
     allowed = re.findall(r"^\s*allowed_paths:\s*(.+)$", packet, re.MULTILINE)
-    if files != ["[{changed and review-relevant repository paths, plus ${REVIEW_ARTIFACT_REL}}]"]:
+    if files != ["[{changed and review-relevant repository paths, root REVIEW.md when present, plus ${REVIEW_ARTIFACT_REL}}]"]:
         failures.append(f"context.files is not repository-relative: {files}")
-    if allowed != ["[{read-only PR scope, plus ${REVIEW_ARTIFACT_REL}}]"]:
+    if allowed != ["[{read-only PR scope, root REVIEW.md when present, plus ${REVIEW_ARTIFACT_REL}}]"]:
         failures.append(f"allowed_paths is not repository-relative: {allowed}")
     for leak in ("${REVIEW_PATCH}", "${REVIEW_ARTIFACT_ABS}", "${WORKTREE_ROOT}", "${TMPDIR", "/tmp/"):
         if leak in "\n".join(files + allowed):
@@ -275,6 +275,11 @@ for required in (
     'REVIEW_ARTIFACT_REL="{exact repository-relative artifact path from the request}"',
     '[ "$REVIEW_ARTIFACT_REL" = ".harness-review/review-${REVIEW_DIGEST}.patch" ] || exit 1',
     'REVIEW_ARTIFACT_DIR_ABS="$WORKTREE_ROOT/.harness-review"',
+    'REVIEW_CONTRACT_ABS="$WORKTREE_ROOT/REVIEW.md"',
+    'REVIEW_CONTRACT_STATE="{exact present or absent state from the request}"',
+    'REVIEW_CONTRACT_DIGEST="{exact SHA-256 digest from the request, or none when absent}"',
+    'RECOMPUTED_REVIEW_CONTRACT_DIGEST=',
+    '[ "$RECOMPUTED_REVIEW_CONTRACT_DIGEST" = "$REVIEW_CONTRACT_DIGEST" ] || return 1',
     'rm -f "$REVIEW_ARTIFACT_ABS"',
 ):
     if required not in text:
@@ -289,6 +294,15 @@ if verify_marker not in text:
     failures.append("artifact lifecycle omits returned-target verification")
 elif cleanup_marker in text and text.index(cleanup_marker) < text.index(verify_marker):
     failures.append("review artifact is cleaned before result verification")
+
+if text.count("verify_review_contract || exit 1") != 2:
+    failures.append("review contract is not verified both before and after the Testing Seam")
+else:
+    first_contract_check = text.index("verify_review_contract || exit 1")
+    seam = text.index("# Run and confirm the request's verification seam before cleanup.")
+    second_contract_check = text.index("verify_review_contract || exit 1", first_contract_check + 1)
+    if not (first_contract_check < seam < second_contract_check < text.index(cleanup_marker)):
+        failures.append("review contract checks do not surround the Testing Seam before cleanup")
 
 assert not failures, "invalid review artifact boundary:\n" + "\n".join(failures)
 PY

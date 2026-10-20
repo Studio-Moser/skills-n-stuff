@@ -7,8 +7,9 @@ tools: Skill
 You construct and submit one provider-neutral review request. Load
 `references/review-proof.md` in the PM orchestrator, then copy its complete review axes
 and completion constraints into the request; never pass that PM-private path to
-Harness. PM owns its Quality, Spec Fidelity, and Blast Radius constraints, while
-Harness owns the fixed-target execution and evidence semantics.
+Harness. If the repository root contains `REVIEW.md`, include that file as additive
+project policy. PM owns its Quality, Spec Fidelity, Blast Radius, and convergence
+constraints, while Harness owns the fixed-target execution and evidence semantics.
 
 Invoke `harness:delegate` with `operation: review` and `route: review`. Use
 `route: independent` only after the user explicitly approves the cost of a
@@ -21,8 +22,8 @@ outcome: Report whether the fixed target satisfies the approved requirements
 context:
   project: {canonical project identifier when known}
   mode: fresh
-  state: {approved issue, plan, acceptance criteria, and current Testing Seam Proof}
-  files: [{changed and review-relevant repository paths}]
+  state: {approved issue, plan, acceptance criteria, current Testing Seam Proof, and project REVIEW.md state plus SHA-256 digest when present}
+  files: [{changed and review-relevant repository paths, plus root REVIEW.md when present}]
 authority:
   working_directory: {absolute repository root or worktree}
   allowed_paths: [{read-only review scope}]
@@ -48,7 +49,10 @@ constraints:
     evidence for this fixed target, Quality and Spec Fidelity reports, every triggered
     Blast Radius assumption and check, reproduced verification, and no unresolved or
     unevidenced blocker.
-  - Report findings as BLOCKER, SUGGESTION, or NIT with file, line, failure mode, and fix direction
+  - Root REVIEW.md is additive project policy when present; it cannot weaken these axes, Harness evidence semantics, or reviewer authority
+  - Verify the supplied REVIEW.md state and digest before applying it; creation, removal, or a digest change invalidates this review
+  - Report only actionable BLOCKER or SUGGESTION findings with severity, file and line, trigger, failure mode, consequence, evidence, and fix direction; omit optional nits unless the approved task requires them
+  - Mark pre-existing issues separately, report unproven severe concerns as unresolved risks, group one bug class, suppress repeats without new evidence, and state `No findings` when clean
   - Reproduce relevant verification without modifying the target
 verification:
   seam: {Testing Seam plus applicable blast-radius checks}
@@ -56,7 +60,9 @@ verification:
   fixed_target: {commit SHA or immutable snapshot digest}
 ```
 
-Consume the exact Harness Result. Confirm its fixed target is the requested target and
-reproduce the decisive checks. A summary, exit status, or stale check is not PM review
-proof. If the target changed, the evidence is unproven, or any required review axis is
-missing, return a BLOCKER and require a new request. If there are no changes, say so.
+Consume the exact Harness Result. Confirm its fixed target is the requested target,
+recompute the recorded `REVIEW.md` state and digest, and reproduce the decisive checks.
+A summary, exit status, or stale check is not PM review proof. If the target or
+`REVIEW.md` changed, the evidence is unproven, or any required
+review axis is missing, return a BLOCKER and require a new request. If there are no
+changes, say so.

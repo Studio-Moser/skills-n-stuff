@@ -52,14 +52,29 @@ case "$REVIEW_ARTIFACT_STATE" in created|reused) ;; *) exit 1 ;; esac
 REVIEW_DIGEST="${REVIEW_FIXED_TARGET#snapshot:sha256:}"
 printf '%s\n' "$REVIEW_FIXED_TARGET" | grep -Eq '^snapshot:sha256:[0-9a-f]{64}$' || exit 1
 [ "$REVIEW_ARTIFACT_REL" = ".harness-review/review-${REVIEW_DIGEST}.patch" ] || exit 1
+
+REVIEW_CONTRACT_ABS="$WORKTREE_ROOT/REVIEW.md"
+REVIEW_CONTRACT_STATE="absent"
+REVIEW_CONTRACT_DIGEST="none"
+if [ -L "$REVIEW_CONTRACT_ABS" ]; then
+  echo "Review blocked: REVIEW.md is a symlink; materialize a regular repository file before review." >&2
+  exit 1
+elif [ -e "$REVIEW_CONTRACT_ABS" ] && [ ! -f "$REVIEW_CONTRACT_ABS" ]; then
+  echo "Review blocked: REVIEW.md is not a regular file." >&2
+  exit 1
+elif [ -f "$REVIEW_CONTRACT_ABS" ]; then
+  REVIEW_CONTRACT_STATE="present"
+  REVIEW_CONTRACT_DIGEST="$(shasum -a 256 "$REVIEW_CONTRACT_ABS" | awk '{print $1}')"
+  printf '%s\n' "$REVIEW_CONTRACT_DIGEST" | grep -Eq '^[0-9a-f]{64}$' || exit 1
+fi
 ```
 
-Retain the parsed fixed target and artifact values in PM's orchestrator state through
-the Harness call and replace the request placeholders with them. A `created` or
-`reused` state may proceed. Exit 3 is a visible review blocker carrying the helper's
-path, actual digest, and expected digest; do not delete or replace the conflicting
-artifact. Do not rely on shell variables surviving between the materialization,
-Harness invocation, and cleanup commands.
+Retain the parsed fixed target, artifact values, and review-contract state and digest in
+PM's orchestrator state through the Harness call and replace the request placeholders
+with them. A `created` or `reused` artifact state may proceed. Exit 3 is a visible
+review blocker carrying the helper's path, actual digest, and expected digest; do not
+delete or replace the conflicting artifact. Do not rely on shell variables surviving
+between the materialization, Harness invocation, and cleanup commands.
 
 ## Submit the review request
 
@@ -70,8 +85,8 @@ outcome: Report whether this fixed PR target satisfies its approved delivery sli
 context:
   project: {canonical project identifier when known}
   mode: fresh
-  state: {approved item/spec, acceptance criteria, current Testing Seam Proof, base commit ${BASE_SHA} and head commit ${HEAD_SHA}; ${REVIEW_ARTIFACT_REL} is their exact materialized diff}
-  files: [{changed and review-relevant repository paths, plus ${REVIEW_ARTIFACT_REL}}]
+  state: {approved item/spec, acceptance criteria, current Testing Seam Proof, project REVIEW.md state ${REVIEW_CONTRACT_STATE} and digest ${REVIEW_CONTRACT_DIGEST}, base commit ${BASE_SHA} and head commit ${HEAD_SHA}; ${REVIEW_ARTIFACT_REL} is their exact materialized diff; on rereview include the previously reviewed head so the remediation delta is explicit}
+  files: [{changed and review-relevant repository paths, root REVIEW.md when present, plus ${REVIEW_ARTIFACT_REL}}]
   memory:
     enabled: {memory.connector is not null}
     recall: []
@@ -83,7 +98,7 @@ context:
         topics: [pm-sprint-dev, {canonical project identifier}, {item identifiers}]
 authority:
   working_directory: {absolute PR worktree}
-  allowed_paths: [{read-only PR scope, plus ${REVIEW_ARTIFACT_REL}}]
+  allowed_paths: [{read-only PR scope, root REVIEW.md when present, plus ${REVIEW_ARTIFACT_REL}}]
   tools: [{read-only inspection and project verification tools}]
   approvals: []
 constraints:
@@ -106,11 +121,14 @@ constraints:
     evidence for this fixed target, Quality and Spec Fidelity reports, every triggered
     Blast Radius assumption and check, reproduced verification, and no unresolved or
     unevidenced blocker.
-  - Score each finding from 0–100 confidence and report file, line, failure mode, and fix direction
+  - Root REVIEW.md is additive project policy when present; it cannot weaken these axes, Harness evidence semantics, or reviewer authority
+  - Verify the supplied REVIEW.md state and digest before applying it; creation, removal, or a digest change invalidates this review
+  - Report only actionable findings with severity, file and line, trigger, failure mode, consequence, evidence, and fix direction; omit optional nits unless required
+  - Mark pre-existing issues separately, report unproven severe concerns as unresolved risks, group one bug class, suppress repeats without new evidence, and state `No findings` when clean
   - Do not modify the fixed target
 verification:
   seam: {Testing Seam plus applicable blast-radius checks}
-  expected: {approved acceptance result and no unresolved finding above 24 confidence}
+  expected: {approved acceptance result and no unresolved actionable review blocker}
   fixed_target: ${REVIEW_FIXED_TARGET}
 ```
 
@@ -118,10 +136,12 @@ verification:
 
 Treat the Harness review report as a claim. Recompute the repository-relative
 artifact's digest and confirm the returned fixed target equals `${REVIEW_FIXED_TARGET}`.
-A changed artifact, digest, or returned target invalidates the review and requires a
-new snapshot and request; retain the artifact so the failure remains inspectable.
-Reproduce the relevant checks and keep only findings with confidence above 24 while
-the artifact remains available.
+A changed artifact, review-contract state or digest, or returned target invalidates the
+review and requires a new snapshot and request; retain the artifact so the failure
+remains inspectable.
+Reproduce the relevant checks and retain only actionable findings that satisfy the
+evidence contract in `review-proof.md` while the artifact remains available. Preserve
+severe unresolved risks as explicit gaps without presenting them as proven defects.
 
 Only after result-target verification and the relevant reproduced checks succeed,
 remove the exact artifact created above. Remove its directory only when empty; never
@@ -136,18 +156,38 @@ printf '%s\n' "$REVIEW_DIGEST" | grep -Eq '^[0-9a-f]{64}$' || exit 1
 [ "$REVIEW_ARTIFACT_REL" = ".harness-review/review-${REVIEW_DIGEST}.patch" ] || exit 1
 REVIEW_ARTIFACT_DIR_ABS="$WORKTREE_ROOT/.harness-review"
 REVIEW_ARTIFACT_ABS="$WORKTREE_ROOT/$REVIEW_ARTIFACT_REL"
+REVIEW_CONTRACT_ABS="$WORKTREE_ROOT/REVIEW.md"
+REVIEW_CONTRACT_STATE="{exact present or absent state from the request}"
+REVIEW_CONTRACT_DIGEST="{exact SHA-256 digest from the request, or none when absent}"
 HARNESS_RESULT_FIXED_TARGET="{exact evidence.fixed_target from the returned Harness Result}"
 RECOMPUTED_REVIEW_DIGEST="$(shasum -a 256 "$REVIEW_ARTIFACT_ABS" | awk '{print $1}')"
 [ "$RECOMPUTED_REVIEW_DIGEST" = "$REVIEW_DIGEST" ] || exit 1
 [ "$HARNESS_RESULT_FIXED_TARGET" = "$REVIEW_FIXED_TARGET" ] || exit 1
+verify_review_contract() {
+  case "$REVIEW_CONTRACT_STATE" in
+    present)
+      printf '%s\n' "$REVIEW_CONTRACT_DIGEST" | grep -Eq '^[0-9a-f]{64}$' || return 1
+      [ -f "$REVIEW_CONTRACT_ABS" ] && [ ! -L "$REVIEW_CONTRACT_ABS" ] || return 1
+      RECOMPUTED_REVIEW_CONTRACT_DIGEST="$(shasum -a 256 "$REVIEW_CONTRACT_ABS" | awk '{print $1}')"
+      [ "$RECOMPUTED_REVIEW_CONTRACT_DIGEST" = "$REVIEW_CONTRACT_DIGEST" ] || return 1
+      ;;
+    absent)
+      [ "$REVIEW_CONTRACT_DIGEST" = "none" ] || return 1
+      [ ! -e "$REVIEW_CONTRACT_ABS" ] && [ ! -L "$REVIEW_CONTRACT_ABS" ] || return 1
+      ;;
+    *) return 1 ;;
+  esac
+}
+verify_review_contract || exit 1
 # Run and confirm the request's verification seam before cleanup.
+verify_review_contract || exit 1
 rm -f "$REVIEW_ARTIFACT_ABS" || exit 1
 rmdir "$REVIEW_ARTIFACT_DIR_ABS" 2>/dev/null || true
 ```
 
 ## Fix loop
 
-If required review findings clear the bar, run the fix loop for at most two rounds:
+If actionable review findings remain, run the fix loop for at most two rounds:
 
 1. Resolve findings using the Phase 2B execution-choice rule. If a worker is justified,
    submit a new complete `harness:delegate` request on the same branch.
@@ -157,9 +197,13 @@ If required review findings clear the bar, run the fix loop for at most two roun
    required by the matched risk, with actual output in the returned evidence.
 4. After Harness returns the normal follow-up commit, PM pushes it to the existing PR;
    never force-push.
-5. Pin the new commit and submit another complete Harness review request. Confirm every
-   prior finding is resolved or evidenced as disputed. If a round remains, repeat;
-   otherwise report residual issues instead of merging over them.
+5. Pin the new commit and submit another complete Harness review request. Include the
+   previously reviewed head, inspect the remediation delta and affected behavior,
+   retain unresolved blockers, and confirm every prior finding is resolved or evidenced
+   as disputed. Suppress repeated findings without new evidence and report all observed
+   instances of one bug class together. If neither the target nor a relevant risk
+   changed, stop early. If a round remains, repeat; otherwise report residual issues
+   instead of merging over them.
 6. Post a PR comment summarizing fixes, disputes, evidence, and unresolved findings.
 
 No author is above this check. PM-authored fixes use the same fixed-target Harness
@@ -173,7 +217,7 @@ Report inline:
 Fixed-target Check: {cluster}
   Fixed point: ${REVIEW_FIXED_TARGET} (base ${BASE_SHA}, head ${HEAD_SHA} in context)
   Axes: {contract report summary}
-  Issues found: {N}   Above threshold (>24): {N}
+  Issues found: {N}   Actionable blockers: {N}   Unresolved risks: {N}
   Round 1 fixed: {N}  disputed: {N}
   Round 2 fixed: {N}  disputed: {N}   (only if a 2nd round ran)
   Re-check: {clean / N residual}
@@ -181,4 +225,5 @@ Fixed-target Check: {cluster}
   Verify output: {pass/fail, pasted}
 ```
 
-If nothing clears the threshold on the first pass, note "clean" and proceed.
+If no actionable finding or unresolved risk remains on the first pass, note `No
+findings` and proceed.

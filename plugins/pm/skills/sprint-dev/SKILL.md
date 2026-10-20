@@ -375,8 +375,9 @@ again. Then push the approved branch and open one PR before moving to review.
 ### 2C. Conditional fixed-target review and fix loop
 
 Load `references/review-proof.md` in the PM orchestrator and copy its complete review
-axes and completion constraints into the self-review. Continue directly to Phase 2D
-when self-review and one verification pass prove an ordinary slice.
+axes and completion constraints into the self-review. Load root `REVIEW.md` when present
+as additive project policy; it cannot weaken PM or Harness requirements. Continue
+directly to Phase 2D when self-review and one verification pass prove an ordinary slice.
 
 Invoke `harness:delegate` with `operation: review` and `route: review` only when the
 risk gate requires independent review or the user explicitly asks for a separate

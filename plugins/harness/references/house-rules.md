@@ -68,7 +68,7 @@ Commit incrementally as you go — don't batch an entire feature into one commit
 - **Title:** under 72 chars, imperative (`Fix iPad settings crash on rotation`). Say what changed *for the user*, not which internals moved.
   - Bad: `perf(server): negotiate per-message deflate on the websocket`
   - Good: `perf(server): cut websocket frame size by 70% with gzip`
-- **Body:** always these three sections:
+- **Body:** always these five sections:
 
 ```
 ## What
@@ -79,6 +79,12 @@ Commit incrementally as you go — don't batch an entire feature into one commit
 
 ## Testing
 <commands run + result; screenshots for UI>
+
+## Risk / Blast Radius
+<affected data, callers, security boundaries, dependencies, builds, or deployments>
+
+## How to revert
+<recovery path; state when reverting code cannot reverse persisted or external effects>
 ```
 
 - **Open `## Why` with the problem in the reporter's own words, then the fix.** Never lead with an implementation inventory — a reader who wasn't in the thread has to understand the point in one sentence.
