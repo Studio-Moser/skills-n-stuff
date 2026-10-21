@@ -52,6 +52,22 @@ assert "updatedInput" not in out, out
   ! grep -q '"allow"' "$XDG_STATE_HOME"/studio-moser/harness/telemetry/Shim_Events-*.jsonl
 }
 
+@test "Codex payloads always get the denial, never an allow-gated rewrite" {
+  for mode in default bypassPermissions dontAsk; do
+    codex_payload="$(python3 -c 'import json,sys; print(json.dumps({"tool_name": "Bash", "turn_id": "t1", "model": "m", "cwd": sys.argv[1], "permission_mode": sys.argv[2], "tool_input": {"command": "ls --x=*.zzz"}}))' "$WORK" "$mode")"
+    run env SHELL=/bin/zsh "$GUARD" <<<"$codex_payload"
+    [ "$status" -eq 0 ]
+    run python3 -c '
+import json, sys
+out = json.loads(sys.argv[1])["hookSpecificOutput"]
+assert out["permissionDecision"] == "deny", out
+assert "updatedInput" not in out, out
+' "$output"
+    [ "$status" -eq 0 ]
+  done
+  [ "$(grep -c '"agent": "codex"' "$XDG_STATE_HOME"/studio-moser/harness/telemetry/Shim_Events-*.jsonl)" -eq 3 ]
+}
+
 @test "the rewritten command runs under zsh where the original failed" {
   command -v zsh >/dev/null || skip "zsh not installed"
   run zsh -fc 'cd "$1" && echo --include=*.zzz' _ "$WORK"

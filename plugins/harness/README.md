@@ -43,6 +43,12 @@ counts only; home paths are redacted, and transcripts never leave the machine.
 anchor, reason, detector, and retirement test. Add an entry with each new rule, shim,
 or hook.
 
+Claude Code and Codex both load `hooks/hooks.json` from this plugin. Codex skips
+plugin hooks until you review and trust them once with `/hooks`, and it does not
+apply hook denials under its `read-only` sandbox. In Codex, the zsh glob guard always
+denies with a quoting reason; Codex only accepts a rewrite together with an `allow`
+decision, which would skip its approval policy.
+
 Any main model chooses direct execution or a rubric worker using
 [Execution choice](references/routing.md#execution-choice): capability, verifiability,
 and total cost including handoff and verification. Tiny edits stay local; clear

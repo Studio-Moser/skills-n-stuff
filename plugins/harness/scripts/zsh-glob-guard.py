@@ -1,20 +1,23 @@
 #!/usr/bin/env python3
-"""Claude Code PreToolUse hook: stop zsh "no matches found" failures.
+"""Claude Code and Codex PreToolUse hook: stop zsh "no matches found" failures.
 
 zsh aborts a command when an unquoted glob matches nothing (`grep --include=*.md`,
 `curl https://x?y=1`); bash passes the word through. When the user's shell is zsh
 and an unquoted glob would match nothing, log one Shim_Events firing and:
 
-- in `auto` or `bypassPermissions` mode, rewrite the command with a
+- in Claude Code `auto` or `bypassPermissions` mode, rewrite the command with a
   `setopt no_nomatch;` prefix through `updatedInput`. Globs that match keep
   expanding exactly as before, and the rewritten command still goes through the
   normal permission flow;
-- in any other mode, deny the call with the reason, so the model quotes the glob and
-  retries. Permission rules match the command the hook returns, so a rewrite there
-  would stop matching the user's allowlist (`Bash(echo:*)`) and add prompts.
+- otherwise, deny the call with the reason, so the model quotes the glob and
+  retries. In Claude Code's other modes, permission rules match the command the hook
+  returns, so a rewrite would stop matching the user's allowlist (`Bash(echo:*)`)
+  and add prompts. Codex applies `updatedInput` only together with an `allow`
+  decision, which would skip its approval policy, so Codex always gets the denial.
 
-The hook never returns `allow`. Any error exits 0 with no output, which leaves the
-call untouched.
+Both tools read this plugin's hooks/hooks.json; Codex sets CLAUDE_PLUGIN_ROOT for
+plugin hooks and identifies itself with a `turn_id` in the payload. The hook never
+returns `allow`. Any error exits 0 with no output, which leaves the call untouched.
 """
 
 from __future__ import annotations
@@ -144,6 +147,11 @@ def unmatched_globs(command: str, cwd: str) -> list[str]:
     return misses
 
 
+def agent_of(payload: dict) -> str:
+    # Codex PreToolUse payloads carry turn_id; Claude Code's do not.
+    return "codex" if "turn_id" in payload else "claude"
+
+
 def decide(payload: dict, shell: str) -> tuple[dict | None, list[str]]:
     if payload.get("tool_name") != "Bash" or not shell.endswith("zsh"):
         return None, []
@@ -158,7 +166,7 @@ def decide(payload: dict, shell: str) -> tuple[dict | None, list[str]]:
     misses = unmatched_globs(command, str(payload.get("cwd") or os.getcwd()))
     if not misses:
         return None, []
-    if payload.get("permission_mode") in REWRITE_MODES:
+    if agent_of(payload) == "claude" and payload.get("permission_mode") in REWRITE_MODES:
         updated = dict(tool_input, command=PREFIX + command)
         return {"hookSpecificOutput": {"hookEventName": "PreToolUse", "updatedInput": updated}}, misses
     quoted = ", ".join(misses[:MAX_LOGGED])
@@ -186,7 +194,10 @@ def main() -> int:
         import telemetry
 
         action = "rewrite" if "updatedInput" in output["hookSpecificOutput"] else "deny"
-        telemetry.append("Shim_Events", {"shim": SHIM_ID, "action": action, "patterns": misses[:MAX_LOGGED]})
+        telemetry.append(
+            "Shim_Events",
+            {"shim": SHIM_ID, "agent": agent_of(payload), "action": action, "patterns": misses[:MAX_LOGGED]},
+        )
     except Exception:  # noqa: BLE001 — a hook must never break the tool call it guards.
         pass
     return 0
