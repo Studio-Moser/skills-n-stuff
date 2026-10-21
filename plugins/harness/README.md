@@ -72,11 +72,16 @@ A personal agents repo that contains `rulesync.jsonc` hands per-tool generation 
   text outside the markers lives there too, and rulesync writes `CLAUDE.md`,
   Codex `AGENTS.md`, and every other tool's instruction file from it;
 - runs `rulesync install` for the third-party skills declared under `sources`
-  (pinned by `rulesync.lock`) and `rulesync generate --global` for instructions, MCP
-  servers (`.rulesync/mcp.jsonc`), hooks (`.rulesync/hooks.jsonc`), skills,
-  subagents, and commands;
-- merges this machine's untracked `.rulesync.local/mcp.jsonc` servers (app-bundled
-  or machine-path servers) into a temporary source, so they never reach git;
+  (pinned by `rulesync.lock`) only when the config, lockfile, or installed skills
+  changed, with your `gh` login token so GitHub's anonymous rate limit does not apply;
+  an old installer copy (from `npx skills`) that blocks a declared skill is moved to
+  `~/.local/state/studio-moser/harness/replaced-skills/` first;
+- runs `rulesync generate --global` for instructions, MCP servers
+  (`.rulesync/mcp.jsonc`), hooks (`.rulesync/hooks.jsonc`), skills, subagents, and
+  commands;
+- merges this machine's untracked `.rulesync.local/mcp.jsonc` servers and
+  `hooks.jsonc` entries (app-bundled tools, machine paths) into a temporary source,
+  so they never reach git;
 - removes the generated folders of skills dropped from the source since this
   machine's last run, and nothing else;
 - skips its own MCP manifest and `npx skills` steps.
@@ -102,7 +107,11 @@ macOS login Keychain (service `agent-secrets`), the Linux desktop keyring throug
 | `bin/with-secrets NAME ... -- command` | start a command with those values exported |
 
 An MCP server that needs a key starts through the launcher, so it works no matter
-which app launched the agent (GUI apps such as T3 Code do not read shell rc files):
+which app launched the agent (GUI apps such as T3 Code do not read shell rc files).
+The launcher is plain `sh` and reads the store itself, so it works with any installed
+Harness version. Claude Code keeps an unset `${VAR}` literally but warns, so for an
+HTTP server with a token header use its `headersHelper` there and `mcp-remote` (which
+substitutes `${VAR}` from its own environment) for other tools:
 
 ```jsonc
 "kie-ai": {

@@ -19,10 +19,16 @@ input=""
 prev=""
 for arg in "\$@"; do [ "\$prev" = "--input-roots" ] && input="\$arg"; prev="\$arg"; done
 case "\$1" in
-  install) echo "Installed 1 skill(s)"; mkdir -p .rulesync/skills/.curated/alpha ;;
+  install)
+    if [ -d "$HOME/.agents/skills/alpha" ]; then
+      echo 'Skipping remote skill "alpha" from o/r: local skill takes precedence.'
+    else
+      echo "Installed 1 skill(s)"; mkdir -p .rulesync/skills/.curated/alpha
+    fi ;;
   generate)
     [ -n "\${STUB_FAIL:-}" ] && { echo "boom" >&2; exit 1; }
     [ -f "\$input/mcp.jsonc" ] && cp "\$input/mcp.jsonc" "$BATS_TEST_TMPDIR/merged-mcp.json"
+    [ -f "\$input/hooks.jsonc" ] && cp "\$input/hooks.jsonc" "$BATS_TEST_TMPDIR/merged-hooks.json"
     case "\$*" in *--delete*) printf '%s\n' "\${STUB_DELETE:-}" ;; esac
     echo "Written 3 file(s) total" ;;
 esac
@@ -104,4 +110,58 @@ assert sorted(m["codexcli"]["mcpServers"]) == ["app", "codex-only"], m
   run grep -c '^install' "$LOG"
   [ "$output" = "0" ]
   [ ! -e "$XDG_STATE_HOME/studio-moser/harness/rulesync-skills.json" ]
+}
+
+@test "machine-local hooks are appended per event for shared and per-tool blocks" {
+  printf '{ "global": true }\n' > "$REPO/rulesync.jsonc"
+  printf '{ "version": 1, "codexcli": { "hooks": { "stop": [{ "command": "shared-stop" }] } } }\n' > "$REPO/.rulesync/hooks.jsonc"
+  mkdir -p "$REPO/.rulesync.local"
+  printf '{ "codexcli": { "hooks": { "stop": [{ "command": "local-stop" }], "sessionStart": [{ "command": "local-start" }] } } }\n' > "$REPO/.rulesync.local/hooks.jsonc"
+  run "$STEP" "$REPO"
+  [ "$status" -eq 0 ]
+  run python3 -c '
+import json, sys
+merged = json.load(open(sys.argv[1]))
+assert merged["hooks"] == {}, merged
+h = merged["codexcli"]["hooks"]
+assert [e["command"] for e in h["stop"]] == ["shared-stop", "local-stop"], h
+assert [e["command"] for e in h["sessionStart"]] == ["local-start"], h
+' "$BATS_TEST_TMPDIR/merged-hooks.json"
+  [ "$status" -eq 0 ]
+}
+
+@test "install is skipped while config, lock, and installed skills are unchanged" {
+  printf '{ "global": true, "sources": [{ "source": "o/r", "skills": ["alpha"] }] }\n' > "$REPO/rulesync.jsonc"
+  printf '{ "lockfileVersion": 1, "sources": { "o/r": { "skills": { "alpha": {} } } } }\n' > "$REPO/rulesync.lock"
+  "$STEP" "$REPO" >/dev/null
+  : > "$LOG"
+  "$STEP" "$REPO" >/dev/null
+  run grep -c '^install' "$LOG"
+  [ "$output" = "0" ]
+  # A missing installed skill or a lockfile change installs again.
+  rm -rf "$REPO/.rulesync/skills/.curated/alpha"
+  "$STEP" "$REPO" >/dev/null
+  run grep -c '^install' "$LOG"
+  [ "$output" = "1" ]
+}
+
+@test "an old installer copy that shadows a declared skill is moved aside, then installed" {
+  printf '{ "global": true, "sources": [{ "source": "o/r", "skills": ["alpha"] }] }\n' > "$REPO/rulesync.jsonc"
+  mkdir -p "$HOME/.agents/skills/alpha"
+  echo old > "$HOME/.agents/skills/alpha/SKILL.md"
+  run "$STEP" "$REPO"
+  [ "$status" -eq 0 ]
+  [ "$(grep -c '^install' "$LOG")" -eq 2 ]
+  [ -d "$REPO/.rulesync/skills/.curated/alpha" ]
+  [ ! -e "$HOME/.agents/skills/alpha" ]
+  [ "$(cat "$XDG_STATE_HOME"/studio-moser/harness/replaced-skills/*/.agents-alpha/SKILL.md)" = "old" ]
+}
+
+@test "a skill authored in the repo keeps precedence and is never moved" {
+  printf '{ "global": true, "sources": [{ "source": "o/r", "skills": ["alpha"] }] }\n' > "$REPO/rulesync.jsonc"
+  mkdir -p "$HOME/.agents/skills/alpha" "$REPO/.rulesync/skills/alpha"
+  run "$STEP" "$REPO"
+  [ "$status" -eq 0 ]
+  [ "$(grep -c '^install' "$LOG")" -eq 1 ]
+  [ -d "$HOME/.agents/skills/alpha" ]
 }

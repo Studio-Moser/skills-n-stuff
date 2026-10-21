@@ -925,9 +925,13 @@ def dry_run(args: argparse.Namespace, configured_repo: Path, repo: Path, roots: 
     print("  Push:       skipped in dry run")
     print("  Final:      read-only preview")
     print("  Plugins:    skipped in dry run")
-    print(f"  MCP:        {len(mcp)} plan item(s)")
-    print(f"  MCP local deviations: {deviations(repo, 'skipMcp', 'keepLocalMcp')}")
-    print(f"  Skills:     {skill_state}")
+    if rulesync_managed(repo):
+        print("  MCP:        managed by rulesync")
+        print("  Skills:     managed by rulesync")
+    else:
+        print(f"  MCP:        {len(mcp)} plan item(s)")
+        print(f"  MCP local deviations: {deviations(repo, 'skipMcp', 'keepLocalMcp')}")
+        print(f"  Skills:     {skill_state}")
     print(f"  Skills local deviations: {deviations(repo, 'skipInstall', 'keepLocal')}")
     print(f"  Lint:       {'clean' if lint.returncode == 0 else 'findings'}")
     print(f"  Rulesync:   {rulesync_state}")
