@@ -129,6 +129,9 @@ main = text.split("def main", 1)[1]
 assert main.index('"sync-preflight.sh"') < main.index("reconcile_links(")
 assert main.index('"sync-preflight.sh"') < main.index("publish_telemetry(")
 assert main.index('"sync-finalize.sh"') > main.index("publish_telemetry(")
+# rulesync writes every tool's files after the last render, before the single commit.
+assert main.rindex("render(repo, scripts, args.adopt_profile)") < main.index("rulesync_step(repo, scripts)")
+assert main.index("rulesync_step(repo, scripts)") < main.index('"sync-finalize.sh"')
 assert main.index('"sync-finalize.sh"') > main.index("final_mcp(")
 assert main.count('"sync-finalize.sh"') == 1
 assert "git\", \"commit" not in text
@@ -289,6 +292,34 @@ EOF
   git -C "$AGENTS" cat-file -e "HEAD:telemetry/$host/Results-$month.jsonl"
   git -C "$AGENTS" cat-file -e "HEAD:telemetry/$host/Shim_Events-$month.jsonl"
   git -C "$AGENTS" show "HEAD:telemetry/$host/Usage-$month.json" | python3 -c 'import json,sys; r=json.load(sys.stdin); assert r["scope"] == "local" and r["shim_firings"] == {"zsh-glob-guard": 1}, r'
+}
+
+@test "a rulesync-managed repo hands MCP and skills to rulesync and commits its sources" {
+  remote="$BATS_TEST_TMPDIR/remote.git"
+  make_sync_repo "$AGENTS" "$remote"
+  install_sync_stubs
+  printf '{ "global": true, "delete": false }\n' > "$AGENTS/rulesync.jsonc"
+  git -C "$AGENTS" add rulesync.jsonc && git -C "$AGENTS" commit -qm managed && git -C "$AGENTS" push -q
+  cat > "$BIN/npx" <<EOF
+#!/usr/bin/env bash
+case "\$*" in
+  *rulesync@*generate*) echo "\$*" >> "$BATS_TEST_TMPDIR/rulesync.log"; echo "Written 2 file(s) total" ;;
+  *) touch "$BATS_TEST_TMPDIR/skills-npx-called"; printf '[]\n' ;;
+esac
+EOF
+  chmod +x "$BIN/npx"
+
+  run env HOME="$HOME_DIR" AGENTS_REPO="$AGENTS" CLAUDE_CONFIG_DIR="$HOME_DIR/.claude" XDG_CONFIG_HOME="$HOME_DIR/.config" CODEX_HOME="$HOME_DIR/.codex" PATH="$BIN:/usr/bin:/bin" "$SCRIPT"
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"MCP:        managed by rulesync"* ]] || return 1
+  [[ "$output" == *"Skills:     managed by rulesync"* ]] || return 1
+  [[ "$output" == *"Rulesync:   generated: 2 file(s) written"* ]] || return 1
+  [ ! -e "$BATS_TEST_TMPDIR/skills-npx-called" ]
+  grep -q -- "generate --global --input-roots" "$BATS_TEST_TMPDIR/rulesync.log"
+  [ -z "$(git -C "$AGENTS" status --porcelain=v1 --untracked-files=all)" ]
+  git -C "$AGENTS" cat-file -e HEAD:.rulesync/rules/Global_Instructions.md
+  [ "$(git -C "$AGENTS" ls-files -s bin/with-secrets | cut -c1-6)" = "100755" ]
 }
 
 @test "nested agents path is refused without changing the outer index or remote" {

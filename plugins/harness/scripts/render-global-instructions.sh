@@ -26,6 +26,14 @@ rules="$profile/Global Instructions.md"
 style="$profile/House Style.md"
 target="$repo/claude/CLAUDE.md"
 copy="$repo/codex/AGENTS.md"
+# A rulesync-managed repo keeps the same text as its root rule; rulesync writes every
+# tool's instruction file from it (CLAUDE.md and AGENTS.md through their links).
+source_rule=""
+frontmatter=""
+if [ -f "$repo/rulesync.jsonc" ]; then
+  source_rule="$repo/.rulesync/rules/Global_Instructions.md"
+  frontmatter="$(printf -- '---\nroot: true\ntargets: ["*"]\n---')"
+fi
 start='<!-- harness:profile:start -->'
 end='<!-- harness:profile:end -->'
 
@@ -35,6 +43,13 @@ fail() { echo "RENDER_STATE=failed: $1"; exit 3; }
 [ -s "$style" ] || fail "missing $style"
 
 # --- the developer's own text: everything outside the managed block ---------
+# Under rulesync the root rule is the source of that text; CLAUDE.md is generated.
+if [ -n "$source_rule" ] && [ -s "$source_rule" ]; then
+  body="$(mktemp)"
+  trap 'rm -f "$body"' EXIT
+  awk 'NR == 1 && $0 == "---" { fm = 1; next } fm && $0 == "---" { fm = 0; next } !fm { print }' "$source_rule" > "$body"
+  target="$body"
+fi
 own=""
 if [ -s "$target" ]; then
   if grep -qF -- "$start" "$target" && grep -qF -- "$end" "$target"; then
@@ -65,10 +80,19 @@ rendered="$(printf '%s\n%s\n\n%s\n\n%s\n%s\n' \
 [ -z "$own" ] || rendered="$(printf '%s\n\n%s\n' "$rendered" "$own")"
 
 state=unchanged
-for out in "$target" "$copy"; do
+if [ -n "$source_rule" ]; then
+  rendered="$(printf '%s\n%s\n' "$frontmatter" "$rendered")"
+  outputs="$source_rule"
+else
+  outputs="$target
+$copy"
+fi
+while IFS= read -r out; do
   if [ -f "$out" ] && [ "$(cat "$out")" = "$rendered" ]; then continue; fi
   mkdir -p "$(dirname "$out")"
   printf '%s\n' "$rendered" > "$out"
   state=regenerated
-done
+done <<EOF
+$outputs
+EOF
 echo "RENDER_STATE=$state"

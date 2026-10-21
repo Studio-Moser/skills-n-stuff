@@ -909,6 +909,10 @@ def dry_run(args: argparse.Namespace, configured_repo: Path, repo: Path, roots: 
                 skill_state = error.message.partition(": ")[2] or error.message
         else:
             skill_state = "skipped: repo is not $HOME/.agents"
+    rulesync_state = "not configured"
+    if rulesync_managed(repo):
+        rulesync_state, rulesync_findings = rulesync_step(repo, scripts, dry_run=True)
+        valid = valid and not rulesync_findings
     lint = run([helper(scripts, "portability-lint.sh"), str(repo)], check=False)
     rubric = run([helper(scripts, "rubric-audit.sh"), "--days", "7"], check=False)
     valid = lint.returncode == 0 and rubric.returncode in (0, 3) and valid
@@ -926,6 +930,7 @@ def dry_run(args: argparse.Namespace, configured_repo: Path, repo: Path, roots: 
     print(f"  Skills:     {skill_state}")
     print(f"  Skills local deviations: {deviations(repo, 'skipInstall', 'keepLocal')}")
     print(f"  Lint:       {'clean' if lint.returncode == 0 else 'findings'}")
+    print(f"  Rulesync:   {rulesync_state}")
     print(f"  Rubric:     {'clean' if rubric.returncode == 0 else 'findings'}")
     return 0 if valid else EXIT_FAILED
 
@@ -961,6 +966,28 @@ fi
 cd "${{AGENTS_REPO:-$HOME/.agents}}" && git pull --ff-only >/dev/null 2>&1 && {{ echo "REMOTE_STATE=pulled"; exit 0; }}
 echo "REMOTE_STATE=failed"; exit 1
 """
+
+
+def rulesync_managed(repo: Path) -> bool:
+    """A repo with rulesync.jsonc hands instructions, MCP, hooks, and skills to rulesync."""
+    return (repo / "rulesync.jsonc").is_file()
+
+
+def install_with_secrets(repo: Path, scripts: Path) -> None:
+    """Keep the repo's MCP launcher current; configs start secret-bearing servers through it."""
+    template = scripts.parent / "templates" / "with-secrets"
+    target = repo / "bin" / "with-secrets"
+    if template.is_file() and (not target.is_file() or target.read_bytes() != template.read_bytes()):
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(template, target)
+    if target.is_file():
+        target.chmod(0o755)
+
+
+def rulesync_step(repo: Path, scripts: Path, *, dry_run: bool = False) -> tuple[str, list[str]]:
+    result = run([sys.executable, helper(scripts, "rulesync-generate.py"), *(["--dry-run"] if dry_run else []), str(repo)], check=False)
+    state = next((line.partition("=")[2] for line in result.stdout.splitlines() if line.startswith("RULESYNC_STATE=")), f"failed: exit {result.returncode}")
+    return state, ([f"rulesync {state}"] if result.returncode else [])
 
 
 def publish_telemetry(repo: Path, scripts: Path) -> str:
@@ -1116,13 +1143,18 @@ def sync(
         _ok2, relinked2, attention2 = reconcile_links(args, repo, roots, scripts)
         relinked += relinked2
         attention = attention2
-    mcp_state = reconcile_mcp_manifest(repo, roots["claude"], runtime_mcp, scripts)
+    managed = rulesync_managed(repo)
     plugin_state, findings = plugin_reconcile(repo, roots["claude"])
-    plan, _ = mcp_plan(repo, roots["claude"], runtime_mcp, scripts)
-    mcp_findings, prune_to_local = apply_mcp(args, plan, repo, roots["claude"], runtime_mcp, scripts)
-    findings.extend(mcp_findings)
-    skills_state, skill_findings = apply_skills(args, configured_repo, repo, scripts)
-    findings.extend(skill_findings)
+    if managed:
+        mcp_state, plan, prune_to_local = "managed by rulesync", [], False
+        skills_state = "managed by rulesync"
+    else:
+        mcp_state = reconcile_mcp_manifest(repo, roots["claude"], runtime_mcp, scripts)
+        plan, _ = mcp_plan(repo, roots["claude"], runtime_mcp, scripts)
+        mcp_findings, prune_to_local = apply_mcp(args, plan, repo, roots["claude"], runtime_mcp, scripts)
+        findings.extend(mcp_findings)
+        skills_state, skill_findings = apply_skills(args, configured_repo, repo, scripts)
+        findings.extend(skill_findings)
     telemetry_state = publish_telemetry(repo, scripts)
     lint = run([helper(scripts, "portability-lint.sh"), str(repo)], check=False)
     if lint.returncode:
@@ -1135,8 +1167,14 @@ def sync(
     elif rubric.returncode == 3:
         findings.append("rubric audit skipped: python3 not on PATH")
     reconcile_settings(repo, roots["claude"], scripts, check=False)
-    final_mcp(repo, runtime_mcp, scripts, prune_to_local=prune_to_local)
+    if not managed:
+        final_mcp(repo, runtime_mcp, scripts, prune_to_local=prune_to_local)
     derived = render(repo, scripts, args.adopt_profile)
+    # rulesync writes every tool's files last, so nothing above overwrites its output.
+    if managed:
+        install_with_secrets(repo, scripts)
+    rulesync_state, rulesync_findings = rulesync_step(repo, scripts) if managed else ("not configured", [])
+    findings.extend(rulesync_findings)
     final_links, _ = read_link_plan(scripts, repo)
     unresolved_links = [name for name, _rel, state in final_links if state != "ok"]
     if unresolved_links:
@@ -1161,6 +1199,7 @@ def sync(
     print(f"  Skills local deviations: {deviations(repo, 'skipInstall', 'keepLocal')}")
     print("  Lint:       clean")
     print(f"  Rubric:     {'clean' if rubric.returncode == 0 else 'findings'}")
+    print(f"  Rulesync:   {rulesync_state}")
     print(f"  Telemetry:  {telemetry_state}")
     print(f"  Machines:   {machine_state}")
     if backup:

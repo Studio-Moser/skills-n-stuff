@@ -84,3 +84,29 @@ setup() {
   run "$SCRIPT"
   [ "$status" -eq 2 ]
 }
+
+@test "a rulesync-managed repo gets the profile as its root rule, migrating own text once" {
+  "$SCRIPT" "$REPO" "$PROFILE" > /dev/null
+  printf '\nMy own note.\n' >> "$REPO/claude/CLAUDE.md"
+  printf '{ "global": true }\n' > "$REPO/rulesync.jsonc"
+  before="$(cat "$REPO/claude/CLAUDE.md")"
+  run "$SCRIPT" "$REPO" "$PROFILE"
+  [ "$status" -eq 0 ]
+  [ "$output" = "RENDER_STATE=regenerated" ]
+  rule="$REPO/.rulesync/rules/Global_Instructions.md"
+  [ "$(sed -n 1,4p "$rule")" = "$(printf -- '---\nroot: true\ntargets: ["*"]\n---')" ]
+  # The body is exactly what CLAUDE.md held; rulesync now writes CLAUDE.md from it.
+  [ "$(sed '1,4d' "$rule")" = "$before" ]
+  [ "$(cat "$REPO/claude/CLAUDE.md")" = "$before" ]
+
+  # Own text is now edited in the rule; a profile change keeps it.
+  printf '\nRule-side note.\n' >> "$rule"
+  printf '\nNew rule.\n' >> "$PROFILE/Global Instructions.md"
+  run "$SCRIPT" "$REPO" "$PROFILE"
+  [ "$output" = "RENDER_STATE=regenerated" ]
+  grep -q 'New rule.' "$rule"
+  grep -q 'Rule-side note.' "$rule"
+  grep -q 'My own note.' "$rule"
+  run "$SCRIPT" "$REPO" "$PROFILE"
+  [ "$output" = "RENDER_STATE=unchanged" ]
+}

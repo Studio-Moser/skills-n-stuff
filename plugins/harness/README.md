@@ -62,6 +62,57 @@ machine; Claude plus Codex enables cross-provider delegation, while either
 provider alone still produces a valid rubric. Software-work efficiency uses
 benchmark cost per successful task rather than token list price alone.
 
+## One source for every agent tool (rulesync)
+
+A personal agents repo that contains `rulesync.jsonc` hands per-tool generation to
+[rulesync](https://github.com/dyoshikawa/rulesync) (pinned in
+`scripts/rulesync-generate.py`). `/harness:sync` then:
+
+- renders the Harness profile into `.rulesync/rules/Global_Instructions.md`; your own
+  text outside the markers lives there too, and rulesync writes `CLAUDE.md`,
+  Codex `AGENTS.md`, and every other tool's instruction file from it;
+- runs `rulesync install` for the third-party skills declared under `sources`
+  (pinned by `rulesync.lock`) and `rulesync generate --global` for instructions, MCP
+  servers (`.rulesync/mcp.jsonc`), hooks (`.rulesync/hooks.jsonc`), skills,
+  subagents, and commands;
+- merges this machine's untracked `.rulesync.local/mcp.jsonc` servers (app-bundled
+  or machine-path servers) into a temporary source, so they never reach git;
+- removes the generated folders of skills dropped from the source since this
+  machine's last run, and nothing else;
+- skips its own MCP manifest and `npx skills` steps.
+
+Keep `delete` off in `rulesync.jsonc`: rulesync's sweep would also remove folders
+other installers own, such as `~/.claude/skills/synced`. Permissions are not
+generated: rulesync's translation would change Codex's sandbox. Plugins stay with
+Harness's plugin reconciliation, since rulesync only packages plugins.
+
+## Secrets
+
+Secret values live only in each machine's secret store, never in the repo or an
+agent's config. `scripts/agent-secrets.py` picks the store from the platform: the
+macOS login Keychain (service `agent-secrets`), the Linux desktop keyring through
+`secret-tool`, or a `0600` file at `~/.config/agent-secrets/secrets.env`;
+`HARNESS_SECRETS_BACKEND` overrides it.
+
+| Command | Does |
+|---|---|
+| `agent-secrets.py set NAME` | store the value read from stdin or a hidden prompt |
+| `agent-secrets.py check [NAME ...]` | report present/missing for `secrets.names` in the repo |
+| `agent-secrets.py copy-to HOST [NAME ...]` | copy values over fleet SSH into HOST's own store |
+| `bin/with-secrets NAME ... -- command` | start a command with those values exported |
+
+An MCP server that needs a key starts through the launcher, so it works no matter
+which app launched the agent (GUI apps such as T3 Code do not read shell rc files):
+
+```jsonc
+"kie-ai": {
+  "command": "sh",
+  "args": ["-c", "exec \"$HOME/.agents/bin/with-secrets\" KIE_AI_API_KEY -- npx -y @felores/kie-ai-mcp-server"]
+}
+```
+
+Values travel on stdin only; nothing prints them or puts them on a command line.
+
 ## Provider-resilient routes
 
 The rubric may define an ordered `fallbacks.<route>` list for a semantic route.
@@ -184,7 +235,7 @@ and confirms a remote is private before the first push.
 | `scripts/reconcile_shared_settings.py [--check] <settings.json> [...]` | enable Harness and remove the retired Machine setting atomically |
 | `scripts/mcp-manifest.sh [--prune-to-local] <claude-user-state.json> <mcp.manifest.json>` | generate the portable MCP manifest (shape with `${VAR}` references, per-host `machines`), migrate a names-only file, or `--check` one |
 | `scripts/mcp-reconcile.sh <repo> <claude-user-state.json> <settings.local.json>` | read-only per-host table and plan lines for `harness:sync`'s match / replace / merge step |
-| `scripts/mcp-secrets.sh export [--stdout] <mcp.manifest.json> <claude-user-state.json>` \| `import <claude-user-state.json>` | move `${VAR}` values between machines without the repo seeing them |
+| `scripts/mcp-secrets.sh export [--stdout] <mcp.manifest.json> <claude-user-state.json>` \| `import <claude-user-state.json>` | move `${VAR}` values between machines without the repo seeing them (repos without rulesync; managed repos use `agent-secrets.py`) |
 | `scripts/stamp-baseline.sh <target> [body]` | idempotently stamp the Harness project block; defaults to the bundled template |
 | `scripts/portability-lint.sh [repo]` | fail on machine-specific absolute paths |
 | `scripts/rubric-path.sh [--check]` | resolve the rubric path / report `set`\|`unset` |
@@ -196,6 +247,10 @@ and confirms a remote is private before the first push.
 | `scripts/fleet-authorize.sh [repo] [authorized_keys]` | rewrite the `# harness:fleet` block in `authorized_keys` from `<repo>/ssh/keys/*.pub`; rejects option-bearing keys |
 | `scripts/fleet-hosts.sh [repo]` | print the concrete `Host` aliases in `<repo>/ssh/config`; exit 1 on none or an unsafe alias |
 | `scripts/fleet-include.sh [repo] [ssh_config]` | prepend a global `Include` of the fleet inventory unless one already precedes the first `Host`/`Match` |
+| `scripts/rulesync-generate.py [--dry-run] <repo>` | install declared skills and generate every agent tool's files from a rulesync-managed repo |
+| `scripts/agent-secrets.py set\|exec\|check\|copy-to ...` | store secrets in this machine's secret store and hand them only to the process that needs them |
+| `scripts/telemetry.py record-result\|publish ...` | append delegation results and publish local telemetry into the repo's `telemetry/<host>/` |
+| `scripts/usage-report.py [--days N\|--month YYYY-MM]` | deterministic usage counts from transcripts and telemetry |
 | `scripts/sync-finalize.sh <repo> <message>` | stage, scan, commit, exact-lease push, and prove a clean actual remote SHA once |
 
 ## Tests
