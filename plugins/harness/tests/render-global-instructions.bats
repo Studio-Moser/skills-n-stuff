@@ -121,3 +121,15 @@ setup() {
   [ "$status" -eq 0 ]
   [ "$(sed -n 1,5p "$rule")" = "$(printf -- '---\nroot: true\ntargets: ["claudecode", "codexcli"]\ndescription: mine\n---')" ]
 }
+
+@test "a non-true root key is replaced, never duplicated" {
+  printf '{ "global": true }\n' > "$REPO/rulesync.jsonc"
+  "$SCRIPT" "$REPO" "$PROFILE" > /dev/null
+  rule="$REPO/.rulesync/rules/Global_Instructions.md"
+  body="$(awk 'NR == 1 { next } f { print } $0 == "---" && !f { f = 1 }' "$rule")"
+  printf -- '---\nroot: false\ndescription: mine\n---\n%s\n' "$body" > "$rule"
+  run "$SCRIPT" "$REPO" "$PROFILE"
+  [ "$status" -eq 0 ]
+  [ "$(sed -n 1,4p "$rule")" = "$(printf -- '---\nroot: true\ndescription: mine\n---')" ]
+  [ "$(grep -c '^root:' "$rule")" -eq 1 ]
+}

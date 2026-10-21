@@ -36,7 +36,7 @@ if [ -f "$repo/rulesync.jsonc" ]; then
   # An existing rule keeps its own front matter (e.g. narrowed targets); root: true is required.
   if [ -s "$source_rule" ] && [ "$(head -n 1 "$source_rule")" = "---" ] && [ "$(sed -n '2,$p' "$source_rule" | grep -c '^---$')" -gt 0 ]; then
     existing="$(awk 'NR == 1 { next } $0 == "---" { exit } { print }' "$source_rule")"
-    printf '%s\n' "$existing" | grep -q '^root: *true *$' || existing="$(printf 'root: true\n%s' "$existing")"
+    existing="$(printf 'root: true\n%s' "$(printf '%s\n' "$existing" | grep -v '^root:' || true)")"
     frontmatter="$(printf -- '---\n%s\n---' "$existing")"
   fi
 fi

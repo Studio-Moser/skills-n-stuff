@@ -25,7 +25,9 @@ case "\$1" in
     if [ -n "\${STUB_FETCH_NOTHING:-}" ] || [ -d skills/alpha ]; then
       echo "Installed 0 skill(s)"
     else
-      echo "Installed 1 skill(s)"; mkdir -p .rulesync/skills/.curated/alpha
+      echo "Installed 1 skill(s)"; mkdir -p .rulesync/skills/.curated/alpha .rulesync/rules/.curated
+      echo r > .rulesync/rules/.curated/fetched.md; echo '{}' > rulesync-npm.lock.json
+      if [ -f rulesync.local.jsonc ]; then cp rulesync.local.jsonc "$BATS_TEST_TMPDIR/seen-local-config"; fi
     fi ;;
   generate)
     [ -n "\${STUB_FAIL:-}" ] && { echo "boom" >&2; exit 1; }
@@ -188,4 +190,22 @@ assert [e["command"] for e in h["sessionStart"]] == ["local-start"], h
   run "$STEP" "$REPO"
   [ "$status" -eq 1 ]
   [[ "$output" == "RULESYNC_STATE=failed: JSONDecodeError"* ]] || return 1
+}
+
+@test "install carries fetched rules, the npm lock, and the local config through its private root" {
+  printf '{ "global": true, "sources": [{ "source": "o/r", "skills": ["alpha"] }] }\n' > "$REPO/rulesync.jsonc"
+  printf '{ "verbose": false }\n' > "$REPO/rulesync.local.jsonc"
+  run "$STEP" "$REPO"
+  [ "$status" -eq 0 ]
+  [ "$(cat "$REPO/.rulesync/rules/.curated/fetched.md")" = "r" ]
+  [ -f "$REPO/rulesync-npm.lock.json" ]
+  [ -f "$BATS_TEST_TMPDIR/seen-local-config" ]
+}
+
+@test "delete mode in rulesync.local.jsonc is refused too" {
+  printf '{ "global": true }\n' > "$REPO/rulesync.jsonc"
+  printf '{ "delete": true }\n' > "$REPO/rulesync.local.jsonc"
+  run "$STEP" "$REPO"
+  [ "$status" -eq 1 ]
+  [[ "$output" == 'RULESYNC_STATE=failed: set "delete": false'* ]] || return 1
 }

@@ -35,6 +35,10 @@ import tempfile
 
 RULESYNC = os.environ.get("HARNESS_RULESYNC", "rulesync@39.0.0")
 DELETE_LINE = re.compile(r'Would delete directory: "([^"]+)"')
+# What `rulesync install` reads and writes, carried through its private root.
+INSTALL_LOCKS = ("rulesync.lock", "rulesync-npm.lock.json")
+INSTALL_FILES = ("rulesync.jsonc", "rulesync.local.jsonc", *INSTALL_LOCKS)
+INSTALL_FOLDERS = (".rulesync/skills/.curated", ".rulesync/rules/.curated")
 
 
 def strip_jsonc(text: str) -> str:
@@ -164,22 +168,23 @@ def install(repo: Path) -> subprocess.CompletedProcess:
     """
     with tempfile.TemporaryDirectory(prefix="harness-rulesync-install.") as temp:
         root = Path(temp)
-        for name in ("rulesync.jsonc", "rulesync.lock"):
+        for name in INSTALL_FILES:
             if (repo / name).is_file():
                 shutil.copy2(repo / name, root / name)
-        curated = repo / ".rulesync" / "skills" / ".curated"
-        if curated.is_dir():
-            shutil.copytree(curated, root / ".rulesync" / "skills" / ".curated", symlinks=True)
+        for folder in INSTALL_FOLDERS:
+            if (repo / folder).is_dir():
+                shutil.copytree(repo / folder, root / folder, symlinks=True)
         result = rulesync(root, "install")
         if result.returncode == 0:
-            fetched = root / ".rulesync" / "skills" / ".curated"
-            if curated.exists():
-                shutil.rmtree(curated)
-            if fetched.is_dir():
-                curated.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copytree(fetched, curated, symlinks=True)
-            if (root / "rulesync.lock").is_file():
-                shutil.copy2(root / "rulesync.lock", repo / "rulesync.lock")
+            for folder in INSTALL_FOLDERS:
+                if (repo / folder).exists():
+                    shutil.rmtree(repo / folder)
+                if (root / folder).is_dir():
+                    (repo / folder).parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copytree(root / folder, repo / folder, symlinks=True)
+            for name in INSTALL_LOCKS:
+                if (root / name).is_file():
+                    shutil.copy2(root / name, repo / name)
         return result
 
 
@@ -234,10 +239,16 @@ def main(argv: list[str]) -> int:
     except ValueError as error:
         print(f"RULESYNC_STATE=failed: rulesync.jsonc unreadable ({error})")
         return 1
-    if settings.get("delete") is True:
+    local_config = repo / "rulesync.local.jsonc"
+    try:
+        local_settings = load_jsonc(local_config) if local_config.is_file() else {}
+    except ValueError as error:
+        print(f"RULESYNC_STATE=failed: rulesync.local.jsonc unreadable ({error})")
+        return 1
+    if settings.get("delete") is True or local_settings.get("delete") is True:
         # Its sweep removes every skill folder rulesync did not generate this run,
         # including other installers' folders such as ~/.claude/skills/synced.
-        print('RULESYNC_STATE=failed: set "delete": false in rulesync.jsonc; Harness removes dropped skills itself')
+        print('RULESYNC_STATE=failed: set "delete": false in rulesync.jsonc and rulesync.local.jsonc; Harness removes dropped skills itself')
         return 1
     try:
         return generate(repo, settings, dry_run)

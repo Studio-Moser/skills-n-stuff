@@ -981,14 +981,23 @@ def rulesync_managed(repo: Path) -> bool:
 RULESYNC_IGNORES = ("/.rulesync.local/", "/.rulesync/skills/.curated/")
 
 
-def ensure_rulesync_ignores(repo: Path) -> None:
-    """Machine-only servers and hooks, and fetched skills, must never be committed."""
+def ensure_rulesync_ignores(repo: Path) -> list[str]:
+    """Machine-only servers and hooks, and fetched skills, must never be committed.
+
+    Returns a finding when such files are already tracked: an ignore line does not
+    untrack them, and untracking is the user's call.
+    """
     ignore = repo / ".gitignore"
     current = ignore.read_text(encoding="utf-8") if ignore.exists() else ""
     missing = [line for line in RULESYNC_IGNORES if line not in current.splitlines()]
     if missing:
         prefix = "" if not current or current.endswith("\n") else "\n"
         ignore.write_text(current + prefix + "\n".join(missing) + "\n", encoding="utf-8")
+    paths = [line.strip("/") for line in RULESYNC_IGNORES]
+    tracked = run(["git", "-C", str(repo), "ls-files", "--", *paths], check=False).stdout.split()
+    if tracked:
+        return [f"tracked files under rulesync's ignored paths; untrack them with: git -C {repo} rm -r --cached {' '.join(paths)}"]
+    return []
 
 
 def install_with_secrets(repo: Path, scripts: Path) -> None:
@@ -1190,7 +1199,7 @@ def sync(
     derived = render(repo, scripts, args.adopt_profile)
     # rulesync writes every tool's files last, so nothing above overwrites its output.
     if managed:
-        ensure_rulesync_ignores(repo)
+        findings.extend(ensure_rulesync_ignores(repo))
         install_with_secrets(repo, scripts)
     rulesync_state, rulesync_findings = rulesync_step(repo, scripts) if managed else ("not configured", [])
     findings.extend(rulesync_findings)

@@ -324,6 +324,22 @@ EOF
   grep -qx '/.rulesync/skills/.curated/' "$AGENTS/.gitignore"
 }
 
+@test "an already tracked machine overlay is reported, not silently committed again" {
+  remote="$BATS_TEST_TMPDIR/remote.git"
+  make_sync_repo "$AGENTS" "$remote"
+  install_sync_stubs
+  printf '{ "global": true }\n' > "$AGENTS/rulesync.jsonc"
+  mkdir -p "$AGENTS/.rulesync.local"
+  printf '{}\n' > "$AGENTS/.rulesync.local/mcp.jsonc"
+  git -C "$AGENTS" add rulesync.jsonc .rulesync.local && git -C "$AGENTS" commit -qm tracked && git -C "$AGENTS" push -q
+  printf '#!/usr/bin/env bash\necho "Written 0 file(s) total"\n' > "$BIN/npx"
+  chmod +x "$BIN/npx"
+
+  run env HOME="$HOME_DIR" AGENTS_REPO="$AGENTS" CLAUDE_CONFIG_DIR="$HOME_DIR/.claude" XDG_CONFIG_HOME="$HOME_DIR/.config" CODEX_HOME="$HOME_DIR/.codex" PATH="$BIN:/usr/bin:/bin" "$SCRIPT"
+
+  [[ "$output" == *"UNRESOLVED=tracked files under rulesync's ignored paths; untrack them with: git -C"*"rm -r --cached .rulesync.local .rulesync/skills/.curated"* ]] || return 1
+}
+
 @test "nested agents path is refused without changing the outer index or remote" {
   outer="$BATS_TEST_TMPDIR/private-project"
   seed="$BATS_TEST_TMPDIR/seed"
