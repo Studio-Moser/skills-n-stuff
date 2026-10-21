@@ -31,7 +31,7 @@ case "\$1" in
       if [ -f rulesync.local.jsonc ]; then cp rulesync.local.jsonc "$BATS_TEST_TMPDIR/seen-local-config"; fi
     fi ;;
   generate)
-    [ -n "\${STUB_FAIL:-}" ] && { echo "boom" >&2; exit 1; }
+    case "\$*" in *--dry-run*) [ -n "\${STUB_LIST_FAIL:-}" ] && { echo "boom" >&2; exit 1; } ;; *) [ -n "\${STUB_FAIL:-}" ] && { echo "boom" >&2; exit 1; } ;; esac
     [ -f "\$input/mcp.jsonc" ] && cp "\$input/mcp.jsonc" "$BATS_TEST_TMPDIR/merged-mcp.json"
     [ -f "\$input/hooks.jsonc" ] && cp "\$input/hooks.jsonc" "$BATS_TEST_TMPDIR/merged-hooks.json"
     case "\$*" in *--delete*) printf '%s\n' "\${STUB_DELETE:-}" ;; *--dry-run*) [ -n "\${STUB_WRITES:-}" ] && printf '[DRY RUN] Would write: %s\n' \$STUB_WRITES ;; esac
@@ -110,7 +110,7 @@ assert sorted(m["codexcli"]["mcpServers"]) == ["app", "codex-only"], m
   printf '{ "global": true }\n' > "$REPO/rulesync.jsonc"
   run env STUB_FAIL=1 "$STEP" "$REPO"
   [ "$status" -eq 1 ]
-  [ "$(state)" = "RULESYNC_STATE=failed: could not list the files to back up before the first generate" ]
+  [ "$(state)" = "RULESYNC_STATE=failed: generate: boom" ]
   run ls "$XDG_STATE_HOME/studio-moser/harness/"
   [[ "$output" != *rulesync-skills* ]] || return 1
 }
@@ -267,7 +267,7 @@ assert [e["command"] for e in h["sessionStart"]] == ["local-start"], h
 
 @test "a failed backup listing stops the first generate" {
   printf '{ "global": true }\n' > "$REPO/rulesync.jsonc"
-  run env STUB_FAIL=1 "$STEP" "$REPO"
+  run env STUB_LIST_FAIL=1 "$STEP" "$REPO"
   [ "$status" -eq 1 ]
   [[ "$output" == *"RULESYNC_BACKUP=failed: boom"* ]] || return 1
   [[ "$output" == *"RULESYNC_STATE=failed: could not list the files to back up before the first generate"* ]] || return 1

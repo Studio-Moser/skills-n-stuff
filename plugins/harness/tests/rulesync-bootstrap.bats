@@ -256,3 +256,25 @@ PY
   grep -qx 'KIE_API_KEY' "$REPO/secrets.names"
   [[ "$output" == *"left as they are): taste"* ]] || return 1
 }
+
+@test "N1/N2: an env secret under an unexportable name is refused; lowercase names are listed" {
+  python3 - "$FIX/claudecode/mcp.jsonc" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))
+d["mcpServers"]["lower"] = {"command": "npx", "args": ["lower"], "env": {"api_key": "lower-secret"}}
+json.dump(d, open(sys.argv[1], "w"))
+PY
+  run "$BOOT" --write "$REPO"
+  [ "$status" -eq 0 ]
+  grep -qx 'api_key' "$REPO/secrets.names"
+  python3 - "$FIX/codexcli/mcp.jsonc" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))
+d["mcpServers"]["bad"] = {"command": "npx", "env": {"X$(id)_KEY": "v1"}}
+json.dump(d, open(sys.argv[1], "w"))
+PY
+  rm -rf "$REPO/.rulesync" "$REPO/rulesync.jsonc"
+  run "$BOOT" --write "$REPO"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *'BOOTSTRAP=failed: SecretError: bad.env.X$(id)_KEY is a secret under a name a launcher cannot export'* ]] || return 1
+}

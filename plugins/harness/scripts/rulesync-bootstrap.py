@@ -172,6 +172,9 @@ def convert(server: str, spec: dict, secrets: Secrets, repo_rel: str) -> tuple[d
         raise SecretError(f"{server}.headers.{secret_headers[0]} holds a secret Harness cannot move")
 
     if secret_env:
+        for key in secret_env:
+            if not store.NAME.match(key):
+                raise SecretError(f"{server}.env.{key} is a secret under a name a launcher cannot export")
         pairs = [(k, secrets.claim(k, env.pop(k), server)) for k in secret_env]
         names = [name for _k, name in pairs]
         command = [spec["command"], *spec.get("args", [])]
@@ -340,7 +343,7 @@ def write_json(path: Path, data: dict) -> None:
     path.write_text(json.dumps(data, indent=2) + "\n")
 
 
-LAUNCHED = re.compile(r'with-secrets\\?" ([A-Z0-9_ ]+?) --')
+LAUNCHED = re.compile(r'with-secrets\\?" ([A-Za-z0-9_ ]+?) --')
 
 
 def store_secrets(repo: Path, secrets: Secrets, shared_source: dict | None) -> None:
