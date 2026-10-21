@@ -63,7 +63,7 @@ jq_() { python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(eval(
   run "$BOOT" "$REPO"
   [ "$status" -eq 0 ]
   [[ "$output" == *"tools: claudecode, codexcli, cursor"* ]] || return 1
-  [[ "$output" == *"secrets moved to the secret store: GH_TOKEN, KIE_API_KEY"* ]] || return 1
+  [[ "$output" == *"secrets moved to the secret store: KIE_API_KEY, MCP_GH_TOKEN"* ]] || return 1
   [[ "$output" == *"your own skills moving to .rulesync/skills: mine"* ]] || return 1
   [[ "$output" == *"BOOTSTRAP=preview"* ]] || return 1
   [[ "$output" != *secret-kie* && "$output" != *secret-gh* ]] || return 1
@@ -86,11 +86,11 @@ jq_() { python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(eval(
   m="$REPO/.rulesync/mcp.jsonc"
   [ "$(jq_ "$m" 'd["mcpServers"]["kie"]["args"][1]')" = 'exec "$HOME/.agents/bin/with-secrets" KIE_API_KEY -- npx -y kie' ]
   [ "$(jq_ "$m" 'd["mcpServers"]["kie"]["env"]')" = "{'MODE': 'x'}" ]
-  [[ "$(jq_ "$m" 'd["mcpServers"]["gh"]["args"][1]')" == *"mcp-remote@0.15.2 https://gh.test/mcp --header 'Authorization:Bearer \${GH_TOKEN}' --header X-Toolsets:repos" ]] || return 1
-  [[ "$(jq_ "$m" 'd["claudecode"]["mcpServers"]["gh"]["headersHelper"]')" == '"$HOME/.agents/bin/with-secrets" GH_TOKEN -- sh -c '* ]] || return 1
+  [[ "$(jq_ "$m" 'd["mcpServers"]["gh"]["args"][1]')" == *"mcp-remote@0.15.2 https://gh.test/mcp --header 'Authorization:Bearer \${MCP_GH_TOKEN}' --header X-Toolsets:repos" ]] || return 1
+  [[ "$(jq_ "$m" 'd["claudecode"]["mcpServers"]["gh"]["headersHelper"]')" == '"$HOME/.agents/bin/with-secrets" MCP_GH_TOKEN -- sh -c '* ]] || return 1
   grep -qx 'KIE_API_KEY=secret-kie' "$XDG_CONFIG_HOME/agent-secrets/secrets.env"
-  grep -qx 'GH_TOKEN=secret-gh' "$XDG_CONFIG_HOME/agent-secrets/secrets.env"
-  grep -qx 'GH_TOKEN' "$REPO/secrets.names"
+  grep -qx 'MCP_GH_TOKEN=secret-gh' "$XDG_CONFIG_HOME/agent-secrets/secrets.env"
+  grep -qx 'MCP_GH_TOKEN' "$REPO/secrets.names"
   run grep -rl -e secret-kie -e secret-gh "$REPO" --exclude-dir=.git
   [ "$status" -ne 0 ]
 }
@@ -131,7 +131,7 @@ jq_() { python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(eval(
   git init -q "$outside"
   run "$BOOT" "$outside"
   [ "$status" -eq 1 ]
-  [ "$output" = "BOOTSTRAP=failed: the agents repo must live under your home folder" ]
+  [ "$output" = "BOOTSTRAP=failed: the agents repo must live under your home folder, at a plain path" ]
 }
 
 @test "machine capture keeps this machine's extras the shared source lacks, once" {
@@ -192,4 +192,67 @@ PY
   m="$REPO/.rulesync/mcp.jsonc"
   [ "$(jq_ "$m" '"app-tool" in d["mcpServers"]')" = "False" ]
   [ "$(jq_ "$m" 'd["codexcli"]["mcpServers"]["app-tool"]["command"]')" = "/Applications/Tool.app/Contents/MacOS/tool" ]
+}
+
+@test "F1: a secret that no conversion can move stops --write and names only the field" {
+  python3 - "$FIX/claudecode/mcp.jsonc" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))
+d["mcpServers"]["url-env"] = {"type": "http", "url": "https://u.test", "env": {"API_KEY": "leak-one"}}
+json.dump(d, open(sys.argv[1], "w"))
+PY
+  run "$BOOT" --write "$REPO"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"BOOTSTRAP=failed: SecretError: url-env.env.API_KEY holds a secret Harness cannot move"* ]] || return 1
+  [[ "$output" != *leak-one* ]] || return 1
+  [ ! -e "$REPO/rulesync.jsonc" ] && [ ! -e "$REPO/.rulesync" ]
+}
+
+@test "F1: an httpUrl server's token header is converted like a url one" {
+  python3 - "$FIX/codexcli/mcp.jsonc" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))
+d["mcpServers"]["alias"] = {"httpUrl": "https://a.test", "headers": {"Authorization": "Bearer leak-two"}}
+json.dump(d, open(sys.argv[1], "w"))
+PY
+  run "$BOOT" --write "$REPO"
+  [ "$status" -eq 0 ]
+  run grep -rl leak-two "$REPO" --exclude-dir=.git
+  [ "$status" -ne 0 ]
+  grep -qx 'MCP_ALIAS_TOKEN=leak-two' "$XDG_CONFIG_HOME/agent-secrets/secrets.env"
+}
+
+@test "F2/F3: distinct values never share a stored name, including one already stored" {
+  "${BATS_TEST_DIRNAME}/../scripts/agent-secrets.py" set KIE_API_KEY <<<"already-stored" >/dev/null
+  run "$BOOT" --write "$REPO"
+  [ "$status" -eq 0 ]
+  grep -qx 'KIE_API_KEY=already-stored' "$XDG_CONFIG_HOME/agent-secrets/secrets.env"
+  grep -qx 'KIE_KIE_API_KEY=secret-kie' "$XDG_CONFIG_HOME/agent-secrets/secrets.env"
+  [[ "$(jq_ "$REPO/.rulesync/mcp.jsonc" 'd["mcpServers"]["kie"]["args"][1]')" == *'KIE_API_KEY="$KIE_KIE_API_KEY" exec'* ]] || return 1
+}
+
+@test "F5/F10: only Authorization schemes are split, and other server fields survive" {
+  python3 - "$FIX/claudecode/mcp.jsonc" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))
+d["mcpServers"]["keyed"] = {"type": "http", "url": "https://k.test", "headers": {"X-Api-Key": "abc def"}, "disabled": True}
+json.dump(d, open(sys.argv[1], "w"))
+PY
+  run "$BOOT" --write "$REPO"
+  [ "$status" -eq 0 ]
+  m="$REPO/.rulesync/mcp.jsonc"
+  [[ "$(jq_ "$m" 'd["mcpServers"]["keyed"]["args"][1]')" == *"--header 'X-Api-Key:\${MCP_KEYED_X_API_KEY}'"* ]] || return 1
+  [ "$(jq_ "$m" 'd["mcpServers"]["keyed"]["disabled"]')" = "True" ]
+  run grep -rl -e "abc def" -e "abc " "$REPO/.rulesync"
+  [ "$status" -ne 0 ]
+}
+
+@test "F11/F12: secrets.names gets shared names on new lines; a root-level skill is unresolved" {
+  printf 'EXISTING' > "$REPO/secrets.names"
+  echo '{ "skills": { "taste": { "source": "owner/taste-repo", "skillPath": "SKILL.md" } } }' > "$REPO/.skill-lock.json"
+  run "$BOOT" --write "$REPO"
+  [ "$status" -eq 0 ]
+  [ "$(head -1 "$REPO/secrets.names")" = "EXISTING" ]
+  grep -qx 'KIE_API_KEY' "$REPO/secrets.names"
+  [[ "$output" == *"left as they are): taste"* ]] || return 1
 }

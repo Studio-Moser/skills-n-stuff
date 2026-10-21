@@ -41,6 +41,9 @@ HERE = Path(__file__).resolve().parent
 _spec = importlib.util.spec_from_file_location("rulesync_generate", HERE / "rulesync-generate.py")
 gen = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(gen)
+_store_spec = importlib.util.spec_from_file_location("agent_secrets", HERE / "agent-secrets.py")
+store = importlib.util.module_from_spec(_store_spec)
+_store_spec.loader.exec_module(store)
 
 # rulesync target -> what to link into the temporary HOME so `import --global` sees it.
 TOOLS = {
@@ -77,7 +80,12 @@ def import_tool(tool: str) -> tuple[dict, dict]:
             if live.exists():
                 (home / rel).parent.mkdir(parents=True, exist_ok=True)
                 (home / rel).symlink_to(live)
-        env = dict(os.environ, HOME=str(home), npm_config_yes="true")
+        real = Path.home()
+        # rulesync reads HOME_DIR before HOME; npm keeps the real cache and registry config.
+        env = dict(os.environ, HOME=str(home), HOME_DIR=str(home), npm_config_yes="true",
+                   npm_config_cache=os.environ.get("npm_config_cache") or str(real / ".npm"))
+        if (real / ".npmrc").is_file():
+            env.setdefault("NPM_CONFIG_USERCONFIG", str(real / ".npmrc"))
         result = subprocess.run(["npx", "-y", gen.RULESYNC, "import", "--global", "--targets", tool, "--features", "mcp,hooks"],
                                 cwd=home, env=env, text=True, capture_output=True)
         if result.returncode:
@@ -92,34 +100,78 @@ def env_name(*parts: str) -> str:
     return re.sub(r"[^A-Z0-9]+", "_", "_".join(parts).upper()).strip("_")
 
 
-class Secrets:
-    """Secret values found while composing; stored in the OS store only on --write."""
+class SecretError(Exception):
+    pass
 
-    def __init__(self) -> None:
+
+SAFE_HEADER = re.compile(r"^[A-Za-z0-9-]+$")
+SAFE_REL = re.compile(r"^[A-Za-z0-9._/ -]+$")
+SCHEMES = ("Bearer", "Basic", "Token", "token")
+
+
+def is_secret_env(name: str, value: object) -> bool:
+    return isinstance(value, str) and bool(value) and not value.startswith("${") and bool(SECRET_NAME.search(name))
+
+
+def is_secret_header(name: str, value: object) -> bool:
+    return (isinstance(value, str) and bool(value) and "${" not in value
+            and (name.lower() == "authorization" or bool(SECRET_NAME.search(name))))
+
+
+class Secrets:
+    """Secret values found while composing; stored in the OS store only on --write.
+
+    A name already stored on this machine, or claimed earlier, with a different value
+    is never reused: the new value gets a server-qualified, then numbered, name.
+    """
+
+    def __init__(self, stored=None) -> None:
         self.values: dict[str, str] = {}
+        self.stored = stored or (lambda name: None)
+
+    def taken(self, name: str, value: str) -> bool:
+        if name in self.values:
+            return self.values[name] != value
+        existing = self.stored(name)
+        return existing is not None and existing != value
 
     def claim(self, name: str, value: str, server: str) -> str:
-        if self.values.get(name, value) != value:
-            name = env_name(server, name)
-        self.values[name] = value
-        return name
+        candidate = name
+        if self.taken(candidate, value):
+            candidate = env_name(server, name)
+        number = 1
+        while self.taken(candidate, value):
+            number += 1
+            candidate = f"{env_name(server, name)}_{number}"
+        self.values[candidate] = value
+        return candidate
 
 
 def launcher(repo_rel: str, names: list[str], command: list[str]) -> str:
+    if not repo_rel:
+        raise SecretError("a secret server needs the agents repo under your home folder, at a plain path")
     return f'exec "$HOME/{repo_rel}/bin/with-secrets" {" ".join(names)} -- {shlex.join(command)}'
 
 
 def convert(server: str, spec: dict, secrets: Secrets, repo_rel: str) -> tuple[dict, dict | None]:
-    """(definition for every tool, Claude-only variant or None), secrets moved out."""
+    """(definition for every tool, Claude-only variant or None), with secrets moved out.
+
+    Fails closed: a secret no rule can move raises SecretError naming the field only.
+    """
     spec = json.loads(json.dumps(spec))
-    env = spec.get("env") or {}
-    secret_env = [k for k, v in env.items() if isinstance(v, str) and v and not v.startswith("${") and SECRET_NAME.search(k)]
-    headers = spec.get("headers") or {}
-    secret_headers = [h for h, v in headers.items() if isinstance(v, str) and v and "${" not in v
-                      and (h.lower() == "authorization" or SECRET_NAME.search(h))]
+    env = dict(spec.get("env") or {})
+    headers = dict(spec.get("headers") or {})
+    url = spec.get("url") or spec.get("httpUrl")
+    secret_env = [k for k, v in env.items() if is_secret_env(k, v)]
+    secret_headers = [h for h, v in headers.items() if is_secret_header(h, v)]
     if not secret_env and not secret_headers:
         return spec, None
-    if secret_env and spec.get("command"):
+    if secret_env and (not spec.get("command") or secret_headers):
+        raise SecretError(f"{server}.env.{secret_env[0]} holds a secret Harness cannot move")
+    if secret_headers and not url:
+        raise SecretError(f"{server}.headers.{secret_headers[0]} holds a secret Harness cannot move")
+
+    if secret_env:
         pairs = [(k, secrets.claim(k, env.pop(k), server)) for k in secret_env]
         names = [name for _k, name in pairs]
         command = [spec["command"], *spec.get("args", [])]
@@ -129,30 +181,42 @@ def convert(server: str, spec: dict, secrets: Secrets, repo_rel: str) -> tuple[d
             # so the value still never appears on a command line.
             assign = " ".join(f'{k}="${name}"' for k, name in renamed)
             command = ["sh", "-c", f'{assign} exec "$@"', "sh", *command]
-        spec.update({"type": "stdio", "command": "sh", "args": ["-c", launcher(repo_rel, names, command)]})
-        if not env:
-            spec.pop("env", None)
-    if secret_headers and spec.get("url"):
-        parts, helper_fields, names = [], [], []
-        for header in secret_headers:
-            value = headers.pop(header)
-            scheme, _, token = value.partition(" ") if " " in value else ("", "", value)
-            name = secrets.claim(env_name(server, "token" if header.lower() == "authorization" else header), token, server)
-            names.append(name)
-            prefix = f"{scheme} " if scheme else ""
-            parts += ["--header", f"{header}:{prefix}${{{name}}}"]
-            helper_fields.append((header, prefix))
-        plain = [arg for h, v in headers.items() for arg in ("--header", f"{h}:{v}")]
-        command = ["npx", "-y", MCP_REMOTE, spec["url"], *parts, *plain]
-        shared = {"type": "stdio", "command": "sh", "args": ["-c", launcher(repo_rel, names, command)]}
-        fmt = ", ".join(f'\\"{h}\\": \\"{p}%s\\"' for h, p in helper_fields)
-        printf = f"printf \"{{{fmt}}}\" " + " ".join(f'"${n}"' for n in names)
-        claude = {"type": "http", "url": spec["url"],
-                  "headersHelper": f'"$HOME/{repo_rel}/bin/with-secrets" {" ".join(names)} -- sh -c {shlex.quote(printf)}'}
-        if headers:
-            claude["headers"] = headers
-        return shared, claude
-    return spec, None
+        result = {**spec, "type": "stdio", "command": "sh", "args": ["-c", launcher(repo_rel, names, command)]}
+        if env:
+            result["env"] = env
+        else:
+            result.pop("env", None)
+        return result, None
+
+    for header in headers:
+        if not SAFE_HEADER.match(header):
+            raise SecretError(f"{server}.headers: header name {header!r} is not a plain token")
+    parts, helper_fields, names = [], [], []
+    for header in secret_headers:
+        value = headers.pop(header)
+        prefix, token = "", value
+        if header.lower() == "authorization" and " " in value and value.split(" ", 1)[0] in SCHEMES:
+            scheme, _, token = value.partition(" ")
+            prefix = f"{scheme} "
+        if any(c in token for c in '"\\') or any(ord(c) < 32 for c in token):
+            raise SecretError(f"{server}.headers.{header} holds characters a JSON header helper cannot carry")
+        label = "token" if header.lower() == "authorization" else header
+        name = secrets.claim(env_name("mcp", server, label), token, server)
+        names.append(name)
+        parts += ["--header", f"{header}:{prefix}${{{name}}}"]
+        helper_fields.append((header, prefix))
+    plain = [arg for h, v in headers.items() for arg in ("--header", f"{h}:{v}")]
+    # Keep every other field (disabled, timeouts, tool filters); replace only the transport.
+    base = {k: v for k, v in spec.items() if k not in ("url", "httpUrl", "headers", "type", "command", "args")}
+    command = ["npx", "-y", MCP_REMOTE, url, *parts, *plain]
+    shared = {**base, "type": "stdio", "command": "sh", "args": ["-c", launcher(repo_rel, names, command)]}
+    fmt = ", ".join(f'\\"{h}\\": \\"{p}%s\\"' for h, p in helper_fields)
+    printf = f"printf \"{{{fmt}}}\" " + " ".join(f'"${n}"' for n in names)
+    claude = {**base, "type": "http", "url": url,
+              "headersHelper": f'"$HOME/{repo_rel}/bin/with-secrets" {" ".join(names)} -- sh -c {shlex.quote(printf)}'}
+    if headers:
+        claude["headers"] = headers
+    return shared, claude
 
 
 # Implied by command or url; importers also read remote servers back as sse.
@@ -252,6 +316,9 @@ def skill_sources(repo: Path) -> tuple[list[dict], list[str]]:
             unresolved.append(name)
             continue
         folder = Path(entry["skillPath"]).parent
+        if not folder.name:  # a skill at its repo's root has no folder name to select
+            unresolved.append(name)
+            continue
         grouped.setdefault((entry["source"], str(folder.parent)), []).append(folder.name)
     sources = []
     for (source, path), skills in sorted(grouped.items()):
@@ -273,20 +340,24 @@ def write_json(path: Path, data: dict) -> None:
     path.write_text(json.dumps(data, indent=2) + "\n")
 
 
-def store_secrets(repo: Path, secrets: Secrets) -> None:
-    tool = HERE / "agent-secrets.py"
+LAUNCHED = re.compile(r'with-secrets\\?" ([A-Z0-9_ ]+?) --')
+
+
+def store_secrets(repo: Path, secrets: Secrets, shared_source: dict | None) -> None:
+    """Store every claimed value; list in secrets.names only the names shared servers use,
+    since machine-only servers' secrets exist on this machine alone."""
     for name, value in secrets.values.items():
-        result = subprocess.run([sys.executable, str(tool), "set", name], input=value, text=True, capture_output=True)
-        if result.returncode:
-            raise RuntimeError(f"could not store {name}: {result.stderr.strip()}")
+        store.put(name, value)
+    if shared_source is None:
+        return
+    used = {n for match in LAUNCHED.findall(json.dumps(shared_source)) for n in match.split()}
     names_file = repo / "secrets.names"
-    existing = names_file.read_text().split() if names_file.is_file() else []
-    new = [n for n in secrets.values if n not in existing]
+    current = names_file.read_text() if names_file.is_file() else ""
+    new = [n for n in secrets.values if n in used and n not in current.split()]
     if new:
-        with names_file.open("a") as handle:
-            if not names_file.stat().st_size:
-                handle.write("# Secret names this repo's agents need; values live in each machine's secret store.\n")
-            handle.write("".join(f"{n}\n" for n in new))
+        header = "" if current else "# Secret names this repo's agents need; values live in each machine's secret store.\n"
+        separator = "\n" if current and not current.endswith("\n") else ""
+        names_file.write_text(current + separator + header + "".join(f"{n}\n" for n in new))
 
 
 def count(block: dict, key: str) -> int:
@@ -299,18 +370,30 @@ def count(block: dict, key: str) -> int:
     return total
 
 
+def repo_path(repo: Path) -> str | None:
+    """The repo's path under HOME, as launcher strings use it: same on every machine."""
+    try:
+        rel = str(repo.relative_to(Path.home().resolve()))
+    except ValueError:
+        return None
+    return rel if SAFE_REL.match(rel) else None
+
+
 def bootstrap(repo: Path, write: bool) -> int:
     if (repo / "rulesync.jsonc").exists():
         print(f"BOOTSTRAP=skipped: {repo} already has rulesync.jsonc")
         return 0
-    try:
-        repo_rel = str(repo.relative_to(Path.home().resolve()))
-    except ValueError:
-        print("BOOTSTRAP=failed: the agents repo must live under your home folder")
+    repo_rel = repo_path(repo)
+    if repo_rel is None:
+        print("BOOTSTRAP=failed: the agents repo must live under your home folder, at a plain path")
+        return 1
+    existing = [p for p in (".rulesync/mcp.jsonc", ".rulesync/hooks.jsonc") if (repo / p).exists()]
+    if existing:
+        print(f"BOOTSTRAP=failed: {', '.join(existing)} already exist; move them aside first")
         return 1
     tools = installed_tools()
     imports = {tool: import_tool(tool) for tool in tools}
-    secrets = Secrets()
+    secrets = Secrets(stored=store.get)
     source_mcp, local_mcp, source_hooks, local_hooks = compose(imports, secrets, repo_rel)
     sources, unresolved = skill_sources(repo)
     declared = {s for item in sources for s in item["skills"]}
@@ -331,7 +414,7 @@ def bootstrap(repo: Path, write: bool) -> int:
     if not write:
         print("BOOTSTRAP=preview: run again with --write to apply, then /harness:sync")
         return 0
-    store_secrets(repo, secrets)
+    store_secrets(repo, secrets, source_mcp)
     write_json(repo / ".rulesync" / "mcp.jsonc", source_mcp)
     write_json(repo / ".rulesync" / "hooks.jsonc", source_hooks)
     write_json(repo / ".rulesync.local" / "mcp.jsonc", local_mcp)
@@ -350,14 +433,11 @@ def capture_machine(repo: Path) -> int:
     if local_dir.exists() or not (repo / "rulesync.jsonc").is_file():
         print("RULESYNC_CAPTURE=skipped")
         return 0
-    try:
-        repo_rel = str(repo.relative_to(Path.home().resolve()))
-    except ValueError:
-        repo_rel = ".agents"
+    repo_rel = repo_path(repo) or ""  # only a secret to convert needs it; launcher() refuses then
     settings = gen.load_jsonc(repo / "rulesync.jsonc")
     tools = [t for t in installed_tools() if t in (settings.get("targets") or list(TOOLS))]
     imports = {tool: import_tool(tool) for tool in tools}
-    secrets = Secrets()
+    secrets = Secrets(stored=store.get)
     source_mcp_path, source_hooks_path = repo / ".rulesync" / "mcp.jsonc", repo / ".rulesync" / "hooks.jsonc"
     shared_mcp = gen.load_jsonc(source_mcp_path) if source_mcp_path.is_file() else {"mcpServers": {}}
     shared_hooks = gen.load_jsonc(source_hooks_path) if source_hooks_path.is_file() else {"hooks": {}}
@@ -378,7 +458,7 @@ def capture_machine(repo: Path) -> int:
             for entry in entries:
                 if entry.get("command") not in commands:
                     local_hooks.setdefault(tool, {"hooks": {}})["hooks"].setdefault(event, []).append(entry)
-    store_secrets(repo, secrets)
+    store_secrets(repo, secrets, None)
     write_json(local_dir / "mcp.jsonc", local_mcp)
     write_json(local_dir / "hooks.jsonc", local_hooks)
     servers, hooks_count = count(local_mcp, "mcpServers"), count(local_hooks, "hooks")
@@ -396,7 +476,7 @@ def main(argv: list[str]) -> int:
     repo = Path(args[0]).expanduser().resolve()
     try:
         return capture_machine(repo) if "--machine" in flags else bootstrap(repo, "--write" in flags)
-    except (OSError, ValueError, RuntimeError, subprocess.CalledProcessError) as error:
+    except (OSError, ValueError, RuntimeError, SecretError, store.SecretError, subprocess.CalledProcessError) as error:
         prefix = "RULESYNC_CAPTURE" if "--machine" in flags else "BOOTSTRAP"
         print(f"{prefix}=failed: {type(error).__name__}: {error}")
         return 1

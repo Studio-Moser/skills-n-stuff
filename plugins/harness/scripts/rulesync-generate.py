@@ -131,11 +131,20 @@ def build_input_root(repo: Path, parent: Path) -> Path:
     return root
 
 
-def backup_first_run(repo: Path, root: Path) -> None:
-    """Before this repo's first generate on this machine, copy every live file it will write."""
+def backup_first_run(repo: Path, root: Path) -> bool:
+    """Before this repo's first generate on this machine, copy every live file it will write.
+
+    Returns False when rulesync could not list those files: the first generate must not
+    run without its backup."""
     listing = rulesync(repo, "generate", "--global", "--input-roots", str(root), "--dry-run")
+    if listing.returncode:
+        print(f"RULESYNC_BACKUP=failed: {last_line(listing)}")
+        return False
     home = Path.home().resolve()
     backup = state_dir() / "backups" / f"rulesync-{time.strftime('%Y%m%d-%H%M%S')}"
+    os.makedirs(backup.parent, mode=0o700, exist_ok=True)
+    os.chmod(backup.parent, 0o700)
+    os.makedirs(backup, mode=0o700, exist_ok=True)  # private before any copy lands
     copied = 0
     for raw in WRITE_LINE.findall(listing.stdout + listing.stderr):
         path = Path(raw.strip().strip('"')).expanduser()
@@ -148,10 +157,10 @@ def backup_first_run(repo: Path, root: Path) -> None:
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(path, target)
             copied += 1
-    if copied:
-        os.chmod(backup.parent, 0o700)
-        os.chmod(backup, 0o700)
+    if not copied:
+        backup.rmdir()
     print(f"RULESYNC_BACKUP={copied} live file(s) copied to {backup}" if copied else "RULESYNC_BACKUP=nothing to back up")
+    return True
 
 
 def state_dir() -> Path:
@@ -388,8 +397,9 @@ def generate(repo: Path, settings: dict, dry_run: bool, update: bool = False) ->
                     shutil.rmtree(path)
                     cleaned += 1
 
-        if not dry_run and not state.is_file():
-            backup_first_run(repo, root)
+        if not dry_run and not state.is_file() and not backup_first_run(repo, root):
+            print("RULESYNC_STATE=failed: could not list the files to back up before the first generate")
+            return 1
         generate_args = ["generate", "--global", "--input-roots", str(root)] + (["--dry-run"] if dry_run else [])
         generated = rulesync(repo, *generate_args)
         if generated.returncode:

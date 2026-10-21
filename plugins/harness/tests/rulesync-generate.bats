@@ -110,7 +110,7 @@ assert sorted(m["codexcli"]["mcpServers"]) == ["app", "codex-only"], m
   printf '{ "global": true }\n' > "$REPO/rulesync.jsonc"
   run env STUB_FAIL=1 "$STEP" "$REPO"
   [ "$status" -eq 1 ]
-  [ "$(state)" = "RULESYNC_STATE=failed: generate: boom" ]
+  [ "$(state)" = "RULESYNC_STATE=failed: could not list the files to back up before the first generate" ]
   run ls "$XDG_STATE_HOME/studio-moser/harness/"
   [[ "$output" != *rulesync-skills* ]] || return 1
 }
@@ -263,4 +263,14 @@ assert [e["command"] for e in h["sessionStart"]] == ["local-start"], h
   [ "$(stat -f '%Lp' "$XDG_STATE_HOME"/studio-moser/harness/backups/rulesync-* 2>/dev/null || stat -c '%a' "$XDG_STATE_HOME"/studio-moser/harness/backups/rulesync-*)" = "700" ]
   run "$STEP" "$REPO"
   [[ "$output" != *RULESYNC_BACKUP* ]] || return 1
+}
+
+@test "a failed backup listing stops the first generate" {
+  printf '{ "global": true }\n' > "$REPO/rulesync.jsonc"
+  run env STUB_FAIL=1 "$STEP" "$REPO"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"RULESYNC_BACKUP=failed: boom"* ]] || return 1
+  [[ "$output" == *"RULESYNC_STATE=failed: could not list the files to back up before the first generate"* ]] || return 1
+  run grep -c -x 'generate --global --input-roots .*/\.rulesync' "$LOG"
+  [ "$output" = "0" ]
 }

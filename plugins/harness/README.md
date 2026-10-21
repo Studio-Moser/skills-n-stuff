@@ -94,7 +94,10 @@ imported with rulesync, become one shared list with per-tool blocks where defini
 differ; anything with a home-folder path stays in `.rulesync.local`; secret values move
 to the secret store and their servers start through `bin/with-secrets`; skills from
 `skills.manifest` become `sources`, and your own committed skills move into
-`.rulesync/skills`. `--write` applies it; the next Sync generates every tool.
+`.rulesync/skills`. `--write` applies it; the next Sync generates every tool. A secret that no rule can
+move (for example a key in an HTTP server's `env`) stops `--write` and names the field.
+Launchers find `bin/with-secrets` at the repo's path under your home folder, so keep the
+repo at the same path on every machine (the default `~/.agents`).
 
 On every other machine, the first managed Sync keeps that machine's own servers and
 hooks the shared source does not define in its `.rulesync.local` (it reports them), and
