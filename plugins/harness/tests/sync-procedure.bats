@@ -320,6 +320,8 @@ EOF
   [ -z "$(git -C "$AGENTS" status --porcelain=v1 --untracked-files=all)" ]
   git -C "$AGENTS" cat-file -e HEAD:.rulesync/rules/Global_Instructions.md
   [ "$(git -C "$AGENTS" ls-files -s bin/with-secrets | cut -c1-6)" = "100755" ]
+  grep -qx '/.rulesync.local/' "$AGENTS/.gitignore"
+  grep -qx '/.rulesync/skills/.curated/' "$AGENTS/.gitignore"
 }
 
 @test "nested agents path is refused without changing the outer index or remote" {

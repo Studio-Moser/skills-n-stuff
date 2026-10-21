@@ -20,8 +20,10 @@ prev=""
 for arg in "\$@"; do [ "\$prev" = "--input-roots" ] && input="\$arg"; prev="\$arg"; done
 case "\$1" in
   install)
-    if [ -d "$HOME/.agents/skills/alpha" ]; then
-      echo 'Skipping remote skill "alpha" from o/r: local skill takes precedence.'
+    pwd > "$BATS_TEST_TMPDIR/install-cwd"
+    rm -rf .rulesync/skills/.curated
+    if [ -n "\${STUB_FETCH_NOTHING:-}" ] || [ -d skills/alpha ]; then
+      echo "Installed 0 skill(s)"
     else
       echo "Installed 1 skill(s)"; mkdir -p .rulesync/skills/.curated/alpha
     fi ;;
@@ -79,9 +81,10 @@ assert sorted(m["codexcli"]["mcpServers"]) == ["app", "codex-only"], m
 
 @test "only folders of skills dropped since the last run are removed" {
   printf '{ "global": true }\n' > "$REPO/rulesync.jsonc"
-  mkdir -p "$REPO/.rulesync/skills/alpha" "$HOME/.agents/skills/beta" "$HOME/.claude/skills/beta" "$HOME/.claude/skills/synced"
-  mkdir -p "$XDG_STATE_HOME/studio-moser/harness"
-  printf '["alpha", "beta"]\n' > "$XDG_STATE_HOME/studio-moser/harness/rulesync-skills.json"
+  mkdir -p "$REPO/.rulesync/skills/alpha" "$REPO/.rulesync/skills/beta"
+  "$STEP" "$REPO" >/dev/null
+  rm -rf "$REPO/.rulesync/skills/beta"
+  mkdir -p "$HOME/.agents/skills/beta" "$HOME/.claude/skills/beta" "$HOME/.claude/skills/synced"
   export STUB_DELETE="$(printf '[DRY RUN] Would delete directory: "%s"\n' "$HOME/.agents/skills/beta" "$HOME/.claude/skills/beta" "$HOME/.claude/skills/synced")"
   run "$STEP" "$REPO"
   [ "$status" -eq 0 ]
@@ -89,7 +92,7 @@ assert sorted(m["codexcli"]["mcpServers"]) == ["app", "codex-only"], m
   [ ! -e "$HOME/.agents/skills/beta" ]
   [ ! -e "$HOME/.claude/skills/beta" ]
   [ -d "$HOME/.claude/skills/synced" ]
-  [ "$(cat "$XDG_STATE_HOME/studio-moser/harness/rulesync-skills.json")" = '["alpha"]' ]
+  [ "$(cat "$XDG_STATE_HOME"/studio-moser/harness/rulesync-skills-*.json)" = '["alpha"]' ]
 }
 
 @test "a failed generate reports failure and keeps the previous skill state" {
@@ -97,7 +100,8 @@ assert sorted(m["codexcli"]["mcpServers"]) == ["app", "codex-only"], m
   run env STUB_FAIL=1 "$STEP" "$REPO"
   [ "$status" -eq 1 ]
   [ "$output" = "RULESYNC_STATE=failed: generate: boom" ]
-  [ ! -e "$XDG_STATE_HOME/studio-moser/harness/rulesync-skills.json" ]
+  run ls "$XDG_STATE_HOME/studio-moser/harness/"
+  [[ "$output" != *rulesync-skills* ]] || return 1
 }
 
 @test "dry run neither installs, removes, nor records state" {
@@ -109,7 +113,8 @@ assert sorted(m["codexcli"]["mcpServers"]) == ["app", "codex-only"], m
   grep -q -- '--dry-run' "$LOG"
   run grep -c '^install' "$LOG"
   [ "$output" = "0" ]
-  [ ! -e "$XDG_STATE_HOME/studio-moser/harness/rulesync-skills.json" ]
+  run ls "$XDG_STATE_HOME/studio-moser/harness/"
+  [[ "$output" != *rulesync-skills* ]] || return 1
 }
 
 @test "machine-local hooks are appended per event for shared and per-tool blocks" {
@@ -145,23 +150,42 @@ assert [e["command"] for e in h["sessionStart"]] == ["local-start"], h
   [ "$output" = "1" ]
 }
 
-@test "an old installer copy that shadows a declared skill is moved aside, then installed" {
+@test "install runs from a private root, so generated copies in <repo>/skills never block it" {
   printf '{ "global": true, "sources": [{ "source": "o/r", "skills": ["alpha"] }] }\n' > "$REPO/rulesync.jsonc"
-  mkdir -p "$HOME/.agents/skills/alpha"
-  echo old > "$HOME/.agents/skills/alpha/SKILL.md"
+  # In global mode ~/.agents/skills is both <repo>/skills and rulesync's Codex output.
+  mkdir -p "$REPO/skills/alpha"
   run "$STEP" "$REPO"
   [ "$status" -eq 0 ]
-  [ "$(grep -c '^install' "$LOG")" -eq 2 ]
   [ -d "$REPO/.rulesync/skills/.curated/alpha" ]
-  [ ! -e "$HOME/.agents/skills/alpha" ]
-  [ "$(cat "$XDG_STATE_HOME"/studio-moser/harness/replaced-skills/*/.agents-alpha/SKILL.md)" = "old" ]
+  [ "$(cat "$BATS_TEST_TMPDIR/install-cwd")" != "$REPO" ]
+  [ -d "$REPO/skills/alpha" ]
 }
 
-@test "a skill authored in the repo keeps precedence and is never moved" {
+@test "a declared skill that a run fails to fetch is never removed" {
   printf '{ "global": true, "sources": [{ "source": "o/r", "skills": ["alpha"] }] }\n' > "$REPO/rulesync.jsonc"
-  mkdir -p "$HOME/.agents/skills/alpha" "$REPO/.rulesync/skills/alpha"
+  "$STEP" "$REPO" >/dev/null
+  printf '{ "lockfileVersion": 1 }\n' > "$REPO/rulesync.lock"  # a lock change re-runs install
+  mkdir -p "$HOME/.agents/skills/alpha"
+  export STUB_FETCH_NOTHING=1 STUB_DELETE="[DRY RUN] Would delete directory: \"$HOME/.agents/skills/alpha\""
   run "$STEP" "$REPO"
   [ "$status" -eq 0 ]
-  [ "$(grep -c '^install' "$LOG")" -eq 1 ]
+  [[ "$output" == *"0 stale skill folder(s) removed" ]] || return 1
   [ -d "$HOME/.agents/skills/alpha" ]
+}
+
+@test "rulesync delete mode is refused, since its sweep removes other installers' skills" {
+  printf '{ "global": true, "delete": true }\n' > "$REPO/rulesync.jsonc"
+  run "$STEP" "$REPO"
+  [ "$status" -eq 1 ]
+  [[ "$output" == 'RULESYNC_STATE=failed: set "delete": false'* ]] || return 1
+  [ ! -e "$LOG" ]
+}
+
+@test "a malformed local overlay fails with a state line instead of a traceback" {
+  printf '{ "global": true }\n' > "$REPO/rulesync.jsonc"
+  mkdir -p "$REPO/.rulesync.local"
+  printf '{ not json' > "$REPO/.rulesync.local/mcp.jsonc"
+  run "$STEP" "$REPO"
+  [ "$status" -eq 1 ]
+  [[ "$output" == "RULESYNC_STATE=failed: JSONDecodeError"* ]] || return 1
 }

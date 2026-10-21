@@ -32,7 +32,8 @@ import tempfile
 
 NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 SERVICE = os.environ.get("HARNESS_SECRETS_SERVICE", "agent-secrets")
-MISSING_EXIT = 78  # EX_CONFIG: the command cannot start without its configuration
+MISSING_EXIT = 78
+KEYCHAIN_MAX = 3500  # EX_CONFIG: the command cannot start without its configuration
 # Resolves the remote Harness root the same way skills do, across Claude and Codex caches.
 REMOTE_ROOT = (
     'h=$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ "$HOME"/.codex/plugins/cache/*/harness/*/ '
@@ -107,6 +108,9 @@ def put(name: str, value: str) -> None:
     if backend == "keychain":
         # `security -i` reads the command from stdin, so the value stays off argv.
         escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+        if len(escaped.encode()) > KEYCHAIN_MAX:
+            # `security -i` splits longer input lines and would store a truncated value.
+            raise SecretError(f"a Keychain value is limited to {KEYCHAIN_MAX} bytes")
         keychain = os.environ.get("HARNESS_KEYCHAIN")
         line = f'add-generic-password -U -s "{SERVICE}" -a "{name}" -w "{escaped}"'
         line += f' "{keychain}"\n' if keychain else "\n"

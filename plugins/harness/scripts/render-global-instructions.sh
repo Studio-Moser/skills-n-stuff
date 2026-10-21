@@ -33,6 +33,12 @@ frontmatter=""
 if [ -f "$repo/rulesync.jsonc" ]; then
   source_rule="$repo/.rulesync/rules/Global_Instructions.md"
   frontmatter="$(printf -- '---\nroot: true\ntargets: ["*"]\n---')"
+  # An existing rule keeps its own front matter (e.g. narrowed targets); root: true is required.
+  if [ -s "$source_rule" ] && [ "$(head -n 1 "$source_rule")" = "---" ] && [ "$(sed -n '2,$p' "$source_rule" | grep -c '^---$')" -gt 0 ]; then
+    existing="$(awk 'NR == 1 { next } $0 == "---" { exit } { print }' "$source_rule")"
+    printf '%s\n' "$existing" | grep -q '^root: *true *$' || existing="$(printf 'root: true\n%s' "$existing")"
+    frontmatter="$(printf -- '---\n%s\n---' "$existing")"
+  fi
 fi
 start='<!-- harness:profile:start -->'
 end='<!-- harness:profile:end -->'
@@ -47,7 +53,12 @@ fail() { echo "RENDER_STATE=failed: $1"; exit 3; }
 if [ -n "$source_rule" ] && [ -s "$source_rule" ]; then
   body="$(mktemp)"
   trap 'rm -f "$body"' EXIT
-  awk 'NR == 1 && $0 == "---" { fm = 1; next } fm && $0 == "---" { fm = 0; next } !fm { print }' "$source_rule" > "$body"
+  # Strip a terminated front matter block only; an unterminated one is body text.
+  if [ "$(head -n 1 "$source_rule")" = "---" ] && [ "$(sed -n '2,$p' "$source_rule" | grep -c '^---$')" -gt 0 ]; then
+    awk 'NR == 1 { fm = 1; next } fm && $0 == "---" { fm = 0; next } !fm { print }' "$source_rule" > "$body"
+  else
+    cat "$source_rule" > "$body"
+  fi
   target="$body"
 fi
 own=""

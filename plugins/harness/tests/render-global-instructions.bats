@@ -110,3 +110,14 @@ setup() {
   run "$SCRIPT" "$REPO" "$PROFILE"
   [ "$output" = "RENDER_STATE=unchanged" ]
 }
+
+@test "the root rule keeps the developer's front matter and always stays root" {
+  printf '{ "global": true }\n' > "$REPO/rulesync.jsonc"
+  "$SCRIPT" "$REPO" "$PROFILE" > /dev/null
+  rule="$REPO/.rulesync/rules/Global_Instructions.md"
+  body="$(awk 'NR == 1 { next } f { print } $0 == "---" && !f { f = 1 }' "$rule")"
+  printf -- '---\ntargets: ["claudecode", "codexcli"]\ndescription: mine\n---\n%s\n' "$body" > "$rule"
+  run "$SCRIPT" "$REPO" "$PROFILE"
+  [ "$status" -eq 0 ]
+  [ "$(sed -n 1,5p "$rule")" = "$(printf -- '---\nroot: true\ntargets: ["claudecode", "codexcli"]\ndescription: mine\n---')" ]
+}

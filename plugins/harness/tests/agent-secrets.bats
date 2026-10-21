@@ -114,3 +114,18 @@ EOF2
   run grep -qF "s3cr3t" "$BATS_TEST_TMPDIR/argv.log"
   [ "$status" -ne 0 ]
 }
+
+@test "a value too long for security -i is refused before anything is overwritten" {
+  command -v security >/dev/null || skip "macOS security CLI not available"
+  export HARNESS_SECRETS_BACKEND=keychain
+  export HARNESS_KEYCHAIN="$BATS_TEST_TMPDIR/long.keychain-db"
+  security create-keychain -p pw "$HARNESS_KEYCHAIN"
+  security unlock-keychain -p pw "$HARNESS_KEYCHAIN"
+  "$TOOL" set API_KEY <<<"good" >/dev/null
+  run "$TOOL" set API_KEY <<<"$(head -c 4000 /dev/zero | tr '\0' 'x')"
+  status_long="$status"
+  run "$TOOL" exec --env API_KEY -- sh -c 'printf "%s" "$API_KEY"'
+  security delete-keychain "$HARNESS_KEYCHAIN"
+  [ "$status_long" -eq 2 ]
+  [ "$output" = "good" ]
+}

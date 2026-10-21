@@ -889,10 +889,11 @@ def deviations(repo: Path, first: str, second: str) -> str:
 def dry_run(args: argparse.Namespace, configured_repo: Path, repo: Path, roots: dict[str, Path], runtime_mcp: Path, scripts: Path) -> int:
     plan, _ = read_link_plan(scripts, repo)
     valid = reconcile_settings(repo, roots["claude"], scripts, check=True)
+    managed = rulesync_managed(repo)
     manifest = repo / "mcp.manifest.json"
-    if manifest.exists():
+    if manifest.exists() and not managed:
         valid = run([helper(scripts, "mcp-manifest.sh"), "--check", str(manifest)], check=False).returncode == 0 and valid
-    mcp, _ = mcp_plan(repo, roots["claude"], runtime_mcp, scripts)
+    mcp = [] if managed else mcp_plan(repo, roots["claude"], runtime_mcp, scripts)[0]
     tracked = run(["git", "-C", str(repo), "ls-files", "--error-unmatch", ".skill-lock.json"], check=False)
     print("SKILL_LOCK_STATE=tracked" if tracked.returncode == 0 else "SKILL_LOCK_STATE=not tracked")
     ignore = repo / ".gitignore"
@@ -900,7 +901,7 @@ def dry_run(args: argparse.Namespace, configured_repo: Path, repo: Path, roots: 
     for line in (".fleet-local.json", ".skill-lock.json"):
         print(f"SKILL_IGNORE_STATE={'present' if line in ignored else 'missing'} {line}")
     skill_state = "skipped: installed skills executable not on PATH"
-    if shutil.which("skills"):
+    if shutil.which("skills") and not managed:
         if same_path(configured_repo, Path.home() / ".agents"):
             try:
                 skills = skills_plan(repo, scripts, installed_only=True)
@@ -975,6 +976,19 @@ echo "REMOTE_STATE=failed"; exit 1
 def rulesync_managed(repo: Path) -> bool:
     """A repo with rulesync.jsonc hands instructions, MCP, hooks, and skills to rulesync."""
     return (repo / "rulesync.jsonc").is_file()
+
+
+RULESYNC_IGNORES = ("/.rulesync.local/", "/.rulesync/skills/.curated/")
+
+
+def ensure_rulesync_ignores(repo: Path) -> None:
+    """Machine-only servers and hooks, and fetched skills, must never be committed."""
+    ignore = repo / ".gitignore"
+    current = ignore.read_text(encoding="utf-8") if ignore.exists() else ""
+    missing = [line for line in RULESYNC_IGNORES if line not in current.splitlines()]
+    if missing:
+        prefix = "" if not current or current.endswith("\n") else "\n"
+        ignore.write_text(current + prefix + "\n".join(missing) + "\n", encoding="utf-8")
 
 
 def install_with_secrets(repo: Path, scripts: Path) -> None:
@@ -1176,6 +1190,7 @@ def sync(
     derived = render(repo, scripts, args.adopt_profile)
     # rulesync writes every tool's files last, so nothing above overwrites its output.
     if managed:
+        ensure_rulesync_ignores(repo)
         install_with_secrets(repo, scripts)
     rulesync_state, rulesync_findings = rulesync_step(repo, scripts) if managed else ("not configured", [])
     findings.extend(rulesync_findings)
