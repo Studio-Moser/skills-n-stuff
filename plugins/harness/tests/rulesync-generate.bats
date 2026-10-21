@@ -20,6 +20,7 @@ prev=""
 for arg in "\$@"; do [ "\$prev" = "--input-roots" ] && input="\$arg"; prev="\$arg"; done
 case "\$1" in
   install)
+    if [ "\${2:-}" = "--outdated" ]; then printf '%b' "\${STUB_OUTDATED:-}"; exit "\${STUB_OUTDATED_EXIT:-0}"; fi
     pwd > "$BATS_TEST_TMPDIR/install-cwd"
     rm -rf .rulesync/skills/.curated
     if [ -n "\${STUB_FETCH_NOTHING:-}" ] || [ -d skills/alpha ]; then
@@ -38,6 +39,9 @@ case "\$1" in
 esac
 EOF
   chmod +x "$BIN/npx"
+  # Stub npm: the latest published rulesync, counted so caching can be checked.
+  printf '#!/bin/sh\necho view >> "%s"\necho "${STUB_LATEST:-39.0.0}"\n' "$BATS_TEST_TMPDIR/npm.log" > "$BIN/npm"
+  chmod +x "$BIN/npm"
   export PATH="$BIN:$PATH"
 }
 
@@ -52,7 +56,8 @@ EOF
   printf '{ "global": true, "delete": false, // comment\n  "targets": ["claudecode",], }\n' > "$REPO/rulesync.jsonc"
   run "$STEP" "$REPO"
   [ "$status" -eq 0 ]
-  [[ "$output" == "RULESYNC_STATE=generated: 3 file(s) written; 0 skill(s); 0 stale skill folder(s) removed" ]] || return 1
+  [ "${lines[0]}" = "RULESYNC_STATE=generated: 3 file(s) written; 0 skill(s); 0 stale skill folder(s) removed" ]
+  [ "${lines[1]}" = "RULESYNC_UPDATES=none" ]
   [ "$(wc -l < "$LOG" | tr -d ' ')" -eq 1 ]
   grep -q '^generate --global --input-roots .*/\.rulesync$' "$LOG"
 
@@ -90,7 +95,7 @@ assert sorted(m["codexcli"]["mcpServers"]) == ["app", "codex-only"], m
   export STUB_DELETE="$(printf '[DRY RUN] Would delete directory: "%s"\n' "$HOME/.agents/skills/beta" "$HOME/.claude/skills/beta" "$HOME/.claude/skills/synced")"
   run "$STEP" "$REPO"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"1 skill(s); 2 stale skill folder(s) removed" ]] || return 1
+  [[ "${lines[0]}" == *"1 skill(s); 2 stale skill folder(s) removed" ]] || return 1
   [ ! -e "$HOME/.agents/skills/beta" ]
   [ ! -e "$HOME/.claude/skills/beta" ]
   [ -d "$HOME/.claude/skills/synced" ]
@@ -110,10 +115,10 @@ assert sorted(m["codexcli"]["mcpServers"]) == ["app", "codex-only"], m
   printf '{ "global": true, "sources": [{ "source": "o/r" }] }\n' > "$REPO/rulesync.jsonc"
   run "$STEP" --dry-run "$REPO"
   [ "$status" -eq 0 ]
-  [[ "$output" == "RULESYNC_STATE=generated: dry run;"* ]] || return 1
-  [ "$(cat "$LOG")" = "generate --global --input-roots $(sed -n 's/.*--input-roots //p' "$LOG")" ]
-  grep -q -- '--dry-run' "$LOG"
-  run grep -c '^install' "$LOG"
+  [[ "${lines[0]}" == "RULESYNC_STATE=generated: dry run;"* ]] || return 1
+  grep -q -- '^generate --global --input-roots .* --dry-run$' "$LOG"
+  # Only the read-only update check may call install.
+  run grep -c -x 'install' "$LOG"
   [ "$output" = "0" ]
   run ls "$XDG_STATE_HOME/studio-moser/harness/"
   [[ "$output" != *rulesync-skills* ]] || return 1
@@ -171,7 +176,7 @@ assert [e["command"] for e in h["sessionStart"]] == ["local-start"], h
   export STUB_FETCH_NOTHING=1 STUB_DELETE="[DRY RUN] Would delete directory: \"$HOME/.agents/skills/alpha\""
   run "$STEP" "$REPO"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"0 stale skill folder(s) removed" ]] || return 1
+  [[ "${lines[0]}" == *"0 stale skill folder(s) removed" ]] || return 1
   [ -d "$HOME/.agents/skills/alpha" ]
 }
 
@@ -208,4 +213,25 @@ assert [e["command"] for e in h["sessionStart"]] == ["local-start"], h
   run "$STEP" "$REPO"
   [ "$status" -eq 1 ]
   [[ "$output" == 'RULESYNC_STATE=failed: set "delete": false'* ]] || return 1
+}
+
+@test "a newer rulesync and skill sources behind their lock are reported, once a day" {
+  printf '{ "global": true, "sources": [{ "source": "o/r", "skills": ["alpha"] }] }\n' > "$REPO/rulesync.jsonc"
+  export STUB_LATEST=40.1.0 STUB_OUTDATED_EXIT=1
+  export STUB_OUTDATED='up to date  a/b (main): 111\nbehind      o/r (main): 222 -> 333\n'
+  run "$STEP" "$REPO"
+  [ "$status" -eq 0 ]
+  [ "${lines[1]}" = "RULESYNC_UPDATES=rulesync 39.0.0 -> 40.1.0 (bump the Harness pin after scripts/rulesync-rehearse.py 40.1.0); 1 skill source(s) behind: o/r (run /harness:sync --update-skills)" ]
+  run "$STEP" "$REPO"
+  [ "${lines[1]}" = "RULESYNC_UPDATES=rulesync 39.0.0 -> 40.1.0 (bump the Harness pin after scripts/rulesync-rehearse.py 40.1.0); 1 skill source(s) behind: o/r (run /harness:sync --update-skills)" ]
+  [ "$(wc -l < "$BATS_TEST_TMPDIR/npm.log" | tr -d ' ')" -eq 1 ]
+}
+
+@test "--update re-resolves sources even when nothing else changed, and keeps the new lock" {
+  printf '{ "global": true, "sources": [{ "source": "o/r", "skills": ["alpha"] }] }\n' > "$REPO/rulesync.jsonc"
+  "$STEP" "$REPO" >/dev/null
+  : > "$LOG"
+  run "$STEP" --update "$REPO"
+  [ "$status" -eq 0 ]
+  grep -qx 'install --update' "$LOG"
 }

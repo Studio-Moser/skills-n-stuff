@@ -2,7 +2,7 @@
 """Generate every agent tool's instructions, MCP servers, hooks, skills, subagents,
 and commands from the agents repository's rulesync source. Called by harness:sync.
 
-  rulesync-generate.py [--dry-run] <agents-repo>
+  rulesync-generate.py [--dry-run] [--update] <agents-repo>
 
 Runs only when <repo>/rulesync.jsonc exists; prints RULESYNC_STATE=skipped otherwise.
 Steps, all inside the repo:
@@ -18,7 +18,10 @@ Steps, all inside the repo:
      in the source, using rulesync's own `--delete` dry run and nothing else it lists
      (it also lists folders other installers own, such as ~/.claude/skills/synced).
   4. `rulesync generate --global`.
-Prints one RULESYNC_STATE line. Exit 0 unless rulesync is missing or a command failed.
+Prints one RULESYNC_STATE line, then one RULESYNC_UPDATES line: whether a newer
+rulesync or newer commits for locked skill sources exist (checked at most once a day,
+read-only). `--update` re-resolves every source to its latest commit and rewrites
+rulesync.lock (sync commits it). Exit 0 unless rulesync is missing or a command failed.
 """
 
 from __future__ import annotations
@@ -32,6 +35,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 
 RULESYNC = os.environ.get("HARNESS_RULESYNC", "rulesync@39.0.0")
 DELETE_LINE = re.compile(r'Would delete directory: "([^"]+)"')
@@ -109,6 +113,22 @@ def merge_hooks(shared: dict, local: dict) -> dict:
     return merged
 
 
+def build_input_root(repo: Path, parent: Path) -> Path:
+    """Copy .rulesync into parent and merge this machine's .rulesync.local overlay into it."""
+    root = parent / ".rulesync"
+    if (repo / ".rulesync").is_dir():
+        shutil.copytree(repo / ".rulesync", root, symlinks=False)
+    else:
+        root.mkdir()
+    for name, merge, empty in (("mcp.jsonc", merge_mcp, {"mcpServers": {}}), ("hooks.jsonc", merge_hooks, {"version": 1, "hooks": {}})):
+        local = repo / ".rulesync.local" / name
+        if local.is_file():
+            shared_path = root / name
+            shared = load_jsonc(shared_path) if shared_path.is_file() else empty
+            shared_path.write_text(json.dumps(merge(shared, load_jsonc(local)), indent=2) + "\n")
+    return root
+
+
 def state_dir() -> Path:
     base = os.environ.get("XDG_STATE_HOME") or str(Path.home() / ".local/state")
     return Path(base) / "studio-moser/harness"
@@ -158,7 +178,7 @@ def declared_skills(config: dict) -> set[str]:
             for name in source.get("skills") or [] if isinstance(name, str) and name != "*"}
 
 
-def install(repo: Path) -> subprocess.CompletedProcess:
+def install(repo: Path, update: bool = False, extra: tuple[str, ...] = ()) -> subprocess.CompletedProcess:
     """Run `rulesync install` from a private root, then copy its results back.
 
     rulesync treats every folder in <cwd>/skills as the user's own skill and refuses to
@@ -174,8 +194,8 @@ def install(repo: Path) -> subprocess.CompletedProcess:
         for folder in INSTALL_FOLDERS:
             if (repo / folder).is_dir():
                 shutil.copytree(repo / folder, root / folder, symlinks=True)
-        result = rulesync(root, "install")
-        if result.returncode == 0:
+        result = rulesync(root, "install", *(["--update"] if update else []), *extra)
+        if result.returncode == 0 and not extra:
             for folder in INSTALL_FOLDERS:
                 if (repo / folder).exists():
                     shutil.rmtree(repo / folder)
@@ -206,6 +226,50 @@ def github_token() -> str | None:
     return result.stdout.strip() or None
 
 
+UPDATE_LINE = re.compile(r"^(?!up to date)(\S[^\n]*?)\s{2,}(\S+) \(", re.M)
+CHECK_EVERY = 24 * 3600
+
+
+def latest_rulesync() -> str | None:
+    try:
+        result = subprocess.run(["npm", "view", "rulesync", "version"], capture_output=True, text=True, timeout=20)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip() or None
+
+
+def check_updates(repo: Path, settings: dict) -> str:
+    """Read-only: is a newer rulesync or a newer locked skill commit available?"""
+    cache = state_file(repo).with_name(state_file(repo).name.replace("skills", "updates"))
+    if cache.is_file() and os.environ.get("HARNESS_UPDATE_CHECK") != "always":
+        try:
+            cached = json.loads(cache.read_text())
+            if time.time() - cached["checked"] < CHECK_EVERY and cached.get("fingerprint") == install_fingerprint(repo):
+                return cached["result"]
+        except (ValueError, KeyError, TypeError):
+            pass
+    notes = []
+    pinned = RULESYNC.rpartition("@")[2]
+    latest = latest_rulesync()
+    if latest is None:
+        notes.append("rulesync latest version unknown")
+    elif latest != pinned:
+        notes.append(f"rulesync {pinned} -> {latest} (bump the Harness pin after scripts/rulesync-rehearse.py {latest})")
+    if settings.get("sources"):
+        outdated = install(repo, extra=("--outdated",))
+        behind = [source for status, source in UPDATE_LINE.findall(outdated.stdout + outdated.stderr)]
+        if outdated.returncode == 2:
+            notes.append("a skill source could not be resolved")
+        elif outdated.returncode == 1 or behind:
+            notes.append(f"{len(behind)} skill source(s) behind: {', '.join(behind)} (run /harness:sync --update-skills)")
+    result = "; ".join(notes) or "none"
+    cache.parent.mkdir(parents=True, exist_ok=True)
+    cache.write_text(json.dumps({"checked": time.time(), "fingerprint": install_fingerprint(repo), "result": result}) + "\n")
+    return result
+
+
 def rulesync(repo: Path, *args: str) -> subprocess.CompletedProcess:
     env = dict(os.environ, npm_config_yes="true")
     if args and args[0] == "install":
@@ -222,7 +286,8 @@ def last_line(result: subprocess.CompletedProcess) -> str:
 
 def main(argv: list[str]) -> int:
     dry_run = "--dry-run" in argv
-    args = [a for a in argv if a != "--dry-run"]
+    update = "--update" in argv and not dry_run
+    args = [a for a in argv if a not in ("--dry-run", "--update")]
     if len(args) != 1:
         print(__doc__, file=sys.stderr)
         return 2
@@ -251,17 +316,17 @@ def main(argv: list[str]) -> int:
         print('RULESYNC_STATE=failed: set "delete": false in rulesync.jsonc and rulesync.local.jsonc; Harness removes dropped skills itself')
         return 1
     try:
-        return generate(repo, settings, dry_run)
+        return generate(repo, settings, dry_run, update)
     except (OSError, ValueError, KeyError, TypeError) as error:
         print(f"RULESYNC_STATE=failed: {type(error).__name__}: {error}")
         return 1
 
 
-def generate(repo: Path, settings: dict, dry_run: bool) -> int:
+def generate(repo: Path, settings: dict, dry_run: bool, update: bool = False) -> int:
     declared_sources = bool(settings.get("sources"))
 
-    if declared_sources and not dry_run and install_needed(repo):
-        installed = install(repo)
+    if declared_sources and not dry_run and (update or install_needed(repo)):
+        installed = install(repo, update=update)
         if installed.returncode:
             print(f"RULESYNC_STATE=failed: install: {last_line(installed)}")
             return 1
@@ -269,17 +334,7 @@ def generate(repo: Path, settings: dict, dry_run: bool) -> int:
         install_state_file(repo).write_text(install_fingerprint(repo) + "\n")
 
     with tempfile.TemporaryDirectory(prefix="harness-rulesync.") as temp:
-        root = Path(temp) / ".rulesync"
-        if (repo / ".rulesync").is_dir():
-            shutil.copytree(repo / ".rulesync", root, symlinks=False)
-        else:
-            root.mkdir()
-        for name, merge, empty in (("mcp.jsonc", merge_mcp, {"mcpServers": {}}), ("hooks.jsonc", merge_hooks, {"version": 1, "hooks": {}})):
-            local = repo / ".rulesync.local" / name
-            if local.is_file():
-                shared_path = root / name
-                shared = load_jsonc(shared_path) if shared_path.is_file() else empty
-                shared_path.write_text(json.dumps(merge(shared, load_jsonc(local)), indent=2) + "\n")
+        root = build_input_root(repo, Path(temp))
 
         # A declared skill is never "removed", even if this run failed to fetch it.
         current = source_skills(root) | declared_skills(settings)
@@ -310,6 +365,7 @@ def generate(repo: Path, settings: dict, dry_run: bool) -> int:
 
     detail = "dry run" if dry_run else f"{written.group(1) if written else 0} file(s) written"
     print(f"RULESYNC_STATE=generated: {detail}; {len(current)} skill(s); {cleaned} stale skill folder(s) removed")
+    print(f"RULESYNC_UPDATES={check_updates(repo, settings)}")
     return 0
 
 
