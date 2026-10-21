@@ -7,7 +7,7 @@ setup() {
   REPO="$BATS_TEST_TMPDIR/agents"
   BIN="$BATS_TEST_TMPDIR/bin"
   LOG="$BATS_TEST_TMPDIR/npx.log"
-  mkdir -p "$HOME" "$REPO/.rulesync/rules" "$BIN"
+  mkdir -p "$HOME" "$REPO/.rulesync/rules" "$REPO/.rulesync.local" "$BIN"
   printf -- '---\nroot: true\n---\nRule\n' > "$REPO/.rulesync/rules/Global_Instructions.md"
   # Stub npx: records each rulesync call, captures the merged MCP source, and prints
   # rulesync-shaped output. STUB_DELETE lists dry-run --delete paths; STUB_FAIL fails generate.
@@ -34,7 +34,7 @@ case "\$1" in
     [ -n "\${STUB_FAIL:-}" ] && { echo "boom" >&2; exit 1; }
     [ -f "\$input/mcp.jsonc" ] && cp "\$input/mcp.jsonc" "$BATS_TEST_TMPDIR/merged-mcp.json"
     [ -f "\$input/hooks.jsonc" ] && cp "\$input/hooks.jsonc" "$BATS_TEST_TMPDIR/merged-hooks.json"
-    case "\$*" in *--delete*) printf '%s\n' "\${STUB_DELETE:-}" ;; esac
+    case "\$*" in *--delete*) printf '%s\n' "\${STUB_DELETE:-}" ;; *--dry-run*) [ -n "\${STUB_WRITES:-}" ] && printf '[DRY RUN] Would write: %s\n' \$STUB_WRITES ;; esac
     echo "Written 3 file(s) total" ;;
 esac
 EOF
@@ -44,6 +44,9 @@ EOF
   chmod +x "$BIN/npm"
   export PATH="$BIN:$PATH"
 }
+
+state() { printf '%s\n' "$output" | grep "^RULESYNC_STATE="; }
+updates() { printf '%s\n' "$output" | grep "^RULESYNC_UPDATES="; }
 
 @test "an unmanaged repo is skipped without calling rulesync" {
   run "$STEP" "$REPO"
@@ -56,9 +59,10 @@ EOF
   printf '{ "global": true, "delete": false, // comment\n  "targets": ["claudecode",], }\n' > "$REPO/rulesync.jsonc"
   run "$STEP" "$REPO"
   [ "$status" -eq 0 ]
-  [ "${lines[0]}" = "RULESYNC_STATE=generated: 3 file(s) written; 0 skill(s); 0 stale skill folder(s) removed" ]
-  [ "${lines[1]}" = "RULESYNC_UPDATES=none" ]
-  [ "$(wc -l < "$LOG" | tr -d ' ')" -eq 1 ]
+  [ "$(state)" = "RULESYNC_STATE=generated: 3 file(s) written; 0 skill(s); 0 stale skill folder(s) removed" ]
+  [ "$(updates)" = "RULESYNC_UPDATES=none" ]
+  run grep -c '^install' "$LOG"
+  [ "$output" = "0" ]
   grep -q '^generate --global --input-roots .*/\.rulesync$' "$LOG"
 
   printf '{ "global": true, "sources": [{ "source": "o/r", "skills": ["alpha"] }] }\n' > "$REPO/rulesync.jsonc"
@@ -95,7 +99,7 @@ assert sorted(m["codexcli"]["mcpServers"]) == ["app", "codex-only"], m
   export STUB_DELETE="$(printf '[DRY RUN] Would delete directory: "%s"\n' "$HOME/.agents/skills/beta" "$HOME/.claude/skills/beta" "$HOME/.claude/skills/synced")"
   run "$STEP" "$REPO"
   [ "$status" -eq 0 ]
-  [[ "${lines[0]}" == *"1 skill(s); 2 stale skill folder(s) removed" ]] || return 1
+  [[ "$(state)" == *"1 skill(s); 2 stale skill folder(s) removed" ]] || return 1
   [ ! -e "$HOME/.agents/skills/beta" ]
   [ ! -e "$HOME/.claude/skills/beta" ]
   [ -d "$HOME/.claude/skills/synced" ]
@@ -106,7 +110,7 @@ assert sorted(m["codexcli"]["mcpServers"]) == ["app", "codex-only"], m
   printf '{ "global": true }\n' > "$REPO/rulesync.jsonc"
   run env STUB_FAIL=1 "$STEP" "$REPO"
   [ "$status" -eq 1 ]
-  [ "$output" = "RULESYNC_STATE=failed: generate: boom" ]
+  [ "$(state)" = "RULESYNC_STATE=failed: generate: boom" ]
   run ls "$XDG_STATE_HOME/studio-moser/harness/"
   [[ "$output" != *rulesync-skills* ]] || return 1
 }
@@ -115,7 +119,7 @@ assert sorted(m["codexcli"]["mcpServers"]) == ["app", "codex-only"], m
   printf '{ "global": true, "sources": [{ "source": "o/r" }] }\n' > "$REPO/rulesync.jsonc"
   run "$STEP" --dry-run "$REPO"
   [ "$status" -eq 0 ]
-  [[ "${lines[0]}" == "RULESYNC_STATE=generated: dry run;"* ]] || return 1
+  [[ "$(state)" == "RULESYNC_STATE=generated: dry run;"* ]] || return 1
   grep -q -- '^generate --global --input-roots .* --dry-run$' "$LOG"
   # Only the read-only update check may call install.
   run grep -c -x 'install' "$LOG"
@@ -176,7 +180,7 @@ assert [e["command"] for e in h["sessionStart"]] == ["local-start"], h
   export STUB_FETCH_NOTHING=1 STUB_DELETE="[DRY RUN] Would delete directory: \"$HOME/.agents/skills/alpha\""
   run "$STEP" "$REPO"
   [ "$status" -eq 0 ]
-  [[ "${lines[0]}" == *"0 stale skill folder(s) removed" ]] || return 1
+  [[ "$(state)" == *"0 stale skill folder(s) removed" ]] || return 1
   [ -d "$HOME/.agents/skills/alpha" ]
 }
 
@@ -221,9 +225,9 @@ assert [e["command"] for e in h["sessionStart"]] == ["local-start"], h
   export STUB_OUTDATED='up to date  a/b (main): 111\nbehind      o/r (main): 222 -> 333\n'
   run "$STEP" "$REPO"
   [ "$status" -eq 0 ]
-  [ "${lines[1]}" = "RULESYNC_UPDATES=rulesync 39.0.0 -> 40.1.0 (bump the Harness pin after scripts/rulesync-rehearse.py 40.1.0); 1 skill source(s) behind: o/r (run /harness:sync --update-skills)" ]
+  [ "$(updates)" = "RULESYNC_UPDATES=rulesync 39.0.0 -> 40.1.0 (bump the Harness pin after scripts/rulesync-rehearse.py 40.1.0); 1 skill source(s) behind: o/r (run /harness:sync --update-skills)" ]
   run "$STEP" "$REPO"
-  [ "${lines[1]}" = "RULESYNC_UPDATES=rulesync 39.0.0 -> 40.1.0 (bump the Harness pin after scripts/rulesync-rehearse.py 40.1.0); 1 skill source(s) behind: o/r (run /harness:sync --update-skills)" ]
+  [ "$(updates)" = "RULESYNC_UPDATES=rulesync 39.0.0 -> 40.1.0 (bump the Harness pin after scripts/rulesync-rehearse.py 40.1.0); 1 skill source(s) behind: o/r (run /harness:sync --update-skills)" ]
   [ "$(wc -l < "$BATS_TEST_TMPDIR/npm.log" | tr -d ' ')" -eq 1 ]
 }
 
@@ -234,4 +238,29 @@ assert [e["command"] for e in h["sessionStart"]] == ["local-start"], h
   run "$STEP" --update "$REPO"
   [ "$status" -eq 0 ]
   grep -qx 'install --update' "$LOG"
+}
+
+@test "the first sync on a machine without an overlay captures it once" {
+  printf '{ "global": true }\n' > "$REPO/rulesync.jsonc"
+  rmdir "$REPO/.rulesync.local"
+  run "$STEP" "$REPO"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"RULESYNC_CAPTURE=kept on this machine only: 0 server(s), 0 hook(s)"* ]] || return 1
+  [ -d "$REPO/.rulesync.local" ]
+  run "$STEP" "$REPO"
+  [[ "$output" != *RULESYNC_CAPTURE* ]] || return 1
+}
+
+@test "the first generate for a repo backs up every live file it will write, once" {
+  printf '{ "global": true }\n' > "$REPO/rulesync.jsonc"
+  mkdir -p "$HOME/.codex"
+  echo live > "$HOME/.codex/config.toml"
+  export STUB_WRITES="$HOME/.codex/config.toml $HOME/.codex/new-file.json"
+  run "$STEP" "$REPO"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"RULESYNC_BACKUP=1 live file(s) copied to $XDG_STATE_HOME/studio-moser/harness/backups/rulesync-"* ]] || return 1
+  [ "$(cat "$XDG_STATE_HOME"/studio-moser/harness/backups/rulesync-*/.codex/config.toml)" = "live" ]
+  [ "$(stat -f '%Lp' "$XDG_STATE_HOME"/studio-moser/harness/backups/rulesync-* 2>/dev/null || stat -c '%a' "$XDG_STATE_HOME"/studio-moser/harness/backups/rulesync-*)" = "700" ]
+  run "$STEP" "$REPO"
+  [[ "$output" != *RULESYNC_BACKUP* ]] || return 1
 }

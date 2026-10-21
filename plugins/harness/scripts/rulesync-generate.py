@@ -39,6 +39,8 @@ import time
 
 RULESYNC = os.environ.get("HARNESS_RULESYNC", "rulesync@39.0.0")
 DELETE_LINE = re.compile(r'Would delete directory: "([^"]+)"')
+WRITE_LINE = re.compile(r"Would write: (.+?)\s*$", re.M)
+HERE = Path(__file__).resolve().parent
 # What `rulesync install` reads and writes, carried through its private root.
 INSTALL_LOCKS = ("rulesync.lock", "rulesync-npm.lock.json")
 INSTALL_FILES = ("rulesync.jsonc", "rulesync.local.jsonc", *INSTALL_LOCKS)
@@ -127,6 +129,29 @@ def build_input_root(repo: Path, parent: Path) -> Path:
             shared = load_jsonc(shared_path) if shared_path.is_file() else empty
             shared_path.write_text(json.dumps(merge(shared, load_jsonc(local)), indent=2) + "\n")
     return root
+
+
+def backup_first_run(repo: Path, root: Path) -> None:
+    """Before this repo's first generate on this machine, copy every live file it will write."""
+    listing = rulesync(repo, "generate", "--global", "--input-roots", str(root), "--dry-run")
+    home = Path.home().resolve()
+    backup = state_dir() / "backups" / f"rulesync-{time.strftime('%Y%m%d-%H%M%S')}"
+    copied = 0
+    for raw in WRITE_LINE.findall(listing.stdout + listing.stderr):
+        path = Path(raw.strip().strip('"')).expanduser()
+        try:
+            rel = path.resolve().relative_to(home)
+        except ValueError:
+            continue
+        if path.is_file():
+            target = backup / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(path, target)
+            copied += 1
+    if copied:
+        os.chmod(backup.parent, 0o700)
+        os.chmod(backup, 0o700)
+    print(f"RULESYNC_BACKUP={copied} live file(s) copied to {backup}" if copied else "RULESYNC_BACKUP=nothing to back up")
 
 
 def state_dir() -> Path:
@@ -333,6 +358,16 @@ def generate(repo: Path, settings: dict, dry_run: bool, update: bool = False) ->
         install_state_file(repo).parent.mkdir(parents=True, exist_ok=True)
         install_state_file(repo).write_text(install_fingerprint(repo) + "\n")
 
+    if not dry_run and not (repo / ".rulesync.local").exists():
+        # First managed sync on this machine: keep what the shared source lacks.
+        capture = subprocess.run([sys.executable, str(HERE / "rulesync-bootstrap.py"), "--machine", str(repo)],
+                                 capture_output=True, text=True)
+        line = next((l for l in capture.stdout.splitlines() if l.startswith("RULESYNC_CAPTURE=")), "")
+        if capture.returncode:
+            print(f"RULESYNC_STATE=failed: machine capture: {line.partition('=')[2] or capture.stderr.strip()[-200:]}")
+            return 1
+        print(line)
+
     with tempfile.TemporaryDirectory(prefix="harness-rulesync.") as temp:
         root = build_input_root(repo, Path(temp))
 
@@ -353,6 +388,8 @@ def generate(repo: Path, settings: dict, dry_run: bool, update: bool = False) ->
                     shutil.rmtree(path)
                     cleaned += 1
 
+        if not dry_run and not state.is_file():
+            backup_first_run(repo, root)
         generate_args = ["generate", "--global", "--input-roots", str(root)] + (["--dry-run"] if dry_run else [])
         generated = rulesync(repo, *generate_args)
         if generated.returncode:

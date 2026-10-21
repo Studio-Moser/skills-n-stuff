@@ -86,6 +86,21 @@ A personal agents repo that contains `rulesync.jsonc` hands per-tool generation 
   machine's last run, and nothing else;
 - skips its own MCP manifest and `npx skills` steps.
 
+### Adopting it
+
+`scripts/rulesync-bootstrap.py <repo>` (offered by `/harness:setup`) previews building
+the source from the agent tools on this machine: each tool's MCP servers and hooks,
+imported with rulesync, become one shared list with per-tool blocks where definitions
+differ; anything with a home-folder path stays in `.rulesync.local`; secret values move
+to the secret store and their servers start through `bin/with-secrets`; skills from
+`skills.manifest` become `sources`, and your own committed skills move into
+`.rulesync/skills`. `--write` applies it; the next Sync generates every tool.
+
+On every other machine, the first managed Sync keeps that machine's own servers and
+hooks the shared source does not define in its `.rulesync.local` (it reports them), and
+the first generate for a repo backs up every live file it will write to
+`~/.local/state/studio-moser/harness/backups/`.
+
 ### Keeping rulesync and skills current
 
 Both are pinned, so every machine generates the same files: rulesync by version in
@@ -273,6 +288,7 @@ and confirms a remote is private before the first push.
 | `scripts/fleet-hosts.sh [repo]` | print the concrete `Host` aliases in `<repo>/ssh/config`; exit 1 on none or an unsafe alias |
 | `scripts/fleet-include.sh [repo] [ssh_config]` | prepend a global `Include` of the fleet inventory unless one already precedes the first `Host`/`Match` |
 | `scripts/rulesync-generate.py [--dry-run] <repo>` | install declared skills and generate every agent tool's files from a rulesync-managed repo |
+| `scripts/rulesync-bootstrap.py [--write\|--machine] <repo>` | build a repo's rulesync source from this machine's tools, or keep a machine's extras on its first managed sync |
 | `scripts/rulesync-rehearse.py <version> [repo]` | diff this machine's generated config between the pinned and a candidate rulesync, in temporary HOMEs |
 | `scripts/agent-secrets.py set\|exec\|check\|copy-to ...` | store secrets in this machine's secret store and hand them only to the process that needs them |
 | `scripts/telemetry.py record-result\|publish ...` | append delegation results and publish local telemetry into the repo's `telemetry/<host>/` |

@@ -120,7 +120,19 @@ non-blocking, as in Ordered setup.
    but only after Model Rubric reports a validated write, so the existing commit,
    pull, push, and conflict mechanics publish that version-controlled change. A
    blocked validation never authorizes Sync.
-6. Inspect the runtime's callable tool names for Shelby only after the portable
+6. When the agents repository has no `rulesync.jsonc`, offer to generate every agent
+   tool from one source. Run the preview (it writes nothing and prints secret names,
+   never values):
+
+   ```bash
+   harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
+   "$harness/scripts/rulesync-bootstrap.py" "${AGENTS_REPO:-$HOME/.agents}"
+   ```
+
+   Show the user the plan. Only on their explicit yes, rerun with `--write`, then invoke
+   `harness:sync`; its first managed run backs up every live file it will write. The
+   user may decline; Sync keeps working without rulesync.
+7. Inspect the runtime's callable tool names for Shelby only after the portable
    setup is usable. When Shelby tool names are present, retain identifiers only
    from successful Shelby calls for optional memory work, not HarnessResult.
    Resolve canonical project scope, log this multi-phase setup run, and save only
@@ -128,7 +140,7 @@ non-blocking, as in Ordered setup.
    enrichment.
    Shelby failure never changes route or authority and blocks only enrichment,
    not correct setup.
-7. Print the storage boundary:
+8. Print the storage boundary:
 
    - **version-controlled:** portable instructions, skill declarations,
      manifests, shared settings, and the rubric when the agents repository owns

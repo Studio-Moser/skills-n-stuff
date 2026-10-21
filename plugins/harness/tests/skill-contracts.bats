@@ -222,7 +222,8 @@ missing = [clause for clause in required if clause not in normalized]
 assert not missing, "setup contract missing: " + ", ".join(missing)
 assert "setup-result.py" in text, "setup does not use the runnable result seam"
 script_refs = [line for line in text.splitlines() if "$harness/scripts/" in line]
-allowed_scripts = ("setup-result.py", "resolve-route.py", "codex-app-server.py")
+# rulesync-bootstrap.py is Setup's own offer to adopt rulesync; it previews, never syncs.
+allowed_scripts = ("setup-result.py", "resolve-route.py", "codex-app-server.py", "rulesync-bootstrap.py")
 assert all(any(script in line for script in allowed_scripts) for line in script_refs), "setup duplicates Sync or rubric mechanics"
 PY
   if [ "$status" -ne 0 ]; then
