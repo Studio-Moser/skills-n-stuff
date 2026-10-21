@@ -163,8 +163,8 @@ Task, output, verification, authority, and approval failures stop without
 changing providers. Between iterations, keep operation, tools, approvals,
 working directory, allowed paths, fixed target, sandbox, confirmation policy,
 and verification seam unchanged; a fallback changes only the provider. Exhausting the authorized unique-provider chain
-returns blocked. The attempted candidates and selection reason remain internal
-resolver-loop state; they are not HarnessResult fields.
+returns blocked. The attempted candidates and selection reason are not
+HarnessResult fields; they go only to the local ledger under Record the result.
 
 ### Codex executor
 
@@ -195,3 +195,25 @@ Return exactly: `status`; `route.requested`, `route.model`, `route.effort`,
 `artifacts.report`; `evidence.fixed_target`, `evidence.checks`,
 `evidence.outcome`; and `blockers`. Optional or unavailable values stay empty
 rather than omitted, so every consumer parses one shape.
+
+### Record the result
+
+On every terminal path, including a request blocked before dispatch, append the
+complete HarnessResult to the local ledger once. Pass the resolver candidates this
+request recorded as unavailable, each with its availability reason, and the calling
+skill when one invoked Harness:
+
+```bash
+harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
+"$harness/scripts/telemetry.py" record-result \
+  --operation "$HARNESS_OPERATION" \
+  --consumer "$HARNESS_CONSUMER" \
+  --attempted "$HARNESS_ATTEMPTED_REASONS" \
+  --result "$HARNESS_RESULT_JSON"
+```
+
+`HARNESS_ATTEMPTED_REASONS` is a JSON list such as
+`[{"candidate":"model@effort","reason":"quota"}]`, `[]` when the first candidate
+answered. The ledger stores typed fields only; Sync publishes it to the agents
+repository, and `harness:audit` reads it. A recording failure never changes the
+result.

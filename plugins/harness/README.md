@@ -24,6 +24,24 @@ The plugin is public and generic; the data is yours.
 - **`/harness:fleet`** — run commands on your other machines over SSH. The host
   inventory (`ssh/config`) and one public key per machine live in your private
   repo; each machine includes the inventory and authorizes those keys.
+- **`/harness:audit`** — answer questions about real usage and gaps: which skills
+  and rules run, which shims still fire or could retire, how delegations turn out,
+  and what keeps failing. It reads `scripts/usage-report.py`, the delegation ledger,
+  shim events, and `Component_Catalog.toml`.
+
+## Telemetry
+
+Harness records two event streams on each machine: every delegation result
+(`Results`) and every shim firing (`Shim_Events`, e.g. the zsh glob guard hook).
+Writers append only to `${XDG_STATE_HOME:-~/.local/state}/studio-moser/harness/telemetry/`,
+so the agents repository stays clean between syncs. Each `/harness:sync` merges
+those files by record id into `telemetry/<host>/` in your private agents repository
+and writes that month's `Usage-YYYY-MM.json` counts. Records hold typed fields and
+counts only; home paths are redacted, and transcripts never leave the machine.
+
+`Component_Catalog.toml` lists every behavior rule and shim with its kind, source
+anchor, reason, detector, and retirement test. Add an entry with each new rule, shim,
+or hook.
 
 Any main model chooses direct execution or a rubric worker using
 [Execution choice](references/routing.md#execution-choice): capability, verifiability,

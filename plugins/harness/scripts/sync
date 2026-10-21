@@ -16,7 +16,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Iterable
 
 
@@ -963,6 +963,37 @@ echo "REMOTE_STATE=failed"; exit 1
 """
 
 
+def publish_telemetry(repo: Path, scripts: Path) -> str:
+    """Merge this machine's local telemetry and a usage summary into telemetry/<host>/.
+
+    Runs after preflight ingested the remote: live writers only touch local state, so
+    the repository stays clean between syncs. Telemetry never fails a sync.
+    """
+    if not (scripts / "telemetry.py").is_file() or not (scripts / "usage-report.py").is_file():
+        return "skipped: telemetry scripts missing"
+    host_dir = repo / "telemetry" / socket.gethostname().split(".")[0]
+    published = subprocess.run(
+        [sys.executable, str(scripts / "telemetry.py"), "publish", "--repo", str(repo)],
+        text=True, capture_output=True,
+    )
+    if published.returncode:
+        return f"skipped: publish exited {published.returncode}"
+    try:
+        added = json.loads(published.stdout)["added"]
+    except (ValueError, KeyError, TypeError):
+        added = "?"
+    # UTC, matching the month in the telemetry file names.
+    month = f"{datetime.now(timezone.utc):%Y-%m}"
+    summary = host_dir / f"Usage-{month}.json"
+    usage = subprocess.run(
+        [sys.executable, str(scripts / "usage-report.py"), "--month", month,
+         "--local-only", "--repo", str(repo), "--output", str(summary)],
+        text=True, capture_output=True,
+    )
+    usage_state = f"{summary.name} written" if usage.returncode == 0 else f"usage summary skipped (exit {usage.returncode})"
+    return f"{added} new event(s) published; {usage_state}"
+
+
 def push_machines(args: argparse.Namespace, repo: Path, scripts: Path) -> str:
     if not args.push_machines:
         return "skipped: not requested"
@@ -1092,6 +1123,7 @@ def sync(
     findings.extend(mcp_findings)
     skills_state, skill_findings = apply_skills(args, configured_repo, repo, scripts)
     findings.extend(skill_findings)
+    telemetry_state = publish_telemetry(repo, scripts)
     lint = run([helper(scripts, "portability-lint.sh"), str(repo)], check=False)
     if lint.returncode:
         raise Stop(EXIT_DECISION, "SYNC_DECISION_REQUIRED=portability lint findings require an explicit fix or decline before push")
@@ -1129,6 +1161,7 @@ def sync(
     print(f"  Skills local deviations: {deviations(repo, 'skipInstall', 'keepLocal')}")
     print("  Lint:       clean")
     print(f"  Rubric:     {'clean' if rubric.returncode == 0 else 'findings'}")
+    print(f"  Telemetry:  {telemetry_state}")
     print(f"  Machines:   {machine_state}")
     if backup:
         print(f"  Backup:     {backup}")
