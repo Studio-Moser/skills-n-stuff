@@ -81,6 +81,7 @@ routing, bounded execution, and evidence-bearing results.
 - `/harness:risk-gate` — classify when work needs structure, delegation, or independent review
 - `/harness:delegate` — route bounded execution, fixed-target review, or computer use with reproducible proof
 - `/harness:fleet` — run commands on your other machines over SSH from a private host inventory
+- `/harness:audit` — answer usage and gap questions from transcripts, the delegation ledger, shim firings, and the component catalog
 
 [Full documentation](plugins/harness/README.md)
 

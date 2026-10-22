@@ -1,0 +1,378 @@
+# Harness component catalog.
+#
+# One entry per behavior rule or shim the Harness profile, baseline, or hooks add.
+# Skills are not listed: usage-report.py derives them from installed SKILL.md files.
+#
+# kind
+#   model-shim        compensates for a model tendency; a newer model may not need it
+#   environment-shim  compensates for a machine or tool quirk (deterministic, logs firings)
+#   preference        the owner's taste or workflow; never retired for model progress
+#   guard             safety or authority boundary; never retired for model progress
+#
+# Fields
+#   id, kind, source, anchor   required. `source` is relative to the plugin root and
+#                              `anchor` is an exact quote from it (whitespace-normalized);
+#                              the catalog test fails when an anchor disappears.
+#   also                       other places stating the same rule (duplicates to merge).
+#   added_for, retire_test     required for shims: why it exists and what proves it can go.
+#   detector                   none | regex:<pattern> (assistant text) | events:<shim id>.
+#
+# New behavior rules, shims, and hooks get an entry when they are added.
+
+[[component]]
+id = "honest-unknown"
+kind = "model-shim"
+source = "profile/Global Instructions.md"
+anchor = "If you don't know, say so. Never fabricate facts, URLs, or data."
+also = [{ source = "profile/House Style.md", anchor = "say when the evidence leaves something unknown" }]
+added_for = "Models state plausible facts, URLs, and data they did not verify."
+retire_test = "Ablate in Harness Testing; keep if graded answers gain unsupported claims or invented URLs."
+
+[[component]]
+id = "named-skill-leads"
+kind = "preference"
+source = "profile/Global Instructions.md"
+anchor = "A skill invoked by name leads."
+also = [{ source = "templates/AGENTS_Baseline.md", anchor = "Invoke a matching skill even when the user did not name it." }]
+
+[[component]]
+id = "dev-task-scope"
+kind = "preference"
+source = "profile/Global Instructions.md"
+anchor = "Use `pm:dev-task` for one large, multi-file Feature-class change or when requested"
+also = [{ source = "templates/AGENTS_Baseline.md", anchor = "Use `pm:dev-task` for one large, multi-file Feature-class change or when the user asks" }]
+
+[[component]]
+id = "review-by-risk"
+kind = "preference"
+source = "profile/Global Instructions.md"
+anchor = "Use `harness:risk-gate` to decide whether independent review is required"
+
+[[component]]
+id = "worker-proof"
+kind = "model-shim"
+source = "profile/Global Instructions.md"
+anchor = "completion claim remains unverified until the parent reproduces the named proof"
+also = [{ source = "templates/AGENTS_Baseline.md", anchor = "parent agents reproduce the named proof before accepting the outcome" }]
+added_for = "Orchestrators accept a worker's report of success without rerunning its check."
+retire_test = "Ablate; keep if the ledger shows accepted results whose named check never ran in the parent transcript."
+
+[[component]]
+id = "harness-routing"
+kind = "preference"
+source = "profile/Global Instructions.md"
+anchor = "Harness alone reads the personal rubric"
+
+[[component]]
+id = "authority-ceiling"
+kind = "guard"
+source = "profile/Global Instructions.md"
+anchor = "Preserve the request's working directory, allowed paths, tools, permissions, and approval boundaries."
+
+[[component]]
+id = "file-naming"
+kind = "preference"
+source = "profile/Global Instructions.md"
+anchor = "Name files in Title Case with spaces"
+
+[[component]]
+id = "read-before-change"
+kind = "model-shim"
+source = "profile/Global Instructions.md"
+anchor = "Read the task and every file the change touches first, trace the real flow"
+added_for = "Models edit files they have not read and patch symptoms before tracing the flow."
+retire_test = "Ablate; keep if usage-report edit-read-order errors or Harness Testing correctness regress."
+
+[[component]]
+id = "minimal-solution"
+kind = "model-shim"
+source = "profile/Global Instructions.md"
+anchor = "Does this need to exist at all? Speculative need = skip it, say so in one line."
+added_for = "Models add code, dependencies, and features the task did not need."
+retire_test = "Ablate; keep if Harness Testing diffs grow or add dependencies at equal correctness."
+
+[[component]]
+id = "root-cause"
+kind = "model-shim"
+source = "profile/Global Instructions.md"
+anchor = "Bug fix = root cause, not symptom."
+added_for = "Models guard the failing caller instead of fixing the shared cause."
+retire_test = "Ablate; keep if Harness Testing bug tasks regress or fix the symptom site only."
+
+[[component]]
+id = "no-abstractions"
+kind = "model-shim"
+source = "profile/Global Instructions.md"
+anchor = "No unrequested abstractions"
+also = [{ source = "profile/House Style.md", anchor = "Do not speculate on abstractions for future requirements." }]
+added_for = "Models introduce interfaces, factories, and config for single uses."
+retire_test = "Ablate; keep if Harness Testing diffs add single-implementation abstractions."
+
+[[component]]
+id = "runnable-check"
+kind = "preference"
+source = "profile/Global Instructions.md"
+anchor = "leaves one runnable check behind"
+
+[[component]]
+id = "ponytail-marker"
+kind = "preference"
+source = "profile/Global Instructions.md"
+anchor = "Mark deliberate shortcuts with a `ponytail:` comment"
+
+[[component]]
+id = "preserve-basics"
+kind = "guard"
+source = "profile/Global Instructions.md"
+anchor = "Never simplify away: input validation at trust boundaries"
+
+[[component]]
+id = "repo-only-ceremony"
+kind = "model-shim"
+source = "profile/Global Instructions.md"
+anchor = "Only repo changes get a class."
+also = [{ source = "templates/AGENTS_Baseline.md", anchor = "non-code asks get no engineering workflow" }]
+added_for = "Models apply engineering workflow and skill ceremony to research, writing, and questions."
+retire_test = "Ablate; keep if non-code Harness Testing scenarios start invoking dev workflows."
+
+[[component]]
+id = "silent-routing"
+kind = "model-shim"
+source = "profile/Global Instructions.md"
+anchor = "Do not announce classifications, effort choices, or routine routing decisions."
+also = [
+  { source = "profile/Global Instructions.md", anchor = "Keep classification and routine routing internal." },
+  { source = "templates/AGENTS_Baseline.md", anchor = "Keep classification and routine routing internal." },
+]
+added_for = "Models narrate their change class and routing choice to the user."
+retire_test = "Ablate; retire if detector hits per session stay at baseline in usage-report and Harness Testing."
+detector = '''regex:(?i)\bclassif(?:y|ied|ying|ication)\b[^.\n]{0,24}\b(?:polish|small|feature)\b|\b(?:polish|small|feature)[- ]class\b'''
+
+[[component]]
+id = "useful-progress"
+kind = "preference"
+source = "profile/Global Instructions.md"
+anchor = "Report useful progress, consequential tradeoffs, blockers, required approvals, and verification results."
+
+[[component]]
+id = "change-class-gates"
+kind = "preference"
+source = "profile/Global Instructions.md"
+anchor = "styling, spacing, copy; no logic change; one file per edit."
+
+[[component]]
+id = "risk-escalators"
+kind = "guard"
+source = "profile/Global Instructions.md"
+anchor = "security, auth, payment, or data-model / persistence / migrations is never Polish"
+
+[[component]]
+id = "execution-choice"
+kind = "preference"
+source = "profile/Global Instructions.md"
+anchor = "do not infer savings from model names"
+also = [{ source = "templates/AGENTS_Baseline.md", anchor = "Choose execution by capability, verifiability, and total cost." }]
+
+[[component]]
+id = "bounded-handoff"
+kind = "model-shim"
+source = "profile/Global Instructions.md"
+anchor = "Give the worker the outcome, necessary context, and acceptance check before solving the task yourself."
+added_for = "Orchestrators solve the task themselves before delegating, or hand off without an acceptance check."
+retire_test = "Ablate; keep if delegated packets lose verification seams or parents repeat the worker's investigation."
+
+[[component]]
+id = "cheaper-never-reduces"
+kind = "guard"
+source = "profile/Global Instructions.md"
+anchor = "A cheaper worker never reduces required verification or review."
+also = [{ source = "templates/AGENTS_Baseline.md", anchor = "A cheaper worker never reduces required verification or review." }]
+
+[[component]]
+id = "select-checks"
+kind = "model-shim"
+source = "profile/Global Instructions.md"
+anchor = "Do not add a generic build/format/lint checklist."
+also = [{ source = "templates/AGENTS_Baseline.md", anchor = "Do not add a generic build/format/lint checklist." }]
+added_for = "Models run or install a generic build/format/lint checklist regardless of the change."
+retire_test = "Ablate; keep if Harness Testing transcripts add unconfigured checks or optional installs."
+
+[[component]]
+id = "one-proof-pass"
+kind = "model-shim"
+source = "profile/Global Instructions.md"
+anchor = "repeat proof only after changes invalidate it"
+added_for = "Models rerun the same passing checks without an intervening change."
+retire_test = "Ablate; keep if Harness Testing shows repeated identical check commands per task."
+
+[[component]]
+id = "answer-first"
+kind = "preference"
+source = "profile/House Style.md"
+anchor = "Put the requested answer, result, status, or decision in the first sentence."
+
+[[component]]
+id = "preserve-substance"
+kind = "model-shim"
+source = "profile/House Style.md"
+anchor = "Compression must not remove required substance."
+added_for = "Brevity rules make models drop required facts and caveats."
+retire_test = "Ablate together with the brevity preferences; keep if graded answers lose required facts."
+
+[[component]]
+id = "grounded-claims"
+kind = "model-shim"
+source = "profile/House Style.md"
+anchor = "Separate observation from inference."
+added_for = "Models present inference as observed fact without naming the source."
+retire_test = "Ablate; keep if Harness Testing communication grading loses attribution."
+
+[[component]]
+id = "one-term"
+kind = "preference"
+source = "profile/House Style.md"
+anchor = "Use one plain, precise term for each concept and state each fact once."
+
+[[component]]
+id = "clear-position"
+kind = "preference"
+source = "profile/House Style.md"
+anchor = "give a clear position and the deciding fact or causal path"
+
+[[component]]
+id = "proportional-detail"
+kind = "preference"
+source = "profile/House Style.md"
+anchor = "Match the detail and firmness to the request."
+
+[[component]]
+id = "final-pass"
+kind = "preference"
+source = "profile/House Style.md"
+anchor = "remove repetition, filler, generic conclusions, and unrelated offers"
+
+[[component]]
+id = "reference-codes"
+kind = "preference"
+source = "profile/House Style.md"
+anchor = "assign every one a short code"
+
+[[component]]
+id = "scope-only"
+kind = "preference"
+source = "profile/House Style.md"
+anchor = "Deliver only what was requested at the intended scope."
+
+[[component]]
+id = "evidence-before-done"
+kind = "model-shim"
+source = "profile/House Style.md"
+anchor = "Do not claim completion without evidence."
+added_for = "Models report work as done before a check proves it."
+retire_test = "Ablate; keep if Harness Testing completion claims outnumber passing verifier runs."
+
+[[component]]
+id = "questions-read-only"
+kind = "preference"
+source = "profile/House Style.md"
+anchor = "A question is not an instruction to change code."
+also = [{ source = "templates/AGENTS_Baseline.md", anchor = "Questions are read-only." }]
+
+[[component]]
+id = "code-first-report"
+kind = "preference"
+source = "profile/House Style.md"
+anchor = "Code first. After code, at most three short lines"
+
+[[component]]
+id = "exact-aliases"
+kind = "preference"
+source = "profile/House Style.md"
+anchor = "When you see these exact aliases, expand them"
+
+[[component]]
+id = "load-on-demand"
+kind = "model-shim"
+source = "templates/AGENTS_Baseline.md"
+anchor = "load deeper workflow references only when an active workflow requires a named detail"
+added_for = "Models read every linked reference up front and fill context."
+retire_test = "Ablate; keep if usage-report compactions or Harness Testing context tokens rise."
+
+[[component]]
+id = "git-conventions"
+kind = "preference"
+source = "templates/AGENTS_Baseline.md"
+anchor = "never commit to `main` (branch `{type}/{desc}`); Conventional Commits"
+
+[[component]]
+id = "no-secrets"
+kind = "guard"
+source = "templates/AGENTS_Baseline.md"
+anchor = "no secrets in the diff"
+
+[[component]]
+id = "pasted-proof"
+kind = "preference"
+source = "templates/AGENTS_Baseline.md"
+anchor = "show pasted test output"
+
+[[component]]
+id = "ask-consequential"
+kind = "preference"
+source = "templates/AGENTS_Baseline.md"
+anchor = "Ask before guessing a consequential choice"
+
+[[component]]
+id = "run-to-end-state"
+kind = "model-shim"
+source = "templates/AGENTS_Baseline.md"
+anchor = "A progress update never ends the task"
+added_for = "Models end a turn on a progress update or ask again for permission already given."
+retire_test = "Ablate; keep if Harness Testing scripted-user runs need extra continue turns."
+
+[[component]]
+id = "fewest-turns"
+kind = "preference"
+source = "templates/AGENTS_Baseline.md"
+anchor = "Time matters: reach the named end state in the fewest turns."
+
+[[component]]
+id = "report-size"
+kind = "preference"
+source = "templates/AGENTS_Baseline.md"
+anchor = "For Polish and Small work the final report is five lines or fewer"
+
+[[component]]
+id = "setup-only-when-needed"
+kind = "model-shim"
+source = "templates/AGENTS_Baseline.md"
+anchor = "do not run setup merely because an ordinary repository task lacks routing"
+added_for = "Models run Harness setup when ordinary work merely lacks a route."
+retire_test = "Ablate; keep if usage-report shows harness:setup invocations without a routing failure."
+
+[[component]]
+id = "no-personal-routes"
+kind = "guard"
+source = "templates/AGENTS_Baseline.md"
+anchor = "Project instructions never embed personal route values or provider mechanics."
+
+[[component]]
+id = "worktree-scope"
+kind = "preference"
+source = "templates/AGENTS_Baseline.md"
+anchor = "Use a worktree only for actual parallel work"
+
+[[component]]
+id = "shared-checkout"
+kind = "guard"
+source = "templates/AGENTS_Baseline.md"
+anchor = "verify HEAD in the *same* command that creates the branch"
+
+[[component]]
+id = "zsh-glob-guard"
+kind = "environment-shim"
+source = "scripts/zsh-glob-guard.py"
+anchor = "Claude Code and Codex PreToolUse hook: stop zsh"
+added_for = "Models write bash-style unquoted globs that zsh rejects with 'no matches found' (42 Claude and 78 Codex failures in the 30 days to 2026-10-21)."
+retire_test = "Retire when usage-report shim_firings for zsh-glob-guard stay near zero for a month after a model change."
+detector = "events:zsh-glob-guard"

@@ -119,12 +119,16 @@ required = (
     "skills-manifest.sh",
     "portability-lint.sh",
     "rubric-audit.sh",
+    "telemetry.py",
+    "usage-report.py",
     "sync-finalize.sh",
 )
 for name in required:
     assert name in text, name
 main = text.split("def main", 1)[1]
 assert main.index('"sync-preflight.sh"') < main.index("reconcile_links(")
+assert main.index('"sync-preflight.sh"') < main.index("publish_telemetry(")
+assert main.index('"sync-finalize.sh"') > main.index("publish_telemetry(")
 assert main.index('"sync-finalize.sh"') > main.index("final_mcp(")
 assert main.count('"sync-finalize.sh"') == 1
 assert "git\", \"commit" not in text
@@ -263,6 +267,28 @@ EOF
   [ -d "$AGENTS/claude/agents" ]
   [ -L "$HOME_DIR/.claude/agents" ]
   [[ "$output" == *"Machines:   skipped: not requested"* ]] || return 1
+}
+
+@test "sync publishes local telemetry and a usage summary into the host folder in its one commit" {
+  remote="$BATS_TEST_TMPDIR/remote.git"
+  make_sync_repo "$AGENTS" "$remote"
+  install_sync_stubs
+  state="$HOME_DIR/.local/state/studio-moser/harness/telemetry"
+  mkdir -p "$state"
+  month="$(date -u +%Y-%m)"
+  printf '%s\n' '{"id":"r1","ts":"2026-10-01T00:00:00Z","host":"h","status":"accepted","outcome":"proven","route":{"requested":"bulk"}}' > "$state/Results-$month.jsonl"
+  printf '%s\n' '{"id":"s1","ts":"2026-10-01T00:00:00Z","host":"h","shim":"zsh-glob-guard"}' > "$state/Shim_Events-$month.jsonl"
+  host="$(python3 -c 'import socket; print(socket.gethostname().split(".")[0])')"
+
+  run env HOME="$HOME_DIR" AGENTS_REPO="$AGENTS" CLAUDE_CONFIG_DIR="$HOME_DIR/.claude" XDG_CONFIG_HOME="$HOME_DIR/.config" CODEX_HOME="$HOME_DIR/.codex" PATH="$BIN:/usr/bin:/bin" "$SCRIPT"
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Telemetry:  2 new event(s) published; Usage-$month.json written"* ]] || return 1
+  [ -z "$(git -C "$AGENTS" status --porcelain=v1 --untracked-files=all)" ]
+  [ "$(git -C "$AGENTS" rev-parse HEAD)" = "$(git --git-dir="$remote" rev-parse refs/heads/main)" ]
+  git -C "$AGENTS" cat-file -e "HEAD:telemetry/$host/Results-$month.jsonl"
+  git -C "$AGENTS" cat-file -e "HEAD:telemetry/$host/Shim_Events-$month.jsonl"
+  git -C "$AGENTS" show "HEAD:telemetry/$host/Usage-$month.json" | python3 -c 'import json,sys; r=json.load(sys.stdin); assert r["scope"] == "local" and r["shim_firings"] == {"zsh-glob-guard": 1}, r'
 }
 
 @test "nested agents path is refused without changing the outer index or remote" {
