@@ -74,14 +74,15 @@ A personal agents repo that contains `rulesync.jsonc` hands per-tool generation 
 - runs `rulesync install` for the third-party skills declared under `sources`
   (pinned by `rulesync.lock`) only when the config, lockfile, or installed skills
   changed, with your `gh` login token so GitHub's anonymous rate limit does not apply;
-  an old installer copy (from `npx skills`) that blocks a declared skill is moved to
-  `~/.local/state/studio-moser/harness/replaced-skills/` first;
 - runs `rulesync generate --global` for instructions, MCP servers
   (`.rulesync/mcp.jsonc`), hooks (`.rulesync/hooks.jsonc`), skills, subagents, and
   commands;
 - merges this machine's untracked `.rulesync.local/mcp.jsonc` servers and
   `hooks.jsonc` entries (app-bundled tools, machine paths) into a temporary source,
-  so they never reach git;
+  so they never reach git; machine-only Claude hooks are refused, since Claude's
+  `settings.json` is shared through the repo;
+- keeps the generated skill copies under `skills/` out of git with a generated
+  `.gitignore` block, and reports any that are already tracked;
 - removes the generated folders of skills dropped from the source since this
   machine's last run, and nothing else;
 - skips its own MCP manifest and `npx skills` steps.
@@ -91,7 +92,8 @@ A personal agents repo that contains `rulesync.jsonc` hands per-tool generation 
 `scripts/rulesync-bootstrap.py <repo>` (offered by `/harness:setup`) previews building
 the source from the agent tools on this machine: each tool's MCP servers and hooks,
 imported with rulesync, become one shared list with per-tool blocks where definitions
-differ; anything with a home-folder path stays in `.rulesync.local`; secret values move
+differ; anything with a home-folder path, or a credential-looking value under an
+ordinary name, in a URL, or in an argument, stays in `.rulesync.local`; secret values move
 to the secret store and their servers start through `bin/with-secrets`; skills from
 `skills.manifest` become `sources`, and your own committed skills move into
 `.rulesync/skills`. `--write` applies it; the next Sync generates every tool. A secret that no rule can
@@ -131,7 +133,11 @@ Secret values live only in each machine's secret store, never in the repo or an
 agent's config. `scripts/agent-secrets.py` picks the store from the platform: the
 macOS login Keychain (service `agent-secrets`), the Linux desktop keyring through
 `secret-tool`, or a `0600` file at `~/.config/agent-secrets/secrets.env`;
-`HARNESS_SECRETS_BACKEND` overrides it.
+`HARNESS_SECRETS_BACKEND` overrides it. On a Linux machine with `secret-tool`
+installed but no running keyring (a headless server), set
+`HARNESS_SECRETS_BACKEND=file` where both your shell and your agents read it (for
+example `~/.config/environment.d/agent-secrets.conf` and `~/.profile`); otherwise
+`set` fails and every secret-backed server exits 78.
 
 | Command | Does |
 |---|---|

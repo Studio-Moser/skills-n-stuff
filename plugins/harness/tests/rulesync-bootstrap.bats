@@ -278,3 +278,43 @@ PY
   [ "$status" -eq 1 ]
   [[ "$output" == *'BOOTSTRAP=failed: SecretError: bad.env.X$(id)_KEY is a secret under a name a launcher cannot export'* ]] || return 1
 }
+
+@test "a credential under an innocent name, in a URL, or in an argument stays off the shared source" {
+  cat > "$FIX/cursor/mcp.jsonc" <<'EOF'
+{ "mcpServers": {
+  "db": { "command": "npx", "args": ["-y", "pg"], "env": { "DATABASE_URL": "postgres://admin:pass@db.test/app" } },
+  "zap": { "type": "http", "url": "https://mcp.zap.test/api/mcp/s/Zq8kV2mP9xR4tL7wN3bH6cJ1/mcp" },
+  "pay": { "command": "npx", "args": ["-y", "pay", "--api-key=sk_live_abcdefgh12345678"] }
+} }
+EOF
+  run "$BOOT" --write "$REPO"
+  [ "$status" -eq 0 ]
+  [ "$(jq_ "$REPO/.rulesync.local/mcp.jsonc" 'sorted(d["cursor"]["mcpServers"])')" = "['db', 'pay', 'zap']" ]
+  run grep -rl -e admin:pass -e Zq8kV2mP9xR4tL7wN3bH6cJ1 -e sk_live_ "$REPO/.rulesync" "$REPO/rulesync.jsonc"
+  [ "$status" -ne 0 ]
+}
+
+@test "machine capture leaves Claude's hooks alone when settings.json is shared through the repo" {
+  "$BOOT" --write "$REPO" >/dev/null
+  rm -rf "$REPO/.rulesync.local"
+  echo '{ "version": 1, "hooks": { "stop": [{ "command": "echo claude-only-here" }] } }' > "$FIX/claudecode/hooks.jsonc"
+  mkdir -p "$REPO/claude" && echo '{}' > "$REPO/claude/settings.json"
+  ln -s "$REPO/claude/settings.json" "$HOME/.claude/settings.json"
+  run "$BOOT" --machine "$REPO"
+  [ "$status" -eq 0 ]
+  [ "$(jq_ "$REPO/.rulesync.local/hooks.jsonc" '"claudecode" in d')" = "False" ]
+}
+
+@test "R2: shared Claude settings keep Claude hooks shared; a secret in the command stays local and the overlay is ignored" {
+  echo '{ "version": 1, "hooks": { "stop": [{ "command": "~/.claude/hooks/guard.sh" }] } }' > "$FIX/claudecode/hooks.jsonc"
+  mkdir -p "$REPO/claude" && echo '{}' > "$REPO/claude/settings.json"
+  ln -s "$REPO/claude/settings.json" "$HOME/.claude/settings.json"
+  echo '{ "mcpServers": { "envcmd": { "command": "env GH=ghp_abcdefghijklmnopqrstuvwx npx srv" }, "conn": { "command": "npx", "args": ["db"], "env": { "CONN": "Server=db;Password=hunter2;" } } } }' > "$FIX/cursor/mcp.jsonc"
+  run "$BOOT" --write "$REPO"
+  [ "$status" -eq 0 ]
+  [ "$(jq_ "$REPO/.rulesync/hooks.jsonc" '[e["command"] for e in d["claudecode"]["hooks"]["stop"]]')" = "['~/.claude/hooks/guard.sh']" ]
+  [ "$(jq_ "$REPO/.rulesync.local/hooks.jsonc" '"claudecode" in d')" = "False" ]
+  [ "$(jq_ "$REPO/.rulesync.local/mcp.jsonc" 'sorted(d["cursor"]["mcpServers"])')" = "['conn', 'envcmd']" ]
+  grep -qx '/.rulesync.local/' "$REPO/.gitignore"
+  [ -z "$(git -C "$REPO" status --porcelain --untracked-files=all -- .rulesync.local)" ]
+}

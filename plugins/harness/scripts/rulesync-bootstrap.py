@@ -15,6 +15,9 @@ so nothing is written into them) and composed:
           header, moves into the OS secret store (agent-secrets.py) and the server
           is rewritten to start through bin/with-secrets (HTTP token headers use
           mcp-remote, and Claude's native headersHelper). Names only are printed.
+          A credential-looking value anywhere else (another env or header value, the
+          URL, an argument) keeps the server on this machine only, since the shared
+          source is committed.
   hooks   each tool keeps its own hooks; entries with home-folder paths stay local.
   skills  skills.manifest + .skill-lock.json entries become rulesync `sources`;
           other committed folders under skills/ are yours and move to .rulesync/skills.
@@ -36,6 +39,7 @@ import shlex
 import subprocess
 import sys
 import tempfile
+from urllib.parse import urlsplit
 
 HERE = Path(__file__).resolve().parent
 _spec = importlib.util.spec_from_file_location("rulesync_generate", HERE / "rulesync-generate.py")
@@ -107,6 +111,46 @@ class SecretError(Exception):
 SAFE_HEADER = re.compile(r"^[A-Za-z0-9-]+$")
 SAFE_REL = re.compile(r"^[A-Za-z0-9._/ -]+$")
 SCHEMES = ("Bearer", "Basic", "Token", "token")
+
+
+# Mirrors mcp-manifest.sh: known token prefixes and long --flag=value arguments.
+TOKEN_RE = re.compile(
+    r"(?:ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{16,}|sk_(?:live|test)_[A-Za-z0-9]{8,}|"
+    r"xox[abp]-[A-Za-z0-9-]{10,}|AKIA[A-Z0-9]{16}|AIza[A-Za-z0-9_-]{30,}|gsk_[A-Za-z0-9]{20,})"
+)
+FLAG_RE = re.compile(r"^--?[A-Za-z][A-Za-z0-9_-]*=(.{16,})$")
+# A credential inside a scheme-less connection string (Server=db;Password=...).
+CONNECTION_SECRET = re.compile(r"(?i)\b(?:password|pwd|secret|token)=")
+# A 20+ character run mixing letters and digits, as in a URL-embedded token.
+LONG_TOKEN = re.compile(r"(?=[A-Za-z0-9_-]*\d)(?=[A-Za-z0-9_-]*[A-Za-z])[A-Za-z0-9_-]{20,}")
+
+
+def credential_like(value: object) -> bool:
+    """A token, a long letter-and-digit run, or a URL with credentials or a query."""
+    if not isinstance(value, str) or not value or "${" in value:
+        return False
+    if TOKEN_RE.search(value) or LONG_TOKEN.search(value) or CONNECTION_SECRET.search(value):
+        return True
+    if "://" in value:
+        parts = urlsplit(value)
+        return bool(parts.username or parts.password or parts.query)
+    return False
+
+
+def leaks(spec: dict) -> bool:
+    """True when a definition still carries a value that must not be committed.
+
+    Secret-named env and header values move to the secret store; a credential under
+    an innocent name (DATABASE_URL=postgres://user:pass@...), in the URL, or in an
+    argument keeps the server on this machine, since the shared source is committed.
+    """
+    env = spec.get("env") or {}
+    headers = spec.get("headers") or {}
+    values = [v for k, v in env.items() if not is_secret_env(k, v)]
+    values += [v for h, v in headers.items() if not is_secret_header(h, v)]
+    values += [spec.get("url"), spec.get("httpUrl"), spec.get("command")]
+    args = [a for a in spec.get("args") or [] if isinstance(a, str)]
+    return any(credential_like(v) for v in values) or any(credential_like(a) or FLAG_RE.match(a) for a in args)
 
 
 def is_secret_env(name: str, value: object) -> bool:
@@ -236,19 +280,26 @@ def normalized(spec: dict) -> str:
     return json.dumps(clean, sort_keys=True)
 
 
-def compose(imports: dict[str, tuple[dict, dict]], secrets: Secrets, repo_rel: str) -> tuple[dict, dict, dict, dict]:
-    """Return (source mcp, local mcp, source hooks, local hooks)."""
+def compose(imports: dict[str, tuple[dict, dict]], secrets: Secrets, repo_rel: str,
+            claude_shared: bool = False) -> tuple[dict, dict, dict, dict]:
+    """Return (source mcp, local mcp, source hooks, local hooks).
+
+    claude_shared: Claude's settings.json is a repo link, so its hooks are shared already.
+    """
     local_path = home_paths()
+    local_mcp: dict = {}
     variants: dict[str, dict[str, dict]] = {}
     claude_only: dict[str, dict] = {}
     for tool, (servers, _hooks) in imports.items():
         for name, spec in servers.items():
+            if leaks(spec):
+                local_mcp.setdefault(tool, {"mcpServers": {}})["mcpServers"][name] = spec
+                continue
             converted, claude_variant = convert(name, spec, secrets, repo_rel)
             variants.setdefault(name, {})[tool] = converted
             if claude_variant and tool == "claudecode":
                 claude_only[name] = claude_variant
     source_mcp: dict = {"mcpServers": {}}
-    local_mcp: dict = {}
     for name in sorted(variants):
         by_tool = variants[name]
         portable = {t: s for t, s in by_tool.items() if not local_path.search(json.dumps(s))}
@@ -285,7 +336,8 @@ def compose(imports: dict[str, tuple[dict, dict]], secrets: Secrets, repo_rel: s
     for tool, (_servers, hooks) in imports.items():
         for event, entries in hooks.items():
             for entry in entries:
-                target = local_hooks if local_path.search(json.dumps(entry)) else source_hooks
+                shared = tool == "claudecode" and claude_shared
+                target = local_hooks if not shared and local_path.search(json.dumps(entry)) else source_hooks
                 target.setdefault(tool, {"hooks": {}})["hooks"].setdefault(event, []).append(entry)
     return source_mcp, local_mcp, source_hooks, local_hooks
 
@@ -397,7 +449,7 @@ def bootstrap(repo: Path, write: bool) -> int:
     tools = installed_tools()
     imports = {tool: import_tool(tool) for tool in tools}
     secrets = Secrets(stored=store.get)
-    source_mcp, local_mcp, source_hooks, local_hooks = compose(imports, secrets, repo_rel)
+    source_mcp, local_mcp, source_hooks, local_hooks = compose(imports, secrets, repo_rel, gen.claude_settings_in_repo(repo))
     sources, unresolved = skill_sources(repo)
     declared = {s for item in sources for s in item["skills"]}
     # A skill named in skills.manifest is third-party even when its source is unknown.
@@ -420,6 +472,12 @@ def bootstrap(repo: Path, write: bool) -> int:
     store_secrets(repo, secrets, source_mcp)
     write_json(repo / ".rulesync" / "mcp.jsonc", source_mcp)
     write_json(repo / ".rulesync" / "hooks.jsonc", source_hooks)
+    # Servers kept on this machine may hold plaintext values: ignore them before writing,
+    # so a commit before the first sync cannot pick them up.
+    ignore = repo / ".gitignore"
+    current = ignore.read_text() if ignore.is_file() else ""
+    if "/.rulesync.local/" not in current.splitlines():
+        ignore.write_text(current + ("" if not current or current.endswith("\n") else "\n") + "/.rulesync.local/\n")
     write_json(repo / ".rulesync.local" / "mcp.jsonc", local_mcp)
     write_json(repo / ".rulesync.local" / "hooks.jsonc", local_hooks)
     for name in personal:
@@ -456,6 +514,8 @@ def capture_machine(repo: Path) -> int:
         defined = {**shared_hooks.get("hooks", {})}
         for event, entries in (shared_hooks.get(tool) or {}).get("hooks", {}).items():
             defined[event] = defined.get(event, []) + entries
+        if tool == "claudecode" and gen.claude_settings_in_repo(repo):
+            continue  # Claude's hooks already live in the shared settings.json
         for event, entries in hooks.items():
             commands = {e.get("command") for e in defined.get(event, [])}
             for entry in entries:

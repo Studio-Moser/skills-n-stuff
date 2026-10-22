@@ -299,11 +299,16 @@ EOF
   make_sync_repo "$AGENTS" "$remote"
   install_sync_stubs
   printf '{ "global": true, "delete": false }\n' > "$AGENTS/rulesync.jsonc"
-  git -C "$AGENTS" add rulesync.jsonc && git -C "$AGENTS" commit -qm managed && git -C "$AGENTS" push -q
+  mkdir -p "$AGENTS/.rulesync/skills/mine" "$AGENTS/.rulesync/skills/.curated/alpha"
+  echo mine > "$AGENTS/.rulesync/skills/mine/SKILL.md"
+  git -C "$AGENTS" add rulesync.jsonc .rulesync/skills/mine && git -C "$AGENTS" commit -qm managed && git -C "$AGENTS" push -q
+  echo fetched > "$AGENTS/.rulesync/skills/.curated/alpha/SKILL.md"
+  # Generate writes skill copies through Claude's skills link into the repo's skills/.
   cat > "$BIN/npx" <<EOF
 #!/usr/bin/env bash
 case "\$*" in
-  *rulesync@*generate*) echo "\$*" >> "$BATS_TEST_TMPDIR/rulesync.log"; echo "Written 2 file(s) total" ;;
+  *rulesync@*generate*--dry-run*) echo "\$*" >> "$BATS_TEST_TMPDIR/rulesync.log" ;;
+  *rulesync@*generate*) echo "\$*" >> "$BATS_TEST_TMPDIR/rulesync.log"; mkdir -p "$AGENTS/skills/alpha" "$AGENTS/skills/mine"; echo a > "$AGENTS/skills/alpha/SKILL.md"; echo m > "$AGENTS/skills/mine/SKILL.md"; echo "Written 2 file(s) total" ;;
   *rulesync@*) echo "\$*" >> "$BATS_TEST_TMPDIR/rulesync.log" ;;
   *) touch "$BATS_TEST_TMPDIR/skills-npx-called"; printf '[]\n' ;;
 esac
@@ -323,6 +328,9 @@ EOF
   [ "$(git -C "$AGENTS" ls-files -s bin/with-secrets | cut -c1-6)" = "100755" ]
   grep -qx '/.rulesync.local/' "$AGENTS/.gitignore"
   grep -qx '/.rulesync/skills/.curated/' "$AGENTS/.gitignore"
+  grep -qx '/skills/alpha/' "$AGENTS/.gitignore"
+  grep -qx '/skills/mine/' "$AGENTS/.gitignore"
+  [ -z "$(git -C "$AGENTS" ls-files skills/alpha skills/mine)" ]
 }
 
 @test "an already tracked machine overlay is reported, not silently committed again" {
@@ -338,7 +346,7 @@ EOF
 
   run env HOME="$HOME_DIR" AGENTS_REPO="$AGENTS" CLAUDE_CONFIG_DIR="$HOME_DIR/.claude" XDG_CONFIG_HOME="$HOME_DIR/.config" CODEX_HOME="$HOME_DIR/.codex" PATH="$BIN:/usr/bin:/bin" "$SCRIPT"
 
-  [[ "$output" == *"UNRESOLVED=tracked files under rulesync's ignored paths; untrack them with: git -C"*"rm -r --cached .rulesync.local .rulesync/skills/.curated"* ]] || return 1
+  [[ "$output" == *"UNRESOLVED=tracked files under rulesync's ignored paths; untrack them with: git -C"*"rm -r --cached .rulesync.local" ]] || return 1
 }
 
 @test "nested agents path is refused without changing the outer index or remote" {
