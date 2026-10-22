@@ -40,7 +40,7 @@ esac
 EOF
   chmod +x "$BIN/npx"
   # Stub npm: the latest published rulesync, counted so caching can be checked.
-  printf '#!/bin/sh\necho view >> "%s"\necho "${STUB_LATEST:-39.0.0}"\n' "$BATS_TEST_TMPDIR/npm.log" > "$BIN/npm"
+  printf '#!/bin/sh\necho view >> "%s"\necho "${STUB_LATEST:-40.2.0}"\n' "$BATS_TEST_TMPDIR/npm.log" > "$BIN/npm"
   chmod +x "$BIN/npm"
   export PATH="$BIN:$PATH"
 }
@@ -222,13 +222,13 @@ assert [e["command"] for e in h["sessionStart"]] == ["local-start"], h
 
 @test "a newer rulesync and skill sources behind their lock are reported, once a day" {
   printf '{ "global": true, "sources": [{ "source": "o/r", "skills": ["alpha"] }] }\n' > "$REPO/rulesync.jsonc"
-  export STUB_LATEST=40.1.0 STUB_OUTDATED_EXIT=1
+  export STUB_LATEST=40.3.0 STUB_OUTDATED_EXIT=1
   export STUB_OUTDATED='up to date  a/b (main): 111\nbehind      o/r (main): 222 -> 333\n'
   run "$STEP" "$REPO"
   [ "$status" -eq 0 ]
-  [ "$(updates)" = "RULESYNC_UPDATES=rulesync 39.0.0 -> 40.1.0 (bump the Harness pin after scripts/rulesync-rehearse.py 40.1.0); 1 skill source(s) behind: o/r (run /harness:sync --update-skills)" ]
+  [ "$(updates)" = "RULESYNC_UPDATES=rulesync 40.2.0 -> 40.3.0 (bump the Harness pin after scripts/rulesync-rehearse.py 40.3.0); 1 skill source(s) behind: o/r (run /harness:sync --update-skills)" ]
   run "$STEP" "$REPO"
-  [ "$(updates)" = "RULESYNC_UPDATES=rulesync 39.0.0 -> 40.1.0 (bump the Harness pin after scripts/rulesync-rehearse.py 40.1.0); 1 skill source(s) behind: o/r (run /harness:sync --update-skills)" ]
+  [ "$(updates)" = "RULESYNC_UPDATES=rulesync 40.2.0 -> 40.3.0 (bump the Harness pin after scripts/rulesync-rehearse.py 40.3.0); 1 skill source(s) behind: o/r (run /harness:sync --update-skills)" ]
   [ "$(wc -l < "$BATS_TEST_TMPDIR/npm.log" | tr -d ' ')" -eq 1 ]
 }
 

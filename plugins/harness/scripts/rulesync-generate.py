@@ -37,7 +37,7 @@ import sys
 import tempfile
 import time
 
-RULESYNC = os.environ.get("HARNESS_RULESYNC", "rulesync@39.0.0")
+RULESYNC = os.environ.get("HARNESS_RULESYNC", "rulesync@40.2.0")
 DELETE_LINE = re.compile(r'Would delete directory: "([^"]+)"')
 WRITE_LINE = re.compile(r"Would write: (.+?)\s*$", re.M)
 HERE = Path(__file__).resolve().parent
