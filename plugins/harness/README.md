@@ -82,10 +82,10 @@ A personal agents repo that contains `rulesync.jsonc` hands per-tool generation 
 - merges this machine's untracked `.rulesync.local/mcp.jsonc` servers and
   `hooks.jsonc` entries (app-bundled tools, machine paths) into a temporary source,
   so they never reach git; machine-only Claude hooks are refused, since Claude's
-  `settings.json` is shared through the repo. Servers an app installs and rewrites
-  itself (a command inside an `.app` bundle, like Codex's `node_repl` from
-  ChatGPT.app) are re-read from the tool before each generate, so an app update is
-  never reverted;
+  `settings.json` is shared through the repo. A server in `.rulesync.local` that an
+  app installs and rewrites itself (a command inside an `.app` bundle, like Codex's
+  `node_repl` from ChatGPT.app) is re-read from the tool before each generate, so an
+  app update is not reverted (a refresh rewrites that file without its comments);
 - moves broken symlinks out of a tool's folder (for example skills pointing at a
   deleted folder) into `~/.local/state/studio-moser/harness/backups/` when rulesync
   cannot write through them, then generates again;

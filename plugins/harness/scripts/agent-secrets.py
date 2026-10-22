@@ -84,14 +84,30 @@ def read_file_store() -> dict[str, str]:
     return values
 
 
+def keychain_path() -> str:
+    """The Keychain to use, named explicitly. With no Keychain (a temporary HOME, a
+    session without the login Keychain), macOS answers an unnamed write with a modal
+    "A keychain cannot be found" dialog on the desktop; refuse here instead."""
+    chosen = os.environ.get("HARNESS_KEYCHAIN")
+    if chosen:
+        return chosen
+    result = subprocess.run(["security", "default-keychain"], capture_output=True, text=True)
+    path = result.stdout.strip().strip('"')
+    if result.returncode or not path or any(c in path for c in '"\\\n') or not Path(path).exists():
+        raise SecretError("no default Keychain in this session")
+    return path
+
+
 def get(name: str) -> str | None:
     backend = backend_name()
     if backend == "file":
         return read_file_store().get(name)
     if backend == "keychain":
-        command = ["security", "find-generic-password", "-s", SERVICE, "-a", name, "-w"]
-        if os.environ.get("HARNESS_KEYCHAIN"):
-            command.append(os.environ["HARNESS_KEYCHAIN"])
+        try:
+            keychain = keychain_path()
+        except SecretError:
+            return None
+        command = ["security", "find-generic-password", "-s", SERVICE, "-a", name, "-w", keychain]
     else:
         command = ["secret-tool", "lookup", "service", SERVICE, "account", name]
     result = subprocess.run(command, capture_output=True, text=True)
@@ -121,9 +137,11 @@ def put(name: str, value: str) -> None:
         if len(escaped.encode()) > KEYCHAIN_MAX:
             # `security -i` splits longer input lines and would store a truncated value.
             raise SecretError(f"a Keychain value is limited to {KEYCHAIN_MAX} bytes")
-        keychain = os.environ.get("HARNESS_KEYCHAIN")
-        line = f'add-generic-password -U -s "{SERVICE}" -a "{name}" -w "{escaped}"'
-        line += f' "{keychain}"\n' if keychain else "\n"
+        try:
+            keychain = keychain_path()
+        except SecretError as error:
+            raise SecretError(f"could not store {name} in the keychain backend: {error}") from None
+        line = f'add-generic-password -U -s "{SERVICE}" -a "{name}" -w "{escaped}" "{keychain}"\n'
         result = subprocess.run(["security", "-i"], input=line, capture_output=True, text=True)
     else:
         result = subprocess.run(
@@ -170,6 +188,7 @@ def cmd_set(args: list[str]) -> int:
     if not value:
         raise SecretError("refusing to store an empty value")
     put(name, value)
+    (staging_dir() / name).unlink(missing_ok=True)  # never let a later import bring back an older value
     print(f"{name} stored ({backend_name()})")
     return 0
 
@@ -222,7 +241,8 @@ def cmd_stage(args: list[str]) -> int:
     folder = staging_dir()
     folder.mkdir(parents=True, mode=0o700, exist_ok=True)
     os.chmod(folder, 0o700)
-    fd = os.open(folder / name, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    fd = os.open(folder / name, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+    os.fchmod(fd, 0o600)  # O_CREAT's mode does not apply to a file that already exists
     with os.fdopen(fd, "w", encoding="utf-8") as handle:
         handle.write(value)
     return 0
@@ -282,10 +302,11 @@ def cmd_copy_to(args: list[str]) -> int:
             continue
         reason = (result.stderr.strip().splitlines() or ["ssh error"])[-1]
         if "could not store" in reason:
-            # The remote store refuses this session (a Mac's Keychain over SSH): stage it.
+            # The remote store refuses this session (a Mac's Keychain over SSH, a keyring
+            # that is not running): stage it for `import` where the store works.
             stage = remote(host, f'exec python3 "$h/scripts/agent-secrets.py" stage {name}', value)
             if stage.returncode == 0:
-                print(f"{name}\tstaged: {host}'s secret store refuses SSH sessions")
+                print(f"{name}\tstaged: {host}'s secret store refused this SSH session")
                 staged += 1
                 continue
             reason = (stage.stderr.strip().splitlines() or ["ssh error"])[-1]
@@ -293,7 +314,7 @@ def cmd_copy_to(args: list[str]) -> int:
         failed += 1
     if staged:
         path = remote(host, 'printf "%s\\n" "${h%/}/scripts/agent-secrets.py"').stdout.strip() or "agent-secrets.py"
-        print(f"To finish, run this in a terminal on {host}'s own desktop session (not over SSH):")
+        print(f"To finish, run this on {host} where its secret store works (for a Mac, a terminal on its own desktop, not over SSH):")
         print(f"  python3 {shlex.quote(path)} import")
     return 1 if failed else 0
 

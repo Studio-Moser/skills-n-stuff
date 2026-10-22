@@ -1068,12 +1068,16 @@ print("CHANGED=%d" % changed)
 print("\n".join(findings))
 PY
   [ "$status" -eq 0 ]
-  [[ "$output" == *"CHANGED=2"* ]] || return 1
+  result="$output"
+  [[ "$result" == *"CHANGED=1"* ]] || return 1
   grep -qx "plugin add design@studio-moser" "$CODEX_LOG"
-  grep -qx "plugin add figma@claude-plugins-official" "$CODEX_LOG"
-  [[ "$output" == *"Codex plugin swift-lsp@claude-plugins-official is not in the shared plugin list; remove it with: codex plugin remove swift-lsp@claude-plugins-official"* ]] || return 1
-  [[ "$output" == *"Codex has no nowhere marketplace for shared plugin x@nowhere"* ]] || return 1
-  [[ "$output" != *"plugin browser@openai-bundled is not"* ]] || return 1
+  # Turned off in Codex on purpose: reported, never re-added.
+  [[ "$result" == *"Codex has shared plugin figma@claude-plugins-official disabled"* ]] || return 1
+  [[ "$result" == *"Codex plugin swift-lsp@claude-plugins-official is not in the shared plugin list; remove it with: codex plugin remove swift-lsp@claude-plugins-official"* ]] || return 1
+  [[ "$result" == *"Codex has no nowhere marketplace for shared plugin x@nowhere"* ]] || return 1
+  [[ "$result" != *"plugin browser@openai-bundled is not"* ]] || return 1
+  run grep -q "plugin add figma" "$CODEX_LOG"
+  [ "$status" -ne 0 ]
   run grep -q "plugin remove" "$CODEX_LOG"
   [ "$status" -ne 0 ]
 }

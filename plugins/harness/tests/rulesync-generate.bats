@@ -198,7 +198,8 @@ assert [e["command"] for e in h["sessionStart"]] == ["local-start"], h
   printf '{ not json' > "$REPO/.rulesync.local/mcp.jsonc"
   run "$STEP" "$REPO"
   [ "$status" -eq 1 ]
-  [[ "$output" == "RULESYNC_STATE=failed: JSONDecodeError"* ]] || return 1
+  [[ "$(state)" == "RULESYNC_STATE=failed: JSONDecodeError"* ]] || return 1
+  [[ "$output" != *Traceback* ]] || return 1
 }
 
 @test "install carries fetched rules, the npm lock, and the local config through its private root" {
@@ -334,4 +335,23 @@ EOF
   run env STUB_REF=def "$STEP" --update "$REPO"
   [ "$status" -eq 0 ]
   grep -q '"def"' "$REPO/rulesync.lock"
+}
+
+@test "in a tool root only the blocking broken link moves, never its siblings" {
+  printf '{ "global": true }\n' > "$REPO/rulesync.jsonc"
+  mkdir -p "$HOME/.tool"
+  ln -s "/Volumes/NotMounted/x/skills" "$HOME/.tool/skills"
+  ln -s "/Volumes/NotMounted/x/settings.json" "$HOME/.tool/settings.json"
+  cat > "$BIN/npx" <<EOF
+#!/bin/sh
+case "\$*" in *--dry-run*) ;; *generate*)
+  if [ -L "$HOME/.tool/skills" ]; then echo "ENOENT: no such file or directory, mkdir '$HOME/.tool/skills/alpha'" >&2; exit 1; fi
+  echo "Written 1 file(s) total" ;;
+esac
+EOF
+  chmod +x "$BIN/npx"
+  run "$STEP" "$REPO"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"RULESYNC_LINKS=moved 1 broken link(s) from $HOME/.tool to "* ]] || return 1
+  [ -L "$HOME/.tool/settings.json" ] && [ ! -L "$HOME/.tool/skills" ]
 }

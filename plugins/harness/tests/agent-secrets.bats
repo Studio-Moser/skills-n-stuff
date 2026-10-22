@@ -151,8 +151,8 @@ EOF
 
   run env PATH="$BATS_TEST_TMPDIR/bin:$PATH" "$TOOL" copy-to studio-moser
   [ "$status" -eq 0 ]
-  [[ "$output" == *"API_KEY	staged: studio-moser's secret store refuses SSH sessions"* ]] || return 1
-  [[ "$output" == *"own desktop session"*"/harness/9.9.9/scripts/agent-secrets.py import"* ]] || return 1
+  [[ "$output" == *"API_KEY	staged: studio-moser's secret store refused this SSH session"* ]] || return 1
+  [[ "$output" == *"its own desktop, not over SSH"*"/harness/9.9.9/scripts/agent-secrets.py import"* ]] || return 1
   [[ "$output" != *s3cr3t* ]] || return 1
   staged="$remote_home/.config/agent-secrets/import/API_KEY"
   [ "$(stat -f '%Lp' "$staged")" = "600" ] && [ "$(stat -f '%Lp' "$(dirname "$staged")")" = "700" ]
@@ -163,4 +163,28 @@ EOF
   [ "$output" = "$(printf 'API_KEY\tstored (file)')" ]
   [ "$(cat "$remote_home/.config/agent-secrets/secrets.env")" = "API_KEY=$SECRET" ]
   [ ! -e "$remote_home/.config/agent-secrets/import" ]
+}
+
+@test "with no default Keychain, set refuses before asking macOS (which would show a desktop dialog)" {
+  command -v security >/dev/null || skip "macOS security CLI not available"
+  export HARNESS_SECRETS_BACKEND=keychain
+  unset HARNESS_KEYCHAIN
+  # A temporary HOME has no login Keychain; `security default-keychain` fails quietly there.
+  run "$TOOL" set API_KEY <<<"$SECRET"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"could not store API_KEY in the keychain backend: no default Keychain in this session"* ]] || return 1
+  run "$TOOL" check API_KEY
+  [ "$status" -eq 1 ]
+}
+
+@test "a staged value is private even over an old file, and a later set supersedes it" {
+  staged="$XDG_CONFIG_HOME/agent-secrets/import/API_KEY"
+  mkdir -p "$(dirname "$staged")" && echo stale > "$staged" && chmod 644 "$staged"
+  "$TOOL" stage API_KEY <<<"OLD"
+  [ "$(stat -f '%Lp' "$staged" 2>/dev/null || stat -c '%a' "$staged")" = "600" ]
+  "$TOOL" set API_KEY <<<"NEW" >/dev/null
+  [ ! -e "$staged" ]
+  run "$TOOL" import
+  [ "$output" = "nothing staged" ]
+  [ "$(cat "$STORE")" = "API_KEY=NEW" ]
 }

@@ -46,6 +46,7 @@ INSTALL_LOCKS = ("rulesync.lock", "rulesync-npm.lock.json")
 INSTALL_FILES = ("rulesync.jsonc", "rulesync.local.jsonc", *INSTALL_LOCKS)
 INSTALL_FOLDERS = (".rulesync/skills/.curated", ".rulesync/rules/.curated")
 # rulesync's error when it creates a folder through a symlink whose target is gone.
+CONTENT_FOLDERS = {"skills", "agents", "commands", "rules", "prompts", "subagents"}
 MKDIR_ENOENT = re.compile(r"ENOENT: no such file or directory, mkdir '([^']+)'")
 
 
@@ -369,7 +370,13 @@ def move_broken_links(output: str) -> str | None:
     parent = link.parent
     backup = state_dir() / "backups" / f"broken-links-{time.strftime('%Y%m%d-%H%M%S')}" / parent.resolve().relative_to(home)
     backup.mkdir(parents=True, exist_ok=True)
-    broken = [p for p in parent.iterdir() if p.is_symlink() and not p.exists()]
+    broken = [link]
+    if parent.name in CONTENT_FOLDERS:
+        # Siblings left by the same deleted folder (an old profile's skills) go too; never
+        # in a tool root, where a link like settings.json may only point at an unmounted volume.
+        origin = Path(os.readlink(link).rstrip("/")).parent
+        broken += [p for p in parent.iterdir() if p != link and p.is_symlink() and not p.exists()
+                   and Path(os.readlink(p).rstrip("/")).parent == origin]
     for path in broken:
         shutil.move(str(path), str(backup / path.name))
     return f"moved {len(broken)} broken link(s) from {parent} to {backup}"
@@ -443,7 +450,7 @@ def generate(repo: Path, settings: dict, dry_run: bool, update: bool = False) ->
         # if the tool cannot be read, the overlay keeps its last copy.
         apps = subprocess.run([sys.executable, str(HERE / "rulesync-bootstrap.py"), "--apps", str(repo)],
                               capture_output=True, text=True)
-        note = next((l for l in apps.stdout.splitlines() if l.startswith("RULESYNC_APPS=refreshed")), "")
+        note = next((l for l in apps.stdout.splitlines() if l.startswith(("RULESYNC_APPS=refreshed", "RULESYNC_APPS=failed"))), "")
         if note:
             print(note)
 
@@ -479,9 +486,9 @@ def generate(repo: Path, settings: dict, dry_run: bool, update: bool = False) ->
             return 1
         generate_args = ["generate", "--global", "--input-roots", str(root)] + (["--dry-run"] if dry_run else [])
         generated = rulesync(repo, *generate_args)
-        # ponytail: one broken-links folder per retry, three at most; a fourth means
+        # ponytail: one broken link (with its siblings) per retry, ten at most; more means
         # something else is wrong, and the failure is reported.
-        for _attempt in range(3):
+        for _attempt in range(10):
             moved = None if dry_run or not generated.returncode else move_broken_links(generated.stdout + generated.stderr)
             if moved is None:
                 break

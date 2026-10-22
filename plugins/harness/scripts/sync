@@ -642,7 +642,8 @@ def plugin_reconcile(repo: Path, claude: Path) -> tuple[str, list[str]]:
             updated += 1
     for name in sorted(have_marketplaces - set(marketplaces) - {"claude-plugins-official"}):
         findings.append(f"orphan marketplace: {name} — remove with: claude plugin marketplace remove {name}")
-    codex_updated = codex_plugin_update(findings, sorted(n for n, on in enabled.items() if on))
+    shared_plugins = sorted(n for n, on in shared.get("enabledPlugins", {}).items() if on and not n.endswith("@builtin"))
+    codex_updated = codex_plugin_update(findings, shared_plugins)
     state = "up to date" if not any((added, installed, updated, codex_updated)) else (
         f"added {added} marketplace(s), installed {installed}, updated {updated}, Codex updated {codex_updated} — restart or /reload-plugins to apply"
     )
@@ -669,9 +670,20 @@ def codex_plugin_update(findings: list[str], shared: list[str] | None = None) ->
     if shared is not None:
         markets_listed = run(["codex", "plugin", "marketplace", "list"], check=False)
         markets = {line.split()[0] for line in markets_listed.stdout.splitlines()[1:] if line.split()}
+        if markets_listed.returncode:
+            findings.append("Codex marketplace inventory failed; shared plugins not checked")
+            shared = []
         for plugin in shared:
             market = plugin.rpartition("@")[2]
-            if states.get(plugin) == "installed, enabled":
+            state = states.get(plugin)
+            if state == "installed, enabled":
+                continue
+            if state == "installed, disabled":
+                # Turned off in Codex on purpose: report, never override.
+                findings.append(f"Codex has shared plugin {plugin} disabled")
+                continue
+            if state is None and market in markets:
+                findings.append(f"Codex's {market} marketplace does not list shared plugin {plugin}")
                 continue
             if market not in markets:
                 findings.append(f"Codex has no {market} marketplace for shared plugin {plugin}")

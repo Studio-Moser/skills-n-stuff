@@ -559,6 +559,8 @@ def refresh_apps(repo: Path) -> int:
         if tool not in present:
             continue
         live, _hooks = import_tool(tool)
+        if not live:
+            continue  # an empty import says nothing about what the app removed
         block = local[tool]["mcpServers"]
         known = set(shared.get("mcpServers", {})) | set((shared.get(tool) or {}).get("mcpServers", {}))
         for name in [n for n, spec in block.items() if app_owned(spec)]:

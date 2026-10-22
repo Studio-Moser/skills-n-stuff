@@ -344,3 +344,12 @@ EOF
   run "$BOOT" --apps "$REPO"
   [ -z "$output" ]
 }
+
+@test "an empty import never deletes app-installed servers from the overlay" {
+  "$BOOT" --write "$REPO" >/dev/null
+  echo '{ "codexcli": { "mcpServers": { "node_repl": { "command": "/Applications/ChatGPT.app/bin/node_repl" } } } }' > "$REPO/.rulesync.local/mcp.jsonc"
+  echo '{ "mcpServers": {} }' > "$FIX/codexcli/mcp.jsonc"
+  run "$BOOT" --apps "$REPO"
+  [ "$status" -eq 0 ]
+  [ "$(jq_ "$REPO/.rulesync.local/mcp.jsonc" 'sorted(d["codexcli"]["mcpServers"])')" = "['node_repl']" ]
+}
