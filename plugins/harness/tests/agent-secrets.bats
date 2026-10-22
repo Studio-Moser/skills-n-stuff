@@ -129,3 +129,62 @@ EOF2
   [ "$status_long" -eq 2 ]
   [ "$output" = "good" ]
 }
+
+@test "copy-to stages a value the remote store refuses, and import on the remote moves it in" {
+  remote_home="$BATS_TEST_TMPDIR/remote"
+  mkdir -p "$remote_home/.claude/plugins/cache/studio-moser/harness/9.9.9" "$BATS_TEST_TMPDIR/bin"
+  ln -s "$PLUGIN/scripts" "$remote_home/.claude/plugins/cache/studio-moser/harness/9.9.9/scripts"
+  # The remote's Keychain refuses this session, as a Mac's login Keychain does over SSH.
+  # A fake `security` stands in, so no real Keychain (or its dialogs) is ever touched.
+  mkdir -p "$BATS_TEST_TMPDIR/remote-bin"
+  printf '#!/bin/sh\ncat >/dev/null\necho "security: User interaction is not allowed." >&2\nexit 1\n' > "$BATS_TEST_TMPDIR/remote-bin/security"
+  chmod +x "$BATS_TEST_TMPDIR/remote-bin/security"
+  cat > "$BATS_TEST_TMPDIR/bin/ssh" <<EOF
+#!/bin/sh
+while [ "\$1" = "-o" ]; do shift 2; done
+shift
+exec env HOME="$remote_home" XDG_CONFIG_HOME="$remote_home/.config" HARNESS_SECRETS_BACKEND=keychain PATH="$BATS_TEST_TMPDIR/remote-bin:\$PATH" sh -c "\$1"
+EOF
+  chmod +x "$BATS_TEST_TMPDIR/bin/ssh"
+  printf 'API_KEY\n' > "$AGENTS_REPO/secrets.names"
+  "$TOOL" set API_KEY <<<"$SECRET" >/dev/null
+
+  run env PATH="$BATS_TEST_TMPDIR/bin:$PATH" "$TOOL" copy-to studio-moser
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"API_KEY	staged: studio-moser's secret store refused this SSH session"* ]] || return 1
+  [[ "$output" == *"its own desktop, not over SSH"*"/harness/9.9.9/scripts/agent-secrets.py import"* ]] || return 1
+  [[ "$output" != *s3cr3t* ]] || return 1
+  staged="$remote_home/.config/agent-secrets/import/API_KEY"
+  [ "$(stat -f '%Lp' "$staged")" = "600" ] && [ "$(stat -f '%Lp' "$(dirname "$staged")")" = "700" ]
+
+  # On the remote's desktop the store works: import moves the value in and removes the stage.
+  run env HOME="$remote_home" XDG_CONFIG_HOME="$remote_home/.config" HARNESS_SECRETS_BACKEND=file "$TOOL" import
+  [ "$status" -eq 0 ]
+  [ "$output" = "$(printf 'API_KEY\tstored (file)')" ]
+  [ "$(cat "$remote_home/.config/agent-secrets/secrets.env")" = "API_KEY=$SECRET" ]
+  [ ! -e "$remote_home/.config/agent-secrets/import" ]
+}
+
+@test "with no default Keychain, set refuses before asking macOS (which would show a desktop dialog)" {
+  command -v security >/dev/null || skip "macOS security CLI not available"
+  export HARNESS_SECRETS_BACKEND=keychain
+  unset HARNESS_KEYCHAIN
+  # A temporary HOME has no login Keychain; `security default-keychain` fails quietly there.
+  run "$TOOL" set API_KEY <<<"$SECRET"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"could not store API_KEY in the keychain backend: no default Keychain in this session"* ]] || return 1
+  run "$TOOL" check API_KEY
+  [ "$status" -eq 1 ]
+}
+
+@test "a staged value is private even over an old file, and a later set supersedes it" {
+  staged="$XDG_CONFIG_HOME/agent-secrets/import/API_KEY"
+  mkdir -p "$(dirname "$staged")" && echo stale > "$staged" && chmod 644 "$staged"
+  "$TOOL" stage API_KEY <<<"OLD"
+  [ "$(stat -f '%Lp' "$staged" 2>/dev/null || stat -c '%a' "$staged")" = "600" ]
+  "$TOOL" set API_KEY <<<"NEW" >/dev/null
+  [ ! -e "$staged" ]
+  run "$TOOL" import
+  [ "$output" = "nothing staged" ]
+  [ "$(cat "$STORE")" = "API_KEY=NEW" ]
+}

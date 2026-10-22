@@ -22,6 +22,11 @@ so nothing is written into them) and composed:
   skills  skills.manifest + .skill-lock.json entries become rulesync `sources`;
           other committed folders under skills/ are yours and move to .rulesync/skills.
 
+--apps runs before every generate: a server an app installs and rewrites itself (its
+command lives inside an .app bundle, like Codex's node_repl from ChatGPT.app) is kept
+in .rulesync.local as the app last wrote it, so a generate never restores a stale copy
+after the app updates. Prints RULESYNC_APPS=... only when something changed.
+
 --machine runs before the first generate of a managed repo on a machine without
 .rulesync.local: every server or hook of this machine that the shared source does not
 already define for that tool is kept in the overlay, so the first generate loses
@@ -530,17 +535,64 @@ def capture_machine(repo: Path) -> int:
     return 0
 
 
+def app_owned(spec: dict) -> bool:
+    return bool(APP_BUNDLE.search(json.dumps(spec)))
+
+
+def refresh_apps(repo: Path) -> int:
+    """Re-read app-installed servers from each tool that has one in the overlay."""
+    local_path = repo / ".rulesync.local" / "mcp.jsonc"
+    if not local_path.is_file():
+        return 0
+    local = gen.load_jsonc(local_path)
+    tools = [t for t, block in local.items() if t in TOOLS and isinstance(block, dict)
+             and any(app_owned(s) for s in (block.get("mcpServers") or {}).values())]
+    # ponytail: only tools that already have an app server are re-read (one import each);
+    # an app's first server in a new tool waits for that tool's next capture.
+    if not tools:
+        return 0
+    source_path = repo / ".rulesync" / "mcp.jsonc"
+    shared = gen.load_jsonc(source_path) if source_path.is_file() else {}
+    present = set(installed_tools())
+    changed = 0
+    for tool in tools:
+        if tool not in present:
+            continue
+        live, _hooks = import_tool(tool)
+        if not live:
+            continue  # an empty import says nothing about what the app removed
+        block = local[tool]["mcpServers"]
+        known = set(shared.get("mcpServers", {})) | set((shared.get(tool) or {}).get("mcpServers", {}))
+        for name in [n for n, spec in block.items() if app_owned(spec)]:
+            if name not in live:
+                del block[name]  # the app removed it
+                changed += 1
+            elif normalized(live[name]) != normalized(block[name]):
+                block[name] = live[name]
+                changed += 1
+        for name, spec in live.items():
+            if app_owned(spec) and name not in block and name not in known:
+                block[name] = spec
+                changed += 1
+    if changed:
+        write_json(local_path, local)
+        print(f"RULESYNC_APPS=refreshed {changed} app-installed server(s) from their apps")
+    return 0
+
+
 def main(argv: list[str]) -> int:
     flags = {a for a in argv if a.startswith("--")}
     args = [a for a in argv if not a.startswith("--")]
-    if len(args) != 1 or flags - {"--write", "--machine"} or {"--write", "--machine"} <= flags:
+    if len(args) != 1 or flags - {"--write", "--machine", "--apps"} or len(flags) > 1:
         print(__doc__, file=sys.stderr)
         return 2
     repo = Path(args[0]).expanduser().resolve()
     try:
+        if "--apps" in flags:
+            return refresh_apps(repo)
         return capture_machine(repo) if "--machine" in flags else bootstrap(repo, "--write" in flags)
     except (OSError, ValueError, RuntimeError, SecretError, store.SecretError, subprocess.CalledProcessError) as error:
-        prefix = "RULESYNC_CAPTURE" if "--machine" in flags else "BOOTSTRAP"
+        prefix = {"--machine": "RULESYNC_CAPTURE", "--apps": "RULESYNC_APPS"}.get(next(iter(flags), ""), "BOOTSTRAP")
         print(f"{prefix}=failed: {type(error).__name__}: {error}")
         return 1
 
