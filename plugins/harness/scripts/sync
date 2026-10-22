@@ -979,25 +979,44 @@ def rulesync_managed(repo: Path) -> bool:
     return (repo / "rulesync.jsonc").is_file()
 
 
-RULESYNC_IGNORES = ("/.rulesync.local/", "/.rulesync/skills/.curated/")
+RULESYNC_IGNORES = ("/.rulesync.local/", "/.rulesync/skills/.curated/", "/.rulesync/rules/.curated/")
+SKILLS_BLOCK = ("# harness:rulesync-skills start — generated copies, do not edit", "# harness:rulesync-skills end")
+
+
+def generated_skills(repo: Path) -> list[str]:
+    """Skill folders rulesync writes into skills/ (Claude's skills link): yours and fetched."""
+    names = set()
+    for folder in (repo / ".rulesync" / "skills", repo / ".rulesync" / "skills" / ".curated"):
+        if folder.is_dir():
+            names |= {p.name for p in folder.iterdir() if p.is_dir() and not p.name.startswith(".")}
+    return sorted(names)
 
 
 def ensure_rulesync_ignores(repo: Path) -> list[str]:
-    """Machine-only servers and hooks, and fetched skills, must never be committed.
+    """Machine-only servers and hooks, fetched sources, and the generated skill copies
+    under skills/ must never be committed. Runs after generate, so the skill list is current.
 
     Returns a finding when such files are already tracked: an ignore line does not
     untrack them, and untracking is the user's call.
     """
     ignore = repo / ".gitignore"
     current = ignore.read_text(encoding="utf-8") if ignore.exists() else ""
-    missing = [line for line in RULESYNC_IGNORES if line not in current.splitlines()]
-    if missing:
-        prefix = "" if not current or current.endswith("\n") else "\n"
-        ignore.write_text(current + prefix + "\n".join(missing) + "\n", encoding="utf-8")
-    paths = [line.strip("/") for line in RULESYNC_IGNORES]
+    lines = current.splitlines()
+    if SKILLS_BLOCK[0] in lines and SKILLS_BLOCK[1] in lines:
+        first, last = lines.index(SKILLS_BLOCK[0]), lines.index(SKILLS_BLOCK[1])
+        lines = lines[:first] + lines[last + 1:]
+    lines += [line for line in RULESYNC_IGNORES if line not in lines]
+    skills = generated_skills(repo)
+    if skills:
+        lines += [SKILLS_BLOCK[0], *(f"/skills/{name}/" for name in skills), SKILLS_BLOCK[1]]
+    updated = "\n".join(lines) + "\n"
+    if updated != current:
+        ignore.write_text(updated, encoding="utf-8")
+    paths = [line.strip("/") for line in RULESYNC_IGNORES] + [f"skills/{name}" for name in skills]
     tracked = run(["git", "-C", str(repo), "ls-files", "--", *paths], check=False).stdout.split()
     if tracked:
-        return [f"tracked files under rulesync's ignored paths; untrack them with: git -C {repo} rm -r --cached {' '.join(paths)}"]
+        tracked_paths = sorted({p for p in paths if any(t == p or t.startswith(p + "/") for t in tracked)})
+        return [f"tracked files under rulesync's ignored paths; untrack them with: git -C {repo} rm -r --cached {' '.join(tracked_paths)}"]
     return []
 
 
@@ -1211,13 +1230,14 @@ def sync(
     derived = render(repo, scripts, args.adopt_profile)
     # rulesync writes every tool's files last, so nothing above overwrites its output.
     if managed:
-        findings.extend(ensure_rulesync_ignores(repo))
         install_with_secrets(repo, scripts)
     rulesync_state, updates_state, rulesync_findings = (
         rulesync_step(repo, scripts, update=args.update_skills) if managed
         else ("not configured; preview adopting it with scripts/rulesync-bootstrap.py", "not checked", [])
     )
     findings.extend(rulesync_findings)
+    if managed:
+        findings.extend(ensure_rulesync_ignores(repo))
     final_links, _ = read_link_plan(scripts, repo)
     unresolved_links = [name for name, _rel, state in final_links if state != "ok"]
     if unresolved_links:

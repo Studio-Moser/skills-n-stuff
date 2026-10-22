@@ -278,3 +278,29 @@ PY
   [ "$status" -eq 1 ]
   [[ "$output" == *'BOOTSTRAP=failed: SecretError: bad.env.X$(id)_KEY is a secret under a name a launcher cannot export'* ]] || return 1
 }
+
+@test "a credential under an innocent name, in a URL, or in an argument stays off the shared source" {
+  cat > "$FIX/cursor/mcp.jsonc" <<'EOF'
+{ "mcpServers": {
+  "db": { "command": "npx", "args": ["-y", "pg"], "env": { "DATABASE_URL": "postgres://admin:pass@db.test/app" } },
+  "zap": { "type": "http", "url": "https://mcp.zap.test/api/mcp/s/Zq8kV2mP9xR4tL7wN3bH6cJ1/mcp" },
+  "pay": { "command": "npx", "args": ["-y", "pay", "--api-key=sk_live_abcdefgh12345678"] }
+} }
+EOF
+  run "$BOOT" --write "$REPO"
+  [ "$status" -eq 0 ]
+  [ "$(jq_ "$REPO/.rulesync.local/mcp.jsonc" 'sorted(d["cursor"]["mcpServers"])')" = "['db', 'pay', 'zap']" ]
+  run grep -rl -e admin:pass -e Zq8kV2mP9xR4tL7wN3bH6cJ1 -e sk_live_ "$REPO/.rulesync" "$REPO/rulesync.jsonc"
+  [ "$status" -ne 0 ]
+}
+
+@test "machine capture leaves Claude's hooks alone when settings.json is shared through the repo" {
+  "$BOOT" --write "$REPO" >/dev/null
+  rm -rf "$REPO/.rulesync.local"
+  echo '{ "version": 1, "hooks": { "stop": [{ "command": "echo claude-only-here" }] } }' > "$FIX/claudecode/hooks.jsonc"
+  mkdir -p "$REPO/claude" && echo '{}' > "$REPO/claude/settings.json"
+  ln -s "$REPO/claude/settings.json" "$HOME/.claude/settings.json"
+  run "$BOOT" --machine "$REPO"
+  [ "$status" -eq 0 ]
+  [ "$(jq_ "$REPO/.rulesync.local/hooks.jsonc" '"claudecode" in d')" = "False" ]
+}

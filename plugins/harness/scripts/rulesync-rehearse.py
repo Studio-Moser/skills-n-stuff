@@ -34,7 +34,7 @@ MAX_DIFF_LINES = 400
 
 
 def rulesync(version: str, repo: Path, home: Path, root: Path, *extra: str) -> subprocess.CompletedProcess:
-    env = dict(os.environ, HOME=str(home), npm_config_yes="true")
+    env = dict(os.environ, HOME=str(home), HOME_DIR=str(home), npm_config_yes="true")
     command = ["npx", "-y", f"rulesync@{version}", "generate", "--global", "--input-roots", str(root), *extra]
     return subprocess.run(command, cwd=repo, env=env, text=True, capture_output=True)
 

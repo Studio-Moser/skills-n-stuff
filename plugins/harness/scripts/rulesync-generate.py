@@ -115,6 +115,25 @@ def merge_hooks(shared: dict, local: dict) -> dict:
     return merged
 
 
+def claude_settings_in_repo(repo: Path) -> bool:
+    """Harness links ~/.claude/settings.json into the repo, so rulesync's Claude hooks
+    land in a tracked file there."""
+    settings = Path.home() / ".claude" / "settings.json"
+    try:
+        settings.resolve().relative_to(repo.resolve())
+    except ValueError:
+        return False
+    return settings.is_symlink()
+
+
+def local_claude_hooks(repo: Path) -> bool:
+    local = repo / ".rulesync.local" / "hooks.jsonc"
+    if not local.is_file():
+        return False
+    data = load_jsonc(local)
+    return bool(data.get("hooks")) or bool((data.get("claudecode") or {}).get("hooks"))
+
+
 def build_input_root(repo: Path, parent: Path) -> Path:
     """Copy .rulesync into parent and merge this machine's .rulesync.local overlay into it."""
     root = parent / ".rulesync"
@@ -305,7 +324,8 @@ def check_updates(repo: Path, settings: dict) -> str:
 
 
 def rulesync(repo: Path, *args: str) -> subprocess.CompletedProcess:
-    env = dict(os.environ, npm_config_yes="true")
+    # rulesync reads HOME_DIR before HOME; pin it so a stray export cannot redirect writes.
+    env = dict(os.environ, HOME_DIR=str(Path.home()), npm_config_yes="true")
     if args and args[0] == "install":
         token = github_token()
         if token:
@@ -376,6 +396,13 @@ def generate(repo: Path, settings: dict, dry_run: bool, update: bool = False) ->
             print(f"RULESYNC_STATE=failed: machine capture: {line.partition('=')[2] or capture.stderr.strip()[-200:]}")
             return 1
         print(line)
+
+    if local_claude_hooks(repo) and claude_settings_in_repo(repo):
+        # A machine-only Claude hook would be committed in claude/settings.json and
+        # overwritten by every other machine's sync.
+        print("RULESYNC_STATE=failed: .rulesync.local/hooks.jsonc has Claude hooks, but ~/.claude/settings.json "
+              "is shared through the repo; move them to .rulesync/hooks.jsonc or remove them")
+        return 1
 
     with tempfile.TemporaryDirectory(prefix="harness-rulesync.") as temp:
         root = build_input_root(repo, Path(temp))

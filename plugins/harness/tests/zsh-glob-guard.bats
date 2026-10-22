@@ -109,3 +109,28 @@ assert command.endswith("|| true"), command
 PY
   [ "$status" -eq 0 ]
 }
+
+@test "syntax zsh never filename-generates, or that the parser cannot follow, gets no decision" {
+  heredoc_commit="$(printf 'git commit -m "$(cat <<%sEOF%s\nfix: a " quote? here\nEOF\n)"' "'" "'")"
+  for command in 'x=*.zzz' 'case $f in *.zzz) echo y;; esac' '(( a = 2*3 ))' "$heredoc_commit" 'cd sub && ls *.zzz'; do
+    run env SHELL=/bin/zsh "$GUARD" <<<"$(payload Bash "$WORK" "$command" default)"
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
+  done
+  [ "$(firings)" -eq 0 ]
+}
+
+@test "logged patterns never carry URLs or long tokens" {
+  run env SHELL=/bin/zsh "$GUARD" <<<"$(payload Bash "$WORK" 'curl https://example.com/hook?sig=abcdef1234567890 && ls --token=abcdef1234567890*' default)"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *deny* ]]
+  run grep -c 'abcdef1234567890\|example.com' "$XDG_STATE_HOME"/studio-moser/harness/telemetry/Shim_Events-*.jsonl
+  [ "$output" = "0" ]
+  grep -q '"<url>"' "$XDG_STATE_HOME"/studio-moser/harness/telemetry/Shim_Events-*.jsonl
+}
+
+@test "CLAUDE_CODE_SHELL decides which shell runs the command" {
+  run env SHELL=/bin/zsh CLAUDE_CODE_SHELL=/bin/bash "$GUARD" <<<"$(payload Bash "$WORK" 'ls --x=*.zzz' default)"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}

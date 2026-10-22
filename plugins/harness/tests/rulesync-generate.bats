@@ -274,3 +274,20 @@ assert [e["command"] for e in h["sessionStart"]] == ["local-start"], h
   run grep -c -x 'generate --global --input-roots .*/\.rulesync' "$LOG"
   [ "$output" = "0" ]
 }
+
+@test "machine-only Claude hooks are refused while Claude's settings.json is shared through the repo" {
+  printf '{ "global": true }\n' > "$REPO/rulesync.jsonc"
+  printf '{ "claudecode": { "hooks": { "stop": [{ "command": "local-stop" }] } } }\n' > "$REPO/.rulesync.local/hooks.jsonc"
+  mkdir -p "$REPO/claude" "$HOME/.claude"
+  echo '{}' > "$REPO/claude/settings.json"
+  ln -s "$REPO/claude/settings.json" "$HOME/.claude/settings.json"
+  run "$STEP" "$REPO"
+  [ "$status" -eq 1 ]
+  [[ "$(state)" == *"has Claude hooks, but ~/.claude/settings.json is shared through the repo"* ]] || return 1
+  run grep -q "generate --global --input-roots" "$LOG"
+  [ "$status" -ne 0 ]
+  # The same hook is fine when settings.json is this machine's own file.
+  rm "$HOME/.claude/settings.json" && echo '{}' > "$HOME/.claude/settings.json"
+  run "$STEP" "$REPO"
+  [ "$status" -eq 0 ]
+}
