@@ -86,6 +86,22 @@ A personal agents repo that contains `rulesync.jsonc` hands per-tool generation 
   machine's last run, and nothing else;
 - skips its own MCP manifest and `npx skills` steps.
 
+### Keeping rulesync and skills current
+
+Both are pinned, so every machine generates the same files: rulesync by version in
+`scripts/rulesync-generate.py`, third-party skills by commit in `rulesync.lock`.
+Nothing updates on its own; Sync tells you when something can:
+
+- each Sync prints `Updates:` with a newer rulesync release and any skill source whose
+  upstream moved past the lock (checked at most once a day, read-only);
+- `/harness:sync --update-skills` re-resolves every source to its latest commit and
+  commits the new `rulesync.lock`, so other machines install the same commits on their
+  next Sync;
+- to move the rulesync pin, run `scripts/rulesync-rehearse.py <version>`: it generates
+  this machine's real config with the pinned and the candidate version into two
+  temporary HOMEs and diffs every file either writes. Bump the pin in a Harness
+  release once the differences are understood.
+
 Keep `delete` off in `rulesync.jsonc`: rulesync's sweep would also remove folders
 other installers own, such as `~/.claude/skills/synced`. Permissions are not
 generated: rulesync's translation would change Codex's sandbox. Plugins stay with
@@ -257,6 +273,7 @@ and confirms a remote is private before the first push.
 | `scripts/fleet-hosts.sh [repo]` | print the concrete `Host` aliases in `<repo>/ssh/config`; exit 1 on none or an unsafe alias |
 | `scripts/fleet-include.sh [repo] [ssh_config]` | prepend a global `Include` of the fleet inventory unless one already precedes the first `Host`/`Match` |
 | `scripts/rulesync-generate.py [--dry-run] <repo>` | install declared skills and generate every agent tool's files from a rulesync-managed repo |
+| `scripts/rulesync-rehearse.py <version> [repo]` | diff this machine's generated config between the pinned and a candidate rulesync, in temporary HOMEs |
 | `scripts/agent-secrets.py set\|exec\|check\|copy-to ...` | store secrets in this machine's secret store and hand them only to the process that needs them |
 | `scripts/telemetry.py record-result\|publish ...` | append delegation results and publish local telemetry into the repo's `telemetry/<host>/` |
 | `scripts/usage-report.py [--days N\|--month YYYY-MM]` | deterministic usage counts from transcripts and telemetry |

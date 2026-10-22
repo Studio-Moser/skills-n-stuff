@@ -130,8 +130,8 @@ assert main.index('"sync-preflight.sh"') < main.index("reconcile_links(")
 assert main.index('"sync-preflight.sh"') < main.index("publish_telemetry(")
 assert main.index('"sync-finalize.sh"') > main.index("publish_telemetry(")
 # rulesync writes every tool's files after the last render, before the single commit.
-assert main.rindex("render(repo, scripts, args.adopt_profile)") < main.index("rulesync_step(repo, scripts)")
-assert main.index("rulesync_step(repo, scripts)") < main.index('"sync-finalize.sh"')
+assert main.rindex("render(repo, scripts, args.adopt_profile)") < main.index("rulesync_step(repo, scripts, update=")
+assert main.index("rulesync_step(repo, scripts, update=") < main.index('"sync-finalize.sh"')
 assert main.index('"sync-finalize.sh"') > main.index("final_mcp(")
 assert main.count('"sync-finalize.sh"') == 1
 assert "git\", \"commit" not in text

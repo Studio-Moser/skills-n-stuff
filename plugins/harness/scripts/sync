@@ -910,9 +910,9 @@ def dry_run(args: argparse.Namespace, configured_repo: Path, repo: Path, roots: 
                 skill_state = error.message.partition(": ")[2] or error.message
         else:
             skill_state = "skipped: repo is not $HOME/.agents"
-    rulesync_state = "not configured"
+    rulesync_state, updates_state = "not configured", "not checked"
     if rulesync_managed(repo):
-        rulesync_state, rulesync_findings = rulesync_step(repo, scripts, dry_run=True)
+        rulesync_state, updates_state, rulesync_findings = rulesync_step(repo, scripts, dry_run=True)
         valid = valid and not rulesync_findings
     lint = run([helper(scripts, "portability-lint.sh"), str(repo)], check=False)
     rubric = run([helper(scripts, "rubric-audit.sh"), "--days", "7"], check=False)
@@ -936,6 +936,7 @@ def dry_run(args: argparse.Namespace, configured_repo: Path, repo: Path, roots: 
     print(f"  Skills local deviations: {deviations(repo, 'skipInstall', 'keepLocal')}")
     print(f"  Lint:       {'clean' if lint.returncode == 0 else 'findings'}")
     print(f"  Rulesync:   {rulesync_state}")
+    print(f"  Updates:    {updates_state}")
     print(f"  Rubric:     {'clean' if rubric.returncode == 0 else 'findings'}")
     return 0 if valid else EXIT_FAILED
 
@@ -1011,10 +1012,15 @@ def install_with_secrets(repo: Path, scripts: Path) -> None:
         target.chmod(0o755)
 
 
-def rulesync_step(repo: Path, scripts: Path, *, dry_run: bool = False) -> tuple[str, list[str]]:
-    result = run([sys.executable, helper(scripts, "rulesync-generate.py"), *(["--dry-run"] if dry_run else []), str(repo)], check=False)
-    state = next((line.partition("=")[2] for line in result.stdout.splitlines() if line.startswith("RULESYNC_STATE=")), f"failed: exit {result.returncode}")
-    return state, ([f"rulesync {state}"] if result.returncode else [])
+def rulesync_step(repo: Path, scripts: Path, *, dry_run: bool = False, update: bool = False) -> tuple[str, str, list[str]]:
+    flags = (["--dry-run"] if dry_run else []) + (["--update"] if update else [])
+    result = run([sys.executable, helper(scripts, "rulesync-generate.py"), *flags, str(repo)], check=False)
+
+    def line(prefix: str, missing: str) -> str:
+        return next((l.partition("=")[2] for l in result.stdout.splitlines() if l.startswith(prefix)), missing)
+
+    state = line("RULESYNC_STATE=", f"failed: exit {result.returncode}")
+    return state, line("RULESYNC_UPDATES=", "not checked"), ([f"rulesync {state}"] if result.returncode else [])
 
 
 def publish_telemetry(repo: Path, scripts: Path) -> str:
@@ -1114,6 +1120,7 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--remove-skill", action="append", default=[], metavar="NAME")
     result.add_argument("--keep-local-skill", action="append", default=[], metavar="NAME")
     result.add_argument("--push-machines", action="store_true")
+    result.add_argument("--update-skills", action="store_true", help="re-resolve rulesync skill sources to their latest commits")
     result.add_argument("--mcp-take-manifest", action="append", default=[], metavar="NAME")
     result.add_argument("--mcp-keep-live", action="append", default=[], metavar="NAME")
     return result
@@ -1201,7 +1208,9 @@ def sync(
     if managed:
         findings.extend(ensure_rulesync_ignores(repo))
         install_with_secrets(repo, scripts)
-    rulesync_state, rulesync_findings = rulesync_step(repo, scripts) if managed else ("not configured", [])
+    rulesync_state, updates_state, rulesync_findings = (
+        rulesync_step(repo, scripts, update=args.update_skills) if managed else ("not configured", "not checked", [])
+    )
     findings.extend(rulesync_findings)
     final_links, _ = read_link_plan(scripts, repo)
     unresolved_links = [name for name, _rel, state in final_links if state != "ok"]
@@ -1228,6 +1237,7 @@ def sync(
     print("  Lint:       clean")
     print(f"  Rubric:     {'clean' if rubric.returncode == 0 else 'findings'}")
     print(f"  Rulesync:   {rulesync_state}")
+    print(f"  Updates:    {updates_state}")
     print(f"  Telemetry:  {telemetry_state}")
     print(f"  Machines:   {machine_state}")
     if backup:

@@ -65,6 +65,9 @@ rerun with explicit flags:
   differs from the manifest needs `--mcp-take-manifest NAME` or `--mcp-keep-live NAME`;
 - third-party skills (repos without `rulesync.jsonc`): choose each named `--install-skill`, `--skip-skill`,
   `--add-skill`, `--remove-skill`, or `--keep-local-skill` action;
+- optional skill update (rulesync-managed repos): `--update-skills` re-resolves every
+  skill source to its latest commit and commits the new `rulesync.lock`; run it when
+  the `Updates:` line reports sources behind and the user wants them;
 - optional fleet push: `--push-machines` reaches every other host in the fleet's
   `ssh/config`, updates Harness there, and runs that machine's own sync (a machine
   without the sync script only pulls). Inspect the fleet hosts before passing it.
