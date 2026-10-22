@@ -355,3 +355,24 @@ EOF
   [[ "$output" == *"RULESYNC_LINKS=moved 1 broken link(s) from $HOME/.tool to "* ]] || return 1
   [ -L "$HOME/.tool/settings.json" ] && [ ! -L "$HOME/.tool/skills" ]
 }
+
+@test "a file an updated skill no longer ships leaves every generated copy; files you added stay" {
+  printf '{ "global": true }\n' > "$REPO/rulesync.jsonc"
+  mkdir -p "$REPO/.rulesync/skills/alpha" "$HOME/.tool/skills/alpha/refs"
+  echo s > "$REPO/.rulesync/skills/alpha/SKILL.md"; echo o > "$REPO/.rulesync/skills/alpha/old.md"
+  echo s > "$HOME/.tool/skills/alpha/SKILL.md"; echo o > "$HOME/.tool/skills/alpha/old.md"
+  echo r > "$HOME/.tool/skills/alpha/refs/gone.md"; echo m > "$HOME/.tool/skills/alpha/mine.md"
+  mkdir -p "$REPO/.rulesync/skills/alpha/refs" && echo r > "$REPO/.rulesync/skills/alpha/refs/gone.md"
+  export STUB_WRITES="$HOME/.tool/skills/alpha/SKILL.md"
+  run "$STEP" "$REPO"
+  [ "$status" -eq 0 ]
+  [[ "$output" != *RULESYNC_DROPPED* ]] || return 1
+  # The skill's update drops old.md and refs/gone.md.
+  rm "$REPO/.rulesync/skills/alpha/old.md"; rm -r "$REPO/.rulesync/skills/alpha/refs"
+  run "$STEP" "$REPO"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"RULESYNC_DROPPED=moved 2 file(s) the updated skills no longer ship"* ]] || return 1
+  [ ! -e "$HOME/.tool/skills/alpha/old.md" ] && [ ! -e "$HOME/.tool/skills/alpha/refs" ]
+  [ -f "$HOME/.tool/skills/alpha/SKILL.md" ] && [ -f "$HOME/.tool/skills/alpha/mine.md" ]
+  ls "$XDG_STATE_HOME"/studio-moser/harness/backups/dropped-skill-files-*/.tool/skills/alpha/old.md
+}
