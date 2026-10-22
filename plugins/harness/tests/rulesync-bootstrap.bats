@@ -304,3 +304,17 @@ EOF
   [ "$status" -eq 0 ]
   [ "$(jq_ "$REPO/.rulesync.local/hooks.jsonc" '"claudecode" in d')" = "False" ]
 }
+
+@test "R2: shared Claude settings keep Claude hooks shared; a secret in the command stays local and the overlay is ignored" {
+  echo '{ "version": 1, "hooks": { "stop": [{ "command": "~/.claude/hooks/guard.sh" }] } }' > "$FIX/claudecode/hooks.jsonc"
+  mkdir -p "$REPO/claude" && echo '{}' > "$REPO/claude/settings.json"
+  ln -s "$REPO/claude/settings.json" "$HOME/.claude/settings.json"
+  echo '{ "mcpServers": { "envcmd": { "command": "env GH=ghp_abcdefghijklmnopqrstuvwx npx srv" }, "conn": { "command": "npx", "args": ["db"], "env": { "CONN": "Server=db;Password=hunter2;" } } } }' > "$FIX/cursor/mcp.jsonc"
+  run "$BOOT" --write "$REPO"
+  [ "$status" -eq 0 ]
+  [ "$(jq_ "$REPO/.rulesync/hooks.jsonc" '[e["command"] for e in d["claudecode"]["hooks"]["stop"]]')" = "['~/.claude/hooks/guard.sh']" ]
+  [ "$(jq_ "$REPO/.rulesync.local/hooks.jsonc" '"claudecode" in d')" = "False" ]
+  [ "$(jq_ "$REPO/.rulesync.local/mcp.jsonc" 'sorted(d["cursor"]["mcpServers"])')" = "['conn', 'envcmd']" ]
+  grep -qx '/.rulesync.local/' "$REPO/.gitignore"
+  [ -z "$(git -C "$REPO" status --porcelain --untracked-files=all -- .rulesync.local)" ]
+}

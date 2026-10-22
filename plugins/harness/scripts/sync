@@ -1000,18 +1000,25 @@ def ensure_rulesync_ignores(repo: Path) -> list[str]:
     untrack them, and untracking is the user's call.
     """
     ignore = repo / ".gitignore"
-    current = ignore.read_text(encoding="utf-8") if ignore.exists() else ""
+    current = ignore.read_bytes().decode("utf-8") if ignore.exists() else ""  # keeps CRLF visible
+    newline = "\r\n" if "\r\n" in current else "\n"
     lines = current.splitlines()
-    if SKILLS_BLOCK[0] in lines and SKILLS_BLOCK[1] in lines:
-        first, last = lines.index(SKILLS_BLOCK[0]), lines.index(SKILLS_BLOCK[1])
+    previous: list[str] = []
+    if SKILLS_BLOCK[0] in lines and SKILLS_BLOCK[1] in lines[lines.index(SKILLS_BLOCK[0]):]:
+        first = lines.index(SKILLS_BLOCK[0])
+        last = lines.index(SKILLS_BLOCK[1], first)
+        previous = [l[len("/skills/"):].strip("/") for l in lines[first + 1:last] if l.startswith("/skills/")]
         lines = lines[:first] + lines[last + 1:]
+    else:  # a hand-edited, broken block: drop only the markers, never the user's lines
+        lines = [l for l in lines if l not in SKILLS_BLOCK]
     lines += [line for line in RULESYNC_IGNORES if line not in lines]
-    skills = generated_skills(repo)
+    # A skill dropped from the source stays ignored until its leftover folder is gone.
+    skills = sorted(set(generated_skills(repo)) | {n for n in previous if (repo / "skills" / n).is_dir()})
     if skills:
         lines += [SKILLS_BLOCK[0], *(f"/skills/{name}/" for name in skills), SKILLS_BLOCK[1]]
-    updated = "\n".join(lines) + "\n"
+    updated = newline.join(lines) + newline
     if updated != current:
-        ignore.write_text(updated, encoding="utf-8")
+        ignore.write_bytes(updated.encode("utf-8"))
     paths = [line.strip("/") for line in RULESYNC_IGNORES] + [f"skills/{name}" for name in skills]
     tracked = run(["git", "-C", str(repo), "ls-files", "--", *paths], check=False).stdout.split()
     if tracked:

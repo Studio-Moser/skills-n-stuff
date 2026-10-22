@@ -119,6 +119,8 @@ TOKEN_RE = re.compile(
     r"xox[abp]-[A-Za-z0-9-]{10,}|AKIA[A-Z0-9]{16}|AIza[A-Za-z0-9_-]{30,}|gsk_[A-Za-z0-9]{20,})"
 )
 FLAG_RE = re.compile(r"^--?[A-Za-z][A-Za-z0-9_-]*=(.{16,})$")
+# A credential inside a scheme-less connection string (Server=db;Password=...).
+CONNECTION_SECRET = re.compile(r"(?i)\b(?:password|pwd|secret|token)=")
 # A 20+ character run mixing letters and digits, as in a URL-embedded token.
 LONG_TOKEN = re.compile(r"(?=[A-Za-z0-9_-]*\d)(?=[A-Za-z0-9_-]*[A-Za-z])[A-Za-z0-9_-]{20,}")
 
@@ -127,7 +129,7 @@ def credential_like(value: object) -> bool:
     """A token, a long letter-and-digit run, or a URL with credentials or a query."""
     if not isinstance(value, str) or not value or "${" in value:
         return False
-    if TOKEN_RE.search(value) or LONG_TOKEN.search(value):
+    if TOKEN_RE.search(value) or LONG_TOKEN.search(value) or CONNECTION_SECRET.search(value):
         return True
     if "://" in value:
         parts = urlsplit(value)
@@ -146,7 +148,7 @@ def leaks(spec: dict) -> bool:
     headers = spec.get("headers") or {}
     values = [v for k, v in env.items() if not is_secret_env(k, v)]
     values += [v for h, v in headers.items() if not is_secret_header(h, v)]
-    values += [spec.get("url"), spec.get("httpUrl")]
+    values += [spec.get("url"), spec.get("httpUrl"), spec.get("command")]
     args = [a for a in spec.get("args") or [] if isinstance(a, str)]
     return any(credential_like(v) for v in values) or any(credential_like(a) or FLAG_RE.match(a) for a in args)
 
@@ -278,8 +280,12 @@ def normalized(spec: dict) -> str:
     return json.dumps(clean, sort_keys=True)
 
 
-def compose(imports: dict[str, tuple[dict, dict]], secrets: Secrets, repo_rel: str) -> tuple[dict, dict, dict, dict]:
-    """Return (source mcp, local mcp, source hooks, local hooks)."""
+def compose(imports: dict[str, tuple[dict, dict]], secrets: Secrets, repo_rel: str,
+            claude_shared: bool = False) -> tuple[dict, dict, dict, dict]:
+    """Return (source mcp, local mcp, source hooks, local hooks).
+
+    claude_shared: Claude's settings.json is a repo link, so its hooks are shared already.
+    """
     local_path = home_paths()
     local_mcp: dict = {}
     variants: dict[str, dict[str, dict]] = {}
@@ -330,7 +336,8 @@ def compose(imports: dict[str, tuple[dict, dict]], secrets: Secrets, repo_rel: s
     for tool, (_servers, hooks) in imports.items():
         for event, entries in hooks.items():
             for entry in entries:
-                target = local_hooks if local_path.search(json.dumps(entry)) else source_hooks
+                shared = tool == "claudecode" and claude_shared
+                target = local_hooks if not shared and local_path.search(json.dumps(entry)) else source_hooks
                 target.setdefault(tool, {"hooks": {}})["hooks"].setdefault(event, []).append(entry)
     return source_mcp, local_mcp, source_hooks, local_hooks
 
@@ -442,7 +449,7 @@ def bootstrap(repo: Path, write: bool) -> int:
     tools = installed_tools()
     imports = {tool: import_tool(tool) for tool in tools}
     secrets = Secrets(stored=store.get)
-    source_mcp, local_mcp, source_hooks, local_hooks = compose(imports, secrets, repo_rel)
+    source_mcp, local_mcp, source_hooks, local_hooks = compose(imports, secrets, repo_rel, gen.claude_settings_in_repo(repo))
     sources, unresolved = skill_sources(repo)
     declared = {s for item in sources for s in item["skills"]}
     # A skill named in skills.manifest is third-party even when its source is unknown.
@@ -465,6 +472,12 @@ def bootstrap(repo: Path, write: bool) -> int:
     store_secrets(repo, secrets, source_mcp)
     write_json(repo / ".rulesync" / "mcp.jsonc", source_mcp)
     write_json(repo / ".rulesync" / "hooks.jsonc", source_hooks)
+    # Servers kept on this machine may hold plaintext values: ignore them before writing,
+    # so a commit before the first sync cannot pick them up.
+    ignore = repo / ".gitignore"
+    current = ignore.read_text() if ignore.is_file() else ""
+    if "/.rulesync.local/" not in current.splitlines():
+        ignore.write_text(current + ("" if not current or current.endswith("\n") else "\n") + "/.rulesync.local/\n")
     write_json(repo / ".rulesync.local" / "mcp.jsonc", local_mcp)
     write_json(repo / ".rulesync.local" / "hooks.jsonc", local_hooks)
     for name in personal:

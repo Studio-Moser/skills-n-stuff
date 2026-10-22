@@ -35,9 +35,11 @@ PREFIX = "setopt no_nomatch; "
 REWRITE_MODES = {"auto", "bypassPermissions"}
 HEREDOC = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1")
 MAX_LOGGED = 5
-# zsh does not filename-generate a scalar assignment (`x=*.md`) without GLOB_ASSIGN.
+# zsh does not filename-generate a scalar assignment (`x=*.md`) without GLOB_ASSIGN:
+# before the command word, or as an argument of a declaring builtin.
 ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(\[[^]]*\])?\+?=")
-LONG_RUN = re.compile(r"[A-Za-z0-9_-]{12,}")
+DECLARING = {"export", "local", "typeset", "declare", "readonly", "integer", "float"}
+SEP = "\0"  # marks a command boundary (; & | ( ) newline) in the word list
 
 
 class Uncertain(Exception):
@@ -121,6 +123,7 @@ def unquoted_words(command: str) -> list[tuple[str, bool]]:
                 continue
         if char == "\n":
             finish()
+            words.append((SEP, False))
             i += 1
             while heredocs:
                 delimiter = heredocs.pop(0)
@@ -129,6 +132,8 @@ def unquoted_words(command: str) -> list[tuple[str, bool]]:
             continue
         if char.isspace() or char in ";&|()<>":
             finish()
+            if char in ";&|()":
+                words.append((SEP, False))
             i += 1
             continue
         if char in "*?":
@@ -148,15 +153,22 @@ def unmatched_globs(command: str, cwd: str) -> list[str]:
         words = unquoted_words(command)
     except Uncertain:
         return []
-    # A case pattern (`*.md)`) is matched against a string, never against files.
-    if any(word in ("case", "esac") for word, _ in words):
-        return []
     misses = []
     moved = False
+    at_start, declaring = True, False
     for word, globbed in words:
+        if word == SEP:
+            at_start, declaring = True, False
+            continue
+        # A case pattern (`*.md)`) is matched against a string, never against files.
+        if at_start and word == "case":
+            return []
+        assignment = bool(ASSIGNMENT.match(word)) and (at_start or declaring)
+        if at_start and not assignment:
+            at_start, declaring = False, word in DECLARING
         if word in ("cd", "pushd", "popd"):
             moved = True
-        if not globbed or "$" in word or "`" in word or ASSIGNMENT.match(word):
+        if not globbed or "$" in word or "`" in word or assignment:
             continue
         # ponytail: recursive globs are skipped to keep the hook fast in large trees.
         if "**" in word:
@@ -174,10 +186,10 @@ def unmatched_globs(command: str, cwd: str) -> list[str]:
 
 
 def redacted(word: str) -> str:
-    """A loggable shape: URLs and long runs (tokens, signatures) never reach telemetry."""
+    """A loggable shape only: letters and digits collapse, so no value reaches telemetry."""
     if "://" in word:
         return "<url>"
-    return LONG_RUN.sub("…", word)[:60]
+    return re.sub(r"[A-Za-z0-9_]+", "a", word)[:60]
 
 
 def agent_of(payload: dict) -> str:

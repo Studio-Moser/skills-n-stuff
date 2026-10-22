@@ -134,3 +134,18 @@ PY
   [ "$status" -eq 0 ]
   [ -z "$output" ]
 }
+
+@test "R2: an assignment-shaped argument is still checked, a short secret is logged as a shape" {
+  for command in 'echo a=*.zzz' 'grep -r case *.zzz'; do
+    run env SHELL=/bin/zsh "$GUARD" <<<"$(payload Bash "$WORK" "$command" default)"
+    [[ "$output" == *deny* ]] || return 1
+  done
+  for command in 'FOO=1 BAR=*.zzz ls' 'export A=*.zzz' 'ls; y=*.zzz'; do
+    run env SHELL=/bin/zsh "$GUARD" <<<"$(payload Bash "$WORK" "$command" default)"
+    [ -z "$output" ]
+  done
+  run env SHELL=/bin/zsh "$GUARD" <<<"$(payload Bash "$WORK" 'mysql -pPa55w*rd!' default)"
+  [[ "$output" == *deny* ]] || return 1
+  run grep -c 'Pa55w' "$XDG_STATE_HOME"/studio-moser/harness/telemetry/Shim_Events-*.jsonl
+  [ "$output" = "0" ]
+}
