@@ -219,6 +219,51 @@ def source_skills(root: Path) -> set[str]:
     return names
 
 
+def skill_files(root: Path) -> dict[str, list[str]]:
+    """Each source skill's files, relative to its folder (your own, then fetched)."""
+    files: dict[str, list[str]] = {}
+    skills = root / "skills"
+    for folder in [*(skills.iterdir() if skills.is_dir() else []), *((skills / ".curated").iterdir() if (skills / ".curated").is_dir() else [])]:
+        if folder.is_dir() and not folder.name.startswith("."):
+            files[folder.name] = sorted(str(f.relative_to(folder)) for f in folder.rglob("*") if f.is_file())
+    return files
+
+
+def files_state_file(repo: Path) -> Path:
+    return state_file(repo).with_name(state_file(repo).name.replace("skills", "skillfiles"))
+
+
+def remove_dropped_files(repo: Path, root: Path, dropped: dict[str, set[str]]) -> int:
+    """rulesync rewrites a skill's files but never deletes one its source dropped, so an
+    updated skill keeps stale files in every tool. Move exactly those files (never one
+    you added) out of each generated copy, which the dry-run listing locates."""
+    listing = rulesync(repo, "generate", "--global", "--input-roots", str(root), "--dry-run")
+    home = Path.home().resolve()
+    folders: set[Path] = set()
+    for raw in WRITE_LINE.findall(listing.stdout + listing.stderr):
+        path = Path(raw.strip().strip('"')).expanduser()
+        for parent in path.parents:
+            if parent.name in dropped and parent.parent.name in ("skills", "skill"):
+                folders.add(parent)
+                break
+    backup = state_dir() / "backups" / f"dropped-skill-files-{time.strftime('%Y%m%d-%H%M%S')}"
+    moved = 0
+    for folder in sorted(folders):
+        for rel in sorted(dropped[folder.name]):
+            target = folder / rel
+            if target.is_symlink() or not target.is_file() or home not in target.resolve().parents:
+                continue
+            destination = backup / target.resolve().relative_to(home)
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(target), str(destination))
+            moved += 1
+            for empty in target.parents:
+                if empty == folder or any(empty.iterdir()):
+                    break
+                empty.rmdir()
+    return moved
+
+
 def install_state_file(repo: Path) -> Path:
     return state_file(repo).with_name(state_file(repo).name.replace("skills", "install"))
 
@@ -501,6 +546,14 @@ def generate(repo: Path, settings: dict, dry_run: bool, update: bool = False) ->
         if not dry_run:
             state.parent.mkdir(parents=True, exist_ok=True)
             state.write_text(json.dumps(sorted(current)) + "\n")
+            files_state = files_state_file(repo)
+            now = skill_files(root)
+            before = json.loads(files_state.read_text()) if files_state.is_file() else {}
+            dropped = {name: set(before[name]) - set(files) for name, files in now.items() if name in before}
+            dropped = {name: rels for name, rels in dropped.items() if rels}
+            if dropped:
+                print(f"RULESYNC_DROPPED=moved {remove_dropped_files(repo, root, dropped)} file(s) the updated skills no longer ship")
+            files_state.write_text(json.dumps(now) + "\n")
 
     detail = "dry run" if dry_run else f"{written.group(1) if written else 0} file(s) written"
     print(f"RULESYNC_STATE=generated: {detail}; {len(current)} skill(s); {cleaned} stale skill folder(s) removed")

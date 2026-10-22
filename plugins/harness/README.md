@@ -92,7 +92,9 @@ A personal agents repo that contains `rulesync.jsonc` hands per-tool generation 
 - keeps the generated skill copies under `skills/` out of git with a generated
   `.gitignore` block, and reports any that are already tracked;
 - removes the generated folders of skills dropped from the source since this
-  machine's last run, and nothing else;
+  machine's last run, and nothing else; when an updated skill no longer ships a file,
+  moves that file (never one you added) out of every tool's copy into
+  `~/.local/state/studio-moser/harness/backups/`, since rulesync never deletes it;
 - skips its own MCP manifest and `npx skills` steps.
 
 ### Adopting it

@@ -1084,7 +1084,7 @@ def rulesync_step(repo: Path, scripts: Path, *, dry_run: bool = False, update: b
 
     state = line("RULESYNC_STATE=", f"failed: exit {result.returncode}")
     # A first managed run on this machine also reports what it kept locally and backed up.
-    for prefix in ("RULESYNC_CAPTURE=", "RULESYNC_BACKUP=", "RULESYNC_LINKS=", "RULESYNC_APPS="):
+    for prefix in ("RULESYNC_CAPTURE=", "RULESYNC_BACKUP=", "RULESYNC_LINKS=", "RULESYNC_APPS=", "RULESYNC_DROPPED="):
         note = line(prefix, "")
         if note and note != "skipped":
             state += f"; {prefix[9:-1].lower()}: {note}"
