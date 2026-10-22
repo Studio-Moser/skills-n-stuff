@@ -20,3 +20,19 @@ assert all(x in g.splitlines() for x in ("u1", "u2", "u3")) and g.count(m.SKILLS
 PY
   [ "$status" -eq 0 ]
 }
+
+@test "a failed generate keeps every previous skill ignored, so machines do not flip the block" {
+  run python3 - "${BATS_TEST_DIRNAME}/../scripts/sync" "$BATS_TEST_TMPDIR/repo" <<'PY'
+import importlib.machinery, importlib.util, pathlib, subprocess, sys
+loader = importlib.machinery.SourceFileLoader("sync", sys.argv[1])
+spec = importlib.util.spec_from_loader("sync", loader); m = importlib.util.module_from_spec(spec); loader.exec_module(m)
+r = pathlib.Path(sys.argv[2]); r.mkdir(); subprocess.run(["git", "init", "-q", str(r)], check=True)
+block = m.SKILLS_BLOCK[0] + "\n/skills/fetched/\n" + m.SKILLS_BLOCK[1] + "\n"
+(r/".gitignore").write_text(block)  # fetched skill not installed here: no .curated, no skills/fetched
+m.ensure_rulesync_ignores(r, generated=False)
+assert "/skills/fetched/" in (r/".gitignore").read_text()
+m.ensure_rulesync_ignores(r, generated=True)
+assert "/skills/fetched/" not in (r/".gitignore").read_text()
+PY
+  [ "$status" -eq 0 ]
+}
