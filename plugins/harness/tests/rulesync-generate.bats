@@ -291,3 +291,47 @@ assert [e["command"] for e in h["sessionStart"]] == ["local-start"], h
   run "$STEP" "$REPO"
   [ "$status" -eq 0 ]
 }
+
+@test "broken links that block a skill folder are moved to a backup, then generate runs again" {
+  printf '{ "global": true }\n' > "$REPO/rulesync.jsonc"
+  mkdir -p "$HOME/.tool/skills" "$XDG_STATE_HOME/studio-moser/harness"
+  ln -s "$BATS_TEST_TMPDIR/gone/alpha" "$HOME/.tool/skills/alpha"
+  ln -s "$BATS_TEST_TMPDIR/gone/beta" "$HOME/.tool/skills/beta"
+  mkdir -p "$BATS_TEST_TMPDIR/kept" && ln -s "$BATS_TEST_TMPDIR/kept" "$HOME/.tool/skills/working"
+  cat > "$BIN/npx" <<EOF
+#!/bin/sh
+echo "\$*" >> "$LOG"
+case "\$*" in *--dry-run*) ;; *generate*)
+  if [ -L "$HOME/.tool/skills/alpha" ]; then echo "ENOENT: no such file or directory, mkdir '$HOME/.tool/skills/alpha'" >&2; exit 1; fi
+  echo "Written 1 file(s) total" ;;
+esac
+EOF
+  chmod +x "$BIN/npx"
+  run "$STEP" "$REPO"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"RULESYNC_LINKS=moved 2 broken link(s) from $HOME/.tool/skills to "* ]] || return 1
+  [[ "$(state)" == *"generated: 1 file(s) written"* ]] || return 1
+  [ -L "$HOME/.tool/skills/working" ] && [ ! -L "$HOME/.tool/skills/beta" ]
+  [ -L "$XDG_STATE_HOME"/studio-moser/harness/backups/broken-links-*/.tool/skills/beta ]
+}
+
+@test "an install that only refreshes lock timestamps leaves the committed lock untouched" {
+  printf '{ "global": true, "sources": [{ "source": "o/r" }] }\n' > "$REPO/rulesync.jsonc"
+  printf '{ "sources": { "o/r": { "resolvedRef": "abc", "resolvedAt": "2026-01-01T00:00:00Z" } } }\n' > "$REPO/rulesync.lock"
+  cp "$REPO/rulesync.lock" "$BATS_TEST_TMPDIR/lock-before"
+  cat > "$BIN/npx" <<EOF
+#!/bin/sh
+case "\$*" in
+  *" install"*) printf '{ "sources": { "o/r": { "resolvedRef": "'"\${STUB_REF:-abc}"'", "resolvedAt": "2026-10-22T17:22:48Z" } } }\n' > rulesync.lock; echo "Installed 0 skill(s)" ;;
+  *generate*) echo "Written 0 file(s) total" ;;
+esac
+EOF
+  chmod +x "$BIN/npx"
+  run "$STEP" "$REPO"
+  [ "$status" -eq 0 ]
+  cmp -s "$REPO/rulesync.lock" "$BATS_TEST_TMPDIR/lock-before"
+  # A real pin change is still kept.
+  run env STUB_REF=def "$STEP" --update "$REPO"
+  [ "$status" -eq 0 ]
+  grep -q '"def"' "$REPO/rulesync.lock"
+}

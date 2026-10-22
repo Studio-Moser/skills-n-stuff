@@ -8,6 +8,12 @@ process that needs them. Values are never printed, logged, or put on a command l
                                             already set in the environment is kept
   agent-secrets.py check [NAME ...]         report present/missing; exit 1 if missing
   agent-secrets.py copy-to HOST [NAME ...]  copy values over fleet SSH into HOST's store
+  agent-secrets.py import                   store what copy-to staged here, then delete it
+
+copy-to runs `set` on HOST. A Mac's login Keychain refuses writes from an SSH session,
+so a value HOST cannot store is staged in a 0600 file under
+${XDG_CONFIG_HOME:-~/.config}/agent-secrets/import/ instead; run `import` on HOST's
+own desktop session to move it into the store.
 
 Names default to ${AGENTS_REPO:-~/.agents}/secrets.names (one per line, # comments).
 
@@ -61,6 +67,10 @@ def backend_name() -> str:
 def secrets_file() -> Path:
     base = os.environ.get("XDG_CONFIG_HOME") or str(Path.home() / ".config")
     return Path(base) / "agent-secrets" / "secrets.env"
+
+
+def staging_dir() -> Path:
+    return secrets_file().parent / "import"
 
 
 def read_file_store() -> dict[str, str]:
@@ -200,33 +210,97 @@ def cmd_check(args: list[str]) -> int:
     return 1 if missing else 0
 
 
+def cmd_stage(args: list[str]) -> int:
+    """copy-to's fallback on the remote side: keep one value for `import`, owner-only."""
+    if len(args) != 1:
+        raise SecretError("usage: stage NAME")
+    name = checked(args)[0]
+    value = sys.stdin.read()
+    value = value[:-1] if value.endswith("\n") else value
+    if not value or "\n" in value or "\0" in value:
+        raise SecretError("a staged value must be one non-empty line")
+    folder = staging_dir()
+    folder.mkdir(parents=True, mode=0o700, exist_ok=True)
+    os.chmod(folder, 0o700)
+    fd = os.open(folder / name, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        handle.write(value)
+    return 0
+
+
+def cmd_import(args: list[str]) -> int:
+    if args:
+        raise SecretError("usage: import")
+    folder = staging_dir()
+    staged = sorted(p for p in folder.iterdir() if p.is_file()) if folder.is_dir() else []
+    if not staged:
+        print("nothing staged")
+        return 0
+    failed = 0
+    for path in staged:
+        if not NAME.match(path.name):
+            print(f"{path.name}\tskipped: not a secret name")
+            failed += 1
+            continue
+        try:
+            put(path.name, path.read_text(encoding="utf-8"))
+        except SecretError as error:
+            print(f"{path.name}\tkept staged: {error}")
+            failed += 1
+            continue
+        path.unlink()
+        print(f"{path.name}\tstored ({backend_name()})")
+    if not any(folder.iterdir()):
+        folder.rmdir()
+    return 1 if failed else 0
+
+
+def remote(host: str, command: str, value: str | None = None) -> subprocess.CompletedProcess:
+    # ssh hands one string to the remote login shell; quote it as a single word.
+    return subprocess.run(
+        ["ssh", "-o", "BatchMode=yes", host, "sh -lc " + shlex.quote(f"{REMOTE_ROOT}; {command}")],
+        input=None if value is None else value + "\n", capture_output=True, text=True,
+    )
+
+
 def cmd_copy_to(args: list[str]) -> int:
     if not args:
         raise SecretError("usage: copy-to HOST [NAME ...]")
     host, names = args[0], checked(args[1:] or default_names())
     if not re.match(r"^[A-Za-z0-9._-]+$", host):
         raise SecretError(f"invalid host alias {host!r}")
-    failed = 0
+    failed = staged = 0
     for name in names:
         value = get(name)
         if value is None:
             print(f"{name}\tmissing locally")
             failed += 1
             continue
-        remote = f'{REMOTE_ROOT}; exec python3 "$h/scripts/agent-secrets.py" set {name}'
-        # ssh hands one string to the remote login shell; quote it as a single word.
-        result = subprocess.run(
-            ["ssh", "-o", "BatchMode=yes", host, "sh -lc " + shlex.quote(remote)],
-            input=value + "\n", capture_output=True, text=True,
-        )
-        ok = result.returncode == 0
-        failed += not ok
-        print(f"{name}\t{'copied' if ok else 'failed: ' + (result.stderr.strip().splitlines() or ['ssh error'])[-1]}")
+        result = remote(host, f'exec python3 "$h/scripts/agent-secrets.py" set {name}', value)
+        if result.returncode == 0:
+            print(f"{name}\tcopied")
+            continue
+        reason = (result.stderr.strip().splitlines() or ["ssh error"])[-1]
+        if "could not store" in reason:
+            # The remote store refuses this session (a Mac's Keychain over SSH): stage it.
+            stage = remote(host, f'exec python3 "$h/scripts/agent-secrets.py" stage {name}', value)
+            if stage.returncode == 0:
+                print(f"{name}\tstaged: {host}'s secret store refuses SSH sessions")
+                staged += 1
+                continue
+            reason = (stage.stderr.strip().splitlines() or ["ssh error"])[-1]
+        print(f"{name}\tfailed: {reason}")
+        failed += 1
+    if staged:
+        path = remote(host, 'printf "%s\\n" "${h%/}/scripts/agent-secrets.py"').stdout.strip() or "agent-secrets.py"
+        print(f"To finish, run this in a terminal on {host}'s own desktop session (not over SSH):")
+        print(f"  python3 {shlex.quote(path)} import")
     return 1 if failed else 0
 
 
 def main(argv: list[str]) -> int:
-    commands = {"set": cmd_set, "exec": cmd_exec, "check": cmd_check, "copy-to": cmd_copy_to}
+    commands = {"set": cmd_set, "exec": cmd_exec, "check": cmd_check, "copy-to": cmd_copy_to,
+                "stage": cmd_stage, "import": cmd_import}
     if not argv or argv[0] not in commands:
         print(__doc__, file=sys.stderr)
         return 2

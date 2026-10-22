@@ -74,13 +74,21 @@ A personal agents repo that contains `rulesync.jsonc` hands per-tool generation 
 - runs `rulesync install` for the third-party skills declared under `sources`
   (pinned by `rulesync.lock`) only when the config, lockfile, or installed skills
   changed, with your `gh` login token so GitHub's anonymous rate limit does not apply;
+  an install that only refreshes the lock's `resolvedAt` timestamps leaves the
+  committed `rulesync.lock` alone;
 - runs `rulesync generate --global` for instructions, MCP servers
   (`.rulesync/mcp.jsonc`), hooks (`.rulesync/hooks.jsonc`), skills, subagents, and
   commands;
 - merges this machine's untracked `.rulesync.local/mcp.jsonc` servers and
   `hooks.jsonc` entries (app-bundled tools, machine paths) into a temporary source,
   so they never reach git; machine-only Claude hooks are refused, since Claude's
-  `settings.json` is shared through the repo;
+  `settings.json` is shared through the repo. Servers an app installs and rewrites
+  itself (a command inside an `.app` bundle, like Codex's `node_repl` from
+  ChatGPT.app) are re-read from the tool before each generate, so an app update is
+  never reverted;
+- moves broken symlinks out of a tool's folder (for example skills pointing at a
+  deleted folder) into `~/.local/state/studio-moser/harness/backups/` when rulesync
+  cannot write through them, then generates again;
 - keeps the generated skill copies under `skills/` out of git with a generated
   `.gitignore` block, and reports any that are already tracked;
 - removes the generated folders of skills dropped from the source since this
@@ -125,7 +133,10 @@ Nothing updates on its own; Sync tells you when something can:
 Keep `delete` off in `rulesync.jsonc`: rulesync's sweep would also remove folders
 other installers own, such as `~/.claude/skills/synced`. Permissions are not
 generated: rulesync's translation would change Codex's sandbox. Plugins stay with
-Harness's plugin reconciliation, since rulesync only packages plugins.
+Harness's plugin reconciliation, since rulesync only packages plugins: Claude Code
+installs the shared `enabledPlugins`, and Codex gets the same list from every
+marketplace it knows. A Codex plugin from those marketplaces that the shared list
+lacks is reported with its `codex plugin remove` command, never removed.
 
 ## Secrets
 
@@ -139,11 +150,17 @@ installed but no running keyring (a headless server), set
 example `~/.config/environment.d/agent-secrets.conf` and `~/.profile`); otherwise
 `set` fails and every secret-backed server exits 78.
 
+A Mac's login Keychain refuses writes from an SSH session, even while it is unlocked
+at the desktop. When HOST's store refuses one, `copy-to` stages the value in a `0600`
+file under `~/.config/agent-secrets/import/` on HOST and prints the `import` command to
+run in a terminal on HOST's own desktop session.
+
 | Command | Does |
 |---|---|
 | `agent-secrets.py set NAME` | store the value read from stdin or a hidden prompt |
 | `agent-secrets.py check [NAME ...]` | report present/missing for `secrets.names` in the repo |
 | `agent-secrets.py copy-to HOST [NAME ...]` | copy values over fleet SSH into HOST's own store |
+| `agent-secrets.py import` | on HOST's own desktop, store what `copy-to` had to stage, then delete it |
 | `bin/with-secrets NAME ... -- command` | start a command with those values exported |
 
 An MCP server that needs a key starts through the launcher, so it works no matter
@@ -299,7 +316,7 @@ and confirms a remote is private before the first push.
 | `scripts/rulesync-generate.py [--dry-run] <repo>` | install declared skills and generate every agent tool's files from a rulesync-managed repo |
 | `scripts/rulesync-bootstrap.py [--write\|--machine] <repo>` | build a repo's rulesync source from this machine's tools, or keep a machine's extras on its first managed sync |
 | `scripts/rulesync-rehearse.py <version> [repo]` | diff this machine's generated config between the pinned and a candidate rulesync, in temporary HOMEs |
-| `scripts/agent-secrets.py set\|exec\|check\|copy-to ...` | store secrets in this machine's secret store and hand them only to the process that needs them |
+| `scripts/agent-secrets.py set\|exec\|check\|copy-to\|import ...` | store secrets in this machine's secret store and hand them only to the process that needs them |
 | `scripts/telemetry.py record-result\|publish ...` | append delegation results and publish local telemetry into the repo's `telemetry/<host>/` |
 | `scripts/usage-report.py [--days N\|--month YYYY-MM]` | deterministic usage counts from transcripts and telemetry |
 | `scripts/sync-finalize.sh <repo> <message>` | stage, scan, commit, exact-lease push, and prove a clean actual remote SHA once |

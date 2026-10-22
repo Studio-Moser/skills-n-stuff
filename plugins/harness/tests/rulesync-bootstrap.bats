@@ -318,3 +318,29 @@ EOF
   grep -qx '/.rulesync.local/' "$REPO/.gitignore"
   [ -z "$(git -C "$REPO" status --porcelain --untracked-files=all -- .rulesync.local)" ]
 }
+
+@test "app-installed servers in the overlay follow what their app last wrote" {
+  "$BOOT" --write "$REPO" >/dev/null
+  # The overlay holds an old ChatGPT.app copy, and one the app has since removed.
+  cat > "$REPO/.rulesync.local/mcp.jsonc" <<'EOF'
+{ "codexcli": { "mcpServers": {
+  "node_repl": { "command": "/Applications/ChatGPT.app/bin/node_repl", "env": { "V": "26.1007" } },
+  "gone": { "command": "/Applications/Old.app/Contents/bin/srv" },
+  "local-tool": { "command": "/Users/someone/bin/tool" } } } }
+EOF
+  cat > "$FIX/codexcli/mcp.jsonc" <<'EOF'
+{ "mcpServers": {
+  "shared-a": { "command": "npx", "args": ["-y", "a"] },
+  "node_repl": { "command": "/Applications/ChatGPT.app/bin/node_repl", "env": { "V": "26.1016" } },
+  "new_app": { "command": "/Applications/ChatGPT.app/bin/other" },
+  "local-tool": { "command": "/Users/someone/bin/tool" } } }
+EOF
+  run "$BOOT" --apps "$REPO"
+  [ "$status" -eq 0 ]
+  [ "$output" = "RULESYNC_APPS=refreshed 3 app-installed server(s) from their apps" ]
+  l="$REPO/.rulesync.local/mcp.jsonc"
+  [ "$(jq_ "$l" 'sorted(d["codexcli"]["mcpServers"])')" = "['local-tool', 'new_app', 'node_repl']" ]
+  [ "$(jq_ "$l" 'd["codexcli"]["mcpServers"]["node_repl"]["env"]["V"]')" = "26.1016" ]
+  run "$BOOT" --apps "$REPO"
+  [ -z "$output" ]
+}

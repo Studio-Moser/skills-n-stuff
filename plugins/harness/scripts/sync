@@ -642,26 +642,49 @@ def plugin_reconcile(repo: Path, claude: Path) -> tuple[str, list[str]]:
             updated += 1
     for name in sorted(have_marketplaces - set(marketplaces) - {"claude-plugins-official"}):
         findings.append(f"orphan marketplace: {name} — remove with: claude plugin marketplace remove {name}")
-    codex_updated = codex_plugin_update(findings)
+    codex_updated = codex_plugin_update(findings, sorted(n for n, on in enabled.items() if on))
     state = "up to date" if not any((added, installed, updated, codex_updated)) else (
         f"added {added} marketplace(s), installed {installed}, updated {updated}, Codex updated {codex_updated} — restart or /reload-plugins to apply"
     )
     return state, findings
 
 
-def codex_plugin_update(findings: list[str]) -> int:
-    """Refresh the marketplaces of the plugins Codex reports installed and enabled, and
-    re-add those plugins, so Codex follows the same versions as Claude Code. Only that
-    list counts: cache folders of removed plugins or interrupted installs are ignored,
-    so a removed plugin is never reinstalled. Returns how many plugins changed version."""
+def codex_plugin_update(findings: list[str], shared: list[str] | None = None) -> int:
+    """Give Codex the shared Claude plugin list, then refresh the marketplaces of the
+    plugins Codex reports installed and enabled and re-add those plugins, so Codex follows
+    the same plugins and versions as Claude Code on every machine.
+
+    A shared plugin Codex lacks is added when Codex knows its marketplace. A plugin Codex
+    has enabled from one of those marketplaces that the shared list lacks is reported,
+    never removed. Cache folders of removed plugins or interrupted installs are ignored.
+    Returns how many plugins were added or changed version."""
     if shutil.which("codex") is None:
         return 0
     listed = run(["codex", "plugin", "list"], check=False)
     if listed.returncode:
         findings.append("Codex plugin inventory failed")
         return 0
-    enabled = re.findall(r"^(\S+)@(\S+)\s+installed, enabled\s+(\S+)", listed.stdout, re.MULTILINE)
+    states = dict(re.findall(r"^(\S+@\S+)\s+(installed, enabled|installed, disabled|not installed)", listed.stdout, re.MULTILINE))
     changed = 0
+    if shared is not None:
+        markets_listed = run(["codex", "plugin", "marketplace", "list"], check=False)
+        markets = {line.split()[0] for line in markets_listed.stdout.splitlines()[1:] if line.split()}
+        for plugin in shared:
+            market = plugin.rpartition("@")[2]
+            if states.get(plugin) == "installed, enabled":
+                continue
+            if market not in markets:
+                findings.append(f"Codex has no {market} marketplace for shared plugin {plugin}")
+                continue
+            if run(["codex", "plugin", "add", plugin], check=False).returncode:
+                findings.append(f"Codex plugin add failed: {plugin}")
+            else:
+                changed += 1
+        shared_markets = {p.rpartition("@")[2] for p in shared}
+        for plugin, state in sorted(states.items()):
+            if state == "installed, enabled" and plugin.rpartition("@")[2] in shared_markets and plugin not in shared:
+                findings.append(f"Codex plugin {plugin} is not in the shared plugin list; remove it with: codex plugin remove {plugin}")
+    enabled = re.findall(r"^(\S+)@(\S+)\s+installed, enabled\s+(\S+)", listed.stdout, re.MULTILINE)
     for marketplace in sorted({market for _name, market, _version in enabled}):
         if run(["codex", "plugin", "marketplace", "upgrade", marketplace], check=False).returncode:
             continue  # not a Git marketplace, or offline: its plugins stay as installed
@@ -1049,7 +1072,7 @@ def rulesync_step(repo: Path, scripts: Path, *, dry_run: bool = False, update: b
 
     state = line("RULESYNC_STATE=", f"failed: exit {result.returncode}")
     # A first managed run on this machine also reports what it kept locally and backed up.
-    for prefix in ("RULESYNC_CAPTURE=", "RULESYNC_BACKUP="):
+    for prefix in ("RULESYNC_CAPTURE=", "RULESYNC_BACKUP=", "RULESYNC_LINKS=", "RULESYNC_APPS="):
         note = line(prefix, "")
         if note and note != "skipped":
             state += f"; {prefix[9:-1].lower()}: {note}"

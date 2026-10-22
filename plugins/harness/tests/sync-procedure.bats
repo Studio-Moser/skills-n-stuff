@@ -1033,3 +1033,47 @@ PY
   [ "$status" -eq 0 ]
   ! grep -q "@builtin" "$CLAUDE_LOG" || return 1
 }
+
+@test "Codex gets the shared plugin list; extras from the same marketplaces are reported, not removed" {
+  stub="$BATS_TEST_TMPDIR/bin"; mkdir -p "$stub"
+  cat > "$stub/codex" <<'SH'
+#!/bin/sh
+echo "$*" >> "$CODEX_LOG"
+case "$*" in
+  "plugin list")
+    echo "harness@studio-moser          installed, enabled  2.0.9   /x/plugins/harness"
+    echo "swift-lsp@claude-plugins-official  installed, enabled  1.0.0  /x"
+    echo "figma@claude-plugins-official  installed, disabled  1.0.0  /x"
+    echo "design@studio-moser           not installed       /x/plugins/design"
+    echo "browser@openai-bundled        installed, enabled  26.1  /x" ;;
+  "plugin marketplace list")
+    printf 'MARKETPLACE  ROOT\nstudio-moser  /x\nclaude-plugins-official  /y\nopenai-bundled  /z\n' ;;
+  "plugin add harness@studio-moser") echo "Installed plugin root: /c/studio-moser/harness/2.0.9" ;;
+  "plugin add swift-lsp@claude-plugins-official") echo "Installed plugin root: /c/cpo/swift-lsp/1.0.0" ;;
+  "plugin add browser@openai-bundled") echo "Installed plugin root: /c/ob/browser/26.1" ;;
+esac
+exit 0
+SH
+  chmod +x "$stub/codex"
+  export CODEX_LOG="$BATS_TEST_TMPDIR/codex.log"
+  run env PATH="$stub:$PATH" CODEX_LOG="$CODEX_LOG" python3 - "$REPO/plugins/harness/scripts/sync" <<'PY'
+import importlib.machinery, importlib.util, sys
+loader = importlib.machinery.SourceFileLoader("sync_script", sys.argv[1])
+spec = importlib.util.spec_from_loader("sync_script", loader)
+sync = importlib.util.module_from_spec(spec)
+loader.exec_module(sync)
+findings = []
+changed = sync.codex_plugin_update(findings, ["design@studio-moser", "figma@claude-plugins-official", "harness@studio-moser", "x@nowhere"])
+print("CHANGED=%d" % changed)
+print("\n".join(findings))
+PY
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"CHANGED=2"* ]] || return 1
+  grep -qx "plugin add design@studio-moser" "$CODEX_LOG"
+  grep -qx "plugin add figma@claude-plugins-official" "$CODEX_LOG"
+  [[ "$output" == *"Codex plugin swift-lsp@claude-plugins-official is not in the shared plugin list; remove it with: codex plugin remove swift-lsp@claude-plugins-official"* ]] || return 1
+  [[ "$output" == *"Codex has no nowhere marketplace for shared plugin x@nowhere"* ]] || return 1
+  [[ "$output" != *"plugin browser@openai-bundled is not"* ]] || return 1
+  run grep -q "plugin remove" "$CODEX_LOG"
+  [ "$status" -ne 0 ]
+}
