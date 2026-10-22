@@ -910,7 +910,7 @@ def dry_run(args: argparse.Namespace, configured_repo: Path, repo: Path, roots: 
                 skill_state = error.message.partition(": ")[2] or error.message
         else:
             skill_state = "skipped: repo is not $HOME/.agents"
-    rulesync_state, updates_state = "not configured", "not checked"
+    rulesync_state, updates_state = "not configured; preview adopting it with scripts/rulesync-bootstrap.py", "not checked"
     if rulesync_managed(repo):
         rulesync_state, updates_state, rulesync_findings = rulesync_step(repo, scripts, dry_run=True)
         valid = valid and not rulesync_findings
@@ -1020,6 +1020,11 @@ def rulesync_step(repo: Path, scripts: Path, *, dry_run: bool = False, update: b
         return next((l.partition("=")[2] for l in result.stdout.splitlines() if l.startswith(prefix)), missing)
 
     state = line("RULESYNC_STATE=", f"failed: exit {result.returncode}")
+    # A first managed run on this machine also reports what it kept locally and backed up.
+    for prefix in ("RULESYNC_CAPTURE=", "RULESYNC_BACKUP="):
+        note = line(prefix, "")
+        if note and note != "skipped":
+            state += f"; {prefix[9:-1].lower()}: {note}"
     return state, line("RULESYNC_UPDATES=", "not checked"), ([f"rulesync {state}"] if result.returncode else [])
 
 
@@ -1209,7 +1214,8 @@ def sync(
         findings.extend(ensure_rulesync_ignores(repo))
         install_with_secrets(repo, scripts)
     rulesync_state, updates_state, rulesync_findings = (
-        rulesync_step(repo, scripts, update=args.update_skills) if managed else ("not configured", "not checked", [])
+        rulesync_step(repo, scripts, update=args.update_skills) if managed
+        else ("not configured; preview adopting it with scripts/rulesync-bootstrap.py", "not checked", [])
     )
     findings.extend(rulesync_findings)
     final_links, _ = read_link_plan(scripts, repo)

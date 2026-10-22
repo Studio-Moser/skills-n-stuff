@@ -304,6 +304,7 @@ EOF
 #!/usr/bin/env bash
 case "\$*" in
   *rulesync@*generate*) echo "\$*" >> "$BATS_TEST_TMPDIR/rulesync.log"; echo "Written 2 file(s) total" ;;
+  *rulesync@*) echo "\$*" >> "$BATS_TEST_TMPDIR/rulesync.log" ;;
   *) touch "$BATS_TEST_TMPDIR/skills-npx-called"; printf '[]\n' ;;
 esac
 EOF
