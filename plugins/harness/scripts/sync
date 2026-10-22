@@ -992,7 +992,7 @@ def generated_skills(repo: Path) -> list[str]:
     return sorted(names)
 
 
-def ensure_rulesync_ignores(repo: Path) -> list[str]:
+def ensure_rulesync_ignores(repo: Path, generated: bool = True) -> list[str]:
     """Machine-only servers and hooks, fetched sources, and the generated skill copies
     under skills/ must never be committed. Runs after generate, so the skill list is current.
 
@@ -1012,8 +1012,10 @@ def ensure_rulesync_ignores(repo: Path) -> list[str]:
     else:  # a hand-edited, broken block: drop only the markers, never the user's lines
         lines = [l for l in lines if l not in SKILLS_BLOCK]
     lines += [line for line in RULESYNC_IGNORES if line not in lines]
-    # A skill dropped from the source stays ignored until its leftover folder is gone.
-    skills = sorted(set(generated_skills(repo)) | {n for n in previous if (repo / "skills" / n).is_dir()})
+    # A skill dropped from the source stays ignored until its leftover folder is gone; after
+    # a failed generate nothing is known to be gone, so every previous name stays.
+    kept = {n for n in previous if not generated or (repo / "skills" / n).is_dir()}
+    skills = sorted(set(generated_skills(repo)) | kept)
     if skills:
         lines += [SKILLS_BLOCK[0], *(f"/skills/{name}/" for name in skills), SKILLS_BLOCK[1]]
     updated = newline.join(lines) + newline
@@ -1244,7 +1246,7 @@ def sync(
     )
     findings.extend(rulesync_findings)
     if managed:
-        findings.extend(ensure_rulesync_ignores(repo))
+        findings.extend(ensure_rulesync_ignores(repo, generated=not rulesync_findings))
     final_links, _ = read_link_plan(scripts, repo)
     unresolved_links = [name for name, _rel, state in final_links if state != "ok"]
     if unresolved_links:
