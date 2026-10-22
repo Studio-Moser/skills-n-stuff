@@ -1,0 +1,317 @@
+#!/usr/bin/env python3
+"""Generate every agent tool's instructions, MCP servers, hooks, skills, subagents,
+and commands from the agents repository's rulesync source. Called by harness:sync.
+
+  rulesync-generate.py [--dry-run] <agents-repo>
+
+Runs only when <repo>/rulesync.jsonc exists; prints RULESYNC_STATE=skipped otherwise.
+Steps, all inside the repo:
+  1. `rulesync install` when the config declares `sources` (third-party skills,
+     pinned by rulesync.lock) and the config, lockfile, or installed skills changed
+     since this machine's last install. It runs from a private root (see install())
+     and reuses the `gh` login token. `"delete": true` is refused.
+  2. Build a temporary input root: .rulesync/ plus this machine's untracked
+     .rulesync.local/mcp.jsonc servers and hooks.jsonc entries merged in. rulesync
+     overlays replace whole files, so the merge happens here to keep machine-only
+     servers and hooks (absolute paths, app-bundled tools) per machine.
+  3. Remove the outputs of skills this machine generated last time that are no longer
+     in the source, using rulesync's own `--delete` dry run and nothing else it lists
+     (it also lists folders other installers own, such as ~/.claude/skills/synced).
+  4. `rulesync generate --global`.
+Prints one RULESYNC_STATE line. Exit 0 unless rulesync is missing or a command failed.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+
+RULESYNC = os.environ.get("HARNESS_RULESYNC", "rulesync@39.0.0")
+DELETE_LINE = re.compile(r'Would delete directory: "([^"]+)"')
+# What `rulesync install` reads and writes, carried through its private root.
+INSTALL_LOCKS = ("rulesync.lock", "rulesync-npm.lock.json")
+INSTALL_FILES = ("rulesync.jsonc", "rulesync.local.jsonc", *INSTALL_LOCKS)
+INSTALL_FOLDERS = (".rulesync/skills/.curated", ".rulesync/rules/.curated")
+
+
+def strip_jsonc(text: str) -> str:
+    """Remove // and /* */ comments outside strings, then trailing commas."""
+    out, i, quote = [], 0, False
+    while i < len(text):
+        char = text[i]
+        if quote:
+            out.append(char)
+            if char == "\\" and i + 1 < len(text):
+                out.append(text[i + 1])
+                i += 1
+            elif char == '"':
+                quote = False
+        elif char == '"':
+            quote = True
+            out.append(char)
+        elif text.startswith("//", i):
+            i = text.find("\n", i)
+            if i < 0:
+                break
+            continue
+        elif text.startswith("/*", i):
+            end = text.find("*/", i + 2)
+            i = len(text) if end < 0 else end + 2
+            continue
+        else:
+            out.append(char)
+        i += 1
+    return re.sub(r",(\s*[}\]])", r"\1", "".join(out))
+
+
+def load_jsonc(path: Path) -> dict:
+    data = json.loads(strip_jsonc(path.read_text(encoding="utf-8")))
+    if not isinstance(data, dict):
+        raise ValueError(f"{path} must hold a JSON object")
+    return data
+
+
+def merge_mcp(shared: dict, local: dict) -> dict:
+    """Local servers join the shared map; tool-scoped blocks merge per tool."""
+    merged = json.loads(json.dumps(shared))
+    for key, value in local.items():
+        if key == "mcpServers" or isinstance(value, dict) and isinstance(value.get("mcpServers"), dict):
+            servers = value if key == "mcpServers" else value["mcpServers"]
+            target = merged.setdefault(key, {}) if key == "mcpServers" else merged.setdefault(key, {}).setdefault("mcpServers", {})
+            target.update(servers)
+    return merged
+
+
+def merge_hooks(shared: dict, local: dict) -> dict:
+    """Local hook entries are appended per event, shared and per tool."""
+    merged = json.loads(json.dumps(shared))
+    merged.setdefault("hooks", {})  # rulesync requires the shared map, even when empty
+
+    def extend(target: dict, events: dict) -> None:
+        for event, entries in events.items():
+            if isinstance(entries, list):
+                target.setdefault(event, []).extend(entries)
+
+    for key, value in local.items():
+        if key == "hooks" and isinstance(value, dict):
+            extend(merged.setdefault("hooks", {}), value)
+        elif isinstance(value, dict) and isinstance(value.get("hooks"), dict):
+            extend(merged.setdefault(key, {}).setdefault("hooks", {}), value["hooks"])
+        elif key not in merged:
+            merged[key] = value
+    return merged
+
+
+def state_dir() -> Path:
+    base = os.environ.get("XDG_STATE_HOME") or str(Path.home() / ".local/state")
+    return Path(base) / "studio-moser/harness"
+
+
+def state_file(repo: Path) -> Path:
+    """Per repo, so a second checkout never compares against another repo's history."""
+    key = hashlib.sha256(str(repo).encode()).hexdigest()[:12]
+    return state_dir() / f"rulesync-skills-{key}.json"
+
+
+def source_skills(root: Path) -> set[str]:
+    skills = root / "skills"
+    names = {p.name for p in skills.iterdir() if p.is_dir() and not p.name.startswith(".")} if skills.is_dir() else set()
+    curated = skills / ".curated"
+    if curated.is_dir():
+        names |= {p.name for p in curated.iterdir() if p.is_dir()}
+    return names
+
+
+def install_state_file(repo: Path) -> Path:
+    return state_file(repo).with_name(state_file(repo).name.replace("skills", "install"))
+
+
+def install_fingerprint(repo: Path) -> str:
+    """Config plus lockfile: an unchanged pair needs no new fetch."""
+    digest = hashlib.sha256()
+    for name in ("rulesync.jsonc", "rulesync.lock"):
+        path = repo / name
+        digest.update(path.read_bytes() if path.is_file() else b"-")
+    return digest.hexdigest()
+
+
+def locked_skills(repo: Path) -> set[str]:
+    lock = repo / "rulesync.lock"
+    if not lock.is_file():
+        return set()
+    try:
+        sources = json.loads(lock.read_text()).get("sources", {})
+    except ValueError:
+        return set()
+    return {name for entry in sources.values() if isinstance(entry, dict) for name in entry.get("skills", {})}
+
+
+def declared_skills(config: dict) -> set[str]:
+    return {name for source in config.get("sources") or [] if isinstance(source, dict)
+            for name in source.get("skills") or [] if isinstance(name, str) and name != "*"}
+
+
+def install(repo: Path) -> subprocess.CompletedProcess:
+    """Run `rulesync install` from a private root, then copy its results back.
+
+    rulesync treats every folder in <cwd>/skills as the user's own skill and refuses to
+    install over it. In global mode that folder is ~/.agents/skills, where rulesync's
+    own Codex output lands, so installing from the repo would skip every declared skill
+    after the first generate. A private root has no skills/ folder.
+    """
+    with tempfile.TemporaryDirectory(prefix="harness-rulesync-install.") as temp:
+        root = Path(temp)
+        for name in INSTALL_FILES:
+            if (repo / name).is_file():
+                shutil.copy2(repo / name, root / name)
+        for folder in INSTALL_FOLDERS:
+            if (repo / folder).is_dir():
+                shutil.copytree(repo / folder, root / folder, symlinks=True)
+        result = rulesync(root, "install")
+        if result.returncode == 0:
+            for folder in INSTALL_FOLDERS:
+                if (repo / folder).exists():
+                    shutil.rmtree(repo / folder)
+                if (root / folder).is_dir():
+                    (repo / folder).parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copytree(root / folder, repo / folder, symlinks=True)
+            for name in INSTALL_LOCKS:
+                if (root / name).is_file():
+                    shutil.copy2(root / name, repo / name)
+        return result
+
+
+def install_needed(repo: Path) -> bool:
+    state = install_state_file(repo)
+    if not state.is_file() or state.read_text().strip() != install_fingerprint(repo):
+        return True
+    curated = repo / ".rulesync" / "skills" / ".curated"
+    return any(not (curated / name).is_dir() for name in locked_skills(repo))
+
+
+def github_token() -> str | None:
+    # Anonymous GitHub API calls are rate limited to 60 an hour; reuse the gh login.
+    if os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN") or not shutil.which("gh"):
+        return None
+    result = subprocess.run(["gh", "auth", "token"], capture_output=True, text=True)
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip() or None
+
+
+def rulesync(repo: Path, *args: str) -> subprocess.CompletedProcess:
+    env = dict(os.environ, npm_config_yes="true")
+    if args and args[0] == "install":
+        token = github_token()
+        if token:
+            env["GITHUB_TOKEN"] = token
+    return subprocess.run(["npx", "-y", RULESYNC, *args], cwd=repo, text=True, capture_output=True, env=env)
+
+
+def last_line(result: subprocess.CompletedProcess) -> str:
+    lines = (result.stderr or result.stdout).strip().splitlines()
+    return lines[-1] if lines else f"exit {result.returncode}"
+
+
+def main(argv: list[str]) -> int:
+    dry_run = "--dry-run" in argv
+    args = [a for a in argv if a != "--dry-run"]
+    if len(args) != 1:
+        print(__doc__, file=sys.stderr)
+        return 2
+    repo = Path(args[0]).expanduser().resolve()
+    config = repo / "rulesync.jsonc"
+    if not config.is_file():
+        print("RULESYNC_STATE=skipped: no rulesync.jsonc")
+        return 0
+    if not shutil.which("npx"):
+        print("RULESYNC_STATE=failed: npx not on PATH")
+        return 1
+    try:
+        settings = load_jsonc(config)
+    except ValueError as error:
+        print(f"RULESYNC_STATE=failed: rulesync.jsonc unreadable ({error})")
+        return 1
+    local_config = repo / "rulesync.local.jsonc"
+    try:
+        local_settings = load_jsonc(local_config) if local_config.is_file() else {}
+    except ValueError as error:
+        print(f"RULESYNC_STATE=failed: rulesync.local.jsonc unreadable ({error})")
+        return 1
+    if settings.get("delete") is True or local_settings.get("delete") is True:
+        # Its sweep removes every skill folder rulesync did not generate this run,
+        # including other installers' folders such as ~/.claude/skills/synced.
+        print('RULESYNC_STATE=failed: set "delete": false in rulesync.jsonc and rulesync.local.jsonc; Harness removes dropped skills itself')
+        return 1
+    try:
+        return generate(repo, settings, dry_run)
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        print(f"RULESYNC_STATE=failed: {type(error).__name__}: {error}")
+        return 1
+
+
+def generate(repo: Path, settings: dict, dry_run: bool) -> int:
+    declared_sources = bool(settings.get("sources"))
+
+    if declared_sources and not dry_run and install_needed(repo):
+        installed = install(repo)
+        if installed.returncode:
+            print(f"RULESYNC_STATE=failed: install: {last_line(installed)}")
+            return 1
+        install_state_file(repo).parent.mkdir(parents=True, exist_ok=True)
+        install_state_file(repo).write_text(install_fingerprint(repo) + "\n")
+
+    with tempfile.TemporaryDirectory(prefix="harness-rulesync.") as temp:
+        root = Path(temp) / ".rulesync"
+        if (repo / ".rulesync").is_dir():
+            shutil.copytree(repo / ".rulesync", root, symlinks=False)
+        else:
+            root.mkdir()
+        for name, merge, empty in (("mcp.jsonc", merge_mcp, {"mcpServers": {}}), ("hooks.jsonc", merge_hooks, {"version": 1, "hooks": {}})):
+            local = repo / ".rulesync.local" / name
+            if local.is_file():
+                shared_path = root / name
+                shared = load_jsonc(shared_path) if shared_path.is_file() else empty
+                shared_path.write_text(json.dumps(merge(shared, load_jsonc(local)), indent=2) + "\n")
+
+        # A declared skill is never "removed", even if this run failed to fetch it.
+        current = source_skills(root) | declared_skills(settings)
+        state = state_file(repo)
+        previous = set(json.loads(state.read_text())) if state.is_file() else set()
+        removed = previous - current
+        cleaned = 0
+        if removed and not dry_run:
+            listing = rulesync(repo, "generate", "--global", "--input-roots", str(root), "--dry-run", "--delete")
+            home = Path.home().resolve()
+            for match in DELETE_LINE.finditer(listing.stdout + listing.stderr):
+                path = Path(match.group(1)).expanduser()
+                if path.is_symlink() or path.name not in removed:
+                    continue
+                if home in path.resolve().parents and path.is_dir():
+                    shutil.rmtree(path)
+                    cleaned += 1
+
+        generate_args = ["generate", "--global", "--input-roots", str(root)] + (["--dry-run"] if dry_run else [])
+        generated = rulesync(repo, *generate_args)
+        if generated.returncode:
+            print(f"RULESYNC_STATE=failed: generate: {last_line(generated)}")
+            return 1
+        written = re.search(r"Written (\d+) file\(s\) total", generated.stdout)
+        if not dry_run:
+            state.parent.mkdir(parents=True, exist_ok=True)
+            state.write_text(json.dumps(sorted(current)) + "\n")
+
+    detail = "dry run" if dry_run else f"{written.group(1) if written else 0} file(s) written"
+    print(f"RULESYNC_STATE=generated: {detail}; {len(current)} skill(s); {cleaned} stale skill folder(s) removed")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))

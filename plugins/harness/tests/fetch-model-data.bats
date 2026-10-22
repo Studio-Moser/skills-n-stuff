@@ -2,12 +2,25 @@
 
 setup() {
   SCRIPT="${BATS_TEST_DIRNAME}/../scripts/fetch-model-data.sh"
+  # Never read this machine's real secret store.
+  export HARNESS_SECRETS_BACKEND=file XDG_CONFIG_HOME="$BATS_TEST_TMPDIR/config"
 }
 
 @test "exits 3 and warns when API key is unset" {
   unset ARTIFICIAL_ANALYSIS_API_KEY
   run "$SCRIPT"
   [ "$status" -eq 3 ]
+}
+
+@test "an unexported key is read from the secret store" {
+  unset ARTIFICIAL_ANALYSIS_API_KEY
+  "${BATS_TEST_DIRNAME}/../scripts/agent-secrets.py" set ARTIFICIAL_ANALYSIS_API_KEY <<<"from-store" >/dev/null
+  fixture="${BATS_TEST_TMPDIR}/models.json"
+  printf '%s' '{"data":[{"name":"Model S","model_creator":{"name":"Acme"},"pricing":{"price_1m_input_tokens":1}}]}' > "$fixture"
+  export AA_MODELS_URL="file://$fixture"
+  run "$SCRIPT"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Model S"* ]]
 }
 
 @test "emits normalized TSV from the v2 nested shape" {

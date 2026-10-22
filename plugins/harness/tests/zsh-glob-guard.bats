@@ -49,7 +49,8 @@ assert "updatedInput" not in out, out
     [ "$status" -eq 0 ]
   done
   [ "$(firings)" -eq 3 ]
-  ! grep -q '"allow"' "$XDG_STATE_HOME"/studio-moser/harness/telemetry/Shim_Events-*.jsonl
+  run grep -q '"allow"' "$XDG_STATE_HOME"/studio-moser/harness/telemetry/Shim_Events-*.jsonl
+  [ "$status" -ne 0 ]
 }
 
 @test "Codex payloads always get the denial, never an allow-gated rewrite" {

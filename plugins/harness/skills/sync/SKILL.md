@@ -57,16 +57,21 @@ rerun with explicit flags:
   history. Show the user what will be dropped before passing it;
 - live-path conflicts: `--keep-live NAME`, `--discard-live NAME`, `--relink NAME`,
   or `--relink-all`;
-- MCP set: `--mcp-mode match|replace|merge`; replace also needs
+- MCP set (repos without `rulesync.jsonc`; a rulesync-managed repo generates MCP
+  from `.rulesync/mcp.jsonc` and skips these flags): `--mcp-mode match|replace|merge`; replace also needs
   `--confirm-mcp-replace`. Resolve named extras, unavailable commands, and secrets
   with the corresponding `--remove-mcp`, `--keep-local-mcp`, `--skip-mcp`,
   `--keep-unresolved-mcp`, or `--mcp-secrets-file` flag; a server whose definition
   differs from the manifest needs `--mcp-take-manifest NAME` or `--mcp-keep-live NAME`;
-- third-party skills: choose each named `--install-skill`, `--skip-skill`,
+- third-party skills (repos without `rulesync.jsonc`): choose each named `--install-skill`, `--skip-skill`,
   `--add-skill`, `--remove-skill`, or `--keep-local-skill` action;
 - optional fleet push: `--push-machines` reaches every other host in the fleet's
   `ssh/config`, updates Harness there, and runs that machine's own sync (a machine
   without the sync script only pulls). Inspect the fleet hosts before passing it.
+
+Secrets live in each machine's secret store, never in the repo: `scripts/agent-secrets.py`
+`set NAME` (value on stdin), `check`, and `copy-to <host>` over the fleet. MCP servers
+that need one start through `bin/with-secrets NAME -- command`.
 
 Never put a secret value in a command-line flag. `--mcp-secrets-file` accepts a
 local `NAME=value` file and the script passes its contents only to

@@ -81,9 +81,11 @@ harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*
 - Exit 0 → use its normalized pricing and intelligence rows.
 - Exit 3 → no `ARTIFICIAL_ANALYSIS_API_KEY`. Offer the developer the free
   Artificial Analysis models API at https://artificialanalysis.ai/data-api, but
-  never ask them to paste a key into chat. If they accept, have them add it to the
-  shell environment used by non-interactive agent sessions (for zsh, `~/.zshenv`)
-  and paste it only into their own terminal. Never write or commit it. They may
+  never ask them to paste a key into chat. If they accept, have them store it in
+  their own terminal with `"$harness/scripts/agent-secrets.py" set
+  ARTIFICIAL_ANALYSIS_API_KEY` (the fetch reads it from the secret store, so agents
+  launched from GUI apps get it too) and `copy-to` their other machines. Never write
+  or commit it. They may
   decline; use official provider documentation plus judgment, record that source,
   and offer the API again on the next refresh.
 - Exit 4 or 5 → the configured fetch failed or its response shape yielded no

@@ -8,6 +8,12 @@
 set -euo pipefail
 
 key="${ARTIFICIAL_ANALYSIS_API_KEY:-}"
+# Not exported (agents launched from a GUI app skip shell rc files): re-run once with
+# the key from this machine's secret store, when it has one.
+if [ -z "$key" ] && [ -z "${HARNESS_SECRETS_TRIED:-}" ] && command -v python3 >/dev/null 2>&1; then
+  export HARNESS_SECRETS_TRIED=1
+  exec python3 "$(cd "$(dirname "$0")" && pwd)/agent-secrets.py" exec --optional --env ARTIFICIAL_ANALYSIS_API_KEY -- "$0" "$@"
+fi
 if [ -z "$key" ]; then
   echo "ARTIFICIAL_ANALYSIS_API_KEY not set — skipping live model data; fall back to vendor docs/judgment." >&2
   exit 3
