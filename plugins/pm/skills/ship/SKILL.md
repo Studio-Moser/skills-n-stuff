@@ -79,6 +79,6 @@ named that risk when asking to merge.
 A question in a normal message goes unseen and the thread looks finished. Ask only
 when you cannot continue alone: a choice the user owns, missing access, or a gate you
 cannot make pass. Use the host's structured question tool (`AskUserQuestion` in
-Claude Code) so the thread shows it is waiting, and put everything in the question:
+Claude Code, `request_user_input` in Codex) so the thread shows it is waiting, and put everything in the question:
 the PR link, what blocks you, and the options with your recommendation first. When
 access or confidence is missing, take the safe path: stop at ready rather than merge.
