@@ -11,6 +11,7 @@ review execution, and universal evidence semantics.
 | `agents/code-reviewer.md` | Building any PM review request. |
 | `skills/dev-task/SKILL.md` | Entering the review gate. |
 | `skills/sprint-dev/SKILL.md` | Beginning the fixed-target check for a PR. |
+| `skills/ship/SKILL.md` | Entering its review step. |
 | `harness:delegate` | Executing the provider-neutral review request against its fixed target. |
 
 ## Harness boundary
