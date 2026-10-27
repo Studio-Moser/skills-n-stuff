@@ -53,7 +53,7 @@ bypassing branch protection. Ask when the work grows beyond what the user asked 
    `watch_pull_request`), use it and end the turn; it wakes you on checks, comments,
    and conflicts. Call its unwatch tool before you stop. Otherwise poll with
    `gh pr checks <n> --watch`,
-   `gh pr view <n> --json headRefOid,mergeStateStatus,latestReviews,reviews,comments`,
+   `gh pr view <n> --json headRefOid,mergeStateStatus,reviews,comments`,
    and `gh api --paginate repos/{owner}/{repo}/pulls/<n>/comments` for inline review
    comments. Fix CI failures and review comments from bots and people, or reply to
    each with a written reason. Rebase when the branch falls behind.
@@ -63,8 +63,9 @@ bypassing branch protection. Ask when the work grows beyond what the user asked 
    - every review bot has finished, and each finding, inline ones included, is fixed
      or answered in writing;
    - a required independent review approved this head;
-   - no person's latest review (`latestReviews`) requests changes; a written reply
-     does not clear it, only their re-review does, so ask the user when one stands;
+   - no person's last `APPROVED` or `CHANGES_REQUESTED` review in `reviews` requests
+     changes; a `COMMENTED` review or a written reply does not clear a change request,
+     only their approving re-review does, so ask the user when one stands;
    - the base is an ancestor of the head after a fresh fetch, and GitHub reports
      `mergeStateStatus` as `CLEAN`.
 

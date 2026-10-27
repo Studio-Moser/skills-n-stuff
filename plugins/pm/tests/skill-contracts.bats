@@ -96,7 +96,7 @@ for label, needle in {
     "only own-branch force pushes": "`git push --force-with-lease` to this PR's own branch",
     "merge bound to the gated head": "--match-head-commit <headRefOid>",
     "inline review comments": "pulls/<n>/comments",
-    "per-person change requests": "`latestReviews`",
+    "per-person change requests": "a `COMMENTED` review or a written reply does not clear a change request",
     "base freshness": "the base is an ancestor of the head",
     "no admin merge": "`gh pr merge --admin`",
     "required checks": "gh pr checks <n> --required",
