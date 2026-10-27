@@ -339,8 +339,10 @@ the same confidence definitions from the Phase 5 packet, and the same opinionate
 
 ## Keep the Conversation Going
 
-On the two chat paths, the delivered findings are an opening, not an ending. After
-Phase 7, ask what comes next with the structured question UI:
+On the two chat paths, the delivered findings are an opening, not an ending. End the
+turn on the report: close it with one plain-text line offering the next steps, and do
+not call the structured question UI after it. Some hosts show only a turn's last
+assistant message once the turn ends, so text before a question hides the report.
 
 - **Dig deeper into a finding** — ask which one, research that thread, and answer in
   chat. This is a follow-up, not a new report.
@@ -348,9 +350,9 @@ Phase 7, ask what comes next with the structured question UI:
   a saved report and PR, running Phases 8–10 on the research already accepted.
 - **Done** — stop without writing files or opening a pull request.
 
-Ask again after each follow-up until the user is done. A quick take is never saved
-directly: a saved report carries proven Research Coverage, so it goes through full
-research first.
+Offer them again after each follow-up until the user is done. A quick take is never
+saved directly: a saved report carries proven Research Coverage, so it goes through
+full research first.
 
 ---
 

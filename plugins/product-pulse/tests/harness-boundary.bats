@@ -278,6 +278,25 @@ PY
   [ "$status" -eq 0 ]
 }
 
+@test "deep-dive ends the chat report turn without a question tool" {
+  run python3 - "$REPO" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+text = (Path(sys.argv[1]) / "plugins/product-pulse/skills/deep-dive/SKILL.md").read_text()
+section = re.search(r"^## Keep the Conversation Going$(.*?)^## ", text, re.MULTILINE | re.DOTALL)
+assert section, "missing Keep the Conversation Going section"
+body = " ".join(section.group(1).split())
+assert "do not call the structured question UI after it" in body, body
+assert "AskUserQuestion" not in body, body
+PY
+  if [ "$status" -ne 0 ]; then
+    printf '%s\n' "$output" >&2
+  fi
+  [ "$status" -eq 0 ]
+}
+
 @test "Product Pulse keeps report and publication ownership" {
   run python3 - "$REPO" <<'PY'
 from pathlib import Path
