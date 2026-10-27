@@ -123,7 +123,7 @@ PY
 @test "logged patterns never carry URLs or long tokens" {
   run env SHELL=/bin/zsh "$GUARD" <<<"$(payload Bash "$WORK" 'curl https://example.com/hook?sig=abcdef1234567890 && ls --token=abcdef1234567890*' default)"
   [ "$status" -eq 0 ]
-  [[ "$output" == *deny* ]]
+  [[ "$output" == *deny* ]] || return 1
   run grep -c 'abcdef1234567890\|example.com' "$XDG_STATE_HOME"/studio-moser/harness/telemetry/Shim_Events-*.jsonl
   [ "$output" = "0" ]
   grep -q '"<url>"' "$XDG_STATE_HOME"/studio-moser/harness/telemetry/Shim_Events-*.jsonl
