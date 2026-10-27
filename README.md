@@ -66,6 +66,7 @@ Backend-agnostic project management for AI-native teams. Ingests research report
 - `/pm:reconcile` — Sync reality with the tracker (completion, stale, blockers)
 - `/pm:sprint-dev` — Pick ready work, schedule collisions, and build approved slices
 - `/pm:dev-task` — Explicit managed workflow for one task (plan → approve → build → verify → PR)
+- `/pm:ship` — Unattended delivery to a merge-ready ("full stop") or merged ("full send") PR
 
 [Full documentation](plugins/pm/README.md)
 

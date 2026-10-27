@@ -91,6 +91,7 @@ Commit incrementally as you go — don't batch an entire feature into one commit
   - Bad: `Removed implicit workspace carryover from every new thread entry point; new threads inherit only the project from context.`
   - Good: `Starting a new thread on an existing worktree silently ignored my worktree default. Now the preference always applies.`
 - If someone reading the PR cold can't state what problem it solves, rewrite it before filing.
+- When an independent review ran, `## Testing` names the reviewer's resolved model, the number of rounds, and the final verdict, and lists any unresolved findings. Report a verdict that did not approve as plainly as one that did.
 - One PR per task. Don't mix unrelated changes.
 - Create with: `gh pr create --title "…" --body "…"`. Link the issue/card if there is one.
 

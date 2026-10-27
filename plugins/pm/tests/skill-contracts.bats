@@ -82,6 +82,47 @@ PY
   [ "$status" -eq 0 ]
 }
 
+@test "ship keeps its merge gate, permission ceiling, and blocked-only questions" {
+  run python3 - "$REPO" <<'PY'
+from pathlib import Path
+import sys
+
+repo = Path(sys.argv[1])
+skill = " ".join((repo / "plugins/pm/skills/ship/SKILL.md").read_text().split())
+house = " ".join((repo / "plugins/harness/references/house-rules.md").read_text().split())
+failures = []
+for label, needle in {
+    "full stop never merges": "never merge",
+    "only own-branch force pushes": "`git push --force-with-lease=<branch>:<sha you rebased from>`",
+    "merge bound to the gated head": "--match-head-commit <headRefOid>",
+    "inline review comments": "pulls/<n>/comments",
+    "per-person change requests": "a `COMMENTED` review or a written reply does not clear a change request",
+    "base freshness": "the base is an ancestor of the head",
+    "no admin merge": "`gh pr merge --admin`",
+    "required checks": "gh pr checks <n> --required",
+    "mergeable": "`mergeStateStatus` as `CLEAN`",
+    "merged confirmation": "`MERGED`",
+    "risk-gated review": "harness:risk-gate",
+    "author credit": "Co-authored-by:",
+    "superseded close": "close it with a comment linking that work",
+    "no history rewrite on takeover": "never rewriting its history",
+    "close original only after merge": "close it only once the replacement merges",
+    "no required checks": "when the repository reports none",
+    "structured question": "structured question tool",
+    "ask only when blocked": "Ask only when you cannot continue alone",
+    "unwatch before stopping": "unwatch tool before you stop",
+}.items():
+    if needle not in skill: failures.append(f"ship omits {label}")
+if "the final verdict" not in house or "did not approve" not in house:
+    failures.append("house rules omit the PR review disclosure")
+assert not failures, "; ".join(failures)
+PY
+  if [ "$status" -ne 0 ]; then
+    echo "$output"
+  fi
+  [ "$status" -eq 0 ]
+}
+
 @test "dev-task routes explicit visual proof through feature walkthroughs" {
   run python3 - "$REPO" <<'PY'
 from pathlib import Path
@@ -119,8 +160,8 @@ else:
 
 if "/pm:feature-walkthrough" not in readme:
     failures.append("README omits /pm:feature-walkthrough")
-if "eight-skill pipeline" not in readme:
-    failures.append("README does not describe an eight-skill pipeline")
+if "nine-skill pipeline" not in readme:
+    failures.append("README does not describe a nine-skill pipeline")
 pm = next((plugin for plugin in marketplace["plugins"] if plugin["name"] == "pm"), None)
 if pm is None or pm.get("version") != manifest.get("version"):
     failures.append("PM marketplace version does not match the PM manifest")
