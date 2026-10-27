@@ -9,7 +9,7 @@
 ## Testing
 
 <!-- Commands or procedures run, expected signal, and actual result. -->
-<!-- Independent review, when one ran: reviewer route, rounds, final verdict, unresolved findings. -->
+<!-- Independent review, when one ran: resolved reviewer model, rounds, final verdict, unresolved findings. -->
 
 ## Risk / Blast Radius
 

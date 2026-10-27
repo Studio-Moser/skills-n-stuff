@@ -19,14 +19,10 @@ trigger, do not assume this autonomy.
 | "full stop", or no explicit request to merge | PR passes the merge gate; never merge |
 | "full send", or an explicit request to merge | PR merged once the merge gate passes |
 
-A merge trigger grants exactly two actions beyond ordinary branch work: merging this
-PR when the merge gate passes, and `git push --force-with-lease` to this PR's own
-branch after a rebase. It never grants pushing to the base or a protected branch,
-`gh pr merge --admin`, or bypassing branch protection.
-
-Stop at ready and ask, even after a merge trigger, when `harness:risk-gate` matched
-destructive persistence, a migration, authentication, or payment, unless the user
-named that risk when asking to merge.
+Either trigger grants `git push --force-with-lease` to this PR's own branch after a
+rebase. Only a merge trigger grants merging, and only when the merge gate passes.
+Neither grants pushing to the base or a protected branch, `gh pr merge --admin`, or
+bypassing branch protection. Ask when the work grows beyond what the user asked for.
 
 ## Starting point
 
@@ -56,22 +52,26 @@ named that risk when asking to merge.
 5. **Watch it.** When the host provides a pull-request watcher tool (such as
    `watch_pull_request`), use it and end the turn; it wakes you on checks, comments,
    and conflicts. Call its unwatch tool before you stop. Otherwise poll with
-   `gh pr checks <n> --watch` and
-   `gh pr view <n> --json reviewDecision,mergeStateStatus,reviews,comments`.
-   Fix CI failures and review comments from bots and people, or reply to each with
-   a written reason. Rebase when the branch falls behind.
-6. **Merge gate.** All of these hold on the current head commit:
+   `gh pr checks <n> --watch`,
+   `gh pr view <n> --json headRefOid,mergeStateStatus,latestReviews,reviews,comments`,
+   and `gh api --paginate repos/{owner}/{repo}/pulls/<n>/comments` for inline review
+   comments. Fix CI failures and review comments from bots and people, or reply to
+   each with a written reason. Rebase when the branch falls behind.
+6. **Merge gate.** All of these hold on one head commit, recorded as `headRefOid`:
    - the proof covers every change in the diff;
    - required checks are green (`gh pr checks <n> --required`), none pending;
-   - every review bot has finished, and each finding is fixed or answered in writing;
-   - a required independent review approved the current head;
-   - no human review requests changes (`reviewDecision` is not `CHANGES_REQUESTED`);
-   - the branch is up to date with the base and GitHub reports it mergeable
-     (`mergeStateStatus` is `CLEAN`).
+   - every review bot has finished, and each finding, inline ones included, is fixed
+     or answered in writing;
+   - a required independent review approved this head;
+   - no person's latest review (`latestReviews`) requests changes; a written reply
+     does not clear it, only their re-review does, so ask the user when one stands;
+   - the base is an ancestor of the head after a fresh fetch, and GitHub reports
+     `mergeStateStatus` as `CLEAN`.
 
    "Full stop" ends here. "Full send" merges with the method the repository already
-   uses, as in `pm:tidy-up` § 3, then confirms `gh pr view <n> --json state` reports
-   `MERGED`.
+   uses, as in `pm:tidy-up` § 3, adding `--match-head-commit <headRefOid>` so a push
+   after the gate cannot merge unproven; a mismatch reopens the gate. Then confirm
+   `gh pr view <n> --json state` reports `MERGED`.
 7. **Report** in five lines or fewer: PR link, final state, proof, and anything skipped.
 
 ## Asking the user
