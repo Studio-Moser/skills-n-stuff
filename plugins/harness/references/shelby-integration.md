@@ -30,9 +30,9 @@ For substantial, multi-phase work where recovery or observability is useful:
 3. save recovery checkpoints at useful boundaries, and
 4. finish the run with its actual status.
 
-Return available `project_id`, `run_id`, and checkpoint identifiers in the
-Harness Result. Quick work need not manufacture plans or checkpoints solely to
-populate those optional fields.
+Keep `project_id`, `run_id`, and checkpoint identifiers with the Shelby work;
+they are not Harness Result fields. Quick work need not manufacture plans or
+checkpoints.
 
 ## When Shelby is unavailable
 
@@ -43,7 +43,7 @@ verification, and result contracts, and do not widen permissions or silently
 change route.
 
 The missing Shelby does not block execution. State the missing enrichment only when it
-materially affects continuity, and leave optional Shelby identifiers empty.
+materially affects continuity.
 Never copy Shelby state, secrets, or run logs into repository files. A durable
 fact belongs in repository documentation only when it is independently
 appropriate project documentation.

@@ -46,9 +46,8 @@ existing escalation authorization below.
 
 Keep classification, execution choice, and routine routing internal. Report useful
 progress, consequential tradeoffs, blockers, required approvals, and verification
-results. Retain route evidence in the Harness Result; use available runtime usage
-records to compare total cost per accepted task. Do not announce a classification
-or dump the contract.
+results. Retain route evidence in the Harness Result. Do not announce a
+classification or dump the contract.
 
 ## Top-level orchestration
 
@@ -60,13 +59,8 @@ satisfy `routing.orchestrator`.
   supports explicit model selection.
 - If the host cannot switch the running model, report the preference as
   advisory and continue resolving delegated routes.
-- The orchestrator retains context and delegates bounded work so expensive
-  judgment tokens do not absorb execution volume.
-- `routing.fallback` is optional and still requires caller authorization under
-  the existing typed fallback rules.
 
-`routing.fallback` names an eligible general fallback but never authorizes an
-automatic fallback or escalation. `fallbacks.<route>` is the only standing
+`routing.fallback` is legacy data that rubric migration removes. `fallbacks.<route>` is the only standing
 authorization for automatic fallback; `routing.fallback` grants none. Provider
 diversity remains optional when a route has no fallback chain; a single
 reachable model-effort row may satisfy every required route.
@@ -76,6 +70,7 @@ reachable model-effort row may satisfy every required route.
 - `bulk`: clear-spec, mechanical, independently verifiable work.
 - `quick`: short, latency-sensitive work.
 - `default`: ordinary interactive work without a stronger reason.
+- `explore`: read-only investigation that returns directly to the orchestrator.
 - `taste`: user-facing judgment such as UI, copy, or public API design.
 - `batch`: configured, appropriate unattended fan-out.
 - `review`: strong review of a fixed target.

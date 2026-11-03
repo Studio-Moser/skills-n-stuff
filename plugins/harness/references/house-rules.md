@@ -16,8 +16,6 @@
 
 Harness-owned conventions for code changes across Studio Moser projects. The `pm:house-rules` skill and every repo's managed `AGENTS.md` block defer here. These rules apply to any agent or developer; project instructions override them where stated below.
 
-<!-- the relocated sections follow verbatim -->
-
 ## Branches
 
 - Branch from the repo's default branch. Confirm it: `gh repo view --json defaultBranchRef -q .defaultBranchRef.name`
@@ -36,7 +34,7 @@ Harness-owned conventions for code changes across Studio Moser projects. The `pm
 
 ## Concurrent sessions in one repo
 
-Several agent sessions often run against the same checkout at once. A checkout has exactly one HEAD and one index, so a second session switching branches between your commands silently re-parents your work — you branch off whatever HEAD happens to be, and `git add -A` stages their in-flight edits as yours. This is not hypothetical: it produced a PR carrying another session's unmerged refactor under an unrelated description, and only a merge conflict exposed it.
+Several agent sessions often run against the same checkout at once. A checkout has exactly one HEAD and one index, so a second session switching branches between your commands silently re-parents your work — you branch off whatever HEAD happens to be, and `git add -A` stages their in-flight edits as yours.
 
 **Use a worktree only for actual parallel work or when the user explicitly requests isolation.** If the task names a working directory, stay there unless the user explicitly authorizes moving it. Get your own worktree before starting parallel work:
 
@@ -124,7 +122,7 @@ including handoff cost and verifiability, before substantial investigation.
 
 - **Polish** — styling, spacing, copy; no logic change; one file per edit. No brainstorm or separate plan. Keep tiny edits local; route a bounded batch only when the execution-choice rule justifies it. Edit, verify the one thing that shows it (a screenshot, a targeted check), keep going. Baseline suite once per batch, not per edit. The suite, the review, and the single commit run **at the checkpoint**.
 - **Small** — one bug or one behavior with a clear spec, roughly three files or fewer. No brainstorm or separate plan. A bug starts with root-cause diagnosis; new behavior gets one runnable check. Choose direct execution or a rubric worker and use one verification pass at the highest stable existing testing seam.
-- **Feature** — new behavior across files or material design choices. State the intended outcome and use the risk gate. Select the implementer through the execution-choice rule; the risk gate determines verification and review. Add a written plan, recovery point, or independent review only when the matched risk requires it.
+- **Feature** — new behavior across files or material design choices. State the intended outcome; use the risk gate when one of its triggers matches. Select the implementer through the execution-choice rule; risk determines verification and review. Add a written plan, recovery point, or independent review only when the matched risk requires it.
 
 **Checkpoint (Polish).** Any of: the human says commit / PR / done; the batch needs logic — commit the batch first, then the logic change proceeds as Small; the human starts an unrelated task; the session ends or hands off. Never leave a polish batch uncommitted in a shared checkout.
 

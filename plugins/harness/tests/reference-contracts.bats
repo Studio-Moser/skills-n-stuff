@@ -65,7 +65,7 @@ request_schema = schema_after("## HarnessRequest")
 result_schema = schema_after("## HarnessResult")
 assert parse_schema(request_schema) == [
     ("operation", "execute | review | computer-use"),
-    ("route", "bulk | quick | default | taste | batch | review | independent"),
+    ("route", "bulk | quick | default | explore | taste | batch | review | independent"),
     ("outcome", "bounded observable result"),
     ("context", None),
     ("context.project", "canonical project identifier when known"),

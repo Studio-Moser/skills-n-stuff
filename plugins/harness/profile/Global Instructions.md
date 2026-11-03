@@ -21,7 +21,7 @@ If the work isn't a code or config change in a repo, just do it, with no class o
 
 - **Polish** — styling, spacing, copy; no logic change; one file per edit. Verify the one thing that shows it. Suite, review, and one commit run at the checkpoint: I say commit, PR, or done; the batch needs logic; I start an unrelated task; or the session ends.
 - **Small** — one bug or behavior, roughly three files or fewer. A bug starts with root-cause diagnosis; new behavior gets one runnable check.
-- **Feature** — new behavior across files or material design choices. State the intended outcome and use the risk gate.
+- **Feature** — new behavior across files or material design choices. State the intended outcome; use the risk gate when one of its triggers matches.
 
 Escalators: polish that needs logic is Small; security, auth, payment, or data-model / persistence / migrations is never Polish, including copy and styling in those flows.
 
