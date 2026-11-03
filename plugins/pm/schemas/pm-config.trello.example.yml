@@ -16,9 +16,9 @@ triage:
 
 trello:
   # Public URL where Trello posts card events. Required for live sessions.
-  # Provided by the receiving capability (Shelby webhook ingress, W1e).
+  # Provided by the receiving capability (Advisaur webhook ingress, W1e).
   # Setup writes this here; reconcile/setup re-register it if missing.
-  webhook_url: "https://shelby.example.com/webhooks/trello"
+  webhook_url: "https://advisaur.example.com/webhooks/trello"
 
   boards:
     - id: "abc123def456"             # Trello board id (find via list_boards)

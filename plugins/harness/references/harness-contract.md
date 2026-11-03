@@ -96,7 +96,7 @@ selecting an authorized route. Those loop details are not part of HarnessResult;
 the result records only the requested route and terminal concrete dispatch.
 `harness:delegate` appends each terminal result, with those attempts, to a local
 telemetry ledger that does not change this shape.
-Optional Shelby recall and capture remain provider-owned side effects and are not
+Optional Advisaur recall and capture remain provider-owned side effects and are not
 HarnessResult fields.
 
 Use the statuses consistently:

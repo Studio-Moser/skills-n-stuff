@@ -112,8 +112,8 @@ default_branch: main             # branch PRs target; default: main
 auto_merge: false                # auto-squash-merge research PRs if mergeable; default: false
 
 memory:
-  connector: shelby              # optional provider handled through Harness canonical scope
-                                 # set to null to disable memory enrichment; default: shelby
+  connector: advisaur              # optional provider handled through Harness canonical scope
+                                 # set to null to disable memory enrichment; default: advisaur
 
 backlog:
   active: planning/todos.md      # live work queue (relative to primary repo root); default shown
@@ -123,24 +123,24 @@ backlog:
 ### Multi-repo example
 
 ```yaml
-project_id: shelby
+project_id: advisaur
 
 repos:
-  - name: Shelby-Strategy
+  - name: Advisaur-Strategy
     path: .
     role: primary
-  - name: Shelby-MCP
-    path: ../Shelby-MCP
-  - name: Shelby-MacOS
-    path: ../Shelby-MacOS
-  - name: Shelby-Website
-    path: ../Shelby-Website
+  - name: Advisaur-MCP
+    path: ../Advisaur-MCP
+  - name: Advisaur-MacOS
+    path: ../Advisaur-MacOS
+  - name: Advisaur-Website
+    path: ../Advisaur-Website
 
 default_branch: main
 auto_merge: true
 
 memory:
-  connector: shelby
+  connector: advisaur
 
 backlog:
   active: planning/todos.md
@@ -251,7 +251,7 @@ planning/
 
 ## Memory
 
-If `memory.connector` is configured in `pulse-config.yaml` (default: `shelby`),
+If `memory.connector` is configured in `pulse-config.yaml` (default: `advisaur`),
 Product Pulse includes optional recall and capture intent in its Harness requests.
 Harness resolves canonical project scope and any available provider; Product Pulse
 never calls the provider directly. Set `memory.connector: null` to disable memory

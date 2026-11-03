@@ -34,7 +34,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--sync-result", required=True)
     parser.add_argument("--rubric-result", required=True)
     parser.add_argument("--tool-names", required=True)
-    parser.add_argument("--shelby-result")
+    parser.add_argument("--advisaur-result")
     parser.add_argument("--model", required=True)
     parser.add_argument("--effort", required=True)
     parser.add_argument("--provider", required=True)
@@ -73,13 +73,13 @@ def main() -> int:
         if not isinstance(final_sync, dict) or final_sync.get("status") != "accepted":
             blockers.append("final Sync did not publish the changed rubric")
 
-    shelby_available = any("shelby" in name.lower() for name in tool_names)
-    if shelby_available:
-        shelby_result = load_json(args.shelby_result) if args.shelby_result else {}
-        if isinstance(shelby_result, dict) and shelby_result.get("status") == "accepted":
-            checks.extend(checks_from(shelby_result))
+    advisaur_available = any("advisaur" in name.lower() or "shelby" in name.lower() for name in tool_names)
+    if advisaur_available:
+        advisaur_result = load_json(args.advisaur_result) if args.advisaur_result else {}
+        if isinstance(advisaur_result, dict) and advisaur_result.get("status") == "accepted":
+            checks.extend(checks_from(advisaur_result))
         else:
-            checks.append("Shelby enrichment failed; setup continued without optional state")
+            checks.append("Advisaur enrichment failed; setup continued without optional state")
 
     proven = args.proof == "proven" and not blockers
     status = "accepted" if proven else "blocked" if blockers else "failed"

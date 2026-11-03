@@ -104,7 +104,15 @@ PY
   [ ! -e "$REPO/codex/AGENTS.md" ]
 }
 
-@test "--adopt replaces a hand-written file and keeps only its Shelby block" {
+@test "--adopt keeps the Advisaur block too" {
+  printf '# Rules\n\nOld hand-written rule.\n\n<!-- advisaur:bootstrap start -->\nUse Advisaur.\n<!-- advisaur:bootstrap end -->\n' > "$REPO/claude/CLAUDE.md"
+  run "$SCRIPT" --adopt "$REPO" "$PROFILE"
+  [ "$status" -eq 0 ]
+  [ "$(grep -c 'Old hand-written rule.' "$REPO/claude/CLAUDE.md")" -eq 0 ]
+  grep -q 'Use Advisaur.' "$REPO/claude/CLAUDE.md"
+}
+
+@test "--adopt replaces a hand-written file and keeps only the block an older install wrote" {
   printf '# Rules\n\nOld hand-written rule.\n\n<!-- shelby:bootstrap start -->\nUse Shelby.\n<!-- shelby:bootstrap end -->\n' > "$REPO/claude/CLAUDE.md"
   run "$SCRIPT" --adopt "$REPO" "$PROFILE"
   [ "$status" -eq 0 ]

@@ -197,7 +197,7 @@ repos:
     protected_branches: [main]   # never deleted by /pm:tidy-up
 default_branch: main
 memory:
-  connector: shelby
+  connector: advisaur
 backlog:
   active: planning/todos.md
   ideas: planning/ideas.md
@@ -211,7 +211,7 @@ Lives in the primary repo root. Controls backend, research directories, and tria
 backend: github                 # github | local
 github:
   owner: Studio-Moser           # GitHub org or user
-  repo: Shelby-Strategy         # Primary repo for issues
+  repo: Advisaur-Strategy         # Primary repo for issues
 research_dirs:                  # Where to look for product-pulse reports
   - Research
   - Research/deep-dives
@@ -356,7 +356,7 @@ Either delete the `project_sync` block from `.pm/config.yml` or set `enabled: fa
 ```yaml
 github:
   owner: Studio-Moser
-  repo:  Shelby-Strategy
+  repo:  Advisaur-Strategy
   project_sync:                 # entire block is optional
     enabled: true               # set to false to pause without deleting the block
     project_number: 2           # number from the project URL: /projects/{N}

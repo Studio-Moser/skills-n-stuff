@@ -83,7 +83,7 @@ text = " ".join(Path(sys.argv[1]).read_text().split())
 for phrase in (
     "The consumer owns the outcome and decides whether delegation is justified",
     "Read [references/context.md](../../references/context.md) only when",
-    "Read [references/shelby-integration.md](../../references/shelby-integration.md) only when",
+    "Read [references/advisaur-integration.md](../../references/advisaur-integration.md) only when",
     "Keep the complete HarnessResult in the workflow state",
     "render a concise user update",
     "Populate `HARNESS_ACTIVE_CANDIDATE` from trustworthy host runtime metadata",

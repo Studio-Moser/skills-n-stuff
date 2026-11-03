@@ -63,7 +63,7 @@ If neither holds, the item stays in its current list and the skill moves on.
 
 ## Card-as-conversation
 
-Each card maps to one Shelby topical session (`session_id = "trello:" + cardId`). Inbound comment events resume that session with the comment as user input. Skills that POST a card response do so via `mcp__trello__add_comment` on the same card. This contract is owned by Shelby (W1d/W1e); skills only need to know that comments are the response channel.
+Each card maps to one Advisaur topical session (`session_id = "trello:" + cardId`). Inbound comment events resume that session with the comment as user input. Skills that POST a card response do so via `mcp__trello__add_comment` on the same card. This contract is owned by Advisaur (W1d/W1e); skills only need to know that comments are the response channel.
 
 ## Webhook gap
 
@@ -75,7 +75,7 @@ curl -fsS -X POST "https://api.trello.com/1/webhooks/" \
   -d "token=$TRELLO_TOKEN" \
   -d "callbackURL=$webhook_url" \
   -d "idModel=$BOARD_ID" \
-  -d "description=Shelby PM webhook for $BOARD_NAME"
+  -d "description=Advisaur PM webhook for $BOARD_NAME"
 ```
 
 This is the single use of the REST API in the plugin; everything else goes through MCP.

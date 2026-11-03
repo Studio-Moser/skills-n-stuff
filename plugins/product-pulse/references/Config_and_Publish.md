@@ -48,7 +48,7 @@ else
   default_branch="$(yq '.default_branch // "main"' "$config_path")"
   auto_merge="$(yq '.auto_merge // false' "$config_path")"
   project_id="$(yq '.project_id' "$config_path")"
-  memory_connector="$(yq '.memory.connector // "shelby"' "$config_path")"
+  memory_connector="$(yq '.memory.connector // "advisaur"' "$config_path")"
 
   echo "Using config: $config_path"
   echo "Research dir: $research_dir"
@@ -61,7 +61,7 @@ fi
 ```
 
 Required fields: `project_id`, `repos`. Optional with defaults: `default_branch`
-(`main`), `auto_merge` (`false`), `memory.connector` (`shelby`; `null` disables memory).
+(`main`), `auto_merge` (`false`), `memory.connector` (`advisaur`; `null` disables memory).
 
 The **primary repo root** (`{primary_repo_root}`) is the git top-level of the research
 directory; git operations run there. Every `repos[].path` resolves relative to it:

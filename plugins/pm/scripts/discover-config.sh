@@ -34,7 +34,7 @@ primary_repo_root="$(cd "$research_dir" && git rev-parse --show-toplevel 2>/dev/
 project_id="$(yq '.project_id // "unknown"' "$config_path" 2>/dev/null || echo "unknown")"
 default_branch="$(yq '.default_branch // "main"' "$config_path" 2>/dev/null || echo "main")"
 auto_merge="$(yq '.auto_merge // true' "$config_path" 2>/dev/null || echo "true")"
-memory_connector="$(yq '.memory.connector // "shelby"' "$config_path" 2>/dev/null || echo "shelby")"
+memory_connector="$(yq '.memory.connector // "advisaur"' "$config_path" 2>/dev/null || echo "advisaur")"
 backlog_active="$(yq '.backlog.active // "planning/todos.md"' "$config_path" 2>/dev/null || echo "planning/todos.md")"
 backlog_ideas="$(yq '.backlog.ideas // "planning/ideas.md"' "$config_path" 2>/dev/null || echo "planning/ideas.md")"
 

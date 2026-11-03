@@ -150,7 +150,7 @@
         "webhook_url": {
           "type": "string",
           "format": "uri",
-          "description": "Public URL where Trello sends events. Registered by /pm:setup. The receiving route lives in Shelby (W1e)."
+          "description": "Public URL where Trello sends events. Registered by /pm:setup. The receiving route lives in Advisaur (W1e)."
         },
         "boards": {
           "type": "array",

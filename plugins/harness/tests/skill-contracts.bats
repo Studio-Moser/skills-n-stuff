@@ -13,10 +13,10 @@ import sys
 
 root = Path(sys.argv[1])
 expected_references = {
-    "setup": {"harness-contract.md", "routing.md", "shelby-integration.md"},
+    "setup": {"harness-contract.md", "routing.md", "advisaur-integration.md"},
     "delegate": {
         "codex-adapter.md", "context.md", "handoff.md", "harness-contract.md",
-        "routing.md", "shelby-integration.md", "verification.md",
+        "routing.md", "advisaur-integration.md", "verification.md",
     },
 }
 
@@ -196,7 +196,7 @@ PY
   [ "$status" -eq 0 ]
 }
 
-@test "setup composes existing mechanics and degrades cleanly without Shelby" {
+@test "setup composes existing mechanics and degrades cleanly without Advisaur" {
   run python3 - "$SKILLS_ROOT" <<'PY'
 from pathlib import Path
 import sys
