@@ -283,7 +283,7 @@ def clone_and_replace(repo_url: str, repo: Path) -> None:
         if result.returncode or not (staged / ".git").is_dir():
             raise Stop(EXIT_FAILED, "SYNC_STATE=failed: clone failed; existing repository was left unchanged")
         if repo.exists() or repo.is_symlink():
-            # ponytail: this is a non-atomic two-rename swap; upgrade to macOS
+            # shortcut: this is a non-atomic two-rename swap; upgrade to macOS
             # renameatx_np(RENAME_SWAP) or a recovery journal for automatic repair.
             os.replace(repo, previous)
             moved_previous = True
@@ -430,7 +430,7 @@ def replace_with_symlink(live: Path, want: Path, *, retain: Path | None = None) 
     moved = False
     try:
         if live.exists() or live.is_symlink():
-            # ponytail: this is a non-atomic two-rename swap; upgrade to macOS
+            # shortcut: this is a non-atomic two-rename swap; upgrade to macOS
             # renameatx_np(RENAME_SWAP) or a recovery journal for automatic repair.
             os.replace(live, displaced)
             moved = True

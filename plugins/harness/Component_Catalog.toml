@@ -32,7 +32,7 @@ retire_test = "Ablate in Harness Testing; keep if graded answers gain unsupporte
 id = "named-skill-leads"
 kind = "preference"
 source = "profile/Global Instructions.md"
-anchor = "A skill invoked by name leads."
+anchor = "A skill invoked by name leads"
 also = [{ source = "templates/AGENTS_Baseline.md", anchor = "Invoke a matching skill even when the user did not name it." }]
 
 [[component]]
@@ -87,7 +87,7 @@ retire_test = "Ablate; keep if usage-report edit-read-order errors or Harness Te
 id = "minimal-solution"
 kind = "model-shim"
 source = "profile/Global Instructions.md"
-anchor = "Does this need to exist at all? Speculative need = skip it, say so in one line."
+anchor = "Does this need to exist at all?"
 added_for = "Models add code, dependencies, and features the task did not need."
 retire_test = "Ablate; keep if Harness Testing diffs grow or add dependencies at equal correctness."
 
@@ -115,12 +115,6 @@ source = "profile/Global Instructions.md"
 anchor = "leaves one runnable check behind"
 
 [[component]]
-id = "ponytail-marker"
-kind = "preference"
-source = "profile/Global Instructions.md"
-anchor = "Mark deliberate shortcuts with a `ponytail:` comment"
-
-[[component]]
 id = "preserve-basics"
 kind = "guard"
 source = "profile/Global Instructions.md"
@@ -141,7 +135,6 @@ kind = "model-shim"
 source = "profile/Global Instructions.md"
 anchor = "Do not announce classifications, effort choices, or routine routing decisions."
 also = [
-  { source = "profile/Global Instructions.md", anchor = "Keep classification and routine routing internal." },
   { source = "templates/AGENTS_Baseline.md", anchor = "Keep classification and routine routing internal." },
 ]
 added_for = "Models narrate their change class and routing choice to the user."
@@ -169,15 +162,15 @@ anchor = "security, auth, payment, or data-model / persistence / migrations is n
 [[component]]
 id = "execution-choice"
 kind = "preference"
-source = "profile/Global Instructions.md"
-anchor = "do not infer savings from model names"
+source = "references/routing.md"
+anchor = "do not invent savings from model names or token prices"
 also = [{ source = "templates/AGENTS_Baseline.md", anchor = "Choose execution by capability, verifiability, and total cost." }]
 
 [[component]]
 id = "bounded-handoff"
 kind = "model-shim"
-source = "profile/Global Instructions.md"
-anchor = "Give the worker the outcome, necessary context, and acceptance check before solving the task yourself."
+source = "references/routing.md"
+anchor = "Give a worker the outcome, necessary context, authority, and acceptance check"
 added_for = "Orchestrators solve the task themselves before delegating, or hand off without an acceptance check."
 retire_test = "Ablate; keep if delegated packets lose verification seams or parents repeat the worker's investigation."
 
@@ -321,12 +314,14 @@ id = "ask-consequential"
 kind = "preference"
 source = "templates/AGENTS_Baseline.md"
 anchor = "Ask before guessing a consequential choice"
+also = [{ source = "profile/Global Instructions.md", anchor = "Ask before guessing a consequential choice" }]
 
 [[component]]
 id = "run-to-end-state"
 kind = "model-shim"
 source = "templates/AGENTS_Baseline.md"
 anchor = "A progress update never ends the task"
+also = [{ source = "profile/Global Instructions.md", anchor = "A progress update never ends the task" }]
 added_for = "Models end a turn on a progress update or ask again for permission already given."
 retire_test = "Ablate; keep if Harness Testing scripted-user runs need extra continue turns."
 
@@ -335,18 +330,21 @@ id = "fewest-turns"
 kind = "preference"
 source = "templates/AGENTS_Baseline.md"
 anchor = "Time matters: reach the named end state in the fewest turns."
+also = [{ source = "profile/Global Instructions.md", anchor = "Time matters: reach the named end state in the fewest turns." }]
 
 [[component]]
 id = "report-size"
 kind = "preference"
 source = "templates/AGENTS_Baseline.md"
 anchor = "For Polish and Small work the final report is five lines or fewer"
+also = [{ source = "profile/House Style.md", anchor = "For Polish and Small work the final report is five lines or fewer" }]
 
 [[component]]
 id = "setup-only-when-needed"
 kind = "model-shim"
 source = "templates/AGENTS_Baseline.md"
 anchor = "do not run setup merely because an ordinary repository task lacks routing"
+also = [{ source = "skills/delegate/SKILL.md", anchor = "do not run setup merely because an ordinary repository task lacks routing" }]
 added_for = "Models run Harness setup when ordinary work merely lacks a route."
 retire_test = "Ablate; keep if usage-report shows harness:setup invocations without a routing failure."
 
@@ -361,6 +359,7 @@ id = "worktree-scope"
 kind = "preference"
 source = "templates/AGENTS_Baseline.md"
 anchor = "Use a worktree only for actual parallel work"
+also = [{ source = "profile/House Rules.md", anchor = "Use a worktree only for actual parallel work" }]
 
 [[component]]
 id = "shared-checkout"
@@ -376,3 +375,16 @@ anchor = "Claude Code and Codex PreToolUse hook: stop zsh"
 added_for = "Models write bash-style unquoted globs that zsh rejects with 'no matches found' (42 Claude and 78 Codex failures in the 30 days to 2026-10-21)."
 retire_test = "Retire when usage-report shim_firings for zsh-glob-guard stay near zero for a month after a model change."
 detector = "events:zsh-glob-guard"
+
+[[component]]
+id = "messages-via-file"
+kind = "environment-shim"
+source = "references/house-rules.md"
+anchor = "Write the commit message to a temp file and use `git commit -F <file>`."
+also = [
+  { source = "profile/House Rules.md", anchor = "git commit -F <file>" },
+  { source = "profile/House Rules.md", anchor = "--body-file <file>" },
+]
+added_for = "A heredoc inside $(...) fails on macOS bash 3.2 when a commit message or PR body contains an apostrophe."
+retire_test = "Retire when agents no longer run commit and PR commands under bash 3.2, or stop using a heredoc inside $(...)."
+detector = "none"

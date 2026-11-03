@@ -6,6 +6,7 @@ setup() {
   PROFILE="${BATS_TEST_TMPDIR}/profile"
   mkdir -p "$REPO/claude" "$PROFILE"
   printf '# Rules\n\n1. **No hallucination** — say so.\n' > "$PROFILE/Global Instructions.md"
+  printf '# House rules\n\n- Branch first.\n' > "$PROFILE/House Rules.md"
   printf '# Clear, Concise, Actionable Communication\n\nSay less.\n' > "$PROFILE/House Style.md"
 }
 
@@ -20,6 +21,53 @@ setup() {
   r=$(grep -n '^# Rules$' "$out" | cut -d: -f1)
   s=$(grep -n '^# Clear, Concise' "$out" | cut -d: -f1)
   [ "$r" -lt "$s" ]
+}
+
+@test "house rules sit between rules and style" {
+  run "$SCRIPT" "$REPO" "$PROFILE"
+  [ "$status" -eq 0 ]
+  out="$REPO/codex/AGENTS.md"
+  r=$(grep -n '^# Rules$' "$out" | cut -d: -f1)
+  h=$(grep -n '^# House rules$' "$out" | cut -d: -f1)
+  s=$(grep -n '^# Clear, Concise' "$out" | cut -d: -f1)
+  [ "$r" -lt "$h" ] && [ "$h" -lt "$s" ]
+}
+
+@test "missing house rules fail with exit 3 and write nothing" {
+  rm "$PROFILE/House Rules.md"
+  run "$SCRIPT" "$REPO" "$PROFILE"
+  [ "$status" -eq 3 ]
+  [[ "$output" == *"House Rules"* ]] || return 1
+  [ ! -e "$REPO/claude/CLAUDE.md" ]
+}
+
+@test "the bundled profile stays under the 200-line target and carries the conventions" {
+  run "$SCRIPT" "$REPO"
+  [ "$status" -eq 0 ]
+  out="$REPO/codex/AGENTS.md"
+  [ "$(wc -l < "$out")" -lt 200 ]
+  for needle in 'Risk / Blast Radius' 'How to revert' 'body-file' 'git commit -F' 'research' 'origin/main..HEAD'; do
+    grep -qF "$needle" "$out"
+  done
+}
+
+@test "the always-loaded rules and the long reference agree on the conventions" {
+  run python3 - "${BATS_TEST_DIRNAME}/.." <<'PY'
+from pathlib import Path
+import sys
+root = Path(sys.argv[1])
+short = (root / "profile/House Rules.md").read_text()
+long_ = (root / "references/house-rules.md").read_text()
+for section in ("What", "Why", "Testing", "Risk / Blast Radius", "How to revert"):
+    assert f"## {section}" in short and f"## {section}" in long_, section
+for prefix in "feat fix style chore docs refactor test perf ci design research hotfix release".split():
+    assert f"`{prefix}`" in short, f"short: {prefix}"
+    assert f"`{prefix}/`" in long_, f"long: {prefix}"
+for phrase in ("--body-file <file>", "git commit -F <file>", "under 72 char", "git branch -m", "pulse/{cluster}-{date}"):
+    assert phrase in short and phrase in long_, phrase
+PY
+  if [ "$status" -ne 0 ]; then printf '%s\n' "$output" >&2; fi
+  [ "$status" -eq 0 ]
 }
 
 @test "a second run is unchanged and a profile edit regenerates both files" {

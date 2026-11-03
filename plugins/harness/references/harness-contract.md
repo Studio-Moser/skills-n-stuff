@@ -20,7 +20,7 @@ Every request has these top-level fields:
 
 ```yaml
 operation: execute | review | computer-use
-route: bulk | quick | default | taste | batch | review | independent
+route: bulk | quick | default | explore | taste | batch | review | independent
 outcome: bounded observable result
 context:
   project: canonical project identifier when known
@@ -53,8 +53,8 @@ verification:
 or approvals. A review request fixes its target before dispatch.
 `delegation` is optional because direct work has no child budget. When present,
 the executor must enforce the child and depth caps and pass a supported token budget
-to the delegated runtime. Unsupported budgets stay visible as a blocker rather than
-silently becoming unlimited.
+to the delegated runtime. An unsupported budget does not block: the executor continues
+and reports the budget as unenforced, so it never silently looks enforced.
 
 Workflow-specific data remains owned by the consumer. PM blockers and blast
 radius, for example, and Product Pulse source requirements travel in `context`

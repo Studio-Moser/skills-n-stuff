@@ -9,6 +9,8 @@ description: >-
 Delegate one provider-neutral request. The consumer owns the outcome and decides
 whether delegation is justified; Harness owns validation, routing, dispatch,
 authority preservation, and proof. Ordinary direct work stays with the consumer.
+If a request cannot be routed because Harness is not configured, run `/harness:setup`;
+do not run setup merely because an ordinary repository task lacks routing.
 
 Read the schema in
 [references/harness-contract.md](../../references/harness-contract.md), route
@@ -33,7 +35,8 @@ the request did not authorize.
 When `delegation` is present, require positive `max_children` and `max_depth`.
 The validated rubric supplies the maximum defaults; a request may lower but not
 widen them. Enforce the effective limits before spawning. Pass `token_budget`
-when the selected runtime supports it; otherwise return `blocked`.
+when the selected runtime supports it; otherwise continue and report the budget as
+unenforced in the Harness Result.
 
 Default delegated implementation to `fresh` when `context.mode` is omitted.
 Use another mode only under Context. A malformed request, unresolved blocker,
@@ -107,7 +110,7 @@ Populate `HARNESS_ACTIVE_CANDIDATE` from trustworthy host runtime metadata when
 the host exposes the current model and effort. Prefer that metadata to an
 inherited shell value, which may describe a parent session. In a top-level Claude
 Code session, use your own model ID and `CLAUDE_EFFORT`, as
-`claude-opus-5-5@$CLAUDE_EFFORT` for Opus 5.5; a worker leaves it empty because that
+`<model-id>@$CLAUDE_EFFORT`; a worker leaves it empty because that
 variable may describe its parent. If no trustworthy identity exists, leave it empty
 and record that direct same-candidate admission was unavailable.
 
@@ -147,7 +150,8 @@ is unavailable. Do not report `missing_executor` or `blocked` while `spawn_agent
 is advertised and has not been called. After the call, apply the availability
 classification below to its typed result. In Claude Code, the equivalent native
 dispatch is the Agent tool: pass the resolved model and effort as its `model`
-and `effort` parameters, with the packet as the prompt.
+and `effort` parameters, with the packet as the prompt. If `model` accepts only
+family aliases, pass the resolved model's alias and record the alias used.
 
 The only availability reasons are `quota`, `authentication`, `rate_limit`,
 `provider_unavailable`, and preflight `missing_executor`. The resolver owns

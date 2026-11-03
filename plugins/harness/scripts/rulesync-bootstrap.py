@@ -547,7 +547,7 @@ def refresh_apps(repo: Path) -> int:
     local = gen.load_jsonc(local_path)
     tools = [t for t, block in local.items() if t in TOOLS and isinstance(block, dict)
              and any(app_owned(s) for s in (block.get("mcpServers") or {}).values())]
-    # ponytail: only tools that already have an app server are re-read (one import each);
+    # shortcut: only tools that already have an app server are re-read (one import each);
     # an app's first server in a new tool waits for that tool's next capture.
     if not tools:
         return 0

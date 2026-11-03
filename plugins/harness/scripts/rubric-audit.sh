@@ -59,7 +59,7 @@ codex_bash = codex_dispatch = codex_skill = 0
 
 if os.path.isdir(root):
     for dirpath, dirnames, filenames in os.walk(root):
-        # ponytail: skip sub-agent transcripts by path segment; they are the dispatched
+        # shortcut: skip sub-agent transcripts by path segment; they are the dispatched
         # work, not dispatches. Upgrade path if the layout changes: read isSidechain.
         if "/subagents" in dirpath.replace(os.sep, "/"):
             continue
@@ -85,7 +85,7 @@ declared_cache = {}
 def declared_model(agent_type):
     """The `model:` an agent definition declares, from the newest installed plugin copy
     (`plugin:name`) or the user agents dir (`name`). None when absent or not found."""
-    # ponytail: plugin and user agents only; project agents would need the session cwd.
+    # shortcut: plugin and user agents only; project agents would need the session cwd.
     if not agent_type:
         return None
     if agent_type not in declared_cache:

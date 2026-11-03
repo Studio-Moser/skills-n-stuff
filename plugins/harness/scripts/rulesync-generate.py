@@ -531,7 +531,7 @@ def generate(repo: Path, settings: dict, dry_run: bool, update: bool = False) ->
             return 1
         generate_args = ["generate", "--global", "--input-roots", str(root)] + (["--dry-run"] if dry_run else [])
         generated = rulesync(repo, *generate_args)
-        # ponytail: one broken link (with its siblings) per retry, ten at most; more means
+        # shortcut: one broken link (with its siblings) per retry, ten at most; more means
         # something else is wrong, and the failure is reported.
         for _attempt in range(10):
             moved = None if dry_run or not generated.returncode else move_broken_links(generated.stdout + generated.stderr)

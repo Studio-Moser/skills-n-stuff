@@ -56,7 +56,7 @@ while IFS='|' read -r root name rel; do
   link="$base/$name"
   want="$repo/$rel"
 
-  # ponytail: MISSING-IN-REPO is checked before REAL-FILE/RELINK and masks
+  # shortcut: MISSING-IN-REPO is checked before REAL-FILE/RELINK and masks
   # them — if the repo lacks the file AND ~/.claude has a real one, only
   # MISSING-IN-REPO prints. Deliberate: on an unadopted machine that's the
   # actionable message. Upgrade path if both facts are ever needed at once:

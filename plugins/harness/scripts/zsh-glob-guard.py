@@ -170,10 +170,10 @@ def unmatched_globs(command: str, cwd: str) -> list[str]:
             moved = True
         if not globbed or "$" in word or "`" in word or assignment:
             continue
-        # ponytail: recursive globs are skipped to keep the hook fast in large trees.
+        # shortcut: recursive globs are skipped to keep the hook fast in large trees.
         if "**" in word:
             continue
-        # ponytail: after a `cd` the directory is unknown, so only absolute patterns and
+        # shortcut: after a `cd` the directory is unknown, so only absolute patterns and
         # options (which never name files) are checked. Upgrade path: track `cd DIR &&`.
         pattern = os.path.expanduser(word)
         if moved and not os.path.isabs(pattern) and not word.startswith("-"):

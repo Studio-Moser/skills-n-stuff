@@ -16,8 +16,6 @@
 
 Harness-owned conventions for code changes across Studio Moser projects. The `pm:house-rules` skill and every repo's managed `AGENTS.md` block defer here. These rules apply to any agent or developer; project instructions override them where stated below.
 
-<!-- the relocated sections follow verbatim -->
-
 ## Branches
 
 - Branch from the repo's default branch. Confirm it: `gh repo view --json defaultBranchRef -q .defaultBranchRef.name`
@@ -26,7 +24,9 @@ Harness-owned conventions for code changes across Studio Moser projects. The `pm
   - `feat/` — new functionality (`feat/dark-mode-toggle`)
   - `fix/` — a bug fix (`fix/settings-crash-on-rotation`)
   - `style/` — visual or copy polish with no logic change (`style/pricing-card-spacing`)
-  - `chore/`, `docs/`, `refactor/`, `test/`, `perf/` — as in Conventional Commits (`chore/bump-eslint`)
+  - `chore/`, `docs/`, `refactor/`, `test/`, `perf/`, `ci/` — as in Conventional Commits (`chore/bump-eslint`)
+  - `design/` — design exploration (`design/buddy-animation`)
+  - `research/` — research with no shipped code (`research/market-landscape`)
   - `hotfix/` — urgent fix to ship straight away (`hotfix/login-500`)
   - `release/` — release prep (`release/1.4.0`)
 - A repository that already uses Gitflow names (`feature/`, `bugfix/`) keeps them; see Project overrides.
@@ -34,9 +34,9 @@ Harness-owned conventions for code changes across Studio Moser projects. The `pm
 
 ## Concurrent sessions in one repo
 
-Several agent sessions often run against the same checkout at once. A checkout has exactly one HEAD and one index, so a second session switching branches between your commands silently re-parents your work — you branch off whatever HEAD happens to be, and `git add -A` stages their in-flight edits as yours. This is not hypothetical: it produced a PR carrying another session's unmerged refactor under an unrelated description, and only a merge conflict exposed it.
+Several agent sessions often run against the same checkout at once. A checkout has exactly one HEAD and one index, so a second session switching branches between your commands silently re-parents your work — you branch off whatever HEAD happens to be, and `git add -A` stages their in-flight edits as yours.
 
-**Get your own worktree before starting parallel work:**
+**Use a worktree only for actual parallel work or when the user explicitly requests isolation.** If the task names a working directory, stay there unless the user explicitly authorizes moving it. Get your own worktree before starting parallel work:
 
 ```bash
 git worktree add ../{repo}-{task} -b {type}/{short-desc} origin/main
@@ -51,6 +51,8 @@ When you're working directly in a shared checkout anyway, two habits contain the
 
 Before pushing, confirm the branch holds only your commits: `git log --oneline origin/main..HEAD`.
 
+A host tool such as T3 Code may start the session on a placeholder branch (`t3code/*`): rename it to `{type}/{short-desc}` with `git branch -m` before the first commit.
+
 ## Commits
 
 Conventional Commits, present tense, one logical change per commit:
@@ -62,6 +64,8 @@ Conventional Commits, present tense, one logical change per commit:
 - `docs: document the dev-task workflow`
 
 Commit incrementally as you go — don't batch an entire feature into one commit. (A polish batch is one commit, at its checkpoint.)
+
+Write the commit message to a temp file and use `git commit -F <file>`. A heredoc inside `$(...)` fails on macOS bash 3.2 when the message contains an apostrophe.
 
 ## Pull Requests
 
@@ -93,7 +97,7 @@ Commit incrementally as you go — don't batch an entire feature into one commit
 - If someone reading the PR cold can't state what problem it solves, rewrite it before filing.
 - When an independent review ran, `## Testing` names the reviewer's resolved model, the number of rounds, and the final verdict, and lists any unresolved findings. Report a verdict that did not approve as plainly as one that did.
 - One PR per task. Don't mix unrelated changes.
-- Create with: `gh pr create --title "…" --body "…"`. Link the issue/card if there is one.
+- Write the body to a temp file and create with: `gh pr create --title "…" --body-file <file>`. Link the issue/card if there is one.
 
 ## File & documentation naming
 
@@ -118,7 +122,7 @@ including handoff cost and verifiability, before substantial investigation.
 
 - **Polish** — styling, spacing, copy; no logic change; one file per edit. No brainstorm or separate plan. Keep tiny edits local; route a bounded batch only when the execution-choice rule justifies it. Edit, verify the one thing that shows it (a screenshot, a targeted check), keep going. Baseline suite once per batch, not per edit. The suite, the review, and the single commit run **at the checkpoint**.
 - **Small** — one bug or one behavior with a clear spec, roughly three files or fewer. No brainstorm or separate plan. A bug starts with root-cause diagnosis; new behavior gets one runnable check. Choose direct execution or a rubric worker and use one verification pass at the highest stable existing testing seam.
-- **Feature** — new behavior across files or material design choices. State the intended outcome and use the risk gate. Select the implementer through the execution-choice rule; the risk gate determines verification and review. Add a written plan, recovery point, or independent review only when the matched risk requires it.
+- **Feature** — new behavior across files or material design choices. State the intended outcome; use the risk gate when one of its triggers matches. Select the implementer through the execution-choice rule; risk determines verification and review. Add a written plan, recovery point, or independent review only when the matched risk requires it.
 
 **Checkpoint (Polish).** Any of: the human says commit / PR / done; the batch needs logic — commit the batch first, then the logic change proceeds as Small; the human starts an unrelated task; the session ends or hands off. Never leave a polish batch uncommitted in a shared checkout.
 
