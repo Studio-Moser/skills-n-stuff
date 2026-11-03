@@ -14,8 +14,8 @@ and follow `$harness/skills/sync/SKILL.md` or `$harness/skills/model-rubric/SKIL
 instead of calling the Skill tool.
 
 Read [references/harness-contract.md](../../references/harness-contract.md) for
-the result shape and [references/shelby-integration.md](../../references/shelby-integration.md)
-only if Shelby tool names are available.
+the result shape and [references/advisaur-integration.md](../../references/advisaur-integration.md)
+only if Advisaur tool names are available.
 
 ## Configured-status mode
 
@@ -71,7 +71,7 @@ links, repositories, or remote state.
    `blockers`. Record the validated agents-repository commit or configuration snapshot
    as `evidence.fixed_target` and the decisive read-only checks in `evidence.checks`.
 
-Installed skills alone never prove configured status. Optional Shelby absence remains
+Installed skills alone never prove configured status. Optional Advisaur absence remains
 non-blocking, as in Ordered setup.
 
 ## Ordered setup
@@ -132,13 +132,13 @@ non-blocking, as in Ordered setup.
    Show the user the plan. Only on their explicit yes, rerun with `--write`, then invoke
    `harness:sync`; its first managed run backs up every live file it will write. The
    user may decline; Sync keeps working without rulesync.
-7. Inspect the runtime's callable tool names for Shelby only after the portable
-   setup is usable. When Shelby tool names are present, retain identifiers only
-   from successful Shelby calls for optional memory work, not HarnessResult.
+7. Inspect the runtime's callable tool names for Advisaur only after the portable
+   setup is usable. When Advisaur tool names are present, retain identifiers only
+   from successful Advisaur calls for optional memory work, not HarnessResult.
    Resolve canonical project scope, log this multi-phase setup run, and save only
-   useful recovery checkpoints. When Shelby tool names are absent, continue setup without memory
+   useful recovery checkpoints. When Advisaur tool names are absent, continue setup without memory
    enrichment.
-   Shelby failure never changes route or authority and blocks only enrichment,
+   Advisaur failure never changes route or authority and blocks only enrichment,
    not correct setup.
 8. Print the storage boundary:
 
@@ -147,7 +147,7 @@ non-blocking, as in Ordered setup.
      its config directory;
    - **local-only:** credentials, secret-bearing profiles, resolved command
      paths, capability availability, symlinks, approvals, temporary evidence,
-     and Shelby state.
+     and Advisaur state.
 
 ## Execution policy
 
@@ -165,10 +165,10 @@ results:
 - Model Rubric: status, whether the file was current, whether capabilities were
   reconciled, whether it changed, decisive checks, and changed files;
 - callable runtime tool names as a JSON string array;
-- Shelby: status, checks, and only identifiers returned by successful calls.
+- Advisaur: status, checks, and only identifiers returned by successful calls.
 
 Then run the deterministic result seam. It validates that even a current rubric
-was reconciled, requires final Sync when the rubric changed, and handles Shelby
+was reconciled, requires final Sync when the rubric changed, and handles Advisaur
 present, absent, or failed without fabricating identifiers:
 
 ```bash
@@ -177,7 +177,7 @@ harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*
   --sync-result "$SYNC_RESULT" \
   --rubric-result "$RUBRIC_RESULT" \
   --tool-names "$TOOL_NAMES" \
-  ${SHELBY_RESULT:+--shelby-result "$SHELBY_RESULT"} \
+  ${ADVISAUR_RESULT:+--advisaur-result "$ADVISAUR_RESULT"} \
   --model "$HARNESS_MODEL" \
   --effort "$HARNESS_EFFORT" \
   --provider "$HARNESS_PROVIDER" \

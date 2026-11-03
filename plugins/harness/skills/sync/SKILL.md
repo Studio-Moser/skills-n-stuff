@@ -53,7 +53,7 @@ rerun with explicit flags:
   `--source loose --remote-url URL --confirm-private-remote`; replacing an occupied
   repository path additionally needs `--replace-repo-path`;
 - a hand-written `claude/CLAUDE.md` (no managed block): `--adopt-profile` replaces
-  it with the Harness profile, keeping only its Shelby block; the rest stays in git
+  it with the Harness profile, keeping only its Advisaur block; the rest stays in git
   history. Show the user what will be dropped before passing it;
 - live-path conflicts: `--keep-live NAME`, `--discard-live NAME`, `--relink NAME`,
   or `--relink-all`;

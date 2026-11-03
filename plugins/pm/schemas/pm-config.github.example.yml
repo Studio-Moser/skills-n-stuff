@@ -19,13 +19,13 @@ triage:
 
 github:
   owner: Studio-Moser
-  repo:  Shelby-Strategy
+  repo:  Advisaur-Strategy
 
   # Multi-repo workspaces: list target repos that may receive PRs.
   # Issues still live in {owner}/{repo}; labels indicate the target.
   # target_repos:
-  #   - Studio-Moser/Shelby-MacOS
-  #   - Studio-Moser/Shelby-Web
+  #   - Studio-Moser/Advisaur-MacOS
+  #   - Studio-Moser/Advisaur-Web
 
   # OPTIONAL — GitHub Projects v2 integration.
   #

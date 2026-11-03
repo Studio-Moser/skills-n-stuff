@@ -68,7 +68,7 @@ Ask these in sequence. Each step uses an MCP tool; do not proceed past a failed 
 
    Compare the existing list names against the seven required keys (`needs_triage`, `ready_for_agent`, `in_progress`, `review`, `done`, `needs_changes`, `blocked`). For each match found, propose the existing name as the value. For each missing name, ask the user what name to use (suggest the title-case default e.g. "Needs Triage", "Ready", etc.) — these go into `boards[i].lists`. Lists that don't yet exist will be created in Phase 6T.
 
-6. **Webhook URL.** Ask: "What URL should Trello send card events to? (Leave blank to skip — events won't reach Shelby until you fill this in. Example: https://shelby.example.com/webhooks/trello.)"
+6. **Webhook URL.** Ask: "What URL should Trello send card events to? (Leave blank to skip — events won't reach Advisaur until you fill this in. Example: https://advisaur.example.com/webhooks/trello.)"
 
    Store as `trello.webhook_url`.
 
@@ -172,7 +172,7 @@ else
     -d "token=$TRELLO_TOKEN" \
     -d "callbackURL=$webhook_url" \
     -d "idModel=$BOARD_ID" \
-    -d "description=Shelby PM webhook for $BOARD_NAME" \
+    -d "description=Advisaur PM webhook for $BOARD_NAME" \
     && created=$((created + 1)) \
     || echo "warning: webhook registration failed for $BOARD_NAME (board id $BOARD_ID). Re-run /pm:setup once the webhook URL is reachable."
 fi
@@ -184,12 +184,12 @@ fi
 Webhooks: created $created new; skipped $skipped (already registered).
 ```
 
-Trello does a HEAD request against `callbackURL` before accepting a new webhook — if the URL is not reachable yet (the receiving route is owned by Shelby's W1e workstream), POST returns an error. That is expected; the warning above tells the user how to retry. The card-as-conversation flow only activates once the webhook is live, but all other PM operations work today using direct MCP calls. Re-running `/pm:setup` after the URL is live will create only the missing webhooks (idempotent).
+Trello does a HEAD request against `callbackURL` before accepting a new webhook — if the URL is not reachable yet (the receiving route is owned by Advisaur's W1e workstream), POST returns an error. That is expected; the warning above tells the user how to retry. The card-as-conversation flow only activates once the webhook is live, but all other PM operations work today using direct MCP calls. Re-running `/pm:setup` after the URL is live will create only the missing webhooks (idempotent).
 
 If `trello.webhook_url` is empty, skip this step and emit:
 
 ```
-note: no webhook_url configured — Shelby will not receive Trello events.
+note: no webhook_url configured — Advisaur will not receive Trello events.
       Run /pm:setup again after deploying the webhook ingress (W1e) to register.
 ```
 

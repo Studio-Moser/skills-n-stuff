@@ -549,7 +549,7 @@ def render(repo: Path, scripts: Path, adopt: bool) -> str:
         raise Stop(
             EXIT_DECISION,
             "SYNC_DECISION_REQUIRED=claude/CLAUDE.md is hand-written; pass --adopt-profile to replace it "
-            "with the Harness profile (its Shelby block is kept, the rest stays in git history)",
+            "with the Harness profile (its Advisaur block is kept, the rest stays in git history)",
         )
     if result.returncode:
         raise Stop(EXIT_FAILED, "SYNC_STATE=failed: global instructions render failed")

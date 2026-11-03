@@ -19,8 +19,8 @@ rules in [references/routing.md](../../references/routing.md), packet shape in
 [references/verification.md](../../references/verification.md). Read
 [references/context.md](../../references/context.md) only when choosing or
 validating a non-default context mode. Read
-[references/shelby-integration.md](../../references/shelby-integration.md) only
-when memory is enabled or callable Shelby tools are available.
+[references/advisaur-integration.md](../../references/advisaur-integration.md) only
+when memory is enabled or callable Advisaur tools are available.
 
 ## Validate the request
 
@@ -48,12 +48,12 @@ For a bounded non-code file transformation, preserve the requested task and scop
 Do not add a branch, commit, PR, tracker write, or automated test unless the
 request asks for it. A required write outside the authority ceiling is blocked.
 
-Use Shelby only when callable tool names prove it is available. Resolve one
+Use Advisaur only when callable tool names prove it is available. Resolve one
 canonical project scope before recall or capture. Translate consumer-owned
 `context.memory` recall intents before dispatch and add only bounded results to
 the packet. Hold capture intents until the accepting workflow reproduces proof
-and `evidence.outcome: proven`; optional Shelby absence or capture failure does
-not change the operation result. Shelby activity is not part of HarnessResult.
+and `evidence.outcome: proven`; optional Advisaur absence or capture failure does
+not change the operation result. Advisaur activity is not part of HarnessResult.
 
 ### Review
 

@@ -14,7 +14,7 @@ needles = (
     "search_" + "thoughts(",
     "capture_" + "thought(",
     "get_" + "brief(",
-    "mcp__" + "shelby",
+    "mcp__" + "advisaur",
     "look for MCP tools",
     "Use whatever memory mechanism is available",
     "If a memory MCP is connected",
@@ -45,7 +45,7 @@ import sys
 
 root = Path(sys.argv[1]) / "plugins" / "harness"
 contract = " ".join((root / "references/harness-contract.md").read_text().split()).lower()
-shelby = " ".join((root / "references/shelby-integration.md").read_text().split()).lower()
+advisaur = " ".join((root / "references/advisaur-integration.md").read_text().split()).lower()
 delegate = " ".join((root / "skills/delegate/SKILL.md").read_text().split()).lower()
 failures = []
 for phrase in ("memory:", "enabled:", "recall:", "capture:"):
@@ -58,8 +58,8 @@ for phrase in (
     "evidence.outcome: proven",
     "does not block",
 ):
-    if phrase not in shelby:
-        failures.append(f"Shelby boundary missing {phrase}")
+    if phrase not in advisaur:
+        failures.append(f"Advisaur boundary missing {phrase}")
 for name, text in (("delegate", delegate),):
     for phrase in ("context.memory", "recall intent", "capture intent"):
         if phrase not in text:

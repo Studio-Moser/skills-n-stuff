@@ -17,7 +17,7 @@ required = {
     "handoff.md",
     "verification.md",
     "context.md",
-    "shelby-integration.md",
+    "advisaur-integration.md",
 }
 missing = sorted(name for name in required if not (root / name).is_file())
 assert not missing, f"missing references: {', '.join(missing)}"
@@ -28,7 +28,7 @@ routing = docs["routing.md"]
 handoff = docs["handoff.md"]
 verification = docs["verification.md"]
 context = docs["context.md"]
-shelby = docs["shelby-integration.md"]
+advisaur = docs["advisaur-integration.md"]
 
 def schema_after(heading):
     section = contract.split(heading, 1)[1]
@@ -156,7 +156,7 @@ require_clause(
     contract,
     "The top-level orchestrator owns the user conversation, scope, approvals, delegation graph, and final acceptance decision.",
 )
-require_clause(shelby, "The missing Shelby does not block execution.")
+require_clause(advisaur, "The missing Advisaur does not block execution.")
 require_clause(
     routing,
     "Automatic provider switching is limited to `quota`, `authentication`, `rate_limit`, `provider_unavailable`, and preflight `missing_executor`.",

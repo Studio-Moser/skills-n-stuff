@@ -27,7 +27,7 @@ Walk up from the current working directory looking for `pulse-config.yaml`. This
 
 **If found**, read these fields from it:
 
-- `project_id` — the project slug (e.g. `shelby`)
+- `project_id` — the project slug (e.g. `advisaur`)
 - `repos` — list of repos with `name`, `path`, `role` (one has `role: primary`)
 - `default_branch` — branch name (e.g. `main`)
 - `memory` — memory connector config
@@ -145,7 +145,7 @@ Skip this batch if `pulse-config.yaml` already provided these values.
    - "This slug is used to tag memory entries and as a prefix for scheduled tasks."
 2. **Which git branch is your default?** (default: `main`)
 3. **Memory connector?** Options:
-   - `shelby` (default — Harness resolves the optional provider and canonical project scope)
+   - `advisaur` (default — Harness resolves the optional provider and canonical project scope)
    - `null` (skip memory operations entirely)
    - Another provider identifier already supported by the configured Harness
 
@@ -248,7 +248,7 @@ repos:
 default_branch: {branch from interview, default main}
 
 memory:
-  connector: {connector from interview, default shelby}
+  connector: {connector from interview, default advisaur}
 
 backlog:
   active: planning/todos.md

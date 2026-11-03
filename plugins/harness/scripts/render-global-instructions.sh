@@ -11,7 +11,8 @@
 #                                 and is never touched
 #        REPO/codex/AGENTS.md   — a byte-identical copy
 # A CLAUDE.md without the markers is hand-written. Without --adopt nothing is
-# written; with --adopt it is replaced by the block, keeping only its Shelby block.
+# written; with --adopt it is replaced by the block, keeping only its Advisaur block
+# (or the block an older install wrote under the app's previous name, Shelby).
 # Prints one line: RENDER_STATE=unchanged | regenerated | adopt-required | failed: <reason>
 # Exit 0 for unchanged/regenerated, 4 for adopt-required, 3 for failed, 2 usage.
 set -euo pipefail
@@ -73,9 +74,9 @@ if [ -s "$target" ]; then
     ' "$target" | sed '/./,$!d')"
   elif [ "$adopt" -eq 1 ]; then
     own="$(awk '
-      /<!-- shelby:bootstrap start -->/ { on=1 }
+      /<!-- (advisaur|shelby):bootstrap start -->/ { on=1 }
       on { print }
-      /<!-- shelby:bootstrap end -->/ { on=0 }
+      /<!-- (advisaur|shelby):bootstrap end -->/ { on=0 }
     ' "$target")"
   else
     echo "RENDER_STATE=adopt-required"

@@ -69,13 +69,13 @@ Ask these together:
 
 ### Batch 4: Configuration
 
-1. **What's your project_id slug?** (suggested: `{lowercased-hyphenated-product-name}` — e.g. `shelby` or `the-crooked-line`. Used to tag memory entries and as a prefix for scheduled-task names. Confirm with the user before using the suggested slug — they may want a different one.)
+1. **What's your project_id slug?** (suggested: `{lowercased-hyphenated-product-name}` — e.g. `advisaur` or `the-crooked-line`. Used to tag memory entries and as a prefix for scheduled-task names. Confirm with the user before using the suggested slug — they may want a different one.)
 2. **Where should research files live?** (default: the `research_dir` userConfig value, which defaults to `research`)
 3. **Which git branch should research be committed to?** (default: `main` — some projects use `master`, `develop`, etc.)
 4. **Is this a monorepo or multi-repo project?** If multi-repo, which repos and what does each one do?
 5. **Auto-merge research PRs?** (default: yes — research output PRs are auto-merged when mergeable; you can review the PR if you want by setting this to no)
 6. **Memory connector?** Some users want the plugin to capture briefs and decisions to a memory MCP. Options:
-   - `shelby` (default — Harness resolves the optional provider and canonical project scope)
+   - `advisaur` (default — Harness resolves the optional provider and canonical project scope)
    - `null` (skip memory ops entirely)
    - Another provider identifier already supported by the configured Harness
 7. **Do you have any existing research, competitive analysis, or strategy docs?** (we can seed from them)
