@@ -167,8 +167,9 @@ to revert, then share the URL.
 
 ## 9. Wrap
 
-Summarize what shipped and what stayed out of scope. Offer the configured tracker
-update when applicable.
+Summarize what shipped and what stayed out of scope. When a review ran, report any rule
+proposals per `references/review-proof.md` § Repeated findings become project rules.
+Offer the configured tracker update when applicable.
 
 ## Stop conditions
 

@@ -168,9 +168,17 @@ for needle in (
     "suppress repeated findings",
     "all observed instances of one bug class",
     "No findings",
+    "## Repeated findings become project rules",
+    "only after the user approves that exact line",
+    "Never edit `REVIEW.md` on the reviewed branch",
+    "never blocks completion",
 ):
-    if needle not in reference:
+    if needle not in " ".join(reference.split()) and needle not in reference:
         failures.append(f"review proof omits {needle}")
+
+for consumer in ("skills/dev-task/SKILL.md", "references/sprint-review-loop.md"):
+    if "Repeated findings become project rules" not in " ".join((pm / consumer).read_text().split()):
+        failures.append(f"{consumer} omits the rule proposal step")
 
 for index, text in enumerate(consumers, start=1):
     normalized = " ".join(text.split()).lower()

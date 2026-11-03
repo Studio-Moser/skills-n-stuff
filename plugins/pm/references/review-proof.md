@@ -106,6 +106,26 @@ Stop early when neither the target nor a relevant risk changed. The two-round PM
 stops automated correction; it never authorizes merging with residual blockers. A new
 unrelated discovery becomes separate work unless it blocks the approved outcome.
 
+## Repeated findings become project rules
+
+After the review loop for a PR ends, on a GitHub-hosted repository, compare its confirmed
+and disputed findings with the review comments and PR comments on the last 20 merged PRs
+(`gh pr list --state merged --limit 20`, `gh pr view <n> --comments`, and
+`gh api --paginate repos/{owner}/{repo}/pulls/<n>/comments`). Propose a rule only when:
+
+- the same failure mode was also reported on an earlier PR, which becomes a one-line
+  entry under `REVIEW.md` project failure modes; or
+- a finding was disputed with evidence as false, which becomes a one-line exclusion
+  naming that false pattern. An exclusion cannot weaken a PM review axis or a Harness
+  evidence requirement.
+
+List each proposal in the final report with its one-line text and the PR numbers behind
+it, and say nothing when there are none. This step never blocks completion or a merge,
+and it asks nothing of an unattended run.
+
+Add a rule only after the user approves that exact line, in its own PR. Never edit
+`REVIEW.md` on the reviewed branch, because a digest change invalidates the review.
+
 ### Reviewer Input Set
 
 Give the reviewer only the approved requirements, immutable fixed target and exact

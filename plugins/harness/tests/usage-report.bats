@@ -94,3 +94,69 @@ else:
   run python3 -c 'import json,sys; assert json.loads(sys.argv[1])["unused_skills"] == ["harness:audit", "harness:delegate"]' "$output"
   [ "$status" -eq 0 ]
 }
+
+@test "mixed numbered and hash-named plugin versions do not crash the report" {
+  cache="$CLAUDE_CONFIG_DIR/plugins/cache/mixed/hashy"
+  mkdir -p "$cache/1.0.1/skills/old" "$cache/1da406f428c2/skills/new"
+  touch "$cache/1.0.1/skills/old/SKILL.md" "$cache/1da406f428c2/skills/new/SKILL.md"
+  printf '%s\n' '{"enabledPlugins":{"harness@studio-moser":true,"hashy@mixed":true}}' > "$CLAUDE_CONFIG_DIR/settings.json"
+  run "$SCRIPTS/usage-report.py" --days 30
+  [ "$status" -eq 0 ]
+  python3 -c 'import json, sys; assert "hashy:new" in json.loads(sys.argv[1])["unused_skills"]' "$output"
+}
+
+@test "tokens count each Claude message once and take Codex deltas inside the window" {
+  python3 - "$CLAUDE_CONFIG_DIR/projects/p" "$CODEX_HOME/sessions/2026/10/21" <<'PY'
+import json, pathlib, sys
+claude, codex = map(pathlib.Path, sys.argv[1:])
+def lines(path, records):
+    path.write_text("".join(json.dumps(r) + "\n" for r in records))
+usage = {"input_tokens": 2, "cache_read_input_tokens": 10, "cache_creation_input_tokens": 5, "output_tokens": 3}
+def assistant(message_id, ts, model="opus"):
+    return {"type": "assistant", "timestamp": ts, "message": {"id": message_id, "model": model, "usage": usage, "content": []}}
+lines(claude / "s1.jsonl", [
+    assistant("m0", "2026-10-09T00:00:00Z"),
+    assistant("m1", "2026-10-10T00:00:00Z"),
+    assistant("m1", "2026-10-10T00:00:01Z"),
+    assistant("m2", "2026-10-11T00:00:00Z"),
+])
+lines(claude / "copy.jsonl", [assistant("m2", "2026-10-11T00:00:00Z")])
+lines(claude / "subagents" / "a1.jsonl", [assistant("m3", "2026-10-10T00:00:00Z", "haiku")])
+def tally(ts, input_, cached, output):
+    return {"type": "event_msg", "timestamp": ts, "payload": {"type": "token_count", "info": {"total_token_usage": {
+        "input_tokens": input_, "cached_input_tokens": cached, "cache_write_input_tokens": 0, "output_tokens": output}}}}
+lines(codex / "rollout-1.jsonl", [
+    {"type": "session_meta", "payload": {"source": "exec"}},
+    {"type": "turn_context", "payload": {"model": "sol"}},
+    tally("2026-10-09T00:00:00Z", 100, 40, 10),
+    {"type": "event_msg", "timestamp": "2026-10-10T00:00:00Z", "payload": {"type": "token_count", "info": None}},
+    tally("2026-10-10T00:00:00Z", 150, 70, 15),
+    tally("2026-10-11T00:00:00Z", 160, 75, 20),
+    tally("2026-10-20T00:00:00Z", 900, 75, 90),
+])
+lines(codex / "rollout-2.jsonl", [
+    {"type": "session_meta", "payload": {"source": {"subagent": "x"}}},
+    {"type": "turn_context", "payload": {"model": "astra"}},
+    tally("2026-10-10T00:00:00Z", 8, 3, 1),
+])
+PY
+  run "$SCRIPTS/usage-report.py" --since 2026-10-10 --until 2026-10-12
+  [ "$status" -eq 0 ]
+  run python3 -c '
+import json, sys
+r = json.loads(sys.argv[1])
+assert r["window"]["label"] == "2026-10-10 to 2026-10-12", r["window"]
+t = r["tokens"]
+assert t["claude"]["main"]["opus"] == {"input": 4, "cache_read": 20, "cache_write": 10, "output": 6}, t
+assert t["claude"]["subagent"]["haiku"] == {"input": 2, "cache_read": 10, "cache_write": 5, "output": 3}, t
+assert t["codex"]["exec"]["sol"] == {"input": 25, "cache_read": 35, "cache_write": 0, "output": 10}, t
+assert t["codex"]["subagent"]["astra"] == {"input": 5, "cache_read": 3, "cache_write": 0, "output": 1}, t
+' "$output"
+  if [ "$status" -ne 0 ]; then printf '%s\n' "$output" >&2; fi
+  [ "$status" -eq 0 ]
+}
+
+@test "until without since is rejected" {
+  run "$SCRIPTS/usage-report.py" --until 2026-10-12
+  [ "$status" -eq 2 ]
+}
