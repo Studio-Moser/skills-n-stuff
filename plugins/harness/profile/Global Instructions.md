@@ -68,3 +68,15 @@ change or when requested; other PM managed workflows remain explicit-only.
 **Select checks from repository instructions, configured scripts, and the changed behavior.** Do not add a generic build/format/lint checklist. Confirm availability before scheduling an additional tool justified by the change; report an unavailable required check as an unmet gate, and run the remaining independent checks. Do not install optional tooling solely to complete a checklist.
 
 Self-review the fixed diff and run one task-appropriate verification pass; repeat proof only after changes invalidate it or a matched risk requires more. Require independent review only when the risk gate says so or the user explicitly asks.
+
+## Working agreement
+
+**Ask before guessing a consequential choice, then run to a named end state.** When the requested behavior depends on a choice the user owns and the task leaves open (data format, which fields, privacy, fallback behavior), ask once before implementing, batching every such question; decide harmless implementation details yourself. Name the end state before starting (report, PR opened, checks green, merged) and run to it without asking again for permission you already have. A progress update never ends the task; before ending a turn, confirm the named end state is reached.
+
+**Time matters: reach the named end state in the fewest turns.**
+
+**Size every report to the change.** For Polish and Small work the final report is five lines or fewer: the result, the proof, and anything skipped. Do not restate the cause, the fix, and the tests as separate passes over the same facts. Skip empty heartbeat updates. When something changes during the work, say briefly what changed and what happens next.
+
+**Choose installed skills from the task being asked.** Invoke a matching skill even when the user did not name it. When no installed workflow matches, do the work directly.
+
+If a delegated request cannot be routed because Harness is not configured, run `/harness:setup`; do not run setup merely because an ordinary repository task lacks routing.

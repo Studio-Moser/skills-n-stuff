@@ -22,6 +22,35 @@ setup() {
   [ "$r" -lt "$s" ]
 }
 
+@test "house rules sit between rules and style, whole, without what the profile states" {
+  run "$SCRIPT" "$REPO" "$PROFILE"
+  [ "$status" -eq 0 ]
+  out="$REPO/codex/AGENTS.md"
+  r=$(grep -n '^# Rules$' "$out" | cut -d: -f1)
+  h=$(grep -n '^# House rules$' "$out" | cut -d: -f1)
+  s=$(grep -n '^# Clear, Concise' "$out" | cut -d: -f1)
+  [ "$r" -lt "$h" ] && [ "$h" -lt "$s" ]
+  for section in 'Branches' 'Concurrent sessions in one repo' 'Commits' 'Pull Requests' 'Testing' 'Pre-commit security check' 'Project overrides'; do
+    grep -q "^## ${section}\$" "$out"
+  done
+  # The fenced PR template holds level-two headings; the section must survive past it.
+  grep -q '^## How to revert$' "$out"
+  grep -q 'One PR per task' "$out"
+  grep -q 'body-file' "$out"
+  for section in 'Contents' 'Change class' 'Implementation discipline' 'File & documentation naming' 'Verification'; do
+    ! grep -q "^## ${section}\$" "$out"
+  done
+}
+
+@test "missing house rules fail with exit 3 and write nothing" {
+  mkdir -p "${BATS_TEST_TMPDIR}/lone/scripts"
+  cp "$SCRIPT" "${BATS_TEST_TMPDIR}/lone/scripts/"
+  run "${BATS_TEST_TMPDIR}/lone/scripts/render-global-instructions.sh" "$REPO" "$PROFILE"
+  [ "$status" -eq 3 ]
+  [[ "$output" == *"house-rules"* ]] || return 1
+  [ ! -e "$REPO/claude/CLAUDE.md" ]
+}
+
 @test "a second run is unchanged and a profile edit regenerates both files" {
   "$SCRIPT" "$REPO" "$PROFILE" > /dev/null
   run "$SCRIPT" "$REPO" "$PROFILE"

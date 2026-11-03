@@ -26,7 +26,9 @@ Harness-owned conventions for code changes across Studio Moser projects. The `pm
   - `feat/` — new functionality (`feat/dark-mode-toggle`)
   - `fix/` — a bug fix (`fix/settings-crash-on-rotation`)
   - `style/` — visual or copy polish with no logic change (`style/pricing-card-spacing`)
-  - `chore/`, `docs/`, `refactor/`, `test/`, `perf/` — as in Conventional Commits (`chore/bump-eslint`)
+  - `chore/`, `docs/`, `refactor/`, `test/`, `perf/`, `ci/` — as in Conventional Commits (`chore/bump-eslint`)
+  - `design/` — design exploration (`design/buddy-animation`)
+  - `research/` — research with no shipped code (`research/market-landscape`)
   - `hotfix/` — urgent fix to ship straight away (`hotfix/login-500`)
   - `release/` — release prep (`release/1.4.0`)
 - A repository that already uses Gitflow names (`feature/`, `bugfix/`) keeps them; see Project overrides.
@@ -36,7 +38,7 @@ Harness-owned conventions for code changes across Studio Moser projects. The `pm
 
 Several agent sessions often run against the same checkout at once. A checkout has exactly one HEAD and one index, so a second session switching branches between your commands silently re-parents your work — you branch off whatever HEAD happens to be, and `git add -A` stages their in-flight edits as yours. This is not hypothetical: it produced a PR carrying another session's unmerged refactor under an unrelated description, and only a merge conflict exposed it.
 
-**Get your own worktree before starting parallel work:**
+**Use a worktree only for actual parallel work or when the user explicitly requests isolation.** If the task names a working directory, stay there unless the user explicitly authorizes moving it. Get your own worktree before starting parallel work:
 
 ```bash
 git worktree add ../{repo}-{task} -b {type}/{short-desc} origin/main
@@ -51,6 +53,8 @@ When you're working directly in a shared checkout anyway, two habits contain the
 
 Before pushing, confirm the branch holds only your commits: `git log --oneline origin/main..HEAD`.
 
+A host tool such as T3 Code may start the session on a placeholder branch (`t3code/*`): rename it to `{type}/{short-desc}` with `git branch -m` before the first commit.
+
 ## Commits
 
 Conventional Commits, present tense, one logical change per commit:
@@ -62,6 +66,8 @@ Conventional Commits, present tense, one logical change per commit:
 - `docs: document the dev-task workflow`
 
 Commit incrementally as you go — don't batch an entire feature into one commit. (A polish batch is one commit, at its checkpoint.)
+
+Write the commit message to a temp file and use `git commit -F <file>`. A heredoc inside `$(...)` fails on macOS bash 3.2 when the message contains an apostrophe.
 
 ## Pull Requests
 
@@ -93,7 +99,7 @@ Commit incrementally as you go — don't batch an entire feature into one commit
 - If someone reading the PR cold can't state what problem it solves, rewrite it before filing.
 - When an independent review ran, `## Testing` names the reviewer's resolved model, the number of rounds, and the final verdict, and lists any unresolved findings. Report a verdict that did not approve as plainly as one that did.
 - One PR per task. Don't mix unrelated changes.
-- Create with: `gh pr create --title "…" --body "…"`. Link the issue/card if there is one.
+- Write the body to a temp file and create with: `gh pr create --title "…" --body-file <file>`. Link the issue/card if there is one.
 
 ## File & documentation naming
 
