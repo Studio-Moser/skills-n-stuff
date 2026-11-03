@@ -320,7 +320,7 @@ and confirms a remote is private before the first push.
 | `scripts/rulesync-rehearse.py <version> [repo]` | diff this machine's generated config between the pinned and a candidate rulesync, in temporary HOMEs |
 | `scripts/agent-secrets.py set\|exec\|check\|copy-to\|import ...` | store secrets in this machine's secret store and hand them only to the process that needs them |
 | `scripts/telemetry.py record-result\|publish ...` | append delegation results and publish local telemetry into the repo's `telemetry/<host>/` |
-| `scripts/usage-report.py [--days N\|--month YYYY-MM]` | deterministic usage counts from transcripts and telemetry |
+| `scripts/usage-report.py [--days N\|--month YYYY-MM\|--since DATE [--until DATE]]` | deterministic usage and token counts from transcripts and telemetry |
 | `scripts/sync-finalize.sh <repo> <message>` | stage, scan, commit, exact-lease push, and prove a clean actual remote SHA once |
 
 ## Tests

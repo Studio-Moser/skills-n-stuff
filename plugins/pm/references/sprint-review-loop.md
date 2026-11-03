@@ -205,6 +205,7 @@ If actionable review findings remain, run the fix loop for at most two rounds:
    changed, stop early. If a round remains, repeat; otherwise report residual issues
    instead of merging over them.
 6. Post a PR comment summarizing fixes, disputes, evidence, and unresolved findings.
+7. Report any rule proposals per `review-proof.md` § Repeated findings become project rules.
 
 No author is above this check. PM-authored fixes use the same fixed-target Harness
 review path.

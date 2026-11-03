@@ -40,7 +40,8 @@ Two canonical references govern PM's shared decisions:
 
 Each initialized repository's root `REVIEW.md` adds project-specific failure modes,
 sensitive paths, checks, and exclusions. It may strengthen or focus PM's contract but
-cannot weaken PM or Harness evidence requirements.
+cannot weaken PM or Harness evidence requirements. When a finding repeats across PRs or
+is disputed as false, PM proposes a one-line rule and adds it only with your approval.
 
 Skills load those references only at the branch where their rules apply. This README describes the resulting behavior; the references own the definitions.
 

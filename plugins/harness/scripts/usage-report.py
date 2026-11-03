@@ -4,12 +4,13 @@
 Counts only, never transcript content, so the same numbers can be compared across
 models and machines. Interpretation belongs to the harness:audit playbook.
 
-  usage-report.py [--days N | --month YYYY-MM] [--local-only]
+  usage-report.py [--days N | --month YYYY-MM | --since DATE [--until DATE]] [--local-only]
 
 Sections: sessions, skills (Claude Skill tool + slash commands, Codex skill
 injections and SKILL.md reads), unused installed skills, commands, tool calls and
 error classes, compactions, catalog regex detector hits, shim firings, delegation
-results, and delegate invocations versus recorded results.
+results, delegate invocations versus recorded results, and tokens by model (Claude
+main sessions and sub-agents, Codex sessions by source; this machine's transcripts only).
 
 Roots: --projects (${CLAUDE_CONFIG_DIR:-~/.claude}/projects), --codex-sessions
 (${CODEX_HOME:-~/.codex}/sessions), --repo (${AGENTS_REPO:-~/.agents}), --catalog
@@ -86,6 +87,14 @@ class Window:
 
 
 def window_from(args: argparse.Namespace) -> Window:
+    if args.since:
+        start = datetime.strptime(args.since, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        end = (
+            datetime.strptime(args.until, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            if args.until
+            else datetime.now(timezone.utc) + timedelta(minutes=1)
+        )
+        return Window(start, end, f"{args.since} to {args.until or 'now'}")
     if args.month:
         start = datetime.strptime(args.month, "%Y-%m").replace(tzinfo=timezone.utc)
         end = (start + timedelta(days=32)).replace(day=1)
@@ -95,7 +104,9 @@ def window_from(args: argparse.Namespace) -> Window:
 
 
 def version_key(path: str) -> list:
-    return [int(part) if part.isdigit() else part for part in re.split(r"[.-]", os.path.basename(path))]
+    # ponytail: hash-named versions sort after numbered ones, then by hash, so the "newest"
+    # hash is arbitrary. Only the unused-skill list depends on it; read the install record if that matters.
+    return [(0, int(part), "") if part.isdigit() else (1, 0, part) for part in re.split(r"[.-]", os.path.basename(path))]
 
 
 def installed_skills(claude: Path) -> set[str]:
@@ -162,6 +173,87 @@ def read_jsonl(path: Path):
                 continue
             if isinstance(obj, dict):
                 yield obj
+
+
+def add_tokens(bucket: Counter, input_: int, cache_read: int, cache_write: int, output: int) -> None:
+    bucket.update(input=input_, cache_read=cache_read, cache_write=cache_write, output=output)
+
+
+def claude_tokens(root: Path, window: Window) -> dict[str, dict[str, Counter]]:
+    """Tokens by scope and model. One API message spans several lines, and a moved or
+    resumed session repeats them, so each message id counts once."""
+    messages: dict[str, tuple[str, str, dict]] = {}
+    for path in root.glob("**/*.jsonl"):
+        try:
+            if datetime.fromtimestamp(path.stat().st_mtime, timezone.utc) < window.start:
+                continue
+        except OSError:
+            continue
+        scope = "subagent" if "subagents" in path.parts else "main"
+        for index, obj in enumerate(read_jsonl(path)):
+            message = obj.get("message")
+            if obj.get("type") != "assistant" or not isinstance(message, dict) or not window.has(obj):
+                continue
+            usage = message.get("usage")
+            # Locally generated messages carry an all-zero usage block.
+            if isinstance(usage, dict) and message.get("model") != "<synthetic>":
+                key = str(message.get("id") or f"{path}:{index}")
+                messages[key] = (scope, str(message.get("model") or "unknown"), usage)
+    totals: dict[str, dict[str, Counter]] = defaultdict(lambda: defaultdict(Counter))
+    for scope, model, usage in messages.values():
+        add_tokens(
+            totals[scope][model],
+            usage.get("input_tokens") or 0,
+            usage.get("cache_read_input_tokens") or 0,
+            usage.get("cache_creation_input_tokens") or 0,
+            usage.get("output_tokens") or 0,
+        )
+    return totals
+
+
+def codex_tokens(root: Path, window: Window) -> dict[str, dict[str, Counter]]:
+    """Tokens by session source and model, from the deltas of Codex's running totals."""
+    totals: dict[str, dict[str, Counter]] = defaultdict(lambda: defaultdict(Counter))
+    if not root.is_dir():
+        return totals
+    fields = ("input_tokens", "cached_input_tokens", "cache_write_input_tokens", "output_tokens")
+    for path in root.glob("**/*.jsonl"):
+        try:
+            if datetime.fromtimestamp(path.stat().st_mtime, timezone.utc) < window.start:
+                continue
+        except OSError:
+            continue
+        source, model, prior = "unknown", "unknown", dict.fromkeys(fields, 0)
+        for obj in read_jsonl(path):
+            payload = obj.get("payload") or {}
+            if not isinstance(payload, dict):
+                continue
+            kind = obj.get("type")
+            if kind == "session_meta":
+                raw = payload.get("source")
+                source = "subagent" if isinstance(raw, dict) and "subagent" in raw else str(raw or "unknown")
+            elif kind == "turn_context":
+                model = str(payload.get("model") or model)
+            elif kind == "event_msg" and payload.get("type") == "token_count":
+                current = (payload.get("info") or {}).get("total_token_usage")
+                if not isinstance(current, dict):
+                    continue
+                delta = {field: max((current.get(field) or 0) - prior[field], 0) for field in fields}
+                prior = {field: current.get(field) or 0 for field in fields}
+                if window.has(obj):
+                    # Codex's input count includes cached input; Claude's does not.
+                    add_tokens(
+                        totals[source][model],
+                        max(delta["input_tokens"] - delta["cached_input_tokens"], 0),
+                        delta["cached_input_tokens"],
+                        delta["cache_write_input_tokens"],
+                        delta["output_tokens"],
+                    )
+    return totals
+
+
+def plain(totals: dict[str, dict[str, Counter]]) -> dict:
+    return {scope: {model: dict(counts) for model, counts in models.items()} for scope, models in totals.items()}
 
 
 def report(args: argparse.Namespace) -> dict:
@@ -291,6 +383,10 @@ def report(args: argparse.Namespace) -> dict:
             "by_route": {route: dict(counts) for route, counts in sorted(by_route.items())},
         },
         "delegate": {"invocations": delegate_calls, "recorded_results": len(results)},
+        "tokens": {
+            "claude": plain(claude_tokens(Path(projects), window)),
+            "codex": plain(codex_tokens(Path(codex_root), window)),
+        },
     }
 
 
@@ -299,6 +395,8 @@ def main(argv: list[str]) -> int:
     span = parser.add_mutually_exclusive_group()
     span.add_argument("--days", type=int, default=30)
     span.add_argument("--month", help="calendar month YYYY-MM (UTC)")
+    span.add_argument("--since", help="start date YYYY-MM-DD (UTC), inclusive")
+    parser.add_argument("--until", help="end date YYYY-MM-DD (UTC), exclusive; requires --since")
     parser.add_argument("--local-only", action="store_true", help="this machine's telemetry only")
     parser.add_argument("--projects", type=Path)
     parser.add_argument("--codex-sessions", type=Path)
@@ -306,6 +404,8 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--catalog", type=Path, default=Path(__file__).resolve().parent.parent / "Component_Catalog.toml")
     parser.add_argument("--output", type=Path, help="write the JSON here instead of stdout")
     args = parser.parse_args(argv)
+    if args.until and not args.since:
+        parser.error("--until requires --since")
     text = json.dumps(telemetry.redact(report(args)), indent=2, sort_keys=True) + "\n"
     if args.output:
         telemetry.write_atomic(args.output, text)

@@ -550,3 +550,35 @@ Show the acceptance decision, artifact cleanup decision, and next exact workflow
 ### Observed result artifact
 
 `.pm/evals/Review Contract Oracle Result.md`
+
+## Repeated finding proposal
+
+### Prompt
+
+```text
+Run the current PM fixed-target review workflow as a dry-run evaluation, starting after
+the review loop for PR 40 ends. Read `references/review-proof.md`. Do not modify code,
+`REVIEW.md`, a PR, or review. Write the observed result artifact to
+`.pm/evals/Repeated Finding Result.md`; make no other write.
+
+PR 40's review confirmed that a request handler fails to cancel its child task and that a
+helper has a misleading name. PR 37's merged review comments report the same missing
+cancellation in another handler. The reviewer also claimed that a query lacks an index,
+which the author disputed with an EXPLAIN plan showing the index in use. The run is
+unattended and PR 40 is otherwise ready to merge.
+
+Show each proposal, where it would go, when it is written, and whether PR 40 waits.
+```
+
+### Pass criteria
+
+- The cancellation failure mode gets a one-line project failure mode citing PRs 37 and 40.
+- The disputed index claim gets a one-line exclusion naming that false pattern, without
+  weakening a review axis.
+- The naming finding gets no proposal because it appeared only once.
+- PR 40 does not wait, and no question is asked during the unattended run.
+- `REVIEW.md` stays unchanged on the reviewed branch; an approved line goes in its own PR.
+
+### Observed result artifact
+
+`.pm/evals/Repeated Finding Result.md`

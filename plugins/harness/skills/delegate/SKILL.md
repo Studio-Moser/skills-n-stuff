@@ -105,9 +105,11 @@ Populate the resolver inputs before the loop:
 
 Populate `HARNESS_ACTIVE_CANDIDATE` from trustworthy host runtime metadata when
 the host exposes the current model and effort. Prefer that metadata to an
-inherited shell value, which may describe a parent session. If no trustworthy
-identity exists, leave it empty and record that direct same-candidate admission
-was unavailable.
+inherited shell value, which may describe a parent session. In a top-level Claude
+Code session, use your own model ID and `CLAUDE_EFFORT`, as
+`claude-opus-5-5@$CLAUDE_EFFORT` for Opus 5.5; a worker leaves it empty because that
+variable may describe its parent. If no trustworthy identity exists, leave it empty
+and record that direct same-candidate admission was unavailable.
 
 Run one bounded selection loop. `HARNESS_ATTEMPTED` starts as `[]` and tracks
 only candidates dispatched by this request and then recorded as unavailable.
