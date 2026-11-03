@@ -104,7 +104,7 @@ def window_from(args: argparse.Namespace) -> Window:
 
 
 def version_key(path: str) -> list:
-    # ponytail: hash-named versions sort after numbered ones, then by hash, so the "newest"
+    # shortcut: hash-named versions sort after numbered ones, then by hash, so the "newest"
     # hash is arbitrary. Only the unused-skill list depends on it; read the install record if that matters.
     return [(0, int(part), "") if part.isdigit() else (1, 0, part) for part in re.split(r"[.-]", os.path.basename(path))]
 
@@ -131,7 +131,7 @@ def load_detectors(catalog: Path) -> tuple[dict[str, re.Pattern], str]:
     try:
         import tomllib
     except ImportError:
-        # ponytail: Python < 3.11 has no tomllib; detectors are skipped there.
+        # shortcut: Python < 3.11 has no tomllib; detectors are skipped there.
         return {}, "unavailable: Python 3.11+ required to read the catalog"
     try:
         data = tomllib.loads(catalog.read_text(encoding="utf-8"))

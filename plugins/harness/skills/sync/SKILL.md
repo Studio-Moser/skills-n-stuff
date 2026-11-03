@@ -35,8 +35,8 @@ The script resolves the same configuration roots as the helpers:
 
 ## Execution policy portability
 
-Sync renders the global instructions from the Harness profile and house rules, so
-change them through a Harness release rather than editing the built files. For an
+Sync renders the global instructions from the Harness profile, so change the
+profile through a Harness release rather than editing the built files. For an
 execution-policy rollout, verify the rendered instructions preserve silent
 classification, semantic routing, and risk-based verification. Existing project
 baseline blocks update through `scripts/stamp-baseline.sh <project>/AGENTS.md` when

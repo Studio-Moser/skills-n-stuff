@@ -9,6 +9,8 @@ description: >-
 Delegate one provider-neutral request. The consumer owns the outcome and decides
 whether delegation is justified; Harness owns validation, routing, dispatch,
 authority preservation, and proof. Ordinary direct work stays with the consumer.
+If a request cannot be routed because Harness is not configured, run `/harness:setup`;
+do not run setup merely because an ordinary repository task lacks routing.
 
 Read the schema in
 [references/harness-contract.md](../../references/harness-contract.md), route
