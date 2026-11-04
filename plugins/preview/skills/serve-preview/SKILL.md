@@ -1,166 +1,70 @@
 ---
 name: serve-preview
 description: >-
-  Creates, checks, or stops a durable private Tailscale preview of a local website. Use when a local site needs a private shareable preview: sharing a localhost site, getting a tailnet URL for it, showing a client the site in progress, or stopping or pruning a preview. Not for public deploys such as Railway.
+  Creates, checks, or stops a temporary private Tailscale preview of a local website on macOS. Use when a local site needs to outlive the chat and be opened as a real page on the owner's other devices: getting a tailnet URL for localhost, checking a site in another browser or on an iPad, or stopping or pruning a preview. Not for public deploys such as Railway, or for anyone outside the owner's tailnet.
 ---
 
 # Serve Preview
 
-Use the shared Docker and DockTail preview plane. A preview belongs to the machine,
-not to the agent process that created it.
+A preview is a process on this Mac's loopback, published with the host's own
+`tailscale serve`. It outlives the agent session because launchd owns the process, and
+it ends at `down`, `prune`, logout, or reboot. Previews are temporary: they exist while
+the owner works on something and stop once that work merges.
 
-Resolve the controller from this skill's installed location before running a command.
-A Claude plugin install exposes it at
-`skills/serve-preview/scripts/Preview.sh` inside the newest
-`$HOME/.claude/plugins/cache/*/preview/*/` directory; a Harness-managed
-skills install normally exposes it at
-`${AGENTS_REPO:-$HOME/.agents}/skills/serve-preview/scripts/Preview.sh`. If neither
-applies, use the `scripts/Preview.sh` next to this `SKILL.md`. Set that absolute path
-as `preview` in the examples below.
+Resolve the controller from this skill's installed location. A Claude plugin install
+exposes it at `skills/serve-preview/scripts/Preview.sh` inside the newest
+`$HOME/.claude/plugins/cache/*/preview/*/` directory; a Harness-managed skills install
+normally exposes it at `${AGENTS_REPO:-$HOME/.agents}/skills/serve-preview/scripts/Preview.sh`.
+If neither applies, use the `scripts/Preview.sh` next to this `SKILL.md`. Set that
+absolute path as `preview`.
 
-## First run
+## Start one
 
-1. `"$preview" doctor` checks prerequisites and router readiness.
-2. If the router is not healthy, read [DockTail Setup](references/DockTail_Setup.md)
-   and run `"$preview" router-up`. Previews refuse to start without a healthy router.
-3. `"$preview" up-static <name> <directory>` for a static site, or
-   `"$preview" prepare <name>` before starting an existing application container.
-4. `"$preview" verify <name>`.
-5. Report the URL, the verify result, and the command to stop it later.
-
-## Invariants
-
-- Keep previews private to the tailnet. Do not enable Funnel: it exposes the
-  preview to the public internet.
-- Accept a lowercase DNS-safe short name and advertise it only inside the reserved
-  `preview-*` Service namespace. A short name matches `^[a-z][a-z0-9-]{0,54}$`.
-- Treat Service names as tailnet-wide. Refuse an existing name associated with a
-  different preview router instead of silently creating a load-balanced Service.
-- Give every preview `restart: unless-stopped` behavior.
-- Give every preview container a memory limit (`mem_limit`). Development servers
-  get `2g` at most because they grow as pages compile; `verify` refuses a preview
-  without a limit.
-- Put the application process itself in the managed container. A host process behind
-  a proxy container or LaunchAgent is a migration bridge, not a finished preview.
-- Give every preview its own managed Docker network. Connect only the DockTail
-  Tailscale sidecar to that network; do not put unrelated previews together.
-- Do not publish host ports unless the user specifically needs a localhost URL.
-- Never place Tailscale secrets in a repository, command argument, or container
-  environment. The router reads the secret from
-  `~/.config/agent-previews/secrets/`; the non-secret OAuth client ID may appear in
-  container metadata.
-- Do not enable DockTail's `DELETE_UNUSED_SERVICES`: `down` keeps the Service
-  definition so the same stable name can be reused. Do not enable
-  `SKIP_SHUTDOWN_CLEANUP`: graceful shutdown is what drains a stopped preview's
-  advertisement.
-- Report the stable URL `https://preview-<name>.<tailnet>.ts.net`, the `verify`
-  result, and the `down <name>` / `prune <name>` commands that stop and remove it.
-
-## Static previews
-
-Use the bundled controller instead of starting a foreground HTTP server:
+Pick the command that matches what is being served, then always run `verify`:
 
 ```bash
-"$preview" up-static <name> <directory> [project]
+"$preview" up-static <name> <dir>                  # a folder of built files
+"$preview" up-cmd <name> <dir> <port> -- <cmd...>  # an app the job should run
+"$preview" up-port <name> <port> [dir]             # something already running
 "$preview" verify <name>
 ```
 
-The command serves the directory read-only from a pinned nginx image. Re-running it
-reconciles only containers and networks created by this skill. It refuses to create
-a preview unless the router is healthy.
+- `up-static` picks a free port from 3500 to 3599 and adds the CORS header that fonts
+  and CSS masks need inside sandboxed frames.
+- `up-cmd` passes `PORT` and restarts the app after a crash. Wrap shell syntax in
+  `sh -c '...'`. Make the app listen on `127.0.0.1`, for example
+  `pnpm start --hostname 127.0.0.1 --port 3510`.
+- `up-port` publishes a project's own stack, such as a Compose service on `localhost:9080`,
+  and never starts or stops that stack. Pass the project folder so `prune` can see its branch.
 
-Useful lifecycle commands:
+Serve a production build (`next build && next start`, or `up-static` on an export) when
+the owner is only reviewing. Run a development server only while someone is editing,
+because each one holds hundreds of megabytes to gigabytes.
 
-```bash
-"$preview" list
-"$preview" url <name>
-"$preview" logs
-"$preview" down <name>
-"$preview" prune [name...]
-"$preview" doctor
-```
+Report the URL, the `verify` result, and the `down <name>` command.
 
-`down` removes the preview container but leaves its Tailscale Service definition so
-the same stable name can be reused later.
-`prune` removes stopped previews (all, or only the named ones) with their networks
-and Docker volumes, including their dependency and build caches. Run it when a
-preview is finished instead of leaving it stopped.
-
-## Existing application containers
-
-Prefer the project's existing Dockerfile or Compose service. Add only the routing
-contract below, adapting port `3000` to the container's actual listening port:
-
-```yaml
-services:
-  app:
-    container_name: agent-preview-project-name
-    restart: unless-stopped
-    mem_limit: 2g
-    networks:
-      - default
-      - agent-preview-project-name
-    labels:
-      dev.studiomoser.agent-preview: "true"
-      dev.studiomoser.agent-preview.kind: "app"
-      dev.studiomoser.agent-preview.project: "Project Name"
-      docktail.service.enable: "true"
-      docktail.service.name: "preview-project-name"
-      docktail.service.description: "Managed by Studio Moser agent preview workflow; project=Project%20Name; kind=app"
-      docktail.service.port: "3000"
-      docktail.service.service-port: "443"
-      docktail.service.network: "agent-preview-project-name"
-      docktail.tags: "tag:agent-preview"
-
-networks:
-  agent-preview-project-name:
-    external: true
-    name: agent-preview-project-name
-```
-
-Serve a production build (`next build && next start`, a static export through
-`up-static`, or the framework's equivalent) for any preview that is only being
-reviewed. Run a development server only while someone is actively editing that
-preview; each one holds hundreds of megabytes to gigabytes and grows as pages compile.
-
-Make sure the application listens on `0.0.0.0` inside its container. Keep source
-mounts and framework-specific commands in the project's Compose configuration; do
-not duplicate package installation or build logic in this skill. Development
-containers may bind-mount source, but keep container-native dependencies and build
-output in Docker volumes so Linux artifacts never overwrite host dependencies. Do not
-publish a host port just to bridge an existing dev server. Before starting the project,
-run `"$preview" prepare project-name`; this creates its isolated network and connects
-the Tailscale sidecar.
-
-After `docker compose up -d`, run `"$preview" verify project-name`. For custom
-applications this proves the ownership marker, isolated network, labels, lack of
-published ports, restart policy, and a direct 2xx response after restart. Also check
-the project's expected page or health endpoint when a generic 2xx is insufficient.
-
-## Preview Hub
-
-Use the private Preview Hub to inspect workflow-owned Services across the tailnet,
-grouped by their advertising router:
+## Manage them
 
 ```bash
-"$preview" hub-up
-"$preview" hub-verify
-"$preview" hub-url
+"$preview" list              # name, live/starting/dead, URL, folder, branch
+"$preview" down <name>       # stop it and remove its tailnet entry
+"$preview" prune --dry-run   # name what prune would remove, and why
+"$preview" prune             # remove those previews
 ```
 
-The hub lists only `preview-*` Services tagged `tag:agent-preview` with this
-workflow's ownership marker. It reads the Tailscale inventory using separate,
-read-only OAuth credentials and probes preview URLs through the router's private
-HTTP proxy. The proxy listens only on the control-network address, not on any
-preview network. The hub never receives the Docker socket or the router's write
-credential.
+`prune` removes a preview when its folder is gone, when it is no longer running, or when
+a merged PR's head equals its branch's current tip. If GitHub cannot be reached, it keeps
+the preview and warns. `/pm:tidy-up` offers these same removals after work merges.
 
-Read [DockTail Setup](references/DockTail_Setup.md) before configuring the hub's
-OAuth credentials. Run one hub for the tailnet; additional preview routers appear
-automatically when they use this workflow's machine-specific router identity.
+## Invariants
 
-## Router administration
-
-Router setup changes Tailscale identity and authorization. Read
-[DockTail Setup](references/DockTail_Setup.md) before running `router-up` or changing
-credentials, tags, ACLs, images, or the shared Docker network.
+- Keep previews private to the tailnet. Never enable Funnel: it exposes the preview to
+  the public internet.
+- Keep job processes on loopback. `verify` warns when a port also listens beyond it,
+  which exposes the preview to the local network.
+- Leave serve entries the controller did not record alone. T3 Code and other tools own
+  theirs, and `--https=443` in particular is never touched.
+- Previews run as the owner with full access to their files, so only serve the owner's
+  own projects.
+- Use the printed `https://<machine>.<tailnet>.ts.net:<port>` URL. The viewing device must
+  be on the same tailnet.

@@ -1,7 +1,7 @@
 {
   "name": "preview",
-  "version": "0.1.11",
-  "description": "Create durable private preview sites, expose them through Tailscale Services, and browse them from a tailnet-wide Preview Hub.",
+  "version": "0.2.0",
+  "description": "Serve temporary private previews of local websites through the host's Tailscale, as real pages that outlive the agent session.",
   "author": {
     "name": "Studio Moser",
     "url": "https://github.com/Studio-Moser"
@@ -12,8 +12,6 @@
     "preview",
     "local-development",
     "tailscale",
-    "docker",
-    "docktail",
     "localhost"
   ]
 }

@@ -88,13 +88,12 @@ routing, bounded execution, and evidence-bearing results.
 
 ### Preview
 
-Create durable private preview sites that survive agent sessions, use stable
-Tailscale Service URLs, and appear in a tailnet-wide hub grouped by machine and
-project.
+Serve temporary private previews of local websites through the host's Tailscale, as
+real pages on your other devices that outlive the agent session.
 
 **Skills:**
-- `/preview:serve-preview` — Create, expose, inspect, verify, and stop durable
-  static or application previews
+- `/preview:serve-preview` — Start, list, verify, stop, and prune static or application
+  previews
 
 [Full documentation](plugins/preview/README.md)
 
