@@ -43,7 +43,8 @@ def main() -> int:
         return 2
 
     shared_path = Path(sys.argv[1])
-    local_path = Path(sys.argv[2])
+    # Through a link, not over it: this path may link into the machine folder.
+    local_path = Path(sys.argv[2]).resolve()
     try:
         shared = load_object(shared_path)
         local = load_object(local_path, missing_ok=True)

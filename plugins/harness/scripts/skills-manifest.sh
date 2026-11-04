@@ -38,16 +38,19 @@ fi
 store="$canonical_agents/skills/"
 
 manifest="$repo/skills.manifest"
-local_file="$repo/.fleet-local.json"
+local_file="$repo/.rulesync.local/Fleet.json"
+[ -e "$local_file" ] || local_file="$repo/.fleet-local.json"
 gitignore="$repo/.gitignore"
 start_marker="# fleet:skills start — generated, do not edit"
 end_marker="# fleet:skills end"
-# Both are machine-local and must never be committed: .fleet-local.json
-# holds this machine's deliberate deviations, .skill-lock.json is `npx
+# All are machine-local and must never be committed: .rulesync.local holds this
+# machine's deliberate deviations (.fleet-local.json is their old home, and stays
+# ignored for a machine that has not moved it yet), .skill-lock.json is `npx
 # skills`' own lockfile, whose `source` field goes stale (never null→null,
 # but null→wrong) the moment another machine removes a skill this one still
 # has installed. See Phase 2.6's migration step for the tracked-repo case.
-static_ignore_lines=".fleet-local.json
+static_ignore_lines="/.rulesync.local/
+.fleet-local.json
 .skill-lock.json"
 
 # The python source goes to its own temp file rather than a `python3 -

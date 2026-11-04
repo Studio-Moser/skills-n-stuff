@@ -94,7 +94,8 @@ tracked = [
 local_state = []
 for name in tracked:
     if (
-        name in {".fleet-local.json", ".skill-lock.json"}
+        name in {".fleet-local.json", ".skill-lock.json", "rulesync.local.jsonc"}
+        or name in {f".rulesync.local/{n}" for n in ("Fleet.json", "Claude_Settings.local.json", "rulesync.local.jsonc", "Machine_Instructions.md")}
         or name == "claude/mcp.json"
         or name.endswith("/settings.local.json")
         or PurePosixPath(name).name in {"known_marketplaces.json", "installed_plugins.json"}

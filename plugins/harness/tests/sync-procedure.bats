@@ -294,6 +294,52 @@ EOF
   git -C "$AGENTS" show "HEAD:telemetry/$host/Usage-$month.json" | python3 -c 'import json,sys; r=json.load(sys.stdin); assert r["scope"] == "local" and r["shim_firings"] == {"zsh-glob-guard": 1}, r'
 }
 
+@test "a full sync puts machine instructions in both tools and never in git" {
+  remote="$BATS_TEST_TMPDIR/remote.git"
+  make_sync_repo "$AGENTS" "$remote"
+  install_sync_stubs
+  printf '{ "global": true, "delete": false }\n' > "$AGENTS/rulesync.jsonc"
+  git -C "$AGENTS" add rulesync.jsonc && git -C "$AGENTS" commit -qm managed && git -C "$AGENTS" push -q
+  # Like rulesync, generate writes the shared text through Codex's link into the repo.
+  cat > "$BIN/npx" <<EOF
+#!/usr/bin/env bash
+case "\$*" in
+  *rulesync@*generate*--dry-run*) ;;
+  *rulesync@*generate*) echo 'Shared generated text.' > "$HOME_DIR/.codex/AGENTS.md"; echo "Written 1 file(s) total" ;;
+esac
+EOF
+  chmod +x "$BIN/npx"
+  mkdir -p "$AGENTS/.rulesync.local"
+  echo '{}' > "$AGENTS/.rulesync.local/mcp.jsonc"
+  printf 'Only-on-this-machine-7f3a at /Volumes/fast/builds\n' > "$AGENTS/.rulesync.local/Machine_Instructions.md"
+  sync_env=(env HOME="$HOME_DIR" AGENTS_REPO="$AGENTS" CLAUDE_CONFIG_DIR="$HOME_DIR/.claude" XDG_CONFIG_HOME="$HOME_DIR/.config" CODEX_HOME="$HOME_DIR/.codex" PATH="$BIN:/usr/bin:/bin")
+
+  run "${sync_env[@]}" "$SCRIPT"
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"machine: 2 file(s) written"* ]] || return 1
+  [[ "$output" == *"Lint:       clean"* ]] || return 1
+  grep -q 'Only-on-this-machine-7f3a' "$HOME_DIR/.claude/rules/Machine_Instructions.md"
+  grep -q 'Only-on-this-machine-7f3a' "$HOME_DIR/.codex/AGENTS.override.md"
+  grep -q 'Shared generated text.' "$HOME_DIR/.codex/AGENTS.override.md"
+  # Clean tree, nothing machine-only in any file of the pushed commit or in the links' targets.
+  [ -z "$(git -C "$AGENTS" status --porcelain=v1 --untracked-files=all)" ]
+  [ "$(git --git-dir="$remote" rev-parse main)" = "$(git -C "$AGENTS" rev-parse HEAD)" ]
+  [ -z "$(git --git-dir="$remote" grep -l 'Only-on-this-machine-7f3a' main)" ]
+  ! grep -q 'Only-on-this-machine-7f3a' "$AGENTS/codex/AGENTS.md" || return 1
+  ! grep -q 'Only-on-this-machine-7f3a' "$AGENTS/claude/CLAUDE.md" || return 1
+  [ -L "$HOME_DIR/.codex/AGENTS.md" ] || return 1
+  [ -L "$HOME_DIR/.claude/CLAUDE.md" ] || return 1
+
+  # Removing the source and syncing again leaves the machine on the shared text alone.
+  rm "$AGENTS/.rulesync.local/Machine_Instructions.md"
+  run "${sync_env[@]}" "$SCRIPT"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"machine: 2 file(s) removed"* ]] || return 1
+  [ ! -e "$HOME_DIR/.claude/rules/Machine_Instructions.md" ]
+  [ ! -e "$HOME_DIR/.codex/AGENTS.override.md" ]
+}
+
 @test "a rulesync-managed repo hands MCP and skills to rulesync and commits its sources" {
   remote="$BATS_TEST_TMPDIR/remote.git"
   make_sync_repo "$AGENTS" "$remote"
@@ -1080,4 +1126,146 @@ PY
   [ "$status" -ne 0 ]
   run grep -q "plugin remove" "$CODEX_LOG"
   [ "$status" -ne 0 ]
+}
+
+# --- machine settings all live in .rulesync.local --------------------------------
+
+machine_repo() {
+  remote="$BATS_TEST_TMPDIR/remote.git"
+  make_sync_repo "$AGENTS" "$remote"
+  install_sync_stubs
+  printf '{ "global": true, "delete": false }\n' > "$AGENTS/rulesync.jsonc"
+  git -C "$AGENTS" add rulesync.jsonc && git -C "$AGENTS" commit -qm managed && git -C "$AGENTS" push -q
+  cat > "$BIN/npx" <<EOF2
+#!/usr/bin/env bash
+case "\$*" in *rulesync@*generate*) [ -e "$AGENTS/rulesync.local.jsonc" ] && cat "$AGENTS/rulesync.local.jsonc" > "$BATS_TEST_TMPDIR/rulesync-read" ;; esac
+exit 0
+EOF2
+  chmod +x "$BIN/npx"
+  mkdir -p "$HOME_DIR/.claude"
+  HOME_LOCAL="$AGENTS/.rulesync.local"
+  LIVE_SETTINGS="$HOME_DIR/.claude/settings.local.json"
+  sync_env=(env HOME="$HOME_DIR" AGENTS_REPO="$AGENTS" CLAUDE_CONFIG_DIR="$HOME_DIR/.claude" XDG_CONFIG_HOME="$HOME_DIR/.config" CODEX_HOME="$HOME_DIR/.codex" PATH="$BIN:/usr/bin:/bin")
+}
+
+@test "a full sync moves every machine setting into the machine folder, keeps tools' paths working, and commits none" {
+  machine_repo
+  printf '{"permissions":{"allow":["Secret-7f3a"]}}\n' > "$LIVE_SETTINGS"
+  chmod 600 "$LIVE_SETTINGS"
+  printf '{"skipMcp":["fleet-7f3a"]}\n' > "$AGENTS/.fleet-local.json"
+  printf '{"delete":false,"note":"local-7f3a"}\n' > "$AGENTS/rulesync.local.jsonc"
+
+  run "${sync_env[@]}" "$SCRIPT"
+
+  [ "$status" -eq 0 ] || return 1
+  [[ "$output" == *"Machine:    3 setting(s) moved to .rulesync.local/"* ]] || return 1
+  grep -q 'Secret-7f3a' "$HOME_LOCAL/Claude_Settings.local.json" || return 1
+  grep -q 'fleet-7f3a' "$HOME_LOCAL/Fleet.json" || return 1
+  grep -q 'local-7f3a' "$HOME_LOCAL/rulesync.local.jsonc" || return 1
+  [ "$(stat -f '%Lp' "$HOME_LOCAL/Claude_Settings.local.json")" = "600" ] || return 1
+  # Tools keep reading their fixed paths; the old fleet file is gone.
+  [ -L "$LIVE_SETTINGS" ] || return 1
+  grep -q 'Secret-7f3a' "$LIVE_SETTINGS" || return 1
+  [ -L "$AGENTS/rulesync.local.jsonc" ] || return 1
+  grep -q 'local-7f3a' "$BATS_TEST_TMPDIR/rulesync-read" || return 1
+  [ ! -e "$AGENTS/.fleet-local.json" ] || return 1
+  # Nothing machine-only in the tree state or the pushed commit.
+  [ -z "$(git -C "$AGENTS" status --porcelain=v1 --untracked-files=all)" ] || return 1
+  [ -z "$(git --git-dir="$remote" grep -lE '(Secret|fleet|local)-7f3a' main)" ] || return 1
+
+  run "${sync_env[@]}" "$SCRIPT"
+  [ "$status" -eq 0 ] || return 1
+  [[ "$output" == *"Machine:    0 setting(s) moved"* ]] || return 1
+}
+
+@test "a machine setting that differs from its copy stops the sync until the user chooses, in either direction" {
+  machine_repo
+  printf '{"a":1}\n' > "$LIVE_SETTINGS"
+  "${sync_env[@]}" "$SCRIPT" >/dev/null
+  rm "$LIVE_SETTINGS"
+  printf '{"a":"live"}\n' > "$LIVE_SETTINGS"
+
+  run "${sync_env[@]}" "$SCRIPT"
+  [ "$status" -eq 20 ] || return 1
+  [[ "$output" == *"SYNC_DECISION_REQUIRED=settings.local.json differs"* ]] || return 1
+  # Stopping changed neither copy.
+  grep -q '"live"' "$LIVE_SETTINGS" || return 1
+  grep -q '"a": *1' "$HOME_LOCAL/Claude_Settings.local.json" || return 1
+
+  run "${sync_env[@]}" "$SCRIPT" --keep-live settings.local.json
+  [ "$status" -eq 0 ] || return 1
+  grep -q '"live"' "$HOME_LOCAL/Claude_Settings.local.json" || return 1
+  [ -L "$LIVE_SETTINGS" ] || return 1
+
+  rm "$LIVE_SETTINGS"
+  printf '{"a":"discard me"}\n' > "$LIVE_SETTINGS"
+  run "${sync_env[@]}" "$SCRIPT" --discard-live settings.local.json
+  [ "$status" -eq 0 ] || return 1
+  grep -q '"live"' "$HOME_LOCAL/Claude_Settings.local.json" || return 1
+  [ -L "$LIVE_SETTINGS" ] || return 1
+  grep -q '"live"' "$LIVE_SETTINGS" || return 1
+}
+
+@test "a machine setting linked elsewhere needs --relink and its content is not lost" {
+  machine_repo
+  printf '{"where":"elsewhere"}\n' > "$BATS_TEST_TMPDIR/elsewhere.json"
+  ln -s "$BATS_TEST_TMPDIR/elsewhere.json" "$LIVE_SETTINGS"
+  run "${sync_env[@]}" "$SCRIPT"
+  [ "$status" -eq 20 ] || return 1
+  [[ "$output" == *"settings.local.json points elsewhere"* ]] || return 1
+  run "${sync_env[@]}" "$SCRIPT" --relink settings.local.json
+  [ "$status" -eq 0 ] || return 1
+  grep -q 'elsewhere' "$HOME_LOCAL/Claude_Settings.local.json" || return 1
+  [ "$(cat "$BATS_TEST_TMPDIR/elsewhere.json")" = '{"where":"elsewhere"}' ] || return 1
+}
+
+@test "deleting a setting from the machine folder removes its link instead of leaving it dangling" {
+  machine_repo
+  printf '{}\n' > "$LIVE_SETTINGS"
+  "${sync_env[@]}" "$SCRIPT" >/dev/null
+  rm "$HOME_LOCAL/Claude_Settings.local.json"
+  run "${sync_env[@]}" "$SCRIPT"
+  [ "$status" -eq 0 ] || return 1
+  [ ! -e "$LIVE_SETTINGS" ] || return 1
+  [ ! -L "$LIVE_SETTINGS" ] || return 1
+}
+
+@test "a dry run reports machine settings that would move, moves nothing, and still honors old deviations" {
+  machine_repo
+  printf '{"a":1}\n' > "$LIVE_SETTINGS"
+  printf '{"keepLocal":["old-7f3a"]}\n' > "$AGENTS/.fleet-local.json"
+  run "${sync_env[@]}" "$SCRIPT" --dry-run
+  [[ "$output" == *"Machine:    2 setting(s) would move"* ]] || return 1
+  [[ "$output" == *"keepLocal old-7f3a"* ]] || return 1
+  [ ! -L "$LIVE_SETTINGS" ] || return 1
+  [ -f "$AGENTS/.fleet-local.json" ] || return 1
+  [ ! -e "$HOME_LOCAL/Fleet.json" ] || return 1
+}
+
+@test "a repo without rulesync still ignores the machine folder before a setting lands in it" {
+  remote="$BATS_TEST_TMPDIR/remote.git"
+  make_sync_repo "$AGENTS" "$remote"
+  install_sync_stubs
+  mkdir -p "$HOME_DIR/.claude"
+  printf '{"p":"Secret-7f3a"}\n' > "$HOME_DIR/.claude/settings.local.json"
+  run env HOME="$HOME_DIR" AGENTS_REPO="$AGENTS" CLAUDE_CONFIG_DIR="$HOME_DIR/.claude" XDG_CONFIG_HOME="$HOME_DIR/.config" CODEX_HOME="$HOME_DIR/.codex" PATH="$BIN:/usr/bin:/bin" "$SCRIPT" --mcp-mode merge
+  grep -qx '/.rulesync.local/' "$AGENTS/.gitignore" || return 1
+  [ -z "$(git -C "$AGENTS" ls-files .rulesync.local)" ] || return 1
+  [ -z "$(git --git-dir="$remote" grep -l 'Secret-7f3a' main)" ] || return 1
+}
+
+@test "the machine folder is already ignored when a sync stops right after moving a setting" {
+  remote="$BATS_TEST_TMPDIR/remote.git"
+  make_sync_repo "$AGENTS" "$remote"
+  install_sync_stubs
+  mkdir -p "$HOME_DIR/.claude"
+  printf '{"p":1}\n' > "$HOME_DIR/.claude/settings.local.json"
+  # A live CLAUDE.md that differs stops link reconciliation, which runs after the move.
+  printf 'Different.\n' > "$HOME_DIR/.claude/CLAUDE.md"
+  run env HOME="$HOME_DIR" AGENTS_REPO="$AGENTS" CLAUDE_CONFIG_DIR="$HOME_DIR/.claude" XDG_CONFIG_HOME="$HOME_DIR/.config" CODEX_HOME="$HOME_DIR/.codex" PATH="$BIN:/usr/bin:/bin" "$SCRIPT"
+  [ "$status" -eq 20 ] || return 1
+  [[ "$output" == *"CLAUDE.md differs"* ]] || return 1
+  [ -f "$AGENTS/.rulesync.local/Claude_Settings.local.json" ] || return 1
+  grep -qx '/.rulesync.local/' "$AGENTS/.gitignore" || return 1
+  [ -z "$(git -C "$AGENTS" status --porcelain=v1 --untracked-files=all -- .rulesync.local)" ] || return 1
 }

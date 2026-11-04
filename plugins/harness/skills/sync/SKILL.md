@@ -43,6 +43,11 @@ baseline blocks update through `scripts/stamp-baseline.sh <project>/AGENTS.md` w
 that repository update is authorized; Sync does not scan or rewrite other projects.
 Restart active sessions to load updated instructions and plugin skills.
 
+Every setting for one machine belongs in the repository's `.rulesync.local/`, which is
+never committed; Sync moves existing ones there. Instructions go in
+`.rulesync.local/Machine_Instructions.md`, and Sync writes them where Claude and Codex
+load them. Never put a machine-specific path or rule in the shared root rule.
+
 ## Decisions that stay with the agent or user
 
 Do not infer a choice from timestamps, path names, or which side is newer. Inspect
@@ -55,8 +60,9 @@ rerun with explicit flags:
 - a hand-written `claude/CLAUDE.md` (no managed block): `--adopt-profile` replaces
   it with the Harness profile, keeping only its Advisaur block; the rest stays in git
   history. Show the user what will be dropped before passing it;
-- live-path conflicts: `--keep-live NAME`, `--discard-live NAME`, `--relink NAME`,
-  or `--relink-all`;
+- live-path conflicts, including a machine setting that differs from its copy in
+  `.rulesync.local/`: `--keep-live NAME`, `--discard-live NAME`, `--relink NAME`, or
+  `--relink-all`;
 - MCP set (repos without `rulesync.jsonc`; a rulesync-managed repo generates MCP
   from `.rulesync/mcp.jsonc` and skips these flags): `--mcp-mode match|replace|merge`; replace also needs
   `--confirm-mcp-replace`. Resolve named extras, unavailable commands, and secrets

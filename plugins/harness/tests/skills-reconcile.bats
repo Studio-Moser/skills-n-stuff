@@ -121,3 +121,12 @@ json_entry() {
   run bash -c "printf '[]' | zsh '$SCRIPT' '$REPO'"
   [[ "$output" == *"INSTALL"$'\t'"foo"* ]] || return 1
 }
+
+@test "deviations in the machine folder win over the old file" {
+  printf 'foo\tacme/foo\n' > "$REPO/skills.manifest"
+  mkdir -p "$REPO/.rulesync.local"
+  printf '{"skipInstall":["foo"],"keepLocal":[]}' > "$REPO/.rulesync.local/Fleet.json"
+  printf '{"skipInstall":[],"keepLocal":[]}' > "$REPO/.fleet-local.json"
+  run bash -c "printf '[]' | '$SCRIPT' '$REPO'"
+  [ "$output" = "$(printf 'SKIP-INSTALL\tfoo')" ] || return 1
+}

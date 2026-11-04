@@ -263,3 +263,13 @@ json_entry() {
   [[ "$output" == *"declared"$'\t'"acme/declared"* ]] || return 1   # skipInstall preserved
   [[ "$output" != *"here"* ]] || return 1                            # keepLocal excluded
 }
+
+@test "a skipInstall entry in the machine folder survives regeneration, and the folder is ignored" {
+  mkdir -p "$REPO/skills/foo" "$REPO/.rulesync.local"
+  printf 'bar\tacme/bar\nfoo\tacme/foo\n' > "$REPO/skills.manifest"
+  printf '{"skipInstall":["bar"],"keepLocal":[]}' > "$REPO/.rulesync.local/Fleet.json"
+  json="[$(json_entry foo skills/foo acme/foo)]"
+  printf '%s' "$json" | "$SCRIPT" "$REPO"
+  grep -q 'bar' "$REPO/skills.manifest" || return 1
+  grep -qx '/.rulesync.local/' "$REPO/.gitignore" || return 1
+}

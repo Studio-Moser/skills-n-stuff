@@ -275,3 +275,14 @@ JSON
   MCP_ALLOW_EMPTY_MANIFEST=1 "$SCRIPT" "$RUNTIME" "$MANIFEST"
   [ "$(python3 -c 'import json,sys; print(sorted(json.load(open(sys.argv[1]))["servers"]))' "$MANIFEST")" = "['placeholder']" ]
 }
+
+@test "generator reads keepLocalMcp from the machine folder ahead of the old file" {
+  mkdir -p "$DIR/.rulesync.local"
+  printf '%s\n' '{"keepLocalMcp":["local-only"]}' > "$DIR/.rulesync.local/Fleet.json"
+  printf '%s\n' 'not json' > "$DIR/.fleet-local.json"
+  printf '%s\n' '{"mcpServers":{"local-only":{"type":"stdio","command":"sh"},"shared":{"type":"stdio","command":"sh"}}}' > "$DIR/runtime.json"
+  run "$SCRIPT" "$DIR/runtime.json" "$DIR/mcp.manifest.json"
+  [ "$status" -eq 0 ] || return 1
+  grep -q '"shared"' "$DIR/mcp.manifest.json" || return 1
+  if grep -q '"local-only"' "$DIR/mcp.manifest.json"; then return 1; fi
+}

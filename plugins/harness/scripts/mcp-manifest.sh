@@ -8,7 +8,7 @@
 # args, url, env, headers) with every env and header VALUE replaced by a
 # ${NAME} reference, plus a `machines` list naming the hosts that have it.
 # Secret values, OAuth state, and everything else stay in the live registry.
-# Undeclared live servers in `.fleet-local.json` `keepLocalMcp` stay undeclared.
+# Undeclared live servers in `.rulesync.local/Fleet.json` `keepLocalMcp` stay undeclared.
 #
 # Env: MCP_HOSTNAME overrides `hostname -s`. MCP_ALLOW_EMPTY_MANIFEST=1 lets
 # the generator replace a non-empty manifest with an empty server set.
@@ -167,7 +167,9 @@ elif Path(legacy_path).exists():
         old["servers"][line] = {"machines": []}
 
 try:
-    fleet_local = json.loads(Path(os.path.join(os.path.dirname(manifest_path), ".fleet-local.json")).read_text())
+    fleet_root = Path(os.path.dirname(manifest_path))
+    fleet_file = fleet_root / ".rulesync.local" / "Fleet.json"
+    fleet_local = json.loads((fleet_file if fleet_file.exists() else fleet_root / ".fleet-local.json").read_text())
 except FileNotFoundError:
     fleet_local = {}
 except Exception as error:

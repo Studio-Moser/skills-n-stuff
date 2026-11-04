@@ -352,3 +352,19 @@ JSON
   [[ "$output" != *"abcdefghijklmnopqrstuvwxyz"* ]] || return 1
   [ "$(git -C "$REPO" rev-parse HEAD)" = "$before" ]
 }
+
+@test "any machine setting that gets tracked stops the commit before the remote moves" {
+  before="$(remote_head)"
+  mkdir -p "$REPO/.rulesync.local"
+  for name in .rulesync.local/Fleet.json .rulesync.local/Claude_Settings.local.json .rulesync.local/rulesync.local.jsonc .rulesync.local/Machine_Instructions.md rulesync.local.jsonc; do
+    printf 'x\n' > "$REPO/$name"
+    git -C "$REPO" add -f "$name"
+    run "$SCRIPT" "$REPO" "harness: must not land"
+    [ "$status" -ne 0 ] || return 1
+    [[ "$output" == *"LOCAL_STATE_FINDING=$name"* ]] || return 1
+    [ "$(remote_head)" = "$before" ] || return 1
+    git -C "$REPO" rm -q --cached "$name"
+    rm "$REPO/$name"
+    "$PREFLIGHT" "$REPO" >/dev/null
+  done
+}

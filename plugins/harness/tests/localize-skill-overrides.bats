@@ -74,3 +74,16 @@ assert call in settings
 PY
   [ "$status" -eq 0 ]
 }
+
+@test "a linked settings.local.json is written through, so the link survives" {
+  dir="$BATS_TEST_TMPDIR/link"
+  mkdir -p "$dir/folder" "$dir/claude"
+  printf '{"skillOverrides":{"a":"on"},"keep":1}\n' > "$dir/shared.json"
+  printf '{"mine":1}\n' > "$dir/folder/Claude_Settings.local.json"
+  ln -s "$dir/folder/Claude_Settings.local.json" "$dir/claude/settings.local.json"
+  run "${BATS_TEST_DIRNAME}/../scripts/localize-skill-overrides.py" "$dir/shared.json" "$dir/claude/settings.local.json"
+  [ "$status" -eq 0 ] || return 1
+  [ -L "$dir/claude/settings.local.json" ] || return 1
+  grep -q 'skillOverrides' "$dir/folder/Claude_Settings.local.json" || return 1
+  grep -q 'mine' "$dir/folder/Claude_Settings.local.json" || return 1
+}
