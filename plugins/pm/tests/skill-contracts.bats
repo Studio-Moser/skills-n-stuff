@@ -67,8 +67,12 @@ for label, needle in {
     "recovery log": "$recovery_dir",
     "base_branch config": "base_branch",
     "protected_branches config": "protected_branches",
+    "preview inventory": "prune --dry-run",
+    "approved preview removal": "`down <name>` for each approved row",
 }.items():
     if needle not in skill: failures.append(f"tidy-up omits {label}")
+if skill.find("`down <name>`") > skill.find("**Worktrees:**"):
+    failures.append("tidy-up must stop previews before removing worktrees")
 fetch = skill.find("fetch --all --prune")
 if fetch == -1 or fetch > skill.find("for-each-ref"):
     failures.append("tidy-up must fetch before inventorying refs")

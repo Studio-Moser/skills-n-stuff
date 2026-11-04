@@ -10,7 +10,7 @@ allowed-tools: "Bash Read Write Edit AskUserQuestion"
 
 Leave the current repository with nothing but the base branch, protected branches,
 and work that is still in flight. Scope is git and GitHub for **the current repository
-only**; issue state belongs to `/pm:reconcile`.
+only**, plus any temporary previews that are finished; issue state belongs to `/pm:reconcile`.
 
 Never push to the base or a protected branch; integrated work lands through a PR.
 
@@ -136,6 +136,13 @@ ignored paths with `git -C <wt> clean -fdX`, and retry. Never use `git worktree 
 or `rm -rf` on a worktree, because either destroys uncommitted work; keep a dirty
 worktree and list its files.
 
+**Temporary previews.** When the Preview plugin is installed, run its controller's
+`prune --dry-run` before any worktree is removed, because that check reads each preview's
+branch. Find the controller in the newest `$HOME/.claude/plugins/cache/*/preview/*/skills/serve-preview/scripts/Preview.sh`
+or at `${AGENTS_REPO:-$HOME/.agents}/skills/serve-preview/scripts/Preview.sh`. Previews belong
+to the machine, so the output can name other repositories; list every row in the plan with
+its reason. If the controller is absent or the command fails, skip previews and say so.
+
 ## 5. Plan and approve
 
 **One approval.** Nothing destructive runs before the user approves this plan, and
@@ -155,11 +162,13 @@ Before any deletion, write every tip and stash you will touch to
    repository's instructions and scripts define. Push the branch and open or update
    its PR against the base. Merge it only if the plan said so, using the §3 merge
    steps. Unmerged integrated branches are kept, not deleted.
-2. **Worktrees:** `git worktree remove <path>`, then `git worktree prune`.
-3. **Local branches:** `git branch -d`; use `-D` only for a tip proven by §4 rules 2–4.
-4. **Remote branches:** `git push origin --force-with-lease=refs/heads/<b>:<T> :refs/heads/<b>`
+2. **Previews:** run the controller's `down <name>` for each approved row, so no process
+   keeps running from a worktree about to be removed.
+3. **Worktrees:** `git worktree remove <path>`, then `git worktree prune`.
+4. **Local branches:** `git branch -d`; use `-D` only for a tip proven by §4 rules 2–4.
+5. **Remote branches:** `git push origin --force-with-lease=refs/heads/<b>:<T> :refs/heads/<b>`
    so a branch that moved since the fetch is kept.
-5. **Stashes:** drop the approved ones from the highest index down.
+6. **Stashes:** drop the approved ones from the highest index down.
 
 If a command is blocked by a permission prompt or classifier, do not work around it:
 print the exact command for the user and continue with the rest.
