@@ -62,7 +62,7 @@
         "triage",
         "sprint"
       ],
-      "version": "0.27.1"
+      "version": "0.27.2"
     },
     {
       "name": "harness",
@@ -148,8 +148,8 @@
     {
       "name": "preview",
       "source": "./plugins/preview",
-      "description": "Create durable private local previews with stable Tailscale Service URLs and a tailnet-wide Preview Hub.",
-      "version": "0.1.11",
+      "description": "Serve temporary private previews of local websites through the host's Tailscale, as real pages that outlive the agent session.",
+      "version": "0.2.0",
       "author": {
         "name": "Studio Moser"
       },
@@ -158,16 +158,13 @@
         "preview",
         "local-development",
         "tailscale",
-        "docker",
-        "docktail",
         "localhost"
       ],
       "category": "productivity",
       "tags": [
         "preview",
         "local-development",
-        "tailscale",
-        "docker"
+        "tailscale"
       ]
     },
     {

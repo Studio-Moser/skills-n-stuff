@@ -1,25 +1,23 @@
 # Preview
 
-Durable, private local website previews for AI-assisted development. Preview
-services survive an agent session, receive stable Tailscale Service URLs, and
-appear in a tailnet-wide Preview Hub grouped by machine and project.
+Temporary private previews of local websites for AI-assisted development. A preview
+outlives the agent session, opens as a real page in any browser on your tailnet devices,
+and stops when you run `down` or `prune`, log out, or reboot.
 
 ## Skill
 
-- `/preview:serve-preview` — create, inspect, verify, or remove static and
-  application previews; administer the shared DockTail router and Preview Hub.
+- `/preview:serve-preview` — start, list, verify, stop, or prune static and application
+  previews.
 
-## Runtime boundary
+## How it works
 
-Reusable controller code and templates ship with this plugin. At first use they
-are copied into a versioned bundle under `~/.config/agent-previews/runtime/` so
-running containers never depend on an evictable plugin-cache path.
+Each preview is a launchd job on `127.0.0.1`, published with the host's own
+`tailscale serve --bg --https=<port>`. The job file lives in
+`~/.config/agent-previews/previews/`, outside `~/Library/LaunchAgents`, so it does not
+come back after a reboot. `prune` clears what a reboot leaves behind.
 
-OAuth credentials, Tailscale state, Docker socket acceptance, and machine identity
-remain under `~/.config/agent-previews/` and are never stored in this repository.
-
-The workflow requires Docker, Tailscale, `curl`, and `jq`. It is private by
-default and never enables Tailscale Funnel.
+The workflow requires macOS, the Tailscale CLI, `jq`, and `python3`. It is private to
+your tailnet and never enables Tailscale Funnel.
 
 ## Verification
 
