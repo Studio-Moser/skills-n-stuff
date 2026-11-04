@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Compare the committed skills.manifest against reality (`npx skills list
 # -g --json`, read on stdin) and this machine's local overrides
-# ($repo/.fleet-local.json). READ-ONLY — prints a plan, installs/removes
+# ($repo/.rulesync.local/Fleet.json). READ-ONLY — prints a plan, installs/removes
 # nothing. harness:sync's Phase 2.6 acts on this output.
 #
 # One line per finding, tab-separated:
@@ -32,11 +32,13 @@ py_reconcile="$(mktemp)"
 trap 'rm -f "$py_reconcile"' EXIT
 
 cat > "$py_reconcile" <<'PY'
-import json, sys
+import json, os, sys
 
 store, repo = sys.argv[1], sys.argv[2]
 manifest_path = repo + "/skills.manifest"
-local_path = repo + "/.fleet-local.json"
+local_path = repo + "/.rulesync.local/Fleet.json"
+if not os.path.exists(local_path):
+    local_path = repo + "/.fleet-local.json"
 
 manifest = {}
 try:

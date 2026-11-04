@@ -8,7 +8,7 @@
 # Plan lines (tab-separated):
 #   INSTALL       <name>          declared with a shape, not here
 #   NO-CONFIG     <name>          declared without a shape; cannot install
-#   SKIP          <name>          declared, not here, in .fleet-local.json skipMcp
+#   SKIP          <name>          declared, not here, in .rulesync.local/Fleet.json skipMcp
 #   EXTRA         <name>          here, not declared
 #   KEEP-LOCAL    <name>          here, not declared, in keepLocalMcp
 #   NEEDS-SECRET  <name> <VAR>    declared or installed here, but VAR has no value on this machine
@@ -21,7 +21,9 @@ set -euo pipefail
 [ $# -eq 3 ] || { echo "usage: mcp-reconcile.sh <repo> <claude-user-state.json> <settings.local.json>" >&2; exit 2; }
 repo="${1%/}"
 
-python3 - "$repo/mcp.manifest.json" "$2" "$3" "$repo/.fleet-local.json" <<'PY'
+fleet="$repo/.rulesync.local/Fleet.json"
+[ -e "$fleet" ] || fleet="$repo/.fleet-local.json"
+python3 - "$repo/mcp.manifest.json" "$2" "$3" "$fleet" <<'PY'
 import json, os, re, shutil, sys
 from pathlib import Path
 

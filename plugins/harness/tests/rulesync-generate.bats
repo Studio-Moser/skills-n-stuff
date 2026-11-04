@@ -376,3 +376,146 @@ EOF
   [ -f "$HOME/.tool/skills/alpha/SKILL.md" ] && [ -f "$HOME/.tool/skills/alpha/mine.md" ]
   ls "$XDG_STATE_HOME"/studio-moser/harness/backups/dropped-skill-files-*/.tool/skills/alpha/old.md
 }
+
+# --- machine-only instructions -------------------------------------------------
+
+machine_setup() {
+  printf '{ "global": true, "delete": false }\n' > "$REPO/rulesync.jsonc"
+  echo '{}' > "$REPO/.rulesync.local/mcp.jsonc"
+  mkdir -p "$HOME/.claude" "$HOME/.codex"
+  printf 'Shared rule.\n' > "$HOME/.codex/AGENTS.md"
+  printf 'Machine rule.\n' > "$REPO/.rulesync.local/Machine_Instructions.md"
+  RULE="$HOME/.claude/rules/Machine_Instructions.md"
+  OVERRIDE="$HOME/.codex/AGENTS.override.md"
+}
+
+@test "machine instructions reach Claude's rules and a Codex override that keeps the shared text" {
+  machine_setup
+  run "$STEP" "$REPO"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"RULESYNC_MACHINE=2 file(s) written"* ]] || return 1
+  grep -qx 'Machine rule.' "$RULE"
+  ! grep -q 'Shared rule.' "$RULE" || return 1
+  grep -qx 'Shared rule.' "$OVERRIDE"
+  grep -qx 'Machine rule.' "$OVERRIDE"
+  # The shared file is never edited: it links to a tracked repo file.
+  [ "$(cat "$HOME/.codex/AGENTS.md")" = "Shared rule." ]
+}
+
+@test "the Codex override is rebuilt when the shared text or the machine text changes, and only then" {
+  machine_setup
+  "$STEP" "$REPO" >/dev/null
+  run "$STEP" "$REPO"
+  [[ "$output" != *RULESYNC_MACHINE* ]] || return 1
+  printf 'New shared rule.\n' > "$HOME/.codex/AGENTS.md"
+  run "$STEP" "$REPO"
+  [[ "$output" == *"RULESYNC_MACHINE=1 file(s) written"* ]] || return 1
+  grep -qx 'New shared rule.' "$OVERRIDE"
+  ! grep -qx 'Shared rule.' "$OVERRIDE" || return 1
+  printf 'New machine rule.\n' > "$REPO/.rulesync.local/Machine_Instructions.md"
+  run "$STEP" "$REPO"
+  [[ "$output" == *"RULESYNC_MACHINE=2 file(s) written"* ]] || return 1
+  grep -qx 'New machine rule.' "$RULE"
+  grep -qx 'New machine rule.' "$OVERRIDE"
+}
+
+@test "deleting or emptying the source removes the generated files, and adding it back restores them" {
+  machine_setup
+  "$STEP" "$REPO" >/dev/null
+  printf ' \n\n' > "$REPO/.rulesync.local/Machine_Instructions.md"
+  run "$STEP" "$REPO"
+  [[ "$output" == *"RULESYNC_MACHINE=2 file(s) removed"* ]] || return 1
+  [ ! -e "$RULE" ] || return 1
+  [ ! -e "$OVERRIDE" ] || return 1
+  printf 'Back.\n' > "$REPO/.rulesync.local/Machine_Instructions.md"
+  "$STEP" "$REPO" >/dev/null
+  grep -qx 'Back.' "$RULE" || return 1
+  grep -qx 'Back.' "$OVERRIDE" || return 1
+  rm "$REPO/.rulesync.local/Machine_Instructions.md"
+  run "$STEP" "$REPO"
+  [[ "$output" == *"RULESYNC_MACHINE=2 file(s) removed"* ]] || return 1
+  [ ! -e "$RULE" ] || return 1
+  [ ! -e "$OVERRIDE" ] || return 1
+}
+
+@test "a hand-written override stops generate, stays intact, and survives when there is no source" {
+  machine_setup
+  printf 'Mine.\n' > "$HOME/.codex/AGENTS.override.md"
+  run "$STEP" "$REPO"
+  [ "$status" -eq 1 ]
+  [[ "$(state)" == *"AGENTS.override.md was not written by Harness"* ]] || return 1
+  [ "$(cat "$OVERRIDE")" = "Mine." ]
+  [ ! -e "$RULE" ]
+  ! grep -q "generate" "$LOG" || return 1
+  rm "$REPO/.rulesync.local/Machine_Instructions.md"
+  run "$STEP" "$REPO"
+  [ "$status" -eq 0 ]
+  [ "$(cat "$OVERRIDE")" = "Mine." ]
+}
+
+@test "a target that resolves inside the repo is refused, so machine text cannot be committed" {
+  machine_setup
+  mkdir -p "$REPO/claude/rules"
+  ln -s "$REPO/claude/rules" "$HOME/.claude/rules"
+  run "$STEP" "$REPO"
+  [ "$status" -eq 1 ]
+  [[ "$(state)" == *"resolves inside the agents repo"* ]] || return 1
+  [ -z "$(ls -A "$REPO/claude/rules")" ]
+  [ ! -e "$OVERRIDE" ]
+}
+
+@test "a symlinked target is never written through" {
+  machine_setup
+  printf 'Elsewhere.\n' > "$BATS_TEST_TMPDIR/elsewhere.md"
+  ln -s "$BATS_TEST_TMPDIR/elsewhere.md" "$HOME/.codex/AGENTS.override.md"
+  run "$STEP" "$REPO"
+  [ "$status" -eq 1 ]
+  [ "$(cat "$BATS_TEST_TMPDIR/elsewhere.md")" = "Elsewhere." ]
+}
+
+@test "a dry run reports machine changes and writes or removes nothing" {
+  machine_setup
+  run "$STEP" --dry-run "$REPO"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"RULESYNC_MACHINE=2 file(s) would be written"* ]] || return 1
+  [ ! -e "$RULE" ] || return 1
+  [ ! -e "$OVERRIDE" ] || return 1
+  "$STEP" "$REPO" >/dev/null
+  rm "$REPO/.rulesync.local/Machine_Instructions.md"
+  run "$STEP" --dry-run "$REPO"
+  [[ "$output" == *"RULESYNC_MACHINE=2 file(s) would be removed"* ]] || return 1
+  [ -e "$RULE" ] || return 1
+  [ -e "$OVERRIDE" ] || return 1
+}
+
+@test "machine instructions follow CLAUDE_CONFIG_DIR and CODEX_HOME and skip a tool that is not installed" {
+  machine_setup
+  mkdir -p "$BATS_TEST_TMPDIR/claude-home"
+  run env CLAUDE_CONFIG_DIR="$BATS_TEST_TMPDIR/claude-home" CODEX_HOME="$BATS_TEST_TMPDIR/no-codex" "$STEP" "$REPO"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"RULESYNC_MACHINE=1 file(s) written"* ]] || return 1
+  grep -qx 'Machine rule.' "$BATS_TEST_TMPDIR/claude-home/rules/Machine_Instructions.md"
+  [ ! -e "$BATS_TEST_TMPDIR/no-codex" ] || return 1
+  [ ! -e "$RULE" ] || return 1
+  [ ! -e "$OVERRIDE" ] || return 1
+}
+
+@test "a failed generate leaves the machine files as they were" {
+  machine_setup
+  "$STEP" "$REPO" >/dev/null
+  printf 'Next.\n' > "$REPO/.rulesync.local/Machine_Instructions.md"
+  run env STUB_FAIL=1 "$STEP" "$REPO"
+  [ "$status" -eq 1 ]
+  grep -qx 'Machine rule.' "$RULE"
+  ! grep -qx 'Next.' "$OVERRIDE" || return 1
+}
+
+@test "an instructions file written before the first sync does not skip capturing the overlay" {
+  printf '{ "global": true }\n' > "$REPO/rulesync.jsonc"
+  printf 'Machine rule.\n' > "$REPO/.rulesync.local/Machine_Instructions.md"
+  run "$STEP" "$REPO"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"RULESYNC_CAPTURE=kept on this machine only"* ]] || return 1
+  [ -f "$REPO/.rulesync.local/mcp.jsonc" ]
+  [ "$(cat "$REPO/.rulesync.local/Machine_Instructions.md")" = "Machine rule." ]
+}

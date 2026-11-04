@@ -496,7 +496,7 @@ def bootstrap(repo: Path, write: bool) -> int:
 def capture_machine(repo: Path) -> int:
     """First managed sync on this machine: keep what the shared source lacks."""
     local_dir = repo / ".rulesync.local"
-    if local_dir.exists() or not (repo / "rulesync.jsonc").is_file():
+    if gen.overlay_captured(repo) or not (repo / "rulesync.jsonc").is_file():
         print("RULESYNC_CAPTURE=skipped")
         return 0
     repo_rel = repo_path(repo) or ""  # only a secret to convert needs it; launcher() refuses then

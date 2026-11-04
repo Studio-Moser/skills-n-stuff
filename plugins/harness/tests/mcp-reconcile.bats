@@ -192,3 +192,12 @@ JSON
   [[ "$output" == *$'DIFFERS\tgithub'* ]] || return 1
   [[ "$output" != *$'DIFFERS\tsame'* ]] || return 1
 }
+
+@test "deviations in the machine folder win over the old file" {
+  mkdir -p "$REPO/.rulesync.local"
+  printf '%s\n' '{"skipMcp": [], "keepLocalMcp": ["both", "kept"]}' > "$REPO/.rulesync.local/Fleet.json"
+  run env -u INST_KEY "$SCRIPT" "$REPO" "$RUNTIME" "$LOCAL"
+  [ "$status" -eq 0 ] || return 1
+  printf '%s\n' "$output" | grep -E '^SKIP[[:space:]]+skipped' && return 1
+  return 0
+}

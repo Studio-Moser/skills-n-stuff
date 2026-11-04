@@ -26,6 +26,8 @@ EXIT_DECISION = 20
 EXIT_CONFLICT = 21
 EXIT_REFUSED = 22
 
+# Every machine-only setting lives here; the repo ignores the whole folder.
+MACHINE_DIR = ".rulesync.local"
 LINKS = (
     ("skills", "skills", "claude"),
     ("agents", "claude/agents", "claude"),
@@ -110,8 +112,16 @@ def write_json_atomic(path: Path, value: dict) -> None:
         temporary.unlink(missing_ok=True)
 
 
+def fleet_path(repo: Path) -> Path:
+    """This machine's deliberate deviations. A machine reads the old path until a full
+    sync moves it, so a dry run before that still sees its deviations."""
+    current = repo / MACHINE_DIR / "Fleet.json"
+    legacy = repo / ".fleet-local.json"
+    return legacy if legacy.exists() and not current.exists() else current
+
+
 def add_override(repo: Path, kind: str, name: str) -> None:
-    path = repo / ".fleet-local.json"
+    path = fleet_path(repo)
     data = load_object(path, missing=True)
     for key in ("skipInstall", "keepLocal", "skipMcp", "keepLocalMcp"):
         values = data.setdefault(key, [])
@@ -120,6 +130,7 @@ def add_override(repo: Path, kind: str, name: str) -> None:
     if name not in data[kind]:
         data[kind].append(name)
         data[kind].sort()
+        path.parent.mkdir(parents=True, exist_ok=True)
         write_json_atomic(path, data)
 
 
@@ -233,6 +244,10 @@ def refuse_incomplete_swaps(repo: Path, roots: dict[str, Path]) -> None:
             continue
         for pattern in (f".{live.name}.old.*", f".{live.name}.link.*"):
             artifacts.extend((path, live) for path in live.parent.glob(pattern))
+    for _name, live, _home, linked in machine_settings(repo, roots):
+        if linked and live.parent.is_dir():
+            for pattern in (f".{live.name}.old.*", f".{live.name}.link.*"):
+                artifacts.extend((path, live) for path in live.parent.glob(pattern))
     if not artifacts:
         return
     details = []
@@ -282,6 +297,9 @@ def clone_and_replace(repo_url: str, repo: Path) -> None:
         result = run(["git", "clone", repo_url, str(staged)], check=False)
         if result.returncode or not (staged / ".git").is_dir():
             raise Stop(EXIT_FAILED, "SYNC_STATE=failed: clone failed; existing repository was left unchanged")
+        # Ignored, so no clone brings it back, and live links point into it.
+        if (repo / MACHINE_DIR).is_dir():
+            shutil.copytree(repo / MACHINE_DIR, staged / MACHINE_DIR, symlinks=True, dirs_exist_ok=True)
         if repo.exists() or repo.is_symlink():
             # shortcut: this is a non-atomic two-rename swap; upgrade to macOS
             # renameatx_np(RENAME_SWAP) or a recovery journal for automatic repair.
@@ -863,7 +881,7 @@ def migrate_skill_lock(repo: Path) -> None:
     ignore = repo / ".gitignore"
     current = ignore.read_text(encoding="utf-8") if ignore.exists() else ""
     lines = current.splitlines()
-    for line in (".fleet-local.json", ".skill-lock.json"):
+    for line in (f"/{MACHINE_DIR}/", ".fleet-local.json", ".skill-lock.json"):
         if line not in lines:
             current += ("" if not current or current.endswith("\n") else "\n") + line + "\n"
             lines.append(line)
@@ -912,7 +930,7 @@ def apply_skills(args: argparse.Namespace, configured_repo: Path, repo: Path, sc
 
 
 def deviations(repo: Path, first: str, second: str) -> str:
-    data = load_object(repo / ".fleet-local.json", missing=True)
+    data = load_object(fleet_path(repo), missing=True)
     parts = []
     for key in (first, second):
         values = data.get(key, [])
@@ -933,7 +951,7 @@ def dry_run(args: argparse.Namespace, configured_repo: Path, repo: Path, roots: 
     print("SKILL_LOCK_STATE=tracked" if tracked.returncode == 0 else "SKILL_LOCK_STATE=not tracked")
     ignore = repo / ".gitignore"
     ignored = ignore.read_text(encoding="utf-8").splitlines() if ignore.exists() else []
-    for line in (".fleet-local.json", ".skill-lock.json"):
+    for line in (f"/{MACHINE_DIR}/", ".fleet-local.json", ".skill-lock.json"):
         print(f"SKILL_IGNORE_STATE={'present' if line in ignored else 'missing'} {line}")
     skill_state = "skipped: installed skills executable not on PATH"
     if shutil.which("skills") and not managed:
@@ -955,6 +973,7 @@ def dry_run(args: argparse.Namespace, configured_repo: Path, repo: Path, roots: 
     attention = sum(1 for _name, _rel, state in plan if state != "ok")
     print(f"Harness sync dry run — {repo}")
     print(f"  Links:      {len(plan) - attention} ok, 0 relinked, {attention} need attention")
+    print(f"  Machine:    {consolidate_machine_settings(args, repo, roots, dry_run=True)} setting(s) would move to {MACHINE_DIR}/")
     print("  Derived:    [skipped in dry run]")
     print("  Committed:  skipped in dry run")
     print("  Ingest:     skipped in dry run")
@@ -1009,12 +1028,90 @@ echo "REMOTE_STATE=failed"; exit 1
 """
 
 
+def machine_settings(repo: Path, roots: dict[str, Path]) -> list[tuple[str, Path, Path, bool]]:
+    """(name, where it was, its home in the machine folder, must a link stay behind).
+
+    Claude and rulesync read theirs at fixed paths, so those keep a link. Secrets stay in
+    the secret store, and runtime state under $XDG_STATE_HOME: neither is a setting.
+    """
+    folder = repo / MACHINE_DIR
+    return [
+        (".fleet-local.json", repo / ".fleet-local.json", folder / "Fleet.json", False),
+        ("rulesync.local.jsonc", repo / "rulesync.local.jsonc", folder / "rulesync.local.jsonc", True),
+        ("settings.local.json", roots["claude"] / "settings.local.json", folder / "Claude_Settings.local.json", True),
+    ]
+
+
+def consolidate_machine_settings(args: argparse.Namespace, repo: Path, roots: dict[str, Path], *, dry_run: bool = False) -> int:
+    """Keep every machine-only setting in the machine folder. Returns how many moved."""
+
+    def decision(message: str) -> None:
+        if not dry_run:
+            raise Stop(EXIT_DECISION, message)
+        print(message)  # A dry run reports what the full run would stop on.
+
+    pending = []
+    for name, live, home, linked in machine_settings(repo, roots):
+        if live.is_symlink() and live.resolve() == home.resolve():
+            if not home.exists():  # its source was deleted on purpose
+                pending.append((name, live, home, linked, "unlink"))
+            continue
+        if live.is_symlink() and live.exists():
+            if name in args.relink or args.relink_all:
+                pending.append((name, live, home, linked, "take" if not home.exists() else "keep-home"))
+            else:
+                decision(f"SYNC_DECISION_REQUIRED={name} points elsewhere; pass --relink {name} or --relink-all")
+        elif live.is_symlink():
+            pending.append((name, live, home, linked, "keep-home" if home.exists() else "unlink"))
+        elif live.is_dir():
+            raise Stop(EXIT_CONFLICT, f"SYNC_CONFLICT={live} is a folder, not a settings file")
+        elif not live.exists():
+            if linked and home.exists():
+                pending.append((name, live, home, linked, "keep-home"))
+        elif live.parent == repo and run(["git", "-C", str(repo), "ls-files", "--error-unmatch", name], check=False).returncode == 0:
+            # Untracking changes every machine's checkout, so it stays the user's call.
+            decision(f"SYNC_DECISION_REQUIRED={name} is tracked; untrack it with: git -C {repo} rm --cached {name}")
+        elif not home.exists() or live.read_bytes() == home.read_bytes():
+            pending.append((name, live, home, linked, "take"))
+        elif name in args.keep_live:
+            pending.append((name, live, home, linked, "take"))
+        elif name in args.discard_live:
+            pending.append((name, live, home, linked, "keep-home"))
+        else:
+            decision(f"SYNC_DECISION_REQUIRED={name} differs from {home}; pass --keep-live {name} or --discard-live {name}")
+    moved = sum(action != "unlink" for *_rest, action in pending)
+    if dry_run:
+        return moved
+    # Ignored before anything lands in the folder, so nothing here can reach a commit.
+    if pending or (repo / MACHINE_DIR).exists():
+        ignore = repo / ".gitignore"
+        current = ignore.read_text(encoding="utf-8") if ignore.exists() else ""
+        missing = [line for line in (f"/{MACHINE_DIR}/", "/rulesync.local.jsonc", "/.rulesync.local.jsonc.*") if line not in current.splitlines()]
+        if missing:
+            ignore.write_text(current + ("" if not current or current.endswith("\n") else "\n") + "\n".join(missing) + "\n", encoding="utf-8")
+    for name, live, home, linked, action in pending:
+        if action == "unlink":
+            live.unlink()
+            continue
+        if action == "take":
+            home.parent.mkdir(parents=True, exist_ok=True)
+            # Copied first and swapped in whole, so a failure never loses the only copy.
+            temporary = home.with_name(f"{home.name}.tmp")
+            shutil.copy2(live, temporary)
+            os.replace(temporary, home)
+        if linked:
+            replace_with_symlink(live, home)
+        else:
+            live.unlink(missing_ok=True)
+    return moved
+
+
 def rulesync_managed(repo: Path) -> bool:
     """A repo with rulesync.jsonc hands instructions, MCP, hooks, and skills to rulesync."""
     return (repo / "rulesync.jsonc").is_file()
 
 
-RULESYNC_IGNORES = ("/.rulesync.local/", "/.rulesync/skills/.curated/", "/.rulesync/rules/.curated/")
+RULESYNC_IGNORES = ("/.rulesync.local/", "/rulesync.local.jsonc", "/.rulesync/skills/.curated/", "/.rulesync/rules/.curated/")
 SKILLS_BLOCK = ("# harness:rulesync-skills start — generated copies, do not edit", "# harness:rulesync-skills end")
 
 
@@ -1084,7 +1181,7 @@ def rulesync_step(repo: Path, scripts: Path, *, dry_run: bool = False, update: b
 
     state = line("RULESYNC_STATE=", f"failed: exit {result.returncode}")
     # A first managed run on this machine also reports what it kept locally and backed up.
-    for prefix in ("RULESYNC_CAPTURE=", "RULESYNC_BACKUP=", "RULESYNC_LINKS=", "RULESYNC_APPS=", "RULESYNC_DROPPED="):
+    for prefix in ("RULESYNC_CAPTURE=", "RULESYNC_BACKUP=", "RULESYNC_LINKS=", "RULESYNC_APPS=", "RULESYNC_DROPPED=", "RULESYNC_MACHINE="):
         note = line(prefix, "")
         if note and note != "skipped":
             state += f"; {prefix[9:-1].lower()}: {note}"
@@ -1237,6 +1334,7 @@ def sync(
     ingest = next((line.partition("state=")[2].split()[0] for line in preflight.stdout.splitlines() if "state=" in line), "ready")
     if adopted:
         adopt_loose(repo, roots, runtime_mcp, scripts)
+    consolidated = consolidate_machine_settings(args, repo, roots)
     ok, relinked, attention = reconcile_links(args, repo, roots, scripts)
     reconcile_settings(repo, roots["claude"], scripts, check=False)
     derived = render(repo, scripts, args.adopt_profile)
@@ -1294,6 +1392,7 @@ def sync(
     status = "complete" if not findings else f"completed with {len(findings)} unresolved finding(s)"
     print(f"Harness sync {status} — {repo}")
     print(f"  Links:      {ok} ok, {relinked} relinked, {len(attention)} need attention")
+    print(f"  Machine:    {consolidated} setting(s) moved to {MACHINE_DIR}/")
     print(f"  Derived:    codex/AGENTS.md {derived}")
     print(f"  Committed:  finalized by sync-finalize.sh")
     print(f"  Ingest:     {ingest}")

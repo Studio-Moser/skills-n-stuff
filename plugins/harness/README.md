@@ -86,6 +86,13 @@ A personal agents repo that contains `rulesync.jsonc` hands per-tool generation 
   app installs and rewrites itself (a command inside an `.app` bundle, like Codex's
   `node_repl` from ChatGPT.app) is re-read from the tool before each generate, so an
   app update is not reverted (a refresh rewrites that file without its comments);
+- writes this machine's untracked `.rulesync.local/Machine_Instructions.md`, if any,
+  to `~/.claude/rules/Machine_Instructions.md` and `~/.codex/AGENTS.override.md` (the
+  shared `AGENTS.md` plus that text, since an override replaces it). `CLAUDE.md` and
+  `AGENTS.md` link to tracked files, so these are the only places machine text stays
+  out of git. Emptying or deleting the source removes both; a file at either path that
+  Harness did not write, or one that resolves inside the repo, stops the sync. Other
+  rulesync targets do not receive this text;
 - moves broken symlinks out of a tool's folder (for example skills pointing at a
   deleted folder) into `~/.local/state/studio-moser/harness/backups/` when rulesync
   cannot write through them, then generates again;
@@ -96,6 +103,24 @@ A personal agents repo that contains `rulesync.jsonc` hands per-tool generation 
   moves that file (never one you added) out of every tool's copy into
   `~/.local/state/studio-moser/harness/backups/`, since rulesync never deletes it;
 - skips its own MCP manifest and `npx skills` steps.
+
+### Machine-only settings
+
+Everything specific to one machine lives in the repo's ignored `.rulesync.local/`:
+
+| File | What it holds | Where the tool reads it |
+|---|---|---|
+| `mcp.jsonc`, `hooks.jsonc` | MCP servers and hooks | merged into the generate source |
+| `Machine_Instructions.md` | instructions | generated files, described above |
+| `Fleet.json` | skill and MCP deviations (was `.fleet-local.json`) | here |
+| `Claude_Settings.local.json` | Claude's `settings.local.json` | `~/.claude/settings.local.json` links here |
+| `rulesync.local.jsonc` | rulesync's local config | `rulesync.local.jsonc` at the repo root links here |
+
+A full sync moves an existing file here. If both copies exist and differ it stops; pass
+`--keep-live NAME` or `--discard-live NAME` using the old file's name. Secrets stay in
+the secret store and runtime state under `$XDG_STATE_HOME`, since neither is a setting.
+`--replace-repo-path` carries the folder into the new clone. A setting still tracked in
+git stops the sync with the command to untrack it.
 
 ### Adopting it
 
