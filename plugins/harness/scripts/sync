@@ -244,6 +244,10 @@ def refuse_incomplete_swaps(repo: Path, roots: dict[str, Path]) -> None:
             continue
         for pattern in (f".{live.name}.old.*", f".{live.name}.link.*"):
             artifacts.extend((path, live) for path in live.parent.glob(pattern))
+    for _name, live, _home, linked in machine_settings(repo, roots):
+        if linked and live.parent.is_dir():
+            for pattern in (f".{live.name}.old.*", f".{live.name}.link.*"):
+                artifacts.extend((path, live) for path in live.parent.glob(pattern))
     if not artifacts:
         return
     details = []
@@ -293,6 +297,9 @@ def clone_and_replace(repo_url: str, repo: Path) -> None:
         result = run(["git", "clone", repo_url, str(staged)], check=False)
         if result.returncode or not (staged / ".git").is_dir():
             raise Stop(EXIT_FAILED, "SYNC_STATE=failed: clone failed; existing repository was left unchanged")
+        # Ignored, so no clone brings it back, and live links point into it.
+        if (repo / MACHINE_DIR).is_dir():
+            shutil.copytree(repo / MACHINE_DIR, staged / MACHINE_DIR, symlinks=True, dirs_exist_ok=True)
         if repo.exists() or repo.is_symlink():
             # shortcut: this is a non-atomic two-rename swap; upgrade to macOS
             # renameatx_np(RENAME_SWAP) or a recovery journal for automatic repair.
@@ -874,7 +881,7 @@ def migrate_skill_lock(repo: Path) -> None:
     ignore = repo / ".gitignore"
     current = ignore.read_text(encoding="utf-8") if ignore.exists() else ""
     lines = current.splitlines()
-    for line in (".fleet-local.json", ".skill-lock.json"):
+    for line in (f"/{MACHINE_DIR}/", ".fleet-local.json", ".skill-lock.json"):
         if line not in lines:
             current += ("" if not current or current.endswith("\n") else "\n") + line + "\n"
             lines.append(line)
@@ -944,7 +951,7 @@ def dry_run(args: argparse.Namespace, configured_repo: Path, repo: Path, roots: 
     print("SKILL_LOCK_STATE=tracked" if tracked.returncode == 0 else "SKILL_LOCK_STATE=not tracked")
     ignore = repo / ".gitignore"
     ignored = ignore.read_text(encoding="utf-8").splitlines() if ignore.exists() else []
-    for line in (".fleet-local.json", ".skill-lock.json"):
+    for line in (f"/{MACHINE_DIR}/", ".fleet-local.json", ".skill-lock.json"):
         print(f"SKILL_IGNORE_STATE={'present' if line in ignored else 'missing'} {line}")
     skill_state = "skipped: installed skills executable not on PATH"
     if shutil.which("skills") and not managed:
@@ -1037,6 +1044,12 @@ def machine_settings(repo: Path, roots: dict[str, Path]) -> list[tuple[str, Path
 
 def consolidate_machine_settings(args: argparse.Namespace, repo: Path, roots: dict[str, Path], *, dry_run: bool = False) -> int:
     """Keep every machine-only setting in the machine folder. Returns how many moved."""
+
+    def decision(message: str) -> None:
+        if not dry_run:
+            raise Stop(EXIT_DECISION, message)
+        print(message)  # A dry run reports what the full run would stop on.
+
     pending = []
     for name, live, home, linked in machine_settings(repo, roots):
         if live.is_symlink() and live.resolve() == home.resolve():
@@ -1044,9 +1057,10 @@ def consolidate_machine_settings(args: argparse.Namespace, repo: Path, roots: di
                 pending.append((name, live, home, linked, "unlink"))
             continue
         if live.is_symlink() and live.exists():
-            if name not in args.relink and not args.relink_all and not dry_run:
-                raise Stop(EXIT_DECISION, f"SYNC_DECISION_REQUIRED={name} points elsewhere; pass --relink {name} or --relink-all")
-            pending.append((name, live, home, linked, "take" if not home.exists() else "keep-home"))
+            if name in args.relink or args.relink_all:
+                pending.append((name, live, home, linked, "take" if not home.exists() else "keep-home"))
+            else:
+                decision(f"SYNC_DECISION_REQUIRED={name} points elsewhere; pass --relink {name} or --relink-all")
         elif live.is_symlink():
             pending.append((name, live, home, linked, "keep-home" if home.exists() else "unlink"))
         elif live.is_dir():
@@ -1054,21 +1068,25 @@ def consolidate_machine_settings(args: argparse.Namespace, repo: Path, roots: di
         elif not live.exists():
             if linked and home.exists():
                 pending.append((name, live, home, linked, "keep-home"))
+        elif live.parent == repo and run(["git", "-C", str(repo), "ls-files", "--error-unmatch", name], check=False).returncode == 0:
+            # Untracking changes every machine's checkout, so it stays the user's call.
+            decision(f"SYNC_DECISION_REQUIRED={name} is tracked; untrack it with: git -C {repo} rm --cached {name}")
         elif not home.exists() or live.read_bytes() == home.read_bytes():
             pending.append((name, live, home, linked, "take"))
         elif name in args.keep_live:
             pending.append((name, live, home, linked, "take"))
         elif name in args.discard_live:
             pending.append((name, live, home, linked, "keep-home"))
-        elif not dry_run:
-            raise Stop(EXIT_DECISION, f"SYNC_DECISION_REQUIRED={name} differs from {home}; pass --keep-live {name} or --discard-live {name}")
+        else:
+            decision(f"SYNC_DECISION_REQUIRED={name} differs from {home}; pass --keep-live {name} or --discard-live {name}")
+    moved = sum(action != "unlink" for *_rest, action in pending)
     if dry_run:
-        return len(pending)
+        return moved
     # Ignored before anything lands in the folder, so nothing here can reach a commit.
     if pending or (repo / MACHINE_DIR).exists():
         ignore = repo / ".gitignore"
         current = ignore.read_text(encoding="utf-8") if ignore.exists() else ""
-        missing = [line for line in (f"/{MACHINE_DIR}/", "/rulesync.local.jsonc") if line not in current.splitlines()]
+        missing = [line for line in (f"/{MACHINE_DIR}/", "/rulesync.local.jsonc", "/.rulesync.local.jsonc.*") if line not in current.splitlines()]
         if missing:
             ignore.write_text(current + ("" if not current or current.endswith("\n") else "\n") + "\n".join(missing) + "\n", encoding="utf-8")
     for name, live, home, linked, action in pending:
@@ -1085,7 +1103,7 @@ def consolidate_machine_settings(args: argparse.Namespace, repo: Path, roots: di
             replace_with_symlink(live, home)
         else:
             live.unlink(missing_ok=True)
-    return len(pending)
+    return moved
 
 
 def rulesync_managed(repo: Path) -> bool:

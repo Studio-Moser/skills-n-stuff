@@ -45,8 +45,8 @@ Restart active sessions to load updated instructions and plugin skills.
 
 Every setting for one machine belongs in the repository's `.rulesync.local/`, which is
 never committed; Sync moves existing ones there. Instructions go in
-`.rulesync.local/Machine_Instructions.md`, and Sync writes them where Claude and Codex
-load them. Never put a machine-specific path or rule in the shared root rule.
+`.rulesync.local/Machine_Instructions.md`, and in a repository with `rulesync.jsonc`
+Sync writes them where Claude and Codex load them. Never put a machine-specific path or rule in the shared root rule.
 
 ## Decisions that stay with the agent or user
 

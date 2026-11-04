@@ -119,6 +119,8 @@ Everything specific to one machine lives in the repo's ignored `.rulesync.local/
 A full sync moves an existing file here. If both copies exist and differ it stops; pass
 `--keep-live NAME` or `--discard-live NAME` using the old file's name. Secrets stay in
 the secret store and runtime state under `$XDG_STATE_HOME`, since neither is a setting.
+`--replace-repo-path` carries the folder into the new clone. A setting still tracked in
+git stops the sync with the command to untrack it.
 
 ### Adopting it
 

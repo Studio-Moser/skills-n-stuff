@@ -1269,3 +1269,74 @@ EOF2
   grep -qx '/.rulesync.local/' "$AGENTS/.gitignore" || return 1
   [ -z "$(git -C "$AGENTS" status --porcelain=v1 --untracked-files=all -- .rulesync.local)" ] || return 1
 }
+
+@test "replacing the repo keeps the machine folder, so linked settings survive" {
+  machine_repo
+  printf '{"p":"survive-7f3a"}\n' > "$LIVE_SETTINGS"
+  "${sync_env[@]}" "$SCRIPT" >/dev/null
+  printf 'Keep this rule.\n' > "$HOME_LOCAL/Machine_Instructions.md"
+  run "${sync_env[@]}" "$SCRIPT" --source existing --repo-url "$remote" --replace-repo-path
+  [ "$status" -eq 0 ] || return 1
+  [ -L "$LIVE_SETTINGS" ] || return 1
+  grep -q 'survive-7f3a' "$LIVE_SETTINGS" || return 1
+  [ "$(cat "$HOME_LOCAL/Machine_Instructions.md")" = "Keep this rule." ] || return 1
+  [ -z "$(git -C "$AGENTS" status --porcelain=v1 --untracked-files=all)" ] || return 1
+  [ -z "$(git --git-dir="$remote" grep -l 'survive-7f3a' main)" ] || return 1
+}
+
+@test "a leftover swap file from a machine setting stops the sync before anything is committed" {
+  machine_repo
+  printf 'machine-only-7f3a\n' > "$AGENTS/.rulesync.local.jsonc.old.k3m9x1"
+  before="$(git --git-dir="$remote" rev-parse main)"
+  run "${sync_env[@]}" "$SCRIPT"
+  [ "$status" -eq 21 ] || return 1
+  [[ "$output" == *"incomplete swap artifacts"*".rulesync.local.jsonc.old.k3m9x1"* ]] || return 1
+  [ "$(git --git-dir="$remote" rev-parse main)" = "$before" ] || return 1
+}
+
+@test "swap files for a machine setting are ignored, so a failed cleanup cannot commit them" {
+  machine_repo
+  printf '{}\n' > "$LIVE_SETTINGS"
+  "${sync_env[@]}" "$SCRIPT" >/dev/null
+  touch "$AGENTS/.rulesync.local.jsonc.old.k3m9x1"
+  git -C "$AGENTS" check-ignore -q ".rulesync.local.jsonc.old.k3m9x1" || return 1
+}
+
+@test "a tracked machine setting stops with the command to untrack it, and leaves the file alone" {
+  machine_repo
+  printf '{"note":"shared"}\n' > "$AGENTS/rulesync.local.jsonc"
+  git -C "$AGENTS" add rulesync.local.jsonc && git -C "$AGENTS" commit -qm tracked && git -C "$AGENTS" push -q
+  run "${sync_env[@]}" "$SCRIPT"
+  [ "$status" -eq 20 ] || return 1
+  [[ "$output" == *"rulesync.local.jsonc is tracked; untrack it with: git -C "*" rm --cached rulesync.local.jsonc"* ]] || return 1
+  [ ! -L "$AGENTS/rulesync.local.jsonc" ] || return 1
+  git -C "$AGENTS" rm -q --cached rulesync.local.jsonc
+  git -C "$AGENTS" commit -qm untrack
+  run "${sync_env[@]}" "$SCRIPT"
+  [ "$status" -eq 0 ] || return 1
+  [ -L "$AGENTS/rulesync.local.jsonc" ] || return 1
+  grep -q 'shared' "$HOME_LOCAL/rulesync.local.jsonc" || return 1
+}
+
+@test "a dry run reports each decision the full run would stop on, without counting it as a move" {
+  machine_repo
+  printf '{"a":1}\n' > "$LIVE_SETTINGS"
+  "${sync_env[@]}" "$SCRIPT" >/dev/null
+  rm "$LIVE_SETTINGS"
+  printf '{"a":"live"}\n' > "$LIVE_SETTINGS"
+  run "${sync_env[@]}" "$SCRIPT" --dry-run
+  [[ "$output" == *"SYNC_DECISION_REQUIRED=settings.local.json differs"* ]] || return 1
+  [[ "$output" == *"Machine:    0 setting(s) would move"* ]] || return 1
+  grep -q '"live"' "$LIVE_SETTINGS" || return 1
+  [ ! -L "$LIVE_SETTINGS" ] || return 1
+}
+
+@test "removing a deleted setting's link is not reported as a move" {
+  machine_repo
+  printf '{}\n' > "$LIVE_SETTINGS"
+  "${sync_env[@]}" "$SCRIPT" >/dev/null
+  rm "$HOME_LOCAL/Claude_Settings.local.json"
+  run "${sync_env[@]}" "$SCRIPT"
+  [ "$status" -eq 0 ] || return 1
+  [[ "$output" == *"Machine:    0 setting(s) moved"* ]] || return 1
+}
