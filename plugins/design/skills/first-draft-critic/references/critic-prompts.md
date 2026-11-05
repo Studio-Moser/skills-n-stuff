@@ -9,11 +9,14 @@
   - [Brief critic (quick route)](#brief-critic-quick-route)
   - [System critic (quick route)](#system-critic-quick-route)
   - [Craft critic (taste route)](#craft-critic-taste-route)
+  - [Regression critic (taste route)](#regression-critic-taste-route)
 - [Aggregating a round](#aggregating-a-round)
 
 Spawn one fresh-context subagent per lens. Give each only the artifact, its
-rubric, and the reference, never the build conversation. Fill the `{{…}}`
-slots. Every critic returns a compact list, one line per item:
+rubric, and the reference, never the build conversation. Never tell a critic the
+goal, the round number, earlier verdicts, or what was fixed, because knowing the
+target may pull its verdict toward it. Fill the `{{…}}` slots. Every critic
+except Regression returns a compact list, one line per item:
 `- [PASS/FAIL] <item> — <fix if fail>`.
 
 ## Explore
@@ -125,7 +128,8 @@ Reference, the bar to hit:
 
 Taste bar:
 {{CRAFT_RUBRIC — hierarchy, type scale, spacing rhythm, alignment, contrast and
-legibility, restraint (one accent, one primary action), state coverage, motion}}
+legibility, restraint (one accent and one primary action, unless the brief or
+system sets its own palette), state coverage, motion}}
 
 Artifact:
 {{ARTIFACT}}
@@ -135,11 +139,39 @@ target (`headline ~28px competes with body; reference headline dominates at
 ~64px; scale up and cut body weight`). Single highest-impact fix first.
 ```
 
+### Regression critic (taste route)
+
+From round 2. Pick the A/B order at random each round, and give the files
+neutral names so nothing shows which came first. Map A and B back to previous
+and current only after the critic returns.
+
+```
+You are a senior design critic with no stake in either version. A and B are two
+versions of one design, in no particular order. Compare them on the criteria
+below. Do not guess which is newer. Do not judge anything outside the criteria.
+
+Reference, the bar to hit:
+{{REFERENCE}}
+
+Criteria:
+{{CRAFT_RUBRIC}}
+
+A:
+{{VERSION_A}}
+
+B:
+{{VERSION_B}}
+
+For each criterion name the stronger version, or SAME when neither is clearly
+stronger: `- [A/B/SAME] <criterion> — <element, its value in each version>`.
+```
+
 ## Aggregating a round
 
-1. Collect every FAIL into one list; dedupe overlaps.
+1. Collect every FAIL into one list; dedupe overlaps. A Regression criterion the
+   previous version wins is a FAIL.
 2. Apply the fixes.
-3. Re-run the critics on what changed.
+3. Re-run the critics on the rubric lines the fixes touch.
 4. Stop at zero actionable fails, at the mode's round cap, or when the owner
    stops it. Log `Round N — k fails: <one clause each>`.
 

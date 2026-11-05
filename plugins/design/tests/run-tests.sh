@@ -94,5 +94,15 @@ grep -qF 'url(/dirs/01%20Ledger/Build/assets/mark.svg)' "$built/assets/site.css"
 (cd "$rb" && node "$plugin_root/skills/present/scripts/import-build.mjs" --rebase --dir dirs --direction "01 Ledger") | grep -qF '"rewritten":0' || { echo "FAIL rebase: second run rewrote files" >&2; fail=1; }
 rm -rf "$rb"
 
+# first-draft-critic: the gauntlet keeps its regression, blinding, and leniency
+# rules, and "one accent" stays subordinate to the brief in both files.
+critic="$plugin_root/skills/first-draft-critic"
+for want in 'Regression critic' 'Leniency check' 'the goal, the round number, or earlier verdicts' 'unless the brief or'; do
+  grep -qF -- "$want" "$critic/SKILL.md" || { echo "FAIL critic skill lacks: $want" >&2; fail=1; }
+done
+for want in '### Regression critic' 'Never tell a critic the' 'unless the brief or' 'previous version wins is a FAIL'; do
+  grep -qF -- "$want" "$critic/references/critic-prompts.md" || { echo "FAIL critic prompts lack: $want" >&2; fail=1; }
+done
+
 [ "$fail" -eq 0 ] && echo "design plugin: all checks passed"
 exit "$fail"
