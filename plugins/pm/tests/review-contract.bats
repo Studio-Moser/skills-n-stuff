@@ -221,3 +221,45 @@ PY
   fi
   [ "$status" -eq 0 ]
 }
+
+@test "review proof keeps findings as verifiable claims with intent-based severity and round accounting" {
+  run python3 - "$REPO" <<'PY'
+from pathlib import Path
+import sys
+
+pm = Path(sys.argv[1]) / "plugins/pm"
+reference = " ".join((pm / "references/review-proof.md").read_text().split())
+failures = []
+for needle in (
+    "### Finding ledger",
+    "### Round accounting",
+    "claims to verify",
+    "at most three reviews",
+    "A further round runs only when the user explicitly approves it",
+    "git diff --shortstat",
+    "not a reason to cut automatically",
+    "record-review",
+    "parent re-grades each finding",
+    "count confirmed defects, not votes",
+):
+    if needle not in reference:
+        failures.append(f"review proof omits {needle}")
+# The contradiction this guards: rereview verifies dispositions the reviewer could not see.
+if "prior review conclusions" in reference:
+    failures.append("Reviewer Input Set still excludes the conclusions rereview must verify")
+
+# Fresh reviewers cannot read PM references, so every packet carries the grading inline.
+severity = "security, permission, data-loss, or recovery defect, even in a rare case"
+for name in ("agents/code-reviewer.md", "skills/dev-task/SKILL.md", "references/sprint-review-loop.md"):
+    text = " ".join((pm / name).read_text().split())
+    for needle in (severity, "stable ID", "finding ledger as claims to verify"):
+        if needle not in text:
+            failures.append(f"{name} omits {needle}")
+
+assert not failures, "; ".join(failures)
+PY
+  if [ "$status" -ne 0 ]; then
+    echo "$output"
+  fi
+  [ "$status" -eq 0 ]
+}

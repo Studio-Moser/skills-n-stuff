@@ -87,6 +87,29 @@ else:
   [ "$status" -eq 0 ]
 }
 
+@test "usage report totals review rounds and flags unapproved overruns and diff growth" {
+  record() { "$SCRIPTS/telemetry.py" record-review --consumer pm:dev-task --target "$1" --model "$2" --provider p --round "$3" --limit 2 --findings "$4" --diff-lines "$5" ${6:-} >/dev/null; }
+  record '#1' astra 0 '{"fixed":3,"unique":2}' 100
+  record '#1' opus 0 '{"fixed":1,"disputed":1,"regraded":1}' 100
+  record '#1' astra 1 '{}' 140
+  record '#2' astra 3 '{"open":1}' 50
+  record '#3' astra 3 '{}' 50 --extension-approved
+
+  run "$SCRIPTS/usage-report.py" --days 30
+  [ "$status" -eq 0 ]
+  run python3 -c '
+import json, sys
+r = json.loads(sys.argv[1])["reviews"]
+assert r["rounds"] == 5, r
+assert r["by_model"]["astra"]["rounds"] == 4 and r["by_model"]["astra"]["unique"] == 2, r
+assert r["by_model"]["opus"]["disputed"] == 1 and r["by_model"]["opus"]["regraded"] == 1, r
+assert r["unapproved_over_limit"] == ["pm:dev-task #2"], r
+assert r["diff_growth"] == {"pm:dev-task #1": {"first": 100, "last": 140}}, r
+' "$output"
+  if [ "$status" -ne 0 ]; then printf '%s\n' "$output" >&2; fi
+  [ "$status" -eq 0 ]
+}
+
 @test "a never-used installed skill is reported as unused" {
   run "$SCRIPTS/usage-report.py" --days 30
   [ "$status" -eq 0 ]

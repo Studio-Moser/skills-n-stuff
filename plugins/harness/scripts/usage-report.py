@@ -9,7 +9,7 @@ models and machines. Interpretation belongs to the harness:audit playbook.
 Sections: sessions, skills (Claude Skill tool + slash commands, Codex skill
 injections and SKILL.md reads), unused installed skills, commands, tool calls and
 error classes, compactions, catalog regex detector hits, shim firings, delegation
-results, delegate invocations versus recorded results, and tokens by model (Claude
+results, review rounds, delegate invocations versus recorded results, and tokens by model (Claude
 main sessions and sub-agents, Codex sessions by source; this machine's transcripts only).
 
 Roots: --projects (${CLAUDE_CONFIG_DIR:-~/.claude}/projects), --codex-sessions
@@ -362,7 +362,19 @@ def report(args: argparse.Namespace) -> dict:
         route = (record.get("route") or {}).get("requested") or "unknown"
         by_route[route][f"{record.get('status')}/{record.get('outcome')}"] += 1
 
-    used = {name for name, counts in skills.items() if sum(counts.values())}
+    reviews = [r for r in telemetry.events("Review_Rounds", repo, local_only=args.local_only) if window.has(r)]
+    review_models: dict[str, Counter] = defaultdict(Counter)
+    over_limit: set[str] = set()
+    diff_lines: dict[str, list[int]] = defaultdict(list)
+    for record in reviews:
+        name = f"{record.get('consumer')} {record.get('target')}"
+        review_models[str(record.get("model"))]["rounds"] += 1
+        review_models[str(record.get("model"))].update(record.get("findings") or {})
+        if record.get("round", 0) > record.get("limit", 0) and not record.get("extension_approved"):
+            over_limit.add(name)
+        diff_lines[name].append(record.get("diff_lines", 0))
+
+    used ={name for name, counts in skills.items() if sum(counts.values())}
     return {
         "window": {"label": window.label, "start": window.start.isoformat(), "end": window.end.isoformat()},
         "host": telemetry.host(),
@@ -381,6 +393,16 @@ def report(args: argparse.Namespace) -> dict:
             "total": len(results),
             "fallbacks": sum(1 for r in results if r.get("attempted")),
             "by_route": {route: dict(counts) for route, counts in sorted(by_route.items())},
+        },
+        "reviews": {
+            "rounds": len(reviews),
+            "by_model": {model: dict(counts) for model, counts in sorted(review_models.items())},
+            "unapproved_over_limit": sorted(over_limit),
+            "diff_growth": {
+                name: {"first": lines[0], "last": lines[-1]}
+                for name, lines in sorted(diff_lines.items())
+                if lines[-1] > lines[0]
+            },
         },
         "delegate": {"invocations": delegate_calls, "recorded_results": len(results)},
         "tokens": {

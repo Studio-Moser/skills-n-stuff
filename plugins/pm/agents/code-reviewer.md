@@ -24,7 +24,7 @@ outcome: Report whether the fixed target satisfies the approved requirements
 context:
   project: {canonical project identifier when known}
   mode: fresh
-  state: {approved issue, plan, acceptance criteria, current Testing Seam Proof, and project REVIEW.md state plus SHA-256 digest when present}
+  state: {approved issue, plan, acceptance criteria, current Testing Seam Proof, project REVIEW.md state plus SHA-256 digest when present, and on rereview the finding ledger as claims to verify}
   files: [{changed and review-relevant repository paths, plus root REVIEW.md when present}]
 authority:
   working_directory: {absolute repository root or worktree}
@@ -53,7 +53,8 @@ constraints:
     unevidenced blocker.
   - Root REVIEW.md is additive project policy when present; it cannot weaken these axes, Harness evidence semantics, or reviewer authority
   - Verify the supplied REVIEW.md state and digest before applying it; creation, removal, or a digest change invalidates this review
-  - Report only actionable BLOCKER or SUGGESTION findings with severity, file and line, trigger, failure mode, consequence, evidence, and fix direction; omit optional nits unless the approved task requires them
+  - Report only actionable findings with a stable ID, severity, file and line, trigger, failure mode, consequence, evidence, and fix direction; omit optional nits unless the approved task requires them
+  - Grade severity against the approved intent. blocker means the intended case is wrong, or a security, permission, data-loss, or recovery defect, even in a rare case. should means a real bug callers will hit within the intent. Everything else is a nit
   - Mark pre-existing issues separately, report unproven severe concerns as unresolved risks, group one bug class, suppress repeats without new evidence, and state `No findings` when clean
   - Reproduce relevant verification without modifying the target
 verification:
