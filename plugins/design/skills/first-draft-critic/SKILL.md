@@ -9,7 +9,8 @@ description: >-
 A generator cannot reliably grade its own work: it decides "looks done" and
 inherits its own blind spots. This skill replaces self-review with independent
 critics that see only the artifact, a rubric, and a reference, never the build
-conversation. Fan the critics out in parallel, collect fails, fix, re-judge.
+conversation, the goal, the round number, or earlier verdicts. Fan the critics
+out in parallel, collect fails, fix, re-judge.
 
 Pick the mode first. The wrong mode does damage: a gauntlet during exploration
 pulls every variant toward a safe middle, and an explore pass during
@@ -75,8 +76,8 @@ the rubric and get a yes.
 - **System**: each token, brand, or checklist rule as a testable line, quoted
   verbatim from its source.
 - **Craft**: hierarchy, type scale, spacing rhythm, alignment, contrast and
-  legibility, restraint (one accent, one primary action), state coverage,
-  motion discipline. Derive concrete criteria from the reference ("headline
+  legibility, restraint (one accent and one primary action, unless the brief or
+  system sets its own palette), state coverage, motion discipline. Derive concrete criteria from the reference ("headline
   should dominate like the reference's ~64px"), not adjectives.
 
 ### Phase 2 to 4: judge, fix, re-judge
@@ -91,18 +92,35 @@ lens). Craft runs on route `taste`; Brief and System on route `quick`, since
 weak judges falsely reject faithful work on taste but are safe on mechanical
 checks.
 
-Collect fails, apply fixes, re-run the critics on what changed. Stop at zero
-actionable fails, at the round cap (**5**, raise for a hero piece), or when the
-owner stops it. Log each round in one line: `Round 3 — 2 fails: no focus ring
-on dark; headline under-scaled.`
+Before fixing, keep a frozen copy of the round's artifact: the view stills from
+`design:capture`'s `views.mjs`, or the file itself. Collect fails, apply fixes,
+then re-run the critics on the rubric lines the fixes touch, without saying what
+was fixed.
+
+From round 2, also run the Regression critic on route `taste`. It compares the
+previous and current versions as A and B, with the order picked at random each
+round, because a fix can damage what the re-run did not re-judge. A criterion
+the previous version wins is a FAIL for that round, unless a Brief or System fix
+required the change; then log the trade-off instead.
+
+Stop at zero actionable fails, at the round cap (**5**, raise for a hero piece),
+or when the owner stops it. Log each round in one line: `Round 3 — 2 fails: no
+focus ring on dark; headline under-scaled.`
+
+**Leniency check.** Before reporting zero fails after more than one round, send
+the frozen round-1 artifact to a fresh Craft critic with the same prompt and
+rubric. Skip this if round 1 had no Craft fails. If more than half of round 1's
+Craft fails now pass on that unchanged artifact, the critic has drifted lenient:
+report the drift to the owner and do not call the artifact done. Log `Leniency
+check — 3 of 4 round-1 Craft fails still fail.`
 
 ### Phase 5: report
 
-The artifact, the round-by-round trail, and an approximate token cost. State
-the rough cost before a long run; the gauntlet is expensive and is for
-high-value artifacts, one per loop.
+The artifact, the round-by-round trail, the leniency check result, and an
+approximate token cost. State the rough cost before a long run; the gauntlet is
+expensive and is for high-value artifacts, one per loop.
 
-Prompts for all five critic roles are in `references/critic-prompts.md`.
+Prompts for all six critic roles are in `references/critic-prompts.md`.
 
 ## For skill authors
 
