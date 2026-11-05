@@ -77,8 +77,8 @@ the rubric and get a yes.
   verbatim from its source.
 - **Craft**: hierarchy, type scale, spacing rhythm, alignment, contrast and
   legibility, restraint (one accent and one primary action, unless the brief or
-  system sets its own palette), state coverage, motion discipline. Derive concrete criteria from the reference ("headline
-  should dominate like the reference's ~64px"), not adjectives.
+  system sets its own palette), state coverage, motion discipline. Derive
+  concrete criteria from the reference ("headline should dominate like the reference's ~64px"), not adjectives.
 
 ### Phase 2 to 4: judge, fix, re-judge
 
