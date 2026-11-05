@@ -31,8 +31,9 @@ The plugin is public and generic; the data is yours.
 
 ## Telemetry
 
-Harness records two event streams on each machine: every delegation result
-(`Results`) and every shim firing (`Shim_Events`, e.g. the zsh glob guard hook).
+Harness records three event streams on each machine: every delegation result
+(`Results`), every shim firing (`Shim_Events`, e.g. the zsh glob guard hook), and
+each settled review round per reviewer (`Review_Rounds`).
 Writers append only to `${XDG_STATE_HOME:-~/.local/state}/studio-moser/harness/telemetry/`,
 so the agents repository stays clean between syncs. Each `/harness:sync` merges
 those files by record id into `telemetry/<host>/` in your private agents repository

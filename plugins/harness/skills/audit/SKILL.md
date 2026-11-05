@@ -26,7 +26,7 @@ answer needs a view, make it for this conversation.
   `--local-only` drops other machines.
 - **Catalog** — `Component_Catalog.toml` in the Harness plugin root: every rule and
   shim with its kind, source anchor, why it exists, detector, and retirement test.
-- **Ledger and shim events** — `Results-*.jsonl` and `Shim_Events-*.jsonl`, unpublished
+- **Ledger and shim events** — `Results-*.jsonl`, `Review_Rounds-*.jsonl`, and `Shim_Events-*.jsonl`, unpublished
   under `${XDG_STATE_HOME:-~/.local/state}/studio-moser/harness/telemetry/` and
   published per host under `${AGENTS_REPO:-~/.agents}/telemetry/<host>/`.
 - **Other machines** — `telemetry/<host>/Usage-YYYY-MM.json` summaries written by Sync.
@@ -45,7 +45,10 @@ Answer the user's question first. For a general audit, cover:
    proves a shim can go: the rule may be working, or nothing exercised it. Name the
    Harness Testing ablation that would decide it.
 3. **Delegation** — ledger outcomes by route, fallbacks, unproven or blocked results,
-   and delegate invocations with no recorded result.
+   and delegate invocations with no recorded result. For review, per-model findings
+   (fixed, disputed, unique, regraded), unapproved rounds past a limit, and diff growth.
+   Only `Review_Rounds` can show whether a second reviewer adds confirmed findings; a
+   `failed` review result usually means the reviewer requested changes.
 4. **Tokens** — the report's totals by model, Claude main sessions versus sub-agents,
    and Codex by session source. They come from this machine's transcripts, so another
    machine's totals are in its `Usage-YYYY-MM.json`. They are not tied to ledger rows:

@@ -89,6 +89,19 @@ execution path, concrete failure mode and consequence, evidence that the reviewe
 change introduced or exposed it, and a fix direction or proof needed to dispute it.
 Block on actionable correctness, security, specification, or Blast Radius failures.
 
+Grade every finding against the approved intent:
+
+- `blocker`: the intended case is wrong, or the finding is a security, permission,
+  data-loss, or recovery defect.
+- `should`: a real bug that callers will hit within the approved intent.
+- `nit`: everything else, including another code path, a rare case, or a small cost.
+
+`blocker` and `should` block completion until fixed or disputed with evidence. The
+parent re-grades each finding before fixing it, whatever label it arrived with, and
+declines a `nit` in one line as a follow-up. A rare case stays a `blocker` when it
+is a security, permission, data-loss, or recovery defect; lower it only with evidence.
+When several reviewers disagree, count confirmed defects, not votes.
+
 Do not use a numerical confidence threshold as an acceptance gate. Report a severe
 concern without enough proof as an unresolved risk, not a proven defect. Omit optional
 cleanup, style preferences, and speculative maintainability suggestions unless the
@@ -105,6 +118,40 @@ without new evidence, and report all observed instances of one bug class togethe
 Stop early when neither the target nor a relevant risk changed. The two-round PM limit
 stops automated correction; it never authorizes merging with residual blockers. A new
 unrelated discovery becomes separate work unless it blocks the approved outcome.
+
+### Round accounting
+
+Round 0 is the initial review. Rounds 1 and 2 are the two allowed fix/review rounds, so
+a target gets at most three reviews. A further round runs only when the user explicitly
+approves it; record that approval. Without it, report residual blockers and stop.
+
+Run `git diff --shortstat <base> <head>` each round and report the size before and after
+review. If review grew the diff, confirm each addition is needed for a fix and cut what
+is not. Necessary fixes and regression tests legitimately grow a diff, so growth is a
+question to answer, not a reason to cut automatically.
+
+### Finding ledger
+
+The parent keeps one ledger per fixed review loop. Each entry has a stable ID that never
+changes between rounds, the graded severity, a disposition of `fixed`, `disputed`,
+`declined`, or `open`, and the evidence for it. Send the ledger with every rereview as
+claims to verify: the reviewer checks each disposition against the current target and
+marks it confirmed or still open. A disposition is never proof that a finding is resolved.
+
+Once a round's dispositions are decided, record one line per reviewer. Take the model and
+provider from that reviewer's Harness Result. Count `unique` as confirmed findings no
+other reviewer raised on this target, and `regraded` as findings whose severity you
+changed. A recording failure never blocks review or completion.
+
+```bash
+harness="${HARNESS_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*/ 2>/dev/null | sort -V | tail -1)}"; harness="${harness%/}"
+"$harness/scripts/telemetry.py" record-review --consumer "$CONSUMER" --target "$PR_OR_SLUG" \
+  --model "$MODEL" --provider "$PROVIDER" --round "$ROUND" --limit 2 \
+  --findings '{"fixed":0,"disputed":0,"declined":0,"open":0,"unique":0,"regraded":0}' \
+  --diff-lines "$INSERTIONS_PLUS_DELETIONS"
+```
+
+Add `--extension-approved` only for a round the user approved past the limit.
 
 ## Repeated findings become project rules
 
@@ -130,8 +177,9 @@ Add a rule only after the user approves that exact line, in its own PR. Never ed
 
 Give the reviewer only the approved requirements, immutable fixed target and exact
 artifact, relevant project files, the pinned root `REVIEW.md` oracle when present, and current Testing Seam proof. Exclude builder reasoning,
-summaries, proposed verdicts, and prior review conclusions; they are claims, not reviewer
-inputs or evidence.
+summaries, proposed verdicts, and prior review verdicts; they are claims, not reviewer
+inputs or evidence. On rereview, also give the reviewer the finding ledger, labeled as
+claims to verify, because a reviewer cannot verify a disposition it cannot see.
 
 At least one decisive check must contain a positive acceptance signal that exercises or
 observes the expected behavior. A missing or skipped check, or one that runs zero relevant cases,

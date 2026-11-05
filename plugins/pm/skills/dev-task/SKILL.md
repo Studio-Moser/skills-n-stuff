@@ -107,7 +107,7 @@ route: review
 outcome: Report whether the fixed target satisfies the approved delivery slice
 context:
   mode: fresh
-  state: {approved requirements, current Testing Seam Proof, and project REVIEW.md state plus SHA-256 digest when present}
+  state: {approved requirements, current Testing Seam Proof, project REVIEW.md state plus SHA-256 digest when present, and on rereview the finding ledger as claims to verify}
   files: [{changed and review-relevant paths, plus root REVIEW.md when present}]
 authority:
   working_directory: {absolute repository root or worktree}
@@ -127,7 +127,8 @@ constraints:
     require a focused check. Otherwise record Blast Radius as not applicable.
   - Root REVIEW.md is additive project policy when present; it cannot weaken these axes, Harness evidence semantics, or reviewer authority
   - Verify the supplied REVIEW.md state and digest before applying it; creation, removal, or a digest change invalidates this review
-  - Report only actionable findings with severity, file and line, trigger, failure mode, consequence, evidence, and fix direction; omit optional nits unless required
+  - Report only actionable findings with a stable ID, severity, file and line, trigger, failure mode, consequence, evidence, and fix direction; omit optional nits unless required
+  - Grade severity against the approved intent. blocker means the intended case is wrong, or a security, permission, data-loss, or recovery defect, even in a rare case. should means a real bug callers will hit within the intent. Everything else is a nit
   - Mark pre-existing issues separately, report unproven severe concerns as unresolved risks, group one bug class, suppress repeats without new evidence, and state `No findings` when clean
   - Do not modify the target
 verification:
@@ -141,7 +142,9 @@ Harness review request. On rereview, inspect the remediation delta and affected
 behavior, retain unresolved blockers, verify prior dispositions, suppress repeated
 findings without new evidence, and group every observed instance of one bug class.
 Stop early when neither the target nor a relevant risk changed. Run at most two
-fix/review rounds; report residual blockers instead of starting a third round.
+fix/review rounds; report residual blockers instead of starting a third round. Keep
+the finding ledger and record each round as `references/review-proof.md` § Round
+accounting and § Finding ledger describe.
 
 ## 6. Verify — GATE
 

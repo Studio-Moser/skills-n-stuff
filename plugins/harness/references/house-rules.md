@@ -95,7 +95,12 @@ Write the commit message to a temp file and use `git commit -F <file>`. A heredo
   - Bad: `Removed implicit workspace carryover from every new thread entry point; new threads inherit only the project from context.`
   - Good: `Starting a new thread on an existing worktree silently ignored my worktree default. Now the preference always applies.`
 - If someone reading the PR cold can't state what problem it solves, rewrite it before filing.
-- When an independent review ran, `## Testing` names the reviewer's resolved model, the number of rounds, and the final verdict, and lists any unresolved findings. Report a verdict that did not approve as plainly as one that did.
+- When an independent review ran, `## Testing` names the reviewer's resolved model, the number of rounds, the diff size before and after review, and the final verdict, and lists any unresolved findings. Report a verdict that did not approve as plainly as one that did.
+- Start every comment an agent posts on your behalf (top-level, inline, or a reply to a bot or reviewer) with a note, so readers know a person did not write it. Name the model the host reports; if it reports none, name the host instead of guessing. Skip the note only for PR descriptions, commit messages, and text you were told to post verbatim.
+  ```md
+  > [!NOTE]
+  > 🤖 **<model> responding on behalf of <user>**
+  ```
 - One PR per task. Don't mix unrelated changes.
 - Write the body to a temp file and create with: `gh pr create --title "…" --body-file <file>`. Link the issue/card if there is one.
 
@@ -152,7 +157,7 @@ including handoff cost and verifiability, before substantial investigation.
 ## Pre-commit security check
 
 Before every commit, confirm:
-- No secrets, tokens, API keys, or credentials in the diff or in logs.
+- No secrets, tokens, API keys, or credentials in the diff or in logs. Before posting a PR comment or description, check it the same way, including quoted text and attachments.
 - User input is validated; queries are parameterized.
 - No security feature was disabled to "make it work."
 - Errors are handled, not swallowed.

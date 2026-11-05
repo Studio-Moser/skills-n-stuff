@@ -63,8 +63,9 @@ the work grows beyond what the user asked for.
    `gh pr view <n> --json headRefOid,mergeStateStatus,reviews,comments`,
    and `gh api --paginate repos/{owner}/{repo}/pulls/<n>/comments` for inline review
    comments. Fix CI failures and review comments from bots and people, or reply to
-   each with a written reason. Rebase when the branch falls behind. Keep the PR's
-   review disclosure current after every review round.
+   each with a written reason, starting each reply with the house-rules agent note.
+   Rebase when the branch falls behind. Keep the PR's review disclosure current after
+   every review round.
 6. **Merge gate.** All of these hold on one head commit, recorded as `headRefOid`:
    - the proof covers every change in the diff;
    - required checks are green (`gh pr checks <n> --required`), none pending; when

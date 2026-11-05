@@ -6,6 +6,8 @@ publishes those files into the agents repository under telemetry/<host>/ after i
 has ingested the remote, so live writes never leave the repository dirty.
 
   telemetry.py record-result --result JSON [--attempted JSON] [--operation OP] [--consumer NAME]
+  telemetry.py record-review --consumer NAME --target TEXT --model NAME --provider NAME
+      --round N --limit N --findings JSON --diff-lines N [--extension-approved]
   telemetry.py publish --repo PATH
 
 Records hold typed fields only: no prompts, raw errors, or secrets. Every string is
@@ -26,11 +28,14 @@ import uuid
 from datetime import datetime, timezone
 from typing import Iterator
 
-STREAMS = ("Results", "Shim_Events")
+STREAMS = ("Results", "Shim_Events", "Review_Rounds")
 HOME_PATH = re.compile(r"/(?:Users|home)/[A-Za-z0-9._-]+")
 STATUSES = {"accepted", "failed", "blocked", "abandoned"}
 OUTCOMES = {"proven", "unproven"}
 ROUTE_FIELDS = ("requested", "model", "effort", "provider", "executor", "dispatch")
+# unique: confirmed findings no other reviewer raised on this target.
+# regraded: findings whose severity the parent changed.
+FINDING_COUNTS = ("fixed", "disputed", "declined", "open", "unique", "regraded")
 MAX_ITEMS = 10
 MAX_TEXT = 200
 
@@ -133,6 +138,49 @@ def publish(repo: Path) -> int:
     return added
 
 
+def require_one_reviewer(model: str, provider: str) -> None:
+    # A combined row cannot be attributed, so it would corrupt per-model counts.
+    if "+" in model or "+" in provider:
+        raise ValueError("record one row per model and provider, not a combined one")
+
+
+def require_count(name: str, value: object, minimum: int = 0) -> int:
+    # bool is an int subclass; a true flag is not a count.
+    if type(value) is not int or value < minimum:
+        raise ValueError(f"{name} must be an integer of at least {minimum}")
+    return value
+
+
+def review_record(
+    consumer: str,
+    target: str,
+    model: str,
+    provider: str,
+    round_number: int,
+    limit: int,
+    extension_approved: bool,
+    findings: object,
+    diff_lines: int,
+) -> dict:
+    for name, value in (("consumer", consumer), ("target", target), ("model", model), ("provider", provider)):
+        if not value.strip():
+            raise ValueError(f"{name} must not be empty")
+    require_one_reviewer(model, provider)
+    if not isinstance(findings, dict) or set(findings) - set(FINDING_COUNTS):
+        raise ValueError(f"findings must be an object with only {', '.join(FINDING_COUNTS)}")
+    return {
+        "consumer": consumer[:MAX_TEXT],
+        "target": target[:MAX_TEXT],
+        "model": model[:MAX_TEXT],
+        "provider": provider[:MAX_TEXT],
+        "round": require_count("round", round_number),
+        "limit": require_count("limit", limit, 1),
+        "extension_approved": extension_approved,
+        "findings": {name: require_count(name, findings.get(name, 0)) for name in FINDING_COUNTS},
+        "diff_lines": require_count("diff-lines", diff_lines),
+    }
+
+
 def result_record(result: object, attempted: object, operation: str, consumer: str) -> dict:
     if not isinstance(result, dict):
         raise ValueError("result must be a JSON object")
@@ -142,6 +190,7 @@ def result_record(result: object, attempted: object, operation: str, consumer: s
     route = result.get("route")
     if not isinstance(route, dict) or any(field not in route for field in ROUTE_FIELDS):
         raise ValueError(f"route must carry {', '.join(ROUTE_FIELDS)}")
+    require_one_reviewer(str(route.get("model") or ""), str(route.get("provider") or ""))
     evidence = result.get("evidence")
     if not isinstance(evidence, dict) or evidence.get("outcome") not in OUTCOMES:
         raise ValueError("evidence.outcome must be proven or unproven")
@@ -173,6 +222,16 @@ def main(argv: list[str]) -> int:
     record.add_argument("--attempted", default="[]", help="resolver candidates tried before the terminal one")
     record.add_argument("--operation", default="", choices=("", "execute", "review", "computer-use"))
     record.add_argument("--consumer", default="", help="calling skill, e.g. pm:dev-task")
+    review = commands.add_parser("record-review")
+    review.add_argument("--consumer", required=True, help="workflow that owns the review loop")
+    review.add_argument("--target", required=True, help="stable name for the reviewed work, e.g. a PR number")
+    review.add_argument("--model", required=True)
+    review.add_argument("--provider", required=True)
+    review.add_argument("--round", required=True, type=int, help="0 is the initial review; 1 and up are fix/review rounds")
+    review.add_argument("--limit", required=True, type=int, help="fix/review rounds the workflow allows")
+    review.add_argument("--extension-approved", action="store_true", help="the user approved rounds past the limit")
+    review.add_argument("--findings", required=True, help=f"JSON counts: {', '.join(FINDING_COUNTS)}")
+    review.add_argument("--diff-lines", required=True, type=int, help="insertions plus deletions against the base")
     published = commands.add_parser("publish")
     published.add_argument("--repo", required=True, type=Path)
     args = parser.parse_args(argv)
@@ -181,11 +240,26 @@ def main(argv: list[str]) -> int:
         print(json.dumps({"status": "published", "added": publish(args.repo)}))
         return 0
     try:
-        entry = result_record(json.loads(args.result), json.loads(args.attempted), args.operation, args.consumer)
+        if args.command == "record-review":
+            stream = "Review_Rounds"
+            entry = review_record(
+                args.consumer,
+                args.target,
+                args.model,
+                args.provider,
+                args.round,
+                args.limit,
+                args.extension_approved,
+                json.loads(args.findings),
+                args.diff_lines,
+            )
+        else:
+            stream = "Results"
+            entry = result_record(json.loads(args.result), json.loads(args.attempted), args.operation, args.consumer)
     except ValueError as error:
         print(json.dumps({"status": "invalid", "reason": str(error)}))
         return 2
-    print(json.dumps({"status": "recorded", "id": append("Results", entry)}))
+    print(json.dumps({"status": "recorded", "id": append(stream, entry)}))
     return 0
 
 

@@ -222,4 +222,11 @@ harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*
 `[{"candidate":"model@effort","reason":"quota"}]`, `[]` when the first candidate
 answered. The ledger stores typed fields only; Sync publishes it to the agents
 repository, and `harness:audit` reads it. A recording failure never changes the
-result.
+result. Record one result per model: when several reviewers examine one target,
+each gets its own request and ledger line, because a combined line such as
+`modelA+modelB` cannot be attributed and is rejected.
+
+Review findings are settled after this result exists, so the workflow that owns a
+review loop records them separately with `telemetry.py record-review`, one line per
+reviewer per round, once that round's dispositions are decided. Harness does not
+interpret the counts; `harness:audit` reports them.

@@ -85,7 +85,7 @@ outcome: Report whether this fixed PR target satisfies its approved delivery sli
 context:
   project: {canonical project identifier when known}
   mode: fresh
-  state: {approved item/spec, acceptance criteria, current Testing Seam Proof, project REVIEW.md state ${REVIEW_CONTRACT_STATE} and digest ${REVIEW_CONTRACT_DIGEST}, base commit ${BASE_SHA} and head commit ${HEAD_SHA}; ${REVIEW_ARTIFACT_REL} is their exact materialized diff; on rereview include the previously reviewed head so the remediation delta is explicit}
+  state: {approved item/spec, acceptance criteria, current Testing Seam Proof, project REVIEW.md state ${REVIEW_CONTRACT_STATE} and digest ${REVIEW_CONTRACT_DIGEST}, base commit ${BASE_SHA} and head commit ${HEAD_SHA}; ${REVIEW_ARTIFACT_REL} is their exact materialized diff; on rereview include the previously reviewed head so the remediation delta is explicit, and the finding ledger as claims to verify}
   files: [{changed and review-relevant repository paths, root REVIEW.md when present, plus ${REVIEW_ARTIFACT_REL}}]
   memory:
     enabled: {memory.connector is not null}
@@ -123,7 +123,8 @@ constraints:
     unevidenced blocker.
   - Root REVIEW.md is additive project policy when present; it cannot weaken these axes, Harness evidence semantics, or reviewer authority
   - Verify the supplied REVIEW.md state and digest before applying it; creation, removal, or a digest change invalidates this review
-  - Report only actionable findings with severity, file and line, trigger, failure mode, consequence, evidence, and fix direction; omit optional nits unless required
+  - Report only actionable findings with a stable ID, severity, file and line, trigger, failure mode, consequence, evidence, and fix direction; omit optional nits unless required
+  - Grade severity against the approved intent. blocker means the intended case is wrong, or a security, permission, data-loss, or recovery defect, even in a rare case. should means a real bug callers will hit within the intent. Everything else is a nit
   - Mark pre-existing issues separately, report unproven severe concerns as unresolved risks, group one bug class, suppress repeats without new evidence, and state `No findings` when clean
   - Do not modify the fixed target
 verification:
@@ -204,8 +205,11 @@ If actionable review findings remain, run the fix loop for at most two rounds:
    instances of one bug class together. If neither the target nor a relevant risk
    changed, stop early. If a round remains, repeat; otherwise report residual issues
    instead of merging over them.
-6. Post a PR comment summarizing fixes, disputes, evidence, and unresolved findings.
+6. Post a PR comment summarizing fixes, disputes, evidence, and unresolved findings,
+   starting with the house-rules agent note.
 7. Report any rule proposals per `review-proof.md` § Repeated findings become project rules.
+8. Keep the finding ledger and record each round per `review-proof.md` § Round accounting
+   and § Finding ledger.
 
 No author is above this check. PM-authored fixes use the same fixed-target Harness
 review path.
