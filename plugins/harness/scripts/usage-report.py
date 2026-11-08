@@ -580,7 +580,13 @@ def report(args: argparse.Namespace) -> dict:
     # A reviewer that ran checks and returned findings records `failed`; a run with no
     # checks at all is an executor or adapter failure.
     failed = Counter(review_changes_requested=0, no_checks=0, other=0)
+    # "reason" or "reason/executor" -> the context that ran harness:delegate -> count.
+    fallback_causes: dict[str, Counter] = defaultdict(Counter)
     for record in results:
+        for attempt in record.get("attempted") or []:
+            if isinstance(attempt, dict):
+                cause = "/".join(str(attempt[k]) for k in ("reason", "executor") if attempt.get(k))
+                fallback_causes[cause or "unknown"][record.get("context") or "unknown"] += 1
         route = (record.get("route") or {}).get("requested") or "unknown"
         by_route[route][f"{record.get('status')}/{record.get('outcome')}"] += 1
         if record.get("status") == "failed":
@@ -638,6 +644,7 @@ def report(args: argparse.Namespace) -> dict:
         "results": {
             "total": len(results),
             "fallbacks": sum(1 for r in results if r.get("attempted")),
+            "fallback_causes": {cause: dict(counts) for cause, counts in sorted(fallback_causes.items())},
             "by_route": {route: dict(counts) for route, counts in sorted(by_route.items())},
             "failed": dict(failed),
         },

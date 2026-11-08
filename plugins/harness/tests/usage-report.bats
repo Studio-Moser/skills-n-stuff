@@ -236,6 +236,29 @@ assert r["delegate"]["local"]["results"] == 4, r["delegate"]
   [ "$status" -eq 0 ]
 }
 
+@test "usage report groups fallbacks by cause and the context that delegated" {
+  result() { "$SCRIPTS/telemetry.py" record-result --attempted "$1" ${2:+--context "$2"} --result '{"status":"accepted","route":{"requested":"bulk","model":"m","effort":"low","provider":"p","executor":"native","dispatch":"delegated"},"evidence":{"checks":["ok"],"outcome":"proven"},"blockers":[]}' >/dev/null; }
+  result '[{"candidate":"sol@low","reason":"missing_executor","executor":"codex"}]' claude-worker
+  result '[{"candidate":"sol@low","reason":"missing_executor","executor":"codex"}]' claude-worker
+  result '[{"candidate":"sol@low","reason":"missing_executor"}]'
+  result '[{"candidate":"sol@low","reason":"rate_limit"}]' codex-main
+  result '[]' claude-main
+  run "$SCRIPTS/usage-report.py" --days 30
+  [ "$status" -eq 0 ]
+  run python3 -c '
+import json, sys
+r = json.loads(sys.argv[1])["results"]
+assert r["fallbacks"] == 4, r
+assert r["fallback_causes"] == {
+    "missing_executor": {"unknown": 1},
+    "missing_executor/codex": {"claude-worker": 2},
+    "rate_limit": {"codex-main": 1},
+}, r["fallback_causes"]
+' "$output"
+  if [ "$status" -ne 0 ]; then printf '%s\n' "$output" >&2; fi
+  [ "$status" -eq 0 ]
+}
+
 @test "error classes are anchored to the failure, not to words in printed output" {
   run python3 -c '
 import importlib.util, sys

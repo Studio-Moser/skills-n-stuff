@@ -114,8 +114,20 @@ YAML
   [ "$status" -eq 0 ]
   assert_result '(
       result["status"], result["candidate"], result["provider"],
-      result["executor"], result["reason"]
-  ) == ("fallback", "gpt-5.6-sol@high", "openai", "native", "missing_executor")'
+      result["executor"], result["reason"], result["missing_executors"]
+  ) == ("fallback", "gpt-5.6-sol@high", "openai", "native", "missing_executor",
+        {"claude-fable-5@high": ""})'
+}
+
+@test "a skipped candidate names the executor that was not callable" {
+  run "$SCRIPT" select --rubric "$RUBRIC" --state "$STATE" \
+    --route default --native-provider anthropic --executors "" \
+    --now 2026-08-25T12:00:00Z
+  [ "$status" -ne 0 ]
+  assert_result '(
+      result["status"] == "blocked"
+      and result["missing_executors"] == {"gpt-5.6-sol@high": "codex"}
+  )'
 }
 
 @test "callable non-native via executor resolves selection" {

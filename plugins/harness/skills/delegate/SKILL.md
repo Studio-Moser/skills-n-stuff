@@ -214,13 +214,18 @@ harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*
 "$harness/scripts/telemetry.py" record-result \
   --operation "$HARNESS_OPERATION" \
   --consumer "$HARNESS_CONSUMER" \
+  --context "$HARNESS_CONTEXT" \
   --attempted "$HARNESS_ATTEMPTED_REASONS" \
   --result "$HARNESS_RESULT_JSON"
 ```
 
 `HARNESS_ATTEMPTED_REASONS` is a JSON list such as
 `[{"candidate":"model@effort","reason":"quota"}]`, `[]` when the first candidate
-answered. The ledger stores typed fields only; Sync publishes it to the agents
+answered. For each candidate in the final selection's `missing_executors`, add
+`{"candidate":"model@effort","reason":"missing_executor","executor":"<name>"}`
+with the executor it names there. `HARNESS_CONTEXT` is `claude-main` or
+`codex-main` in a top-level session and `claude-worker` or `codex-worker` inside a
+subagent or delegated worker, so the audit can tell where an executor was missing. The ledger stores typed fields only; Sync publishes it to the agents
 repository, and `harness:audit` reads it. A recording failure never changes the
 result. Record one result per model: when several reviewers examine one target,
 each gets its own request and ledger line, because a combined line such as

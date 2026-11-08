@@ -231,12 +231,15 @@ def state_for_selection(path: Path) -> Iterator[dict]:
 
 
 def blocked(message: str, attempted: list[str] | None = None,
-            skipped: list[str] | None = None) -> None:
+            skipped: list[str] | None = None,
+            missing: dict[str, str] | None = None) -> None:
     result: dict[str, object] = {"status": "blocked", "blockers": [message]}
     if attempted is not None:
         result["attempted"] = attempted
     if skipped:
         result["skipped"] = skipped
+    if missing:
+        result["missing_executors"] = missing
     compact_json(result)
 
 
@@ -488,6 +491,8 @@ def select(args: argparse.Namespace) -> int:
             raise Blocked("active candidate provider does not match native provider")
 
     skipped: list[str] = []
+    # Skipped candidate -> the executor its row names that is not callable here.
+    missing: dict[str, str] = {}
     fallback_reason: str | None = None
 
     path = state_path(args.state)
@@ -528,11 +533,14 @@ def select(args: argparse.Namespace) -> int:
                     result["reason"] = fallback_reason
                 if skipped:
                     result["skipped"] = skipped
+                if missing:
+                    result["missing_executors"] = missing
                 compact_json(result)
                 return 0
             executor, reason = resolve_executor(row, args.native_provider, executors)
             if executor is None:
                 skipped.append(ref)
+                missing[ref] = str(row.get("via") or "")
                 fallback_reason = fallback_reason or reason
                 continue
 
@@ -566,12 +574,14 @@ def select(args: argparse.Namespace) -> int:
                 result["reason"] = fallback_reason
             if skipped:
                 result["skipped"] = skipped
+            if missing:
+                result["missing_executors"] = missing
             if probe:
                 result["probe"] = True
             compact_json(result)
             return 0
 
-    blocked(f"no eligible {args.route} candidate remains", attempted, skipped)
+    blocked(f"no eligible {args.route} candidate remains", attempted, skipped, missing)
     return EXIT_BLOCKED
 
 
