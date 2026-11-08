@@ -62,7 +62,7 @@
         "triage",
         "sprint"
       ],
-      "version": "0.28.0"
+      "version": "0.28.1"
     },
     {
       "name": "harness",
