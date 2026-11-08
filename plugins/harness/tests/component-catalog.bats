@@ -41,10 +41,10 @@ for item in items:
             if not item.get(field):
                 failures.append(f"{cid}: shims need {field}")
     detector = item.get("detector", "none")
-    if detector.startswith("regex:"):
-        re.compile(detector[len("regex:"):])
+    if detector.startswith(("regex:", "command:")):
+        re.compile(detector.partition(":")[2])
     elif detector != "none" and not detector.startswith("events:"):
-        failures.append(f"{cid}: detector must be none, regex:, or events:")
+        failures.append(f"{cid}: detector must be none, regex:, command:, or events:")
     check_anchor(cid, item.get("source", ""), item.get("anchor", ""))
     for other in item.get("also", []):
         check_anchor(cid, other.get("source", ""), other.get("anchor", ""))
@@ -70,6 +70,39 @@ assert pattern.search("I've classified this as a Small change.")
 assert pattern.search("This is Feature-class work, so I'll plan first.")
 assert not pattern.search("This is a small fix to the parser.")
 assert not pattern.search("The feature flag is off.")
+PY
+  if [ "$status" -ne 0 ]; then printf '%s\n' "$output" >&2; fi
+  [ "$status" -eq 0 ]
+}
+
+@test "the messages-via-file detector flags inline messages and ignores message files" {
+  run python3 - "$PLUGIN" <<'PY'
+from pathlib import Path
+import re
+import sys
+import tomllib
+
+plugin = Path(sys.argv[1])
+items = {i["id"]: i for i in tomllib.loads((plugin / "Component_Catalog.toml").read_text())["component"]}
+pattern = re.compile(items["messages-via-file"]["detector"][len("command:"):])
+for command in (
+    'git commit -m "fix: x"',
+    'git -C repo commit -am "x"',
+    'git commit --message=x',
+    'cd x && git commit -m "$(cat <<EOF\nmsg\nEOF\n)"',
+    'gh pr create --title t --body "b"',
+    'gh pr comment 5 -b hi',
+):
+    assert pattern.search(command), command
+for command in (
+    "git commit -F /tmp/msg.txt",
+    "git commit --amend --no-edit",
+    "gh pr create --title t --body-file body.md",
+    "gh pr create -B main --body-file body.md",
+    "git log -m",
+    "git commit -F msg.txt && echo -m",
+):
+    assert not pattern.search(command), command
 PY
   if [ "$status" -ne 0 ]; then printf '%s\n' "$output" >&2; fi
   [ "$status" -eq 0 ]

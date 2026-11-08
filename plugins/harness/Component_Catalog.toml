@@ -15,7 +15,8 @@
 #                              the catalog test fails when an anchor disappears.
 #   also                       other places stating the same rule (duplicates to merge).
 #   added_for, retire_test     required for shims: why it exists and what proves it can go.
-#   detector                   none | regex:<pattern> (assistant text) | events:<shim id>.
+#   detector                   none | regex:<pattern> (assistant text) | command:<pattern>
+#                              (shell commands, one hit per command) | events:<shim id>.
 #
 # New behavior rules, shims, and hooks get an entry when they are added.
 
@@ -405,4 +406,5 @@ also = [
 ]
 added_for = "A heredoc inside $(...) fails on macOS bash 3.2 when a commit message or PR body contains an apostrophe."
 retire_test = "Retire when agents no longer run commit and PR commands under bash 3.2, or stop using a heredoc inside $(...)."
-detector = "none"
+# Counts commit and PR commands that pass the message inline instead of from a file.
+detector = '''command:\bgit\s+(?:-C\s+\S+\s+)?commit\b[^\n;&|]*?\s(?:-[a-zA-Z]*m|--message)(?![\w-])|\bgh\s+(?:pr|issue)\s+(?:create|comment|edit|review)\b[^\n;&|]*?\s(?:--body|-b)(?![\w-])'''

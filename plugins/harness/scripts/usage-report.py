@@ -9,7 +9,7 @@ models and machines. Interpretation belongs to the harness:audit playbook.
 Sections: sessions, skills (Claude Skill tool + slash commands, Codex skill
 injections and SKILL.md reads), unused installed skills, commands, tool calls
 (each call id once), error classes overall and by tool, compactions and their
-idle/in-session split, catalog regex detector hits, shim firings, delegation
+idle/in-session split, catalog detector hits, shim firings, delegation
 results with failures split by cause, review rounds, delegate invocations versus
 recorded results (all hosts and this host), sequence patterns in Claude sessions,
 and tokens by model (Claude main sessions and sub-agents, Codex sessions by source;
@@ -281,22 +281,24 @@ def installed_skills(claude: Path) -> set[str]:
     return names
 
 
-def load_detectors(catalog: Path) -> tuple[dict[str, re.Pattern], str]:
+def load_detectors(catalog: Path) -> tuple[dict[str, re.Pattern], dict[str, re.Pattern], str]:
+    """Text detectors match assistant text; command detectors match shell commands."""
     try:
         import tomllib
     except ImportError:
         # shortcut: Python < 3.11 has no tomllib; detectors are skipped there.
-        return {}, "unavailable: Python 3.11+ required to read the catalog"
+        return {}, {}, "unavailable: Python 3.11+ required to read the catalog"
     try:
         data = tomllib.loads(catalog.read_text(encoding="utf-8"))
     except (OSError, ValueError) as error:
-        return {}, f"unavailable: {type(error).__name__}"
-    detectors = {}
+        return {}, {}, f"unavailable: {type(error).__name__}"
+    text, command = {}, {}
     for item in data.get("component", []):
         detector = str(item.get("detector") or "")
-        if detector.startswith("regex:"):
-            detectors[item["id"]] = re.compile(detector[len("regex:") :])
-    return detectors, "loaded"
+        kind, _, pattern = detector.partition(":")
+        if kind in ("regex", "command") and pattern:
+            (text if kind == "regex" else command)[item["id"]] = re.compile(pattern)
+    return text, command, "loaded"
 
 
 def claude_transcripts(root: Path, window: Window) -> list[Path]:
@@ -416,7 +418,7 @@ def report(args: argparse.Namespace) -> dict:
     projects = args.projects or claude / "projects"
     codex_root = args.codex_sessions or Path(os.environ.get("CODEX_HOME", Path.home() / ".codex")).expanduser() / "sessions"
     repo = args.repo or Path(os.environ.get("AGENTS_REPO", Path.home() / ".agents")).expanduser()
-    detectors, catalog_state = load_detectors(args.catalog)
+    detectors, command_detectors, catalog_state = load_detectors(args.catalog)
     installed = installed_skills(claude)
 
     sessions = Counter()
@@ -505,7 +507,10 @@ def report(args: argparse.Namespace) -> dict:
                             skills[name]["claude_tool"] += 1
                             delegate_calls += name == "harness:delegate"
                         elif block.get("name") == "Bash":
-                            record_calls += bool(RECORD_RESULT.search(str(tool_input.get("command") or "")))
+                            command = str(tool_input.get("command") or "")
+                            record_calls += bool(RECORD_RESULT.search(command))
+                            for component, pattern in command_detectors.items():
+                                detector_hits[component] += bool(pattern.search(command))
                         sequences.use(block)
         sequences.end_turn()
         sessions["claude"] += active
@@ -553,6 +558,8 @@ def report(args: argparse.Namespace) -> dict:
                         codex_names[str(payload["call_id"])] = str(payload.get("name") or "")
                     call = str(payload.get("arguments") or payload.get("input") or "")
                     record_calls += bool(RECORD_RESULT.search(call))
+                    for component, pattern in command_detectors.items():
+                        detector_hits[component] += bool(pattern.search(call))
                     for plugin, name in SKILL_PATH.findall(call):
                         loaded.add(f"{plugin}:{name}" if plugin else name)
                 elif item in ("function_call_output", "custom_tool_call_output"):
