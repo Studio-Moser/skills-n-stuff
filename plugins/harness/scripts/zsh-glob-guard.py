@@ -49,8 +49,8 @@ class Uncertain(Exception):
 def unquoted_words(command: str) -> list[tuple[str, bool]]:
     """Split into shell words; each carries whether it has an unquoted glob character.
 
-    Skips comments, heredoc bodies, `${...}`, `$((...))`, `((...))`, `$?`, and
-    `[[ ... ]]` conditions, where zsh does not filename-generate. Raises Uncertain for
+    Skips comments, heredoc bodies, `$((...))`, `((...))`, and `[[ ... ]]` conditions,
+    where zsh does not filename-generate; `${...}` and `$?` stay in the word as text. Raises Uncertain for
     a command substitution inside double quotes, whose nested quoting it cannot track.
     """
     words: list[tuple[str, bool]] = []
@@ -103,7 +103,9 @@ def unquoted_words(command: str) -> list[tuple[str, bool]]:
             i = n if end < 0 else end + 2
             continue
         if char == "$" and command.startswith("${", i):
+            # Kept as text so the caller sees a variable, not the bare path around it.
             end = command.find("}", i)
+            word.append(command[i:] if end < 0 else command[i : end + 1])
             i = n if end < 0 else end + 1
             continue
         if char == "$" and i + 1 < n and command[i + 1] in "?*#@$!-0123456789":
@@ -148,38 +150,60 @@ def unquoted_words(command: str) -> list[tuple[str, bool]]:
     return words
 
 
+def expand(word: str, cwd: str) -> str:
+    """Substitute the two variables whose values the hook knows; any other `$` stays."""
+    home = os.path.expanduser("~")
+    for name, value in (("HOME", home), ("PWD", cwd)):
+        word = word.replace("${" + name + "}", value)
+        word = re.sub(rf"\${name}(?![A-Za-z0-9_])", lambda _match: value, word)
+    return os.path.expanduser(word)
+
+
 def unmatched_globs(command: str, cwd: str) -> list[str]:
     try:
         words = unquoted_words(command)
     except Uncertain:
         return []
     misses = []
-    moved = False
+    # The directory later words run in; None once it can no longer be known. A subshell
+    # `( cd x ... )` restores the directory where the word list cannot see it.
+    base: str | None = cwd
     at_start, declaring = True, False
-    for word, globbed in words:
+    for index, (word, globbed) in enumerate(words):
         if word == SEP:
             at_start, declaring = True, False
             continue
         # A case pattern (`*.md)`) is matched against a string, never against files.
         if at_start and word == "case":
             return []
+        command_word = at_start
         assignment = bool(ASSIGNMENT.match(word)) and (at_start or declaring)
         if at_start and not assignment:
             at_start, declaring = False, word in DECLARING
         if word in ("cd", "pushd", "popd"):
-            moved = True
-        if not globbed or "$" in word or "`" in word or assignment:
+            following = words[index + 1][0] if index + 1 < len(words) else SEP
+            known = command_word and word != "popd" and following != SEP
+            target = expand(following, base or cwd) if known else ""
+            if "(" in command or base is None or not target or "$" in target or target.startswith("-"):
+                base = None if not (target and os.path.isabs(target) and "(" not in command) else target
+            else:
+                base = os.path.normpath(os.path.join(base, target))
+            if base is not None and not os.path.isdir(base):
+                base = None
+        if not globbed or "`" in word or assignment:
+            continue
+        pattern = expand(word, base or cwd)
+        if "$" in pattern:
             continue
         # shortcut: recursive globs are skipped to keep the hook fast in large trees.
         if "**" in word:
             continue
-        # shortcut: after a `cd` the directory is unknown, so only absolute patterns and
-        # options (which never name files) are checked. Upgrade path: track `cd DIR &&`.
-        pattern = os.path.expanduser(word)
-        if moved and not os.path.isabs(pattern) and not word.startswith("-"):
+        # Once the directory is unknown, only absolute patterns and options (which never
+        # name files) are checked.
+        if base is None and not os.path.isabs(pattern) and not word.startswith("-"):
             continue
         if not os.path.isabs(pattern):
-            pattern = os.path.join(cwd, pattern)
+            pattern = os.path.join(base or cwd, pattern)
         if not glob.glob(pattern):
             misses.append(word)
     return misses
