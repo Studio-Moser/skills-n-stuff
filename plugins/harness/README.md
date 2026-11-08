@@ -27,7 +27,8 @@ The plugin is public and generic; the data is yours.
 - **`/harness:audit`** — answer questions about real usage and gaps: which skills
   and rules run, which shims still fire or could retire, how delegations turn out,
   and what keeps failing. It reads `scripts/usage-report.py`, the delegation ledger,
-  shim events, and `Component_Catalog.toml`.
+  shim events, and `Component_Catalog.toml`, and can grade a sample of sessions
+  against its two rubrics (avoidable repeated work, unsupported completion).
 
 ## Telemetry
 
@@ -346,7 +347,7 @@ and confirms a remote is private before the first push.
 | `scripts/rulesync-rehearse.py <version> [repo]` | diff this machine's generated config between the pinned and a candidate rulesync, in temporary HOMEs |
 | `scripts/agent-secrets.py set\|exec\|check\|copy-to\|import ...` | store secrets in this machine's secret store and hand them only to the process that needs them |
 | `scripts/telemetry.py record-result\|publish ...` | append delegation results and publish local telemetry into the repo's `telemetry/<host>/` |
-| `scripts/usage-report.py [--days N\|--month YYYY-MM\|--since DATE [--until DATE]]` | deterministic usage and token counts from transcripts and telemetry |
+| `scripts/usage-report.py [--days N\|--month YYYY-MM\|--since DATE [--until DATE]] [--flagged]` | deterministic usage, error, compaction, sequence-pattern, and token counts from transcripts and telemetry; `--flagged` lists the sessions behind each pattern |
 | `scripts/sync-finalize.sh <repo> <message>` | stage, scan, commit, exact-lease push, and prove a clean actual remote SHA once |
 
 ## Tests

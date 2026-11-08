@@ -75,7 +75,7 @@ assert r["tool_errors"] == {"claude": {"zsh-nomatch": 1}, "codex": {"zsh-nomatch
 assert r["compactions"] == {"claude-manual": 1, "codex": 1}, r["compactions"]
 assert r["shim_firings"] == {"zsh-glob-guard": 1}, r["shim_firings"]
 assert r["results"]["total"] == 1 and r["results"]["by_route"] == {"bulk": {"accepted/proven": 1}}, r["results"]
-assert r["delegate"] == {"invocations": 2, "recorded_results": 1}, r["delegate"]
+assert {k: r["delegate"][k] for k in ("invocations", "recorded_results")} == {"invocations": 2, "recorded_results": 1}, r["delegate"]
 try:
     import tomllib  # noqa: F401
 except ImportError:
@@ -106,6 +106,187 @@ assert r["by_model"]["opus"]["disputed"] == 1 and r["by_model"]["opus"]["regrade
 assert r["unapproved_over_limit"] == ["pm:dev-task #2"], r
 assert r["diff_growth"] == {"pm:dev-task #1": {"first": 100, "last": 140}}, r
 ' "$output"
+  if [ "$status" -ne 0 ]; then printf '%s\n' "$output" >&2; fi
+  [ "$status" -eq 0 ]
+}
+
+write_session_fixture() {
+  python3 - "$CLAUDE_CONFIG_DIR/projects/p" <<'PY'
+import json, pathlib, sys
+claude = pathlib.Path(sys.argv[1])
+def at(minute):
+    return f"2026-10-10T{minute // 60:02d}:{minute % 60:02d}:00Z"
+def human(minute, text):
+    return {"type": "user", "timestamp": at(minute), "message": {"role": "user", "content": text}}
+def call(minute, use_id, name, tool_input):
+    return {"type": "assistant", "timestamp": at(minute), "message": {"content": [
+        {"type": "tool_use", "id": use_id, "name": name, "input": tool_input}]}}
+def bash(minute, use_id, command, description="run"):
+    return call(minute, use_id, "Bash", {"command": command, "description": description})
+def result(minute, use_id, text, error=False):
+    block = {"type": "tool_result", "tool_use_id": use_id, "content": text}
+    if error:
+        block["is_error"] = True
+    return {"type": "user", "timestamp": at(minute), "message": {"content": [block]}}
+def say(minute, text):
+    return {"type": "assistant", "timestamp": at(minute), "message": {"content": [{"type": "text", "text": text}]}}
+def boundary(minute, trigger, pre_tokens):
+    return {"type": "system", "subtype": "compact_boundary", "timestamp": at(minute),
+            "compactMetadata": {"trigger": trigger, "preTokens": pre_tokens}}
+records = [
+    human(0, "fix the failing test"),
+    bash(1, "b1", "npm test"),
+    bash(1, "b1", "npm test"),  # a duplicated record of one call counts once
+    result(1, "b1", "Exit code 1\nconfig: Timeout setting is 5", error=True),
+    result(1, "b1", "Exit code 1\nconfig: Timeout setting is 5", error=True),
+    bash(2, "b2", "npm  test", "run again"),  # same command, different description
+    result(2, "b2", "Exit code 1", error=True),
+    bash(3, "b3", "npm test"),
+    result(3, "b3", "Exit code 1", error=True),
+    call(4, "e1", "Edit", {"file_path": "a.js", "old_string": "x", "new_string": "y"}),
+    result(4, "e1", "ok"),
+    bash(5, "b4", "npm run test"),
+    result(5, "b4", "1 passed"),
+    bash(6, "b5", "npm run test"),
+    result(6, "b5", "1 passed"),
+    call(6, "n1", "Write", {"file_path": "/x/memory/notes.md", "content": "a note does not invalidate the check"}),
+    result(6, "n1", "ok"),
+    call(7, "m1", "mcp__github__update_issue", {"issue": 1}),
+    result(7, "m1", "Error: Authentication Failed: Requires authentication", error=True),
+    call(8, "r1", "Read", {"file_path": "missing.md"}),
+    result(8, "r1", "File does not exist. Note: your current working directory is /x", error=True),
+    bash(9, "t1", "sleep 999"),
+    result(9, "t1", "Exit code 143\nCommand timed out after 2m 0s", error=True),
+    bash(10, "w1", "\"$h/scripts/telemetry.py\" record-result --result x"),
+    result(10, "w1", "ok"),
+    say(11, "All tests pass, done."),
+    boundary(70, "manual", 300000),
+    human(80, "now tweak the copy"),
+    call(81, "e2", "Write", {"file_path": "b.js", "content": "z"}),
+    result(81, "e2", "ok"),
+    say(82, "Fixed; the tests pass now."),
+    boundary(83, "manual", 200000),
+    boundary(84, "auto", 900000),
+]
+(claude / "s2.jsonl").write_text("".join(json.dumps(r) + "\n" for r in records))
+PY
+}
+
+@test "usage report dedupes calls, classifies errors by tool, and splits compactions" {
+  write_session_fixture
+  run "$SCRIPTS/usage-report.py" --since 2026-10-10 --until 2026-10-12
+  [ "$status" -eq 0 ]
+  run python3 -c '
+import json, sys
+r = json.loads(sys.argv[1])
+assert r["tool_calls"] == {"claude": 12}, r["tool_calls"]
+assert r["tool_errors"]["claude"] == {"nonzero-exit": 3, "mcp-auth": 1, "missing-file": 1, "timeout": 1}, r["tool_errors"]
+by_tool = r["tool_errors_by_tool"]["claude"]
+assert by_tool["Bash"] == {"nonzero-exit": 3, "timeout": 1}, by_tool
+assert by_tool["mcp:github"] == {"mcp-auth": 1} and by_tool["Read"] == {"missing-file": 1}, by_tool
+assert r["compactions"] == {"claude-manual": 2, "claude-auto": 1}, r["compactions"]
+detail = r["compaction_detail"]["claude"]
+assert detail["manual_after_idle"] == 1 and detail["manual_in_session"] == 1 and detail["auto"] == 1, detail
+assert detail["pre_tokens"] == {"count": 3, "min": 200000, "median": 300000, "max": 900000}, detail
+assert r["delegate"]["local"] == {"skill_loads": 0, "record_calls": 1, "results": 0}, r["delegate"]
+assert "flagged_sessions" not in r, "session ids appear only on request"
+' "$output"
+  if [ "$status" -ne 0 ]; then printf '%s\n' "$output" >&2; fi
+  [ "$status" -eq 0 ]
+}
+
+@test "usage report counts sequence patterns and lists flagged sessions on request" {
+  write_session_fixture
+  run "$SCRIPTS/usage-report.py" --since 2026-10-10 --until 2026-10-12 --flagged
+  [ "$status" -eq 0 ]
+  run python3 -c '
+import json, sys
+r = json.loads(sys.argv[1])
+s = r["sequences"]["claude"]
+assert s["repeated_failure"] == {"events": 1, "sessions": 1}, s
+assert s["recovered_failure"] == {"events": 1, "sessions": 1}, s
+assert s["verification_rerun"] == {"events": 1, "sessions": 1}, s
+assert s["unsupported_completion"] == {"events": 1, "sessions": 1}, s
+assert r["flagged_sessions"] == {kind: ["s2"] for kind in s}, r["flagged_sessions"]
+' "$output"
+  if [ "$status" -ne 0 ]; then printf '%s\n' "$output" >&2; fi
+  [ "$status" -eq 0 ]
+}
+
+@test "usage report separates review changes requested from failures without checks" {
+  result() { "$SCRIPTS/telemetry.py" record-result --operation "$1" --result "{\"status\":\"$2\",\"route\":{\"requested\":\"review\",\"model\":\"m\",\"effort\":\"low\",\"provider\":\"p\",\"executor\":\"codex\",\"dispatch\":\"delegated\"},\"evidence\":{\"checks\":$3,\"outcome\":\"unproven\"},\"blockers\":[\"x\"]}" >/dev/null; }
+  result review failed '["ran tests"]'
+  result review failed '[]'
+  result computer-use failed '["opened app"]'
+  result review accepted '["ran tests"]'
+  run "$SCRIPTS/usage-report.py" --days 30
+  [ "$status" -eq 0 ]
+  run python3 -c '
+import json, sys
+r = json.loads(sys.argv[1])
+assert r["results"]["failed"] == {"review_changes_requested": 1, "no_checks": 1, "other": 1}, r["results"]
+assert r["delegate"]["local"]["results"] == 4, r["delegate"]
+' "$output"
+  if [ "$status" -ne 0 ]; then printf '%s\n' "$output" >&2; fi
+  [ "$status" -eq 0 ]
+}
+
+@test "error classes are anchored to the failure, not to words in printed output" {
+  run python3 -c '
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("usage_report", sys.argv[1])
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+cases = {
+    "Exit code 1\nretry: Timeout is configurable": "nonzero-exit",
+    "locator.click: Timeout 30000ms exceeded.": "timeout",
+    "ssh: connect to host x port 22: Connection timed out": "timeout",
+    "(eval):1: no matches found: *.zzz": "zsh-nomatch",
+    "Exit code 1\nthe docs say no matches found is common": "nonzero-exit",
+    "The user doesn'"'"'t want to take this action right now.": "user-rejected",
+    "The tool call was interrupted before a result was received.": "interrupted",
+    "File access denied: /tmp/a.png is outside allowed roots.": "sandbox-path",
+    "<tool_use_error>Unknown skill: dino</tool_use_error>": "skill-unavailable",
+    "No browser is connected. Install the Browser MCP extension": "browser-disconnected",
+    "{\"error\": \"Credits insufficient : balance\"}": "quota",
+    "{\"code\":\"rate_limited\",\"status\":429}": "rate-limit",
+    "Blocked: sleep 60 followed by cat": "host-blocked",
+    "Exit code 1\nE   asyncio.TimeoutError": "nonzero-exit",
+    "Exit code 2\nFound 3 matches": "nonzero-exit",
+    "Found 2 matches of the string to replace, but replace_all is false.": "edit-mismatch",
+    "preview snapshot timed out after 15000ms": "timeout",
+}
+wrong = {text: (m.error_class(text), want) for text, want in cases.items() if m.error_class(text) != want}
+assert not wrong, wrong
+' "$SCRIPTS/usage-report.py"
+  if [ "$status" -ne 0 ]; then printf '%s\n' "$output" >&2; fi
+  [ "$status" -eq 0 ]
+}
+
+@test "checks and changes are read at command position" {
+  run python3 -c '
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("usage_report", sys.argv[1])
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+checks = {
+    "cd x && python3 -m unittest discover -s tests": True,
+    "FOO=1 npx vitest run": True,
+    "cd plugins/harness/tests && bats *.bats 2>&1 | tail -3": True,
+    "cat tests/x.bats": False,
+    "grep foo jest.config.js": False,
+}
+changes = {
+    "rm -f build/out.js && npm test": True,
+    "npx eslint --fix src": True,
+    "ruff format .": True,
+    "echo x > out.txt": True,
+    "git log --format=%h -3": False,
+    "git status 2>&1 | head": False,
+    "ls >/dev/null": False,
+}
+wrong = [c for c, want in checks.items() if m.is_check(c) != want]
+wrong += [c for c, want in changes.items() if m.is_change(c) != want]
+assert not wrong, wrong
+' "$SCRIPTS/usage-report.py"
   if [ "$status" -ne 0 ]; then printf '%s\n' "$output" >&2; fi
   [ "$status" -eq 0 ]
 }

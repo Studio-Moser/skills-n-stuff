@@ -4,13 +4,17 @@
 Counts only, never transcript content, so the same numbers can be compared across
 models and machines. Interpretation belongs to the harness:audit playbook.
 
-  usage-report.py [--days N | --month YYYY-MM | --since DATE [--until DATE]] [--local-only]
+  usage-report.py [--days N | --month YYYY-MM | --since DATE [--until DATE]] [--local-only] [--flagged]
 
 Sections: sessions, skills (Claude Skill tool + slash commands, Codex skill
-injections and SKILL.md reads), unused installed skills, commands, tool calls and
-error classes, compactions, catalog regex detector hits, shim firings, delegation
-results, review rounds, delegate invocations versus recorded results, and tokens by model (Claude
-main sessions and sub-agents, Codex sessions by source; this machine's transcripts only).
+injections and SKILL.md reads), unused installed skills, commands, tool calls
+(each call id once), error classes overall and by tool, compactions and their
+idle/in-session split, catalog regex detector hits, shim firings, delegation
+results with failures split by cause, review rounds, delegate invocations versus
+recorded results (all hosts and this host), sequence patterns in Claude sessions,
+and tokens by model (Claude main sessions and sub-agents, Codex sessions by source;
+this machine's transcripts only). --flagged adds the session ids behind each
+sequence pattern so an audit can sample them; Sync never passes it.
 
 Roots: --projects (${CLAUDE_CONFIG_DIR:-~/.claude}/projects), --codex-sessions
 (${CODEX_HOME:-~/.codex}/sessions), --repo (${AGENTS_REPO:-~/.agents}), --catalog
@@ -20,12 +24,14 @@ Roots: --projects (${CLAUDE_CONFIG_DIR:-~/.claude}/projects), --codex-sessions
 from __future__ import annotations
 
 import argparse
+import hashlib
 from collections import Counter, defaultdict
 import glob
 import json
 import os
 from pathlib import Path
 import re
+import statistics
 import sys
 from datetime import datetime, timedelta, timezone
 
@@ -39,22 +45,170 @@ SKILL_PATH = re.compile(
     r"(?:/plugins/cache/[^/\s\"']+/([^/\s\"']+)/[^/\s\"']+|/\.(?:claude|codex|agents))/skills/([A-Za-z0-9_.:-]+)/SKILL\.md"
 )
 NONZERO_EXIT = re.compile(r"(?:exit_code\\?\"?\s*:\s*|Process exited with code |Exit code:? )([1-9]\d*)")
+# Anchored to the failure message itself: a failing `cat` of a file that mentions
+# "Timeout" is a nonzero exit, not a timeout.
 ERROR_CLASSES = (
-    ("zsh-nomatch", re.compile(r"no matches found")),
+    ("zsh-nomatch", re.compile(r"(?:\(eval\)|zsh):\d+: no matches found")),
     ("command-not-found", re.compile(r"command not found")),
     ("permission-denied", re.compile(r"Permission denied|Operation not permitted")),
-    ("user-rejected", re.compile(r"doesn.t want to proceed|user rejected|was rejected", re.I)),
+    ("user-rejected", re.compile(r"doesn.t want to (?:proceed|take this action)|user rejected|was rejected", re.I)),
+    ("interrupted", re.compile(r"tool call was interrupted before a result|\[Request interrupted by user")),
     ("edit-read-order", re.compile(r"has not been read yet|modified since read")),
-    ("edit-mismatch", re.compile(r"String to replace not found|Found \d+ matches")),
-    ("timeout", re.compile(r"timed out|Timeout", re.I)),
+    ("edit-mismatch", re.compile(r"String to replace not found|Found \d+ matches of the string")),
+    ("missing-file", re.compile(r"(?:^|>)File does not exist\.", re.M)),
+    ("sandbox-path", re.compile(r"is outside allowed roots")),
+    ("skill-unavailable", re.compile(r"Unknown skill:|cannot be used with Skill tool")),
+    ("mcp-auth", re.compile(r"Authentication Failed: Requires authentication|AuthRequired")),
+    ("browser-disconnected", re.compile(r"No browser is connected|Click Allow in the Browser MCP")),
+    ("quota", re.compile(r"Credits insufficient|insufficient (?:credits|balance)", re.I)),
+    ("rate-limit", re.compile(r"\"code\":\s*\"rate_limited\"|rate limit(?:ed| exceeded)", re.I)),
+    ("host-blocked", re.compile(r"^Blocked: ", re.M)),
+    ("timeout", re.compile(r"Command timed out after|connect(?:ion)? timed out", re.I)),
 )
+# Timeouts a tool reports about itself. Inside a failing command's output they are
+# usually a test's own failure, so they count only when no exit code is present.
+TOOL_TIMEOUT = re.compile(r"timed out after \d|Timeout \d+ ?ms|TimeoutError|Operation timed out", re.I)
+
+# Sequence proxies. They choose sessions for an audit to sample; they are not verdicts.
+SEQUENCE_KINDS = ("repeated_failure", "recovered_failure", "verification_rerun", "unsupported_completion")
+# Matched at the start of each simple command, so `cat tests/x.bats` is not a check.
+SEGMENT = re.compile(r"&&|\|\||[;|\n]")
+LAUNCHER = re.compile(r"^(?:(?:\S+=\S*|time|npx|uv run|poetry run|bundle exec|(?:\S*/)?python3?(?:\.\d+)? -m)\s+)+")
+CHECK = re.compile(
+    r"^(?:\S*/)?(?:pytest|unittest|bats|vitest|jest|tsc|eslint|ruff|mypy|run-tests(?:\.sh)?|swift test"
+    r"|xcodebuild\b.*\btest\b|(?:npm|pnpm|yarn|bun) (?:run )?test|node --test|playwright test"
+    r"|cargo (?:test|check)|go (?:test|vet)|make (?:test|check))\b"
+)
+MUTATING_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
+CHANGE = re.compile(
+    r"^(?:rm|mv|cp|mkdir|touch|chmod|ln|patch|tee|sed -i|git (?:apply|checkout|switch|merge|rebase|reset|pull"
+    r"|cherry-pick|stash|am)|(?:npm|pnpm|yarn) (?:i|install|add))\b|\s--(?:fix|write)\b|(?<!-)\bformat\b(?!=)"
+)
+REDIRECT = re.compile(r"(?:^|[^\d&>])>>?\s*(?!&|/dev/null)[^\s&|;]")
+# Claims about a check's outcome, not every "done": design and media turns say "done"
+# with nothing to test.
+COMPLETION = re.compile(
+    r"\b(?:tests? (?:pass|passed|are passing)|(?:all|every) (?:\w+ )?(?:tests|checks) (?:pass|passed|green)"
+    r"|is fixed|now works|works now|verified)\b",
+    re.I,
+)
+# Notes, memory, and docs written after a passing check do not invalidate it.
+NOTE_FILE = re.compile(r"/memory/|\.(?:md|txt)$")
+RECORD_RESULT = re.compile(r"telemetry\.py\W+record-result")
+NOT_HUMAN = ("<local-command", "<task-notification", "<system-reminder", "This session is being continued")
+# T3 Code compacts a thread shortly before its one-hour prompt cache expires; Claude
+# Code records that /compact as trigger "manual".
+IDLE_COMPACTION = timedelta(minutes=50)
 
 
 def error_class(text: str) -> str:
     for name, pattern in ERROR_CLASSES:
         if pattern.search(text):
             return name
-    return "nonzero-exit" if NONZERO_EXIT.search(text) or "Exit code" in text else "other"
+    if NONZERO_EXIT.search(text) or "Exit code" in text:
+        return "nonzero-exit"
+    return "timeout" if TOOL_TIMEOUT.search(text) else "other"
+
+
+def tool_bucket(name: object) -> str:
+    """An MCP tool reports under its server, so one flaky server shows up as one source."""
+    name = str(name or "")
+    if name.startswith("mcp__"):
+        return "mcp:" + name.split("__")[1]
+    return name or "unknown"
+
+
+def is_human(obj: dict) -> bool:
+    if obj.get("type") != "user" or obj.get("isMeta") or obj.get("isCompactSummary"):
+        return False
+    content = (obj.get("message") or {}).get("content")
+    if isinstance(content, list):
+        if any(isinstance(b, dict) and b.get("type") == "tool_result" for b in content):
+            return False
+        content = " ".join(b.get("text") or "" for b in content if isinstance(b, dict))
+    text = content.lstrip() if isinstance(content, str) else ""
+    return bool(text) and not text.startswith(NOT_HUMAN)
+
+
+def simple_commands(command: str) -> list[str]:
+    return [LAUNCHER.sub("", part.strip()) for part in SEGMENT.split(command) if part.strip()]
+
+
+def is_check(command: str) -> bool:
+    return any(CHECK.search(part) for part in simple_commands(command))
+
+
+def is_change(command: str) -> bool:
+    return bool(REDIRECT.search(command)) or any(CHANGE.search(part) for part in simple_commands(command))
+
+
+def program(command: str) -> str:
+    """The program a Bash command runs, past env assignments and a leading `cd DIR &&`."""
+    words = command.split()
+    if words[:1] == ["cd"] and "&&" in words:
+        words = words[words.index("&&") + 1 :]
+    words = [w for w in words if "=" not in w] or [""]
+    return os.path.basename(words[0])
+
+
+class Sequences:
+    """Counts of four patterns in one Claude session: the same failing call three
+    times in the session; within a human turn, a failure followed by a changed,
+    successful call of the same tool and program; a passing check rerun with no change
+    since; and a claim that checks pass after file edits with no passing check after
+    the last edit, in a session that has a check to run."""
+
+    def __init__(self) -> None:
+        self.counts: Counter = Counter()
+        self.calls: dict[str, tuple[tuple[str, str], tuple[str, str], bool]] = {}
+        self.failures: Counter = Counter()
+        self.has_seam = False
+        self.begin_turn()
+
+    def begin_turn(self) -> None:
+        self.pending: dict[tuple[str, str], set] = {}
+        self.passed_check: tuple[str, str] | None = None
+        self.mutated = self.verified = False
+        self.claim = ""
+
+    def end_turn(self) -> None:
+        if self.has_seam and self.mutated and not self.verified and COMPLETION.search(self.claim):
+            self.counts["unsupported_completion"] += 1
+        self.begin_turn()
+
+    def use(self, block: dict) -> None:
+        name = str(block.get("name") or "")
+        tool_input = block.get("input") if isinstance(block.get("input"), dict) else {}
+        command = " ".join(str(tool_input.get("command") or "").split()) if name == "Bash" else ""
+        # A digest keeps a Write's whole file body out of memory.
+        digest = hashlib.sha1(json.dumps(tool_input, sort_keys=True, default=str).encode()).hexdigest()
+        key = (name, command if name == "Bash" else digest)
+        verify = bool(command) and is_check(command)
+        if name in MUTATING_TOOLS or (command and is_change(command)):
+            self.passed_check = None
+        if name in MUTATING_TOOLS and not NOTE_FILE.search(str(tool_input.get("file_path") or "")):
+            # Only file-edit tools count as edits a claim must follow: Bash writes are
+            # too often scratch files or merges of already tested code.
+            self.mutated, self.verified = True, False
+        if verify and key == self.passed_check:
+            self.counts["verification_rerun"] += 1
+        self.has_seam = self.has_seam or verify
+        self.calls[str(block.get("id"))] = ((name, program(command) if command else ""), key, verify)
+
+    def result(self, block: dict) -> None:
+        call = self.calls.get(str(block.get("tool_use_id")))
+        if call is None:
+            return
+        family, key, verify = call
+        if block.get("is_error"):
+            self.failures[key] += 1
+            self.counts["repeated_failure"] += self.failures[key] == 3
+            self.pending.setdefault(family, set()).add(key)
+            return
+        failed = self.pending.pop(family, set())
+        self.counts["recovered_failure"] += bool(failed) and key not in failed
+        if verify:
+            self.verified, self.passed_check = True, key
 
 
 def as_text(value: object) -> str:
@@ -270,30 +424,65 @@ def report(args: argparse.Namespace) -> dict:
     commands = Counter()
     tool_calls = Counter()
     errors: dict[str, Counter] = {"claude": Counter(), "codex": Counter()}
+    errors_by_tool: dict[str, dict[str, Counter]] = {"claude": defaultdict(Counter), "codex": defaultdict(Counter)}
     compactions = Counter()
+    compaction_split = Counter()
+    pre_tokens: list[int] = []
     detector_hits = Counter()
-    delegate_calls = 0
+    delegate_calls = record_calls = 0
+    sequence_events: Counter = Counter()
+    flagged: dict[str, list[str]] = defaultdict(list)
 
     for path in claude_transcripts(Path(projects), window):
         active = False
+        # A resumed or forked session can repeat a call's records; each call id counts once.
+        seen_uses: set[str] = set()
+        seen_results: set[str] = set()
+        call_names: dict[str, str] = {}
+        sequences = Sequences()
+        last_assistant: datetime | None = None
         for obj in read_jsonl(path):
+            if obj.get("type") == "assistant":
+                # Before the window filter: idle time can start before the window does.
+                last_assistant = parse_ts(obj.get("timestamp")) or last_assistant
             if not window.has(obj):
                 continue
             active = True
             message = obj.get("message") or {}
             content = message.get("content") if isinstance(message, dict) else None
             if obj.get("type") == "system" and obj.get("subtype") == "compact_boundary":
-                trigger = (obj.get("compactMetadata") or {}).get("trigger") or "unknown"
+                meta = obj.get("compactMetadata") or {}
+                trigger = meta.get("trigger") or "unknown"
                 compactions[f"claude-{trigger}"] += 1
+                if isinstance(meta.get("preTokens"), int):
+                    pre_tokens.append(meta["preTokens"])
+                if trigger == "manual":
+                    at = parse_ts(obj.get("timestamp"))
+                    idle = at is not None and last_assistant is not None and at - last_assistant >= IDLE_COMPACTION
+                    compaction_split["manual_after_idle" if idle else "manual_in_session"] += 1
+                else:
+                    compaction_split[trigger] += 1
             if obj.get("type") == "user":
                 for name in COMMAND_NAME.findall(as_text(content)):
                     if name in installed or ":" in name:
                         skills[name]["claude_slash"] += 1
                     else:
                         commands[name] += 1
+                if is_human(obj):
+                    sequences.end_turn()
                 for block in content if isinstance(content, list) else []:
-                    if isinstance(block, dict) and block.get("type") == "tool_result" and block.get("is_error"):
-                        errors["claude"][error_class(as_text(block.get("content")))] += 1
+                    if not isinstance(block, dict) or block.get("type") != "tool_result":
+                        continue
+                    use_id = block.get("tool_use_id")
+                    if use_id in seen_results:
+                        continue
+                    if use_id:
+                        seen_results.add(use_id)
+                    if block.get("is_error"):
+                        kind = error_class(as_text(block.get("content")))
+                        errors["claude"][kind] += 1
+                        errors_by_tool["claude"][tool_bucket(call_names.get(use_id))][kind] += 1
+                    sequences.result(block)
             if obj.get("type") == "assistant" and isinstance(content, list):
                 for block in content:
                     if not isinstance(block, dict):
@@ -301,13 +490,29 @@ def report(args: argparse.Namespace) -> dict:
                     if block.get("type") == "text":
                         for component, pattern in detectors.items():
                             detector_hits[component] += len(pattern.findall(block.get("text") or ""))
+                        sequences.claim = block.get("text") or ""
                     elif block.get("type") == "tool_use":
+                        use_id = block.get("id")
+                        if use_id in seen_uses:
+                            continue
+                        if use_id:
+                            seen_uses.add(use_id)
+                            call_names[use_id] = str(block.get("name") or "")
                         tool_calls["claude"] += 1
+                        tool_input = block.get("input") if isinstance(block.get("input"), dict) else {}
                         if block.get("name") == "Skill":
-                            name = str((block.get("input") or {}).get("skill") or "")
+                            name = str(tool_input.get("skill") or "")
                             skills[name]["claude_tool"] += 1
                             delegate_calls += name == "harness:delegate"
+                        elif block.get("name") == "Bash":
+                            record_calls += bool(RECORD_RESULT.search(str(tool_input.get("command") or "")))
+                        sequences.use(block)
+        sequences.end_turn()
         sessions["claude"] += active
+        for kind, count in sequences.counts.items():
+            if count:
+                sequence_events[kind] += count
+                flagged[kind].append(path.stem)
 
     if Path(codex_root).is_dir():
         for path in Path(codex_root).glob("**/*.jsonl"):
@@ -318,6 +523,7 @@ def report(args: argparse.Namespace) -> dict:
                 continue
             active = False
             loaded: set[str] = set()
+            codex_names: dict[str, str] = {}
             for obj in read_jsonl(path):
                 payload = obj.get("payload") or {}
                 kind = obj.get("type")
@@ -343,13 +549,19 @@ def report(args: argparse.Namespace) -> dict:
                         detector_hits[component] += len(pattern.findall(text))
                 elif item in ("function_call", "custom_tool_call"):
                     tool_calls["codex"] += 1
+                    if payload.get("call_id"):
+                        codex_names[str(payload["call_id"])] = str(payload.get("name") or "")
                     call = str(payload.get("arguments") or payload.get("input") or "")
+                    record_calls += bool(RECORD_RESULT.search(call))
                     for plugin, name in SKILL_PATH.findall(call):
                         loaded.add(f"{plugin}:{name}" if plugin else name)
                 elif item in ("function_call_output", "custom_tool_call_output"):
                     text = as_text(payload.get("output"))
                     if NONZERO_EXIT.search(text) or "no matches found" in text:
-                        errors["codex"][error_class(text)] += 1
+                        kind = error_class(text)
+                        errors["codex"][kind] += 1
+                        name = codex_names.get(str(payload["call_id"])) if payload.get("call_id") else None
+                        errors_by_tool["codex"][tool_bucket(name)][kind] += 1
             sessions["codex"] += active
             for name in loaded:
                 skills[name]["codex_sessions"] += 1
@@ -358,9 +570,19 @@ def report(args: argparse.Namespace) -> dict:
     results = [r for r in telemetry.events("Results", repo, local_only=args.local_only) if window.has(r)]
     shims = [e for e in telemetry.events("Shim_Events", repo, local_only=args.local_only) if window.has(e)]
     by_route: dict[str, Counter] = defaultdict(Counter)
+    # A reviewer that ran checks and returned findings records `failed`; a run with no
+    # checks at all is an executor or adapter failure.
+    failed = Counter(review_changes_requested=0, no_checks=0, other=0)
     for record in results:
         route = (record.get("route") or {}).get("requested") or "unknown"
         by_route[route][f"{record.get('status')}/{record.get('outcome')}"] += 1
+        if record.get("status") == "failed":
+            if not record.get("checks"):
+                failed["no_checks"] += 1
+            elif record.get("operation") == "review":
+                failed["review_changes_requested"] += 1
+            else:
+                failed["other"] += 1
 
     reviews = [r for r in telemetry.events("Review_Rounds", repo, local_only=args.local_only) if window.has(r)]
     review_models: dict[str, Counter] = defaultdict(Counter)
@@ -374,8 +596,17 @@ def report(args: argparse.Namespace) -> dict:
             over_limit.add(name)
         diff_lines[name].append(record.get("diff_lines", 0))
 
-    used ={name for name, counts in skills.items() if sum(counts.values())}
-    return {
+    used = {name for name, counts in skills.items() if sum(counts.values())}
+    pre_tokens.sort()
+    split = dict(compaction_split)
+    if pre_tokens:
+        split["pre_tokens"] = {
+            "count": len(pre_tokens),
+            "min": pre_tokens[0],
+            "median": int(statistics.median(pre_tokens)),
+            "max": pre_tokens[-1],
+        }
+    report_data = {
         "window": {"label": window.label, "start": window.start.isoformat(), "end": window.end.isoformat()},
         "host": telemetry.host(),
         "scope": "local" if args.local_only else "all hosts",
@@ -386,13 +617,22 @@ def report(args: argparse.Namespace) -> dict:
         "commands": dict(commands.most_common()),
         "tool_calls": dict(tool_calls),
         "tool_errors": {provider: dict(counts.most_common()) for provider, counts in errors.items()},
+        "tool_errors_by_tool": {
+            provider: {tool: dict(counts.most_common()) for tool, counts in sorted(tools.items())}
+            for provider, tools in errors_by_tool.items()
+        },
         "compactions": dict(compactions),
+        "compaction_detail": {"claude": split},
+        "sequences": {
+            "claude": {kind: {"events": sequence_events[kind], "sessions": len(flagged[kind])} for kind in SEQUENCE_KINDS}
+        },
         "detector_hits": dict(detector_hits.most_common()),
         "shim_firings": dict(Counter(str(e.get("shim")) for e in shims).most_common()),
         "results": {
             "total": len(results),
             "fallbacks": sum(1 for r in results if r.get("attempted")),
             "by_route": {route: dict(counts) for route, counts in sorted(by_route.items())},
+            "failed": dict(failed),
         },
         "reviews": {
             "rounds": len(reviews),
@@ -404,12 +644,25 @@ def report(args: argparse.Namespace) -> dict:
                 if lines[-1] > lines[0]
             },
         },
-        "delegate": {"invocations": delegate_calls, "recorded_results": len(results)},
+        # `invocations` counts this machine's skill loads against every host's rows, and
+        # one load can record many rows; `local` compares this host with itself.
+        "delegate": {
+            "invocations": delegate_calls,
+            "recorded_results": len(results),
+            "local": {
+                "skill_loads": delegate_calls,
+                "record_calls": record_calls,
+                "results": sum(1 for r in results if r.get("host") == telemetry.host()),
+            },
+        },
         "tokens": {
             "claude": plain(claude_tokens(Path(projects), window)),
             "codex": plain(codex_tokens(Path(codex_root), window)),
         },
     }
+    if args.flagged:
+        report_data["flagged_sessions"] = {kind: sorted(flagged[kind]) for kind in SEQUENCE_KINDS if flagged[kind]}
+    return report_data
 
 
 def main(argv: list[str]) -> int:
@@ -420,6 +673,7 @@ def main(argv: list[str]) -> int:
     span.add_argument("--since", help="start date YYYY-MM-DD (UTC), inclusive")
     parser.add_argument("--until", help="end date YYYY-MM-DD (UTC), exclusive; requires --since")
     parser.add_argument("--local-only", action="store_true", help="this machine's telemetry only")
+    parser.add_argument("--flagged", action="store_true", help="list the session ids behind each sequence pattern")
     parser.add_argument("--projects", type=Path)
     parser.add_argument("--codex-sessions", type=Path)
     parser.add_argument("--repo", type=Path)
