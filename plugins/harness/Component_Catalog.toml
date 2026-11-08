@@ -368,6 +368,15 @@ source = "templates/AGENTS_Baseline.md"
 anchor = "verify HEAD in the *same* command that creates the branch"
 
 [[component]]
+id = "bounded-waiting"
+kind = "model-shim"
+source = "profile/Global Instructions.md"
+anchor = "Otherwise poll at most 10 times with growing gaps, then stop and report what is still pending."
+added_for = "Agents poll external events without a cap: one session ran the same inbox check 171 times in 62 minutes (2026-10-28), and T3 blocked `sleep N; cat` wait chains in another."
+retire_test = "Ablate in Harness Testing with a task that waits on an event that never arrives; keep if the agent polls more than 10 times or never reports."
+detector = "none"
+
+[[component]]
 id = "zsh-glob-guard"
 kind = "environment-shim"
 source = "scripts/zsh-glob-guard.py"
