@@ -377,6 +377,15 @@ retire_test = "Ablate in Harness Testing with a task that waits on an event that
 detector = "none"
 
 [[component]]
+id = "browser-artifact-paths"
+kind = "environment-shim"
+source = "profile/Global Instructions.md"
+anchor = "Save browser screenshots and traces inside the working directory, in a git-ignored folder, not in `/tmp`"
+added_for = "Playwright and other browser MCP tools reject files outside the project roots; agents wrote screenshots to /tmp and hit 12 'outside allowed roots' errors in the 30 days to 2026-11-08."
+retire_test = "Retire when usage-report tool_errors sandbox-path stays near zero for a month without this rule, or browser tools accept /tmp."
+detector = "none"
+
+[[component]]
 id = "zsh-glob-guard"
 kind = "environment-shim"
 source = "scripts/zsh-glob-guard.py"
