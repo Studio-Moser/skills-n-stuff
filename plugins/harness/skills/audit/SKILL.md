@@ -23,13 +23,17 @@ answer needs a view, make it for this conversation.
 
   `--month YYYY-MM` selects a calendar month; `--since YYYY-MM-DD [--until YYYY-MM-DD]`
   selects any window, so run one on each side of a shipped change to compare them;
-  `--local-only` drops other machines.
+  `--local-only` drops other machines; `--flagged` adds the session ids behind each
+  `sequences` pattern, for sampling only.
 - **Catalog** — `Component_Catalog.toml` in the Harness plugin root: every rule and
   shim with its kind, source anchor, why it exists, detector, and retirement test.
 - **Ledger and shim events** — `Results-*.jsonl`, `Review_Rounds-*.jsonl`, and `Shim_Events-*.jsonl`, unpublished
   under `${XDG_STATE_HOME:-~/.local/state}/studio-moser/harness/telemetry/` and
   published per host under `${AGENTS_REPO:-~/.agents}/telemetry/<host>/`.
 - **Other machines** — `telemetry/<host>/Usage-YYYY-MM.json` summaries written by Sync.
+  A summary from an older Harness lacks the newer sections and uses broader error
+  classes: treat a missing key as unavailable, not zero, and compare error classes
+  only between summaries from the same Harness version.
 - **Transcripts** — this machine only: `${CLAUDE_CONFIG_DIR:-~/.claude}/projects/**/*.jsonl`
   and `${CODEX_HOME:-~/.codex}/sessions/**/*.jsonl`. Read them for the why behind a
   count; quote at most short excerpts and never copy them into a repository.
@@ -45,10 +49,13 @@ Answer the user's question first. For a general audit, cover:
    proves a shim can go: the rule may be working, or nothing exercised it. Name the
    Harness Testing ablation that would decide it.
 3. **Delegation** — ledger outcomes by route, fallbacks, unproven or blocked results,
-   and delegate invocations with no recorded result. For review, per-model findings
-   (fixed, disputed, unique, regraded), unapproved rounds past a limit, and diff growth.
-   Only `Review_Rounds` can show whether a second reviewer adds confirmed findings; a
-   `failed` review result usually means the reviewer requested changes.
+   and delegate invocations with no recorded result. `results.failed` separates a
+   reviewer requesting changes (`review_changes_requested`) from a run with no checks
+   (`no_checks`, an executor or adapter failure). Compare `delegate.local`, not
+   `invocations` against `recorded_results`: one skill load can record many rows, and
+   `recorded_results` spans every host. For review, per-model findings (fixed,
+   disputed, unique, regraded), unapproved rounds past a limit, and diff growth. Only
+   `Review_Rounds` can show whether a second reviewer adds confirmed findings.
 4. **Tokens** — the report's totals by model, Claude main sessions versus sub-agents,
    and Codex by session source. They come from this machine's transcripts, so another
    machine's totals are in its `Usage-YYYY-MM.json`. They are not tied to ledger rows:
@@ -56,10 +63,38 @@ Answer the user's question first. For a general audit, cover:
    after comparison shows whether things got worse, not why; delegation choices, model
    releases, and the mix of work all shift over time.
 5. **Gaps** — sample sessions with failed tool calls, compactions, unproven or blocked
-   results, interruptions, or user corrections. For each, ask: what went wrong, what
-   data or tool was missing that would have prevented it, and what the user had to
-   repeat across sessions. Note the first failure in each session, group them, and
-   count the groups.
+   results, interruptions, or user corrections; start from the `--flagged` sessions.
+   For each, ask: what went wrong, what data or tool was missing that would have
+   prevented it, and what the user had to repeat across sessions. Note the first
+   failure in each session, group them, and count the groups. Read
+   `tool_errors_by_tool` for the source of errors (an MCP server reports as
+   `mcp:<server>`). `compaction_detail.manual_after_idle` counts `/compact` runs after
+   at least 50 idle minutes; T3 Code's idle compaction records them as manual, so they
+   are not the user compacting by hand. `sequences` are proxies that choose sessions
+   to read, never findings: `recovered_failure` is normal work, and a count of zero
+   does not prove an absence.
+
+## Grading sessions
+
+When the user asks how well sessions went, or a general audit needs quality rather
+than counts, grade a sample against `rubrics/Avoidable Repeated Work.md` and
+`rubrics/Unsupported Completion.md` in this skill's directory.
+
+1. **Sample** the `--flagged` sessions plus as many ordinary ones, including
+   abandoned and unmerged work. Exclude the current session.
+2. **Grade** through `harness:delegate` (`operation: execute`, `route: default`,
+   read-only, `mode: fresh`), one request per batch of sessions. Graders read the raw
+   JSONL, count each `tool_use.id` once, and record label, reason, and cited events
+   per rubric. Grading is local work: transcripts never leave the machine or enter a
+   repository.
+3. **Verify every `fail` yourself** against the tool results before reporting it.
+   Graders produce plausible false fails: in the first trial, two of the fails checked
+   were wrong (an unnumbered `gh pr merge` read as no merge, and a merge the user had
+   asked for read as unrequested).
+4. **Report** counts by label and each verified fail with its evidence and the
+   instruction it points to. Grades are supporting evidence, never proof. Keep them
+   in this conversation: a score ledger or trend waits until grades match the user's
+   own labels on a sample.
 
 ## Output
 
