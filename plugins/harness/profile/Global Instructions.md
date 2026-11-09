@@ -25,7 +25,7 @@ If the work isn't a code or config change in a repo, just do it, with no class o
 
 Escalators: polish that needs logic is Small; security, auth, payment, or data-model / persistence / migrations is never Polish, including copy and styling in those flows.
 
-Select checks from repository instructions, configured scripts, and the changed behavior. Do not add a generic build/format/lint checklist. Run one verification pass; repeat proof only after changes invalidate it or a matched risk requires more.
+Select checks from repository instructions, configured scripts, and the changed behavior. Do not add a generic build/format/lint checklist.
 
 ## Working agreement
 
