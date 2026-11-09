@@ -372,7 +372,7 @@ id = "zsh-glob-guard"
 kind = "environment-shim"
 source = "scripts/zsh-glob-guard.py"
 anchor = "Claude Code and Codex PreToolUse hook: stop zsh"
-added_for = "Models write bash-style unquoted globs that zsh rejects with 'no matches found' (42 Claude and 78 Codex failures in the 30 days to 2026-10-21)."
+added_for = "Models write bash-style unquoted globs that zsh rejects with 'no matches found' (42 Claude and 78 Codex failures in the 30 days to 2026-10-21; 926 firings and 15 misses in the 30 days to 2026-11-08, about 10 of them after `cd DIR &&` or in `$HOME` words, which the guard now follows)."
 retire_test = "Retire when usage-report shim_firings for zsh-glob-guard stay near zero for a month after a model change."
 detector = "events:zsh-glob-guard"
 

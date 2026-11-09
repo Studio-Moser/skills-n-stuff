@@ -149,3 +149,18 @@ PY
   run grep -c 'Pa55w' "$XDG_STATE_HOME"/studio-moser/harness/telemetry/Shim_Events-*.jsonl
   [ "$output" = "0" ]
 }
+
+@test "a cd to a known directory and the HOME and PWD variables are followed" {
+  mkdir -p "$WORK/sub" "$WORK/space dir"
+  touch "$WORK/sub/inside.md" "$HOME/home.md"
+  for command in 'cd sub && ls *.zzz' 'cd "space dir" && ls *.zzz' "cd $WORK/sub; ls *.zzz" 'ls "$HOME"/*.zzz' 'ls ${HOME}/*.zzz' 'ls "$PWD"/x*.zzz'; do
+    run env SHELL=/bin/zsh "$GUARD" <<<"$(payload Bash "$WORK" "$command")"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *'setopt no_nomatch; '* ]] || { echo "missed: $command" >&2; return 1; }
+  done
+  for command in 'cd sub && ls *.md' 'ls "$HOME"/*.md' 'ls ${HOME}/h*' 'cd missing && ls *.zzz' 'ls ${OTHER}/*.zzz' '(cd sub && ls) && ls *.zzz' 'cd && ls *.zzz' 'cd "$X" && ls *.zzz'; do
+    run env SHELL=/bin/zsh "$GUARD" <<<"$(payload Bash "$WORK" "$command")"
+    [ "$status" -eq 0 ]
+    [ -z "$output" ] || { echo "wrongly decided: $command -> $output" >&2; return 1; }
+  done
+}
