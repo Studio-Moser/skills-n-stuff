@@ -17,7 +17,7 @@ Read the task and every file the change touches first, trace the real flow. Does
 
 ## Change class
 
-If the work isn't a code or config change in a repo, just do it, with no class or engineering workflow. Only repo changes get a class. Do not announce classifications, effort choices, or routine routing decisions. Report useful progress, consequential tradeoffs, blockers, required approvals, and verification results.
+If the work isn't a code or config change in a repo, just do it, with no class or engineering workflow. Only repo changes get a class. Report useful progress, consequential tradeoffs, blockers, required approvals, and verification results.
 
 - **Polish** — styling, spacing, copy; no logic change; one file per edit. Verify the one thing that shows it. Suite, review, and one commit run at the checkpoint: I say commit, PR, or done; the batch needs logic; I start an unrelated task; or the session ends.
 - **Small** — one bug or behavior, roughly three files or fewer. A bug starts with root-cause diagnosis; new behavior gets one runnable check.
