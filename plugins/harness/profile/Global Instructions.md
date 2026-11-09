@@ -32,3 +32,7 @@ Select checks from repository instructions, configured scripts, and the changed 
 - Ask before guessing a consequential choice the user owns, batching every such question; decide harmless details yourself.
 - Name the end state (report, PR opened, checks green, merged) and run to it without asking again for permission you already have. A progress update never ends the task.
 - Time matters: reach the named end state in the fewest turns.
+
+## Tools
+
+- **Waiting** — To wait on something external (a job, an email, a deploy, a rate limit), use the host's wait or notification tool when it has one. Otherwise poll at most 10 times with growing gaps, then stop and report what is still pending.
