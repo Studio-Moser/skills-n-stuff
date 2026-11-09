@@ -345,6 +345,7 @@ constraints:
   - Use test-driven development for behavior changes and leave a runnable check for non-trivial logic
   - Preserve trust-boundary validation, data-loss-preventing error handling, security, and accessibility basics
   - Keep the change to the approved slice, run the planned tests, and make atomic conventional commits
+  - Run every check in the foreground, raising its timeout when it is long; a worker that ends its turn while its own background job runs is never woken to finish
   - Commit the approved delivery slice; do not push, open a PR, or edit PM tracker files
   - Report discovered work without implementing it inline
 delegation:
