@@ -6,6 +6,7 @@ publishes those files into the agents repository under telemetry/<host>/ after i
 has ingested the remote, so live writes never leave the repository dirty.
 
   telemetry.py record-result --result JSON [--attempted JSON] [--operation OP] [--consumer NAME]
+      [--context CONTEXT]
   telemetry.py record-review --consumer NAME --target TEXT --model NAME --provider NAME
       --round N --limit N --findings JSON --diff-lines N [--extension-approved]
   telemetry.py publish --repo PATH
@@ -36,6 +37,10 @@ ROUTE_FIELDS = ("requested", "model", "effort", "provider", "executor", "dispatc
 # unique: confirmed findings no other reviewer raised on this target.
 # regraded: findings whose severity the parent changed.
 FINDING_COUNTS = ("fixed", "disputed", "declined", "open", "unique", "regraded")
+# Where harness:delegate ran: the host runtime, and whether it was the top-level session.
+CONTEXTS = ("", "claude-main", "claude-worker", "codex-main", "codex-worker")
+# executor: for missing_executor, the executor the candidate's row names ("" for none).
+ATTEMPT_FIELDS = ("candidate", "reason", "executor")
 MAX_ITEMS = 10
 MAX_TEXT = 200
 
@@ -181,7 +186,13 @@ def review_record(
     }
 
 
-def result_record(result: object, attempted: object, operation: str, consumer: str) -> dict:
+def attempt_record(entry: object) -> dict:
+    if not isinstance(entry, dict) or not all(isinstance(entry.get(field), str) for field in ("candidate", "reason")):
+        raise ValueError("each attempted entry must be an object with candidate and reason strings")
+    return {field: str(entry[field])[:MAX_TEXT] for field in ATTEMPT_FIELDS if field in entry}
+
+
+def result_record(result: object, attempted: object, operation: str, consumer: str, context: str = "") -> dict:
     if not isinstance(result, dict):
         raise ValueError("result must be a JSON object")
     status = result.get("status")
@@ -205,12 +216,13 @@ def result_record(result: object, attempted: object, operation: str, consumer: s
     return {
         "operation": operation,
         "consumer": consumer,
+        "context": context,
         "status": status,
         "route": {field: str(route.get(field) or "") for field in ROUTE_FIELDS},
         "outcome": evidence["outcome"],
         "checks": len(checks),
         "blockers": [str(item)[:MAX_TEXT] for item in blockers[:MAX_ITEMS]],
-        "attempted": attempted[:MAX_ITEMS],
+        "attempted": [attempt_record(entry) for entry in attempted[:MAX_ITEMS]],
     }
 
 
@@ -222,6 +234,7 @@ def main(argv: list[str]) -> int:
     record.add_argument("--attempted", default="[]", help="resolver candidates tried before the terminal one")
     record.add_argument("--operation", default="", choices=("", "execute", "review", "computer-use"))
     record.add_argument("--consumer", default="", help="calling skill, e.g. pm:dev-task")
+    record.add_argument("--context", default="", choices=CONTEXTS, help="runtime and level that ran harness:delegate")
     review = commands.add_parser("record-review")
     review.add_argument("--consumer", required=True, help="workflow that owns the review loop")
     review.add_argument("--target", required=True, help="stable name for the reviewed work, e.g. a PR number")
@@ -255,7 +268,9 @@ def main(argv: list[str]) -> int:
             )
         else:
             stream = "Results"
-            entry = result_record(json.loads(args.result), json.loads(args.attempted), args.operation, args.consumer)
+            entry = result_record(
+                json.loads(args.result), json.loads(args.attempted), args.operation, args.consumer, args.context
+            )
     except ValueError as error:
         print(json.dumps({"status": "invalid", "reason": str(error)}))
         return 2

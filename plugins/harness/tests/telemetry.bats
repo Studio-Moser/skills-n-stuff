@@ -10,7 +10,7 @@ setup() {
 }
 
 @test "record-result appends one typed, redacted line per terminal result" {
-  run "$SCRIPTS/telemetry.py" record-result --result "$RESULT" --attempted '[{"candidate":"gpt@low","reason":"quota"}]' --operation execute --consumer pm:dev-task
+  run "$SCRIPTS/telemetry.py" record-result --result "$RESULT" --attempted '[{"candidate":"gpt@low","reason":"quota"},{"candidate":"sol@low","reason":"missing_executor","executor":"codex","note":"dropped"}]' --operation execute --consumer pm:dev-task --context claude-worker
   [ "$status" -eq 0 ]
   [[ "$output" == *'"status": "recorded"'* ]] || return 1
   run python3 - "$STATE" <<'PY'
@@ -23,12 +23,23 @@ record = json.loads(lines[0])
 assert record["status"] == "blocked" and record["outcome"] == "unproven"
 assert record["route"]["executor"] == "codex" and record["checks"] == 2
 assert record["operation"] == "execute" and record["consumer"] == "pm:dev-task"
-assert record["attempted"] == [{"candidate": "gpt@low", "reason": "quota"}]
+assert record["context"] == "claude-worker"
+assert record["attempted"] == [
+    {"candidate": "gpt@low", "reason": "quota"},
+    {"candidate": "sol@low", "reason": "missing_executor", "executor": "codex"},
+], record["attempted"]
 assert record["blockers"] == ["missing executor at ~/.codex"], record["blockers"]
 assert {"id", "ts", "host"} <= set(record)
 assert "/Users/" not in lines[0]
 PY
   [ "$status" -eq 0 ]
+}
+
+@test "record-result rejects an attempted entry without a candidate and reason" {
+  run "$SCRIPTS/telemetry.py" record-result --result "$RESULT" --attempted '["gpt@low"]'
+  [ "$status" -eq 2 ]
+  [[ "$output" == *'"status": "invalid"'* ]] || return 1
+  [ ! -e "$STATE" ] || [ -z "$(ls -A "$STATE")" ]
 }
 
 @test "record-result rejects a result missing contract fields and writes nothing" {

@@ -53,7 +53,9 @@ Answer the user's question first. For a general audit, cover:
    reviewer requesting changes (`review_changes_requested`) from a run with no checks
    (`no_checks`, an executor or adapter failure). Compare `delegate.local`, not
    `invocations` against `recorded_results`: one skill load can record many rows, and
-   `recorded_results` spans every host. For review, per-model findings (fixed,
+   `recorded_results` spans every host. `results.fallback_causes` groups fallbacks by
+reason (and the missing executor) per delegating context; rows recorded before
+Harness 2.12.5 have no context and count as `unknown`. For review, per-model findings (fixed,
    disputed, unique, regraded), unapproved rounds past a limit, and diff growth. Only
    `Review_Rounds` can show whether a second reviewer adds confirmed findings.
 4. **Tokens** — the report's totals by model, Claude main sessions versus sub-agents,
