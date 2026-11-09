@@ -35,5 +35,4 @@ Select checks from repository instructions, configured scripts, and the changed 
 
 ## Tools
 
-- **Waiting** — To wait on something external (a job, an email, a deploy, a rate limit), use the host's wait or notification tool when it has one. Otherwise poll at most 10 times with growing gaps, then stop and report what is still pending.
 - **Browser artifacts** — Save browser screenshots and traces inside the working directory, in a git-ignored folder, not in `/tmp`: browser tools reject paths outside their allowed roots.
