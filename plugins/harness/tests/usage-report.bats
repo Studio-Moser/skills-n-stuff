@@ -27,6 +27,8 @@ lines(claude / "s1.jsonl", [
         {"type": "text", "text": "I've classified this as a Small change."},
         {"type": "tool_use", "id": "t1", "name": "Skill", "input": {"skill": "harness:delegate"}},
         {"type": "tool_use", "id": "t2", "name": "Bash", "input": {"command": "ls *.zzz"}},
+        {"type": "tool_use", "id": "t3", "name": "Bash", "input": {"command": "git commit -m 'fix: x'"}},
+        {"type": "tool_use", "id": "t4", "name": "Bash", "input": {"command": "git commit -F msg.txt"}},
     ]}},
     {"type": "user", "message": {"content": [
         {"type": "tool_result", "tool_use_id": "t2", "is_error": True, "content": "(eval):1: no matches found: *.zzz"},
@@ -45,6 +47,8 @@ lines(codex / "rollout-1.jsonl", [
         "{\"cmd\":\"cat /h/.codex/plugins/cache/studio-moser/pm/0.25.4/skills/dev-task/SKILL.md\"}"}},
     {"type": "response_item", "payload": {"type": "function_call", "name": "exec", "arguments":
         "{\"cmd\":\"cat plugins/harness/skills/risk-gate/SKILL.md\"}"}},
+    {"type": "response_item", "payload": {"type": "function_call", "name": "exec", "arguments":
+        "{\"cmd\":\"gh pr create --title t --body \\\"b\\\"\"}"}},
     {"type": "response_item", "payload": {"type": "function_call_output", "output":
         "{\"output\":\"zsh:1: no matches found: *.zzz\",\"metadata\":{\"exit_code\":1}}"}},
     {"type": "response_item", "payload": {"type": "function_call_output", "output":
@@ -82,6 +86,7 @@ except ImportError:
     pass
 else:
     assert r["detector_hits"].get("silent-routing") == 1, r["detector_hits"]
+    assert r["detector_hits"].get("messages-via-file") == 2, r["detector_hits"]
 ' "$output"
   if [ "$status" -ne 0 ]; then printf '%s\n' "$output" >&2; fi
   [ "$status" -eq 0 ]
