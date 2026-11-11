@@ -242,17 +242,19 @@ assert r["delegate"]["local"]["results"] == 4, r["delegate"]
   result '[{"candidate":"sol@low","reason":"missing_executor","executor":"codex"}]' claude-worker
   result '[{"candidate":"sol@low","reason":"missing_executor"}]'
   result '[{"candidate":"sol@low","reason":"rate_limit"}]' codex-main
+  result '[{"candidate":"sol@low","reason":"unsuitable_executor","executor":"codex"}]' claude-main
   result '[]' claude-main
   run "$SCRIPTS/usage-report.py" --days 30
   [ "$status" -eq 0 ]
   run python3 -c '
 import json, sys
 r = json.loads(sys.argv[1])["results"]
-assert r["fallbacks"] == 4, r
+assert r["fallbacks"] == 5, r
 assert r["fallback_causes"] == {
     "missing_executor": {"unknown": 1},
     "missing_executor/codex": {"claude-worker": 2},
     "rate_limit": {"codex-main": 1},
+    "unsuitable_executor/codex": {"claude-main": 1},
 }, r["fallback_causes"]
 ' "$output"
   if [ "$status" -ne 0 ]; then printf '%s\n' "$output" >&2; fi
@@ -297,6 +299,10 @@ spec = importlib.util.spec_from_file_location("usage_report", sys.argv[1])
 m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
 checks = {
     "cd x && python3 -m unittest discover -s tests": True,
+    "cd x && SLOW=1 python3 -W ignore -m unittest discover -s tests 2>&1 | tail -3": True,
+    "python3.12 -X dev -Wd -u -m pytest -q": True,
+    "python3 -c \"import unittest\"": False,
+    "python3 -W ignore scripts/unittest_report.py": False,
     "FOO=1 npx vitest run": True,
     "cd plugins/harness/tests && bats *.bats 2>&1 | tail -3": True,
     "cat tests/x.bats": False,

@@ -122,12 +122,61 @@ YAML
 @test "a skipped candidate names the executor that was not callable" {
   run "$SCRIPT" select --rubric "$RUBRIC" --state "$STATE" \
     --route default --native-provider anthropic --executors "" \
-    --now 2026-08-25T12:00:00Z
+    --excluded '{"codex":"missing_executor"}' --now 2026-08-25T12:00:00Z
   [ "$status" -ne 0 ]
   assert_result '(
       result["status"] == "blocked"
       and result["missing_executors"] == {"gpt-5.6-sol@high": "codex"}
   )'
+}
+
+@test "select refuses an executor that is neither offered nor excluded" {
+  run "$SCRIPT" select --rubric "$RUBRIC" --state "$STATE" \
+    --route default --native-provider anthropic --executors '[]' \
+    --now 2026-08-25T12:00:00Z
+  [ "$status" -eq 2 ]
+  assert_result '(
+      result["status"] == "error"
+      and "executor codex is in neither --executors nor --excluded" in result["blockers"][0]
+  )'
+}
+
+@test "an unsuitable executor falls back under its own reason" {
+  printf '  default: [claude-fable-5@high]\n' >> "$RUBRIC"
+  run "$SCRIPT" select --rubric "$RUBRIC" --state "$STATE" \
+    --route default --native-provider anthropic --executors '[]' \
+    --excluded '{"codex":"unsuitable_executor"}' --now 2026-08-25T12:00:00Z
+  [ "$status" -eq 0 ]
+  assert_result '(
+      result["status"], result["candidate"], result["executor"], result["reason"],
+      result["unsuitable_executors"], "missing_executors" in result
+  ) == ("fallback", "claude-fable-5@high", "native", "unsuitable_executor",
+        {"gpt-5.6-sol@high": "codex"}, False)'
+  [ ! -e "$STATE" ]
+}
+
+@test "an exclusion needs a preflight reason and an executor that is not offered" {
+  for excluded in '{"codex":"quota"}' '{"codex":""}' '["codex"]' 'codex'; do
+    run "$SCRIPT" select --rubric "$RUBRIC" --state "$STATE" \
+      --route default --native-provider anthropic --executors '[]' \
+      --excluded "$excluded" --now 2026-08-25T12:00:00Z
+    [ "$status" -eq 2 ]
+    assert_result 'result["status"] == "error"'
+  done
+  run "$SCRIPT" select --rubric "$RUBRIC" --state "$STATE" \
+    --route default --native-provider anthropic --executors codex \
+    --excluded '{"codex":"unsuitable_executor"}' --now 2026-08-25T12:00:00Z
+  [ "$status" -eq 2 ]
+  assert_result '"both offered and excluded" in result["blockers"][0]'
+}
+
+@test "a preflight reason never opens a timed circuit" {
+  for reason in missing_executor unsuitable_executor; do
+    run "$SCRIPT" record-failure --state "$STATE" \
+      --provider openai --executor codex --reason "$reason"
+    [ "$status" -eq 2 ]
+    [ ! -e "$STATE" ]
+  done
 }
 
 @test "callable non-native via executor resolves selection" {

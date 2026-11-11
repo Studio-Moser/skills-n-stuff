@@ -21,7 +21,8 @@ ceiling, do not invoke Codex.
 
 Read only the adapter's compact JSON and exit code. Exit 69 with
 `{"status":"missing_executor"}` means remove `codex` from the callable inventory
-and reselect without `record-failure` or an appended dispatch attempt. Only exit
+and reselect without `record-failure` or an appended dispatch attempt, excluding
+it as `missing_executor`. Only exit
 75 with `{"status":"availability_failure","reason":"..."}` authorizes a timed availability record,
 and its reason must be one of the four categories. Exit 1 with
 `{"status":"failed"}` stops without changing providers. Exit 0 with

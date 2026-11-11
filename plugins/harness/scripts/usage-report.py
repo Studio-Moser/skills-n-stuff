@@ -73,7 +73,9 @@ TOOL_TIMEOUT = re.compile(r"timed out after \d|Timeout \d+ ?ms|TimeoutError|Oper
 SEQUENCE_KINDS = ("repeated_failure", "recovered_failure", "verification_rerun", "unsupported_completion")
 # Matched at the start of each simple command, so `cat tests/x.bats` is not a check.
 SEGMENT = re.compile(r"&&|\|\||[;|\n]")
-LAUNCHER = re.compile(r"^(?:(?:\S+=\S*|time|npx|uv run|poetry run|bundle exec|(?:\S*/)?python3?(?:\.\d+)? -m)\s+)+")
+# Interpreter options may sit between python and -m, as in `python3 -W ignore -m unittest`.
+PYTHON_MODULE = r"(?:\S*/)?python3?(?:\.\d+)?(?: -(?:[WX] ?\S+|[bBdEIOqsSuv]+))* -m"
+LAUNCHER = re.compile(rf"^(?:(?:\S+=\S*|time|npx|uv run|poetry run|bundle exec|{PYTHON_MODULE})\s+)+")
 CHECK = re.compile(
     r"^(?:\S*/)?(?:pytest|unittest|bats|vitest|jest|tsc|eslint|ruff|mypy|run-tests(?:\.sh)?|swift test"
     r"|xcodebuild\b.*\btest\b|(?:npm|pnpm|yarn|bun) (?:run )?test|node --test|playwright test"

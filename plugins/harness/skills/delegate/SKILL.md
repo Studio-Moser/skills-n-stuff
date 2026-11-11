@@ -98,10 +98,17 @@ Populate the resolver inputs before the loop:
 - `HARNESS_NATIVE_PROVIDER`: the rubric `provider` value of the host runtime
   that can spawn native subagents, such as `anthropic` in Claude Code or
   `openai` in Codex.
-- `HARNESS_EXECUTORS`: a JSON list of callable external executors, `[]` when
-  none. Before selection, include `codex` in `HARNESS_EXECUTORS` only when
-  `codex-app-server.py check` returns `{"status":"available"}`;
-  `command -v codex` alone is insufficient.
+- `HARNESS_EXECUTORS`: a JSON list of external executors that are callable and
+  suitable for this request, `[]` when none. Before selection, include `codex`
+  in `HARNESS_EXECUTORS` only when `codex-app-server.py check` returns
+  `{"status":"available"}`; `command -v codex` alone is insufficient.
+- `HARNESS_EXCLUDED`: a JSON object giving the reason for each executor the
+  rubric names that `HARNESS_EXECUTORS` leaves out, `{}` when none. The reason
+  is `missing_executor` when its check ran and did not return available, or
+  `unsuitable_executor` when it is available but the request hits one of the
+  sandbox limits under Codex executor. The resolver refuses a candidate whose
+  executor is in neither input. Run the check then; never state a reason for a
+  check that did not run.
 - `HARNESS_AUTHORING_PROVIDERS`: for `independent` only, every provider that
   authored the target.
 - `HARNESS_ACTIVE_CANDIDATE` and `HARNESS_ATTEMPTED`: described below.
@@ -126,6 +133,7 @@ ROUTE_RESULT="$("$harness/scripts/resolve-route.py" select \
   --route "$HARNESS_ROUTE" \
   --native-provider "$HARNESS_NATIVE_PROVIDER" \
   --executors "$HARNESS_EXECUTORS" \
+  --excluded "$HARNESS_EXCLUDED" \
   --active-candidate "$HARNESS_ACTIVE_CANDIDATE" \
   --attempted "$HARNESS_ATTEMPTED")"
 ```
@@ -154,7 +162,8 @@ and `effort` parameters, with the packet as the prompt. If `model` accepts only
 family aliases, pass the resolved model's alias and record the alias used.
 
 The only availability reasons are `quota`, `authentication`, `rate_limit`,
-`provider_unavailable`, and preflight `missing_executor`. The resolver owns
+`provider_unavailable`, and the preflight reasons `missing_executor` and
+`unsuitable_executor`. The resolver owns
 preflight skips, open circuits, cooldowns, and the single half-open probe. After
 dispatch, classify only a bounded typed executor result; raw provider text is
 unstable and may carry secrets.
@@ -178,6 +187,17 @@ When the resolver returns `executor: codex`, read
 [references/codex-adapter.md](../../references/codex-adapter.md) before
 dispatch. It owns the sandbox, approval, prompt, exit-code, and review rules for
 the external Codex adapter.
+
+The adapter's sandbox has no network, writes only inside the working directory
+and its own cache directories, and cannot reach host services. Before selection,
+exclude `codex` as `unsuitable_executor` when the work or its verification seam
+needs any of these:
+
+- a network call, such as a package download;
+- a build or test run that writes caches outside the working directory, such as
+  a Swift or Xcode build;
+- a Git write in a linked worktree, whose metadata sits in the main checkout; or
+- process inspection or another host service, such as `pgrep`.
 
 ## Verify and return
 
@@ -221,11 +241,13 @@ harness="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/harness/*
 
 `HARNESS_ATTEMPTED_REASONS` is a JSON list such as
 `[{"candidate":"model@effort","reason":"quota"}]`, `[]` when the first candidate
-answered. For each candidate in the final selection's `missing_executors`, add
-`{"candidate":"model@effort","reason":"missing_executor","executor":"<name>"}`
-with the executor it names there. `HARNESS_CONTEXT` is `claude-main` or
+answered. For each candidate in the final selection's `missing_executors` or
+`unsuitable_executors`, add
+`{"candidate":"model@effort","reason":"<reason>","executor":"<name>"}` with
+`missing_executor` or `unsuitable_executor` to match the list and the executor
+it names there. `HARNESS_CONTEXT` is `claude-main` or
 `codex-main` in a top-level session and `claude-worker` or `codex-worker` inside a
-subagent or delegated worker, so the audit can tell where an executor was missing. The ledger stores typed fields only; Sync publishes it to the agents
+subagent or delegated worker, so the audit can tell where an executor was missing or unsuitable. The ledger stores typed fields only; Sync publishes it to the agents
 repository, and `harness:audit` reads it. A recording failure never changes the
 result. Record one result per model: when several reviewers examine one target,
 each gets its own request and ledger line, because a combined line such as

@@ -222,6 +222,9 @@ External Codex routes use the installed App Server protocol. Capability
 discovery first checks that its typed
 `turn/completed.turn.error.codexErrorInfo` seam is callable; a missing or
 incompatible seam is a preflight skip, not a dispatch attempt or timed circuit.
+An executor that is callable but cannot do a request inside its sandbox is
+excluded as unsuitable, also before dispatch. The resolver refuses to skip an
+executor without one of those two reasons, and the ledger records which applied.
 Only its structured terminal metadata may authorize availability fallback—raw
 error text is never parsed or returned. External review validates the fixed
 commit, checks it out into an ephemeral local clone, and runs the read-only turn

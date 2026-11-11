@@ -114,6 +114,14 @@ for name, text in skills.items():
         failures.append(f"{name}: does not load the Codex adapter reference when the resolver selects Codex")
     if 'include `codex` in `HARNESS_EXECUTORS` only when `codex-app-server.py check` returns `{"status":"available"}`' not in normalized:
         failures.append(f"{name}: executor inventory does not gate codex on the App Server check")
+    if '--excluded "$HARNESS_EXCLUDED"' not in text:
+        failures.append(f"{name}: selection omits the reason for each excluded executor")
+    for clause in (
+        "The resolver refuses a candidate whose executor is in neither input.",
+        "Before selection, exclude `codex` as `unsuitable_executor` when the work or its verification seam needs any of these:",
+    ):
+        if clause not in normalized:
+            failures.append(f"{name}: missing executor exclusion rule: {clause}")
     clause = (
         "Enter this adapter only when the selected candidate is non-native and the resolver returned "
         "`executor: codex`; a native selection remains native even when its model row declares `via: codex`"
