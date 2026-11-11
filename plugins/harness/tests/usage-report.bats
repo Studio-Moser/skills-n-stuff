@@ -297,6 +297,10 @@ spec = importlib.util.spec_from_file_location("usage_report", sys.argv[1])
 m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
 checks = {
     "cd x && python3 -m unittest discover -s tests": True,
+    "cd x && SLOW=1 python3 -W ignore -m unittest discover -s tests 2>&1 | tail -3": True,
+    "python3.12 -X dev -Wd -u -m pytest -q": True,
+    "python3 -c \"import unittest\"": False,
+    "python3 -W ignore scripts/unittest_report.py": False,
     "FOO=1 npx vitest run": True,
     "cd plugins/harness/tests && bats *.bats 2>&1 | tail -3": True,
     "cat tests/x.bats": False,
