@@ -22,6 +22,11 @@ case "\$1" in
   install)
     if [ "\${2:-}" = "--outdated" ]; then printf '%b' "\${STUB_OUTDATED:-}"; exit "\${STUB_OUTDATED_EXIT:-0}"; fi
     pwd > "$BATS_TEST_TMPDIR/install-cwd"
+    cp rulesync.jsonc "$BATS_TEST_TMPDIR/seen-config"
+    if [ -n "\${STUB_INSTALL_FAIL:-}" ]; then
+      echo 'Failed to fetch source "o/r": GitHubClientError: GitHub API rate limit exceeded. Try again later.' >&2
+      echo 'Failed to install 1 of 2 rulesync source(s). See the log above for details.' >&2; exit 1
+    fi
     rm -rf .rulesync/skills/.curated
     if [ -n "\${STUB_FETCH_NOTHING:-}" ] || [ -d skills/alpha ]; then
       echo "Installed 0 skill(s)"
@@ -518,4 +523,38 @@ machine_setup() {
   [[ "$output" == *"RULESYNC_CAPTURE=kept on this machine only"* ]] || return 1
   [ -f "$REPO/.rulesync.local/mcp.jsonc" ]
   [ "$(cat "$REPO/.rulesync.local/Machine_Instructions.md")" = "Machine rule." ]
+}
+
+@test "GitHub sources install over git, so a large skill never spends the API quota" {
+  cat > "$REPO/rulesync.jsonc" <<'JSON'
+{ "global": true, // comment
+  "sources": [
+    { "source": "o/r", "path": "skills", "skills": ["alpha"] },
+    { "source": "o/s@v1:exports/skills", "skills": ["beta"] },
+    { "source": "https://github.com/o/t.git", "ref": "main", "skills": ["gamma"] },
+    { "source": "https://dev.azure.com/x/_git/y", "transport": "git", "skills": ["delta"] },
+    { "source": "@scope/pkg", "transport": "npm", "skills": ["eps"] }
+  ] }
+JSON
+  run "$STEP" "$REPO"
+  [ "$status" -eq 0 ]
+  run python3 -c 'import json,sys; print(json.dumps(json.load(open(sys.argv[1]))["sources"], separators=(",", ":")))' "$BATS_TEST_TMPDIR/seen-config"
+  [ "$output" = '[{"source":"https://github.com/o/r","path":"skills","skills":["alpha"],"transport":"git"},{"source":"https://github.com/o/s","skills":["beta"],"transport":"git","ref":"v1","path":"exports/skills"},{"source":"https://github.com/o/t","ref":"main","skills":["gamma"],"transport":"git"},{"source":"https://dev.azure.com/x/_git/y","transport":"git","skills":["delta"]},{"source":"@scope/pkg","transport":"npm","skills":["eps"]}]' ]
+  grep -q '"source": "o/r"' "$REPO/rulesync.jsonc"
+}
+
+@test "a failed install names each source that failed and why" {
+  printf '{ "global": true, "sources": [{ "source": "o/r", "skills": ["alpha"] }] }\n' > "$REPO/rulesync.jsonc"
+  export STUB_INSTALL_FAIL=1
+  run "$STEP" "$REPO"
+  [ "$status" -eq 1 ]
+  [ "$(state)" = "RULESYNC_STATE=failed: install: Failed to install 1 of 2 rulesync source(s). See the log above for details.; o/r: GitHubClientError: GitHub API rate limit exceeded. Try again later." ]
+}
+
+@test "skill sources behind their lock are named owner/repo, not by their git URL" {
+  printf '{ "global": true, "sources": [{ "source": "o/r", "skills": ["alpha"] }] }\n' > "$REPO/rulesync.jsonc"
+  export STUB_OUTDATED_EXIT=0 STUB_OUTDATED='outdated    https://github.com/o/r (main): 222 -> 333\n'
+  run "$STEP" "$REPO"
+  [ "$status" -eq 0 ]
+  [[ "$(updates)" == *"1 skill source(s) behind: o/r (run"* ]] || return 1
 }
