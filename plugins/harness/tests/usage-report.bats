@@ -242,17 +242,19 @@ assert r["delegate"]["local"]["results"] == 4, r["delegate"]
   result '[{"candidate":"sol@low","reason":"missing_executor","executor":"codex"}]' claude-worker
   result '[{"candidate":"sol@low","reason":"missing_executor"}]'
   result '[{"candidate":"sol@low","reason":"rate_limit"}]' codex-main
+  result '[{"candidate":"sol@low","reason":"unsuitable_executor","executor":"codex"}]' claude-main
   result '[]' claude-main
   run "$SCRIPTS/usage-report.py" --days 30
   [ "$status" -eq 0 ]
   run python3 -c '
 import json, sys
 r = json.loads(sys.argv[1])["results"]
-assert r["fallbacks"] == 4, r
+assert r["fallbacks"] == 5, r
 assert r["fallback_causes"] == {
     "missing_executor": {"unknown": 1},
     "missing_executor/codex": {"claude-worker": 2},
     "rate_limit": {"codex-main": 1},
+    "unsuitable_executor/codex": {"claude-main": 1},
 }, r["fallback_causes"]
 ' "$output"
   if [ "$status" -ne 0 ]; then printf '%s\n' "$output" >&2; fi

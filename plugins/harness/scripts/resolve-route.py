@@ -23,8 +23,11 @@ AVAILABILITY_REASONS = {
     "rate_limit",
     "provider_unavailable",
     "missing_executor",
+    "unsuitable_executor",
 }
-TIMED_AVAILABILITY_REASONS = AVAILABILITY_REASONS - {"missing_executor"}
+# Decided before dispatch, so they never open a timed circuit.
+PREFLIGHT_REASONS = {"missing_executor", "unsuitable_executor"}
+TIMED_AVAILABILITY_REASONS = AVAILABILITY_REASONS - PREFLIGHT_REASONS
 OUTAGE_DELAYS = (900, 3600, 21600, 86400)
 DAY_SECONDS = 86400
 PROBE_LEASE_SECONDS = 900
@@ -58,12 +61,27 @@ def split_ref(value: str) -> tuple[str, str]:
 
 
 def resolve_executor(
-    row: dict, native_provider: str, executors: set[str]
+    row: dict,
+    native_provider: str,
+    executors: set[str],
+    excluded: dict[str, str] | None = None,
 ) -> tuple[str | None, str | None]:
     if row["provider"] == native_provider:
         return "native", None
     via = row.get("via")
-    return (via, None) if via in executors else (None, "missing_executor")
+    if via in executors:
+        return via, None
+    # validate passes no exclusions; a row without `via` names nothing to check.
+    if excluded is None or via is None:
+        return None, "missing_executor"
+    if via not in excluded:
+        # An executor left out without a reason usually means its check never ran.
+        raise argparse.ArgumentError(
+            None,
+            f"executor {via} is in neither --executors nor --excluded: "
+            "run its check, then list it or give its reason",
+        )
+    return None, excluded[via]
 
 
 def compact_json(value: dict) -> None:
@@ -232,14 +250,13 @@ def state_for_selection(path: Path) -> Iterator[dict]:
 
 def blocked(message: str, attempted: list[str] | None = None,
             skipped: list[str] | None = None,
-            missing: dict[str, str] | None = None) -> None:
+            preflight: dict[str, dict[str, str]] | None = None) -> None:
     result: dict[str, object] = {"status": "blocked", "blockers": [message]}
     if attempted is not None:
         result["attempted"] = attempted
     if skipped:
         result["skipped"] = skipped
-    if missing:
-        result["missing_executors"] = missing
+    result.update(preflight or {})
     compact_json(result)
 
 
@@ -391,6 +408,24 @@ def parse_csv(value: str, field: str) -> list[str]:
     return [item.strip() for item in value.split(",") if item.strip()]
 
 
+def parse_excluded(value: str, executors: set[str]) -> dict[str, str]:
+    """Executor -> the preflight reason it is not offered for this request."""
+    try:
+        parsed = json.loads(value) if value else {}
+    except json.JSONDecodeError as error:
+        raise argparse.ArgumentError(None, "--excluded must be a JSON object") from error
+    if not isinstance(parsed, dict) or not all(parsed):
+        raise argparse.ArgumentError(None, "--excluded must be a JSON object keyed by executor")
+    for executor, reason in parsed.items():
+        if not isinstance(reason, str) or reason not in PREFLIGHT_REASONS:
+            raise argparse.ArgumentError(
+                None, f"--excluded reason must be one of {', '.join(sorted(PREFLIGHT_REASONS))}"
+            )
+        if executor in executors:
+            raise argparse.ArgumentError(None, f"executor {executor} is both offered and excluded")
+    return parsed
+
+
 def parse_attempted(value: str) -> list[str]:
     attempted = parse_csv(value, "--attempted")
     for ref in attempted:
@@ -471,6 +506,7 @@ def select(args: argparse.Namespace) -> int:
     attempted_set = set(attempted)
     authoring_providers = set(parse_csv(args.authoring_providers, "--authoring-providers"))
     executors = set(parse_csv(args.executors, "--executors"))
+    excluded = parse_excluded(args.excluded, executors)
     now = parse_timestamp(args.now, "--now")
     document = load_rubric(args.rubric)
     rows = model_rows(document)
@@ -491,8 +527,9 @@ def select(args: argparse.Namespace) -> int:
             raise Blocked("active candidate provider does not match native provider")
 
     skipped: list[str] = []
-    # Skipped candidate -> the executor its row names that is not callable here.
-    missing: dict[str, str] = {}
+    # "missing_executors" or "unsuitable_executors" -> skipped candidate -> the
+    # executor its row names.
+    preflight: dict[str, dict[str, str]] = {}
     fallback_reason: str | None = None
 
     path = state_path(args.state)
@@ -533,14 +570,15 @@ def select(args: argparse.Namespace) -> int:
                     result["reason"] = fallback_reason
                 if skipped:
                     result["skipped"] = skipped
-                if missing:
-                    result["missing_executors"] = missing
+                result.update(preflight)
                 compact_json(result)
                 return 0
-            executor, reason = resolve_executor(row, args.native_provider, executors)
+            executor, reason = resolve_executor(
+                row, args.native_provider, executors, excluded
+            )
             if executor is None:
                 skipped.append(ref)
-                missing[ref] = str(row.get("via") or "")
+                preflight.setdefault(f"{reason}s", {})[ref] = str(row.get("via") or "")
                 fallback_reason = fallback_reason or reason
                 continue
 
@@ -574,14 +612,13 @@ def select(args: argparse.Namespace) -> int:
                 result["reason"] = fallback_reason
             if skipped:
                 result["skipped"] = skipped
-            if missing:
-                result["missing_executors"] = missing
+            result.update(preflight)
             if probe:
                 result["probe"] = True
             compact_json(result)
             return 0
 
-    blocked(f"no eligible {args.route} candidate remains", attempted, skipped, missing)
+    blocked(f"no eligible {args.route} candidate remains", attempted, skipped, preflight)
     return EXIT_BLOCKED
 
 
@@ -672,6 +709,7 @@ def build_parser() -> Arguments:
         if operation == "select":
             command.add_argument("--state")
             command.add_argument("--route", required=True)
+            command.add_argument("--excluded", default="")
             command.add_argument("--attempted", default="")
             command.add_argument("--active-candidate", default="")
             command.add_argument("--now")

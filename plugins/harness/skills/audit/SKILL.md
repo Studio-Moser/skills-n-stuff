@@ -54,8 +54,9 @@ Answer the user's question first. For a general audit, cover:
    (`no_checks`, an executor or adapter failure). Compare `delegate.local`, not
    `invocations` against `recorded_results`: one skill load can record many rows, and
    `recorded_results` spans every host. `results.fallback_causes` groups fallbacks by
-reason (and the missing executor) per delegating context; rows recorded before
-Harness 2.12.5 have no context and count as `unknown`. For review, per-model findings (fixed,
+reason (and the missing or unsuitable executor) per delegating context; rows recorded before
+Harness 2.12.5 have no context and count as `unknown`, and rows before 2.13.0 record an
+available executor that was skipped as unsuitable, or never checked, as `missing_executor`. For review, per-model findings (fixed,
    disputed, unique, regraded), unapproved rounds past a limit, and diff growth. Only
    `Review_Rounds` can show whether a second reviewer adds confirmed findings.
 4. **Tokens** — the report's totals by model, Claude main sessions versus sub-agents,

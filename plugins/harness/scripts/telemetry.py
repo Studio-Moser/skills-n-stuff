@@ -39,7 +39,8 @@ ROUTE_FIELDS = ("requested", "model", "effort", "provider", "executor", "dispatc
 FINDING_COUNTS = ("fixed", "disputed", "declined", "open", "unique", "regraded")
 # Where harness:delegate ran: the host runtime, and whether it was the top-level session.
 CONTEXTS = ("", "claude-main", "claude-worker", "codex-main", "codex-worker")
-# executor: for missing_executor, the executor the candidate's row names ("" for none).
+# executor: for missing_executor and unsuitable_executor, the executor the candidate's
+# row names ("" for none).
 ATTEMPT_FIELDS = ("candidate", "reason", "executor")
 MAX_ITEMS = 10
 MAX_TEXT = 200

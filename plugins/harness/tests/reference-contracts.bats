@@ -159,7 +159,11 @@ require_clause(
 require_clause(advisaur, "The missing Advisaur does not block execution.")
 require_clause(
     routing,
-    "Automatic provider switching is limited to `quota`, `authentication`, `rate_limit`, `provider_unavailable`, and preflight `missing_executor`.",
+    "Automatic provider switching is limited to `quota`, `authentication`, `rate_limit`, `provider_unavailable`, and the preflight reasons `missing_executor` and `unsuitable_executor`.",
+)
+require_clause(
+    routing,
+    "The resolver refuses a candidate whose executor is neither offered nor excluded, so an unchecked executor cannot be skipped silently.",
 )
 require_clause(
     routing,

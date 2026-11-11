@@ -101,7 +101,8 @@ rubric setup, not a runtime route value.
    `validate` checks every primary and fallback row individually, so one reachable
    candidate cannot mask another unreachable authorized row.
 5. Call `scripts/resolve-route.py select` with the semantic route, native
-   provider, callable executors, every authoring provider for `independent`, and
+   provider, callable executors, the reason for each excluded executor, every
+   authoring provider for `independent`, and
    the ordered unavailable candidates already dispatched by this request in
    `--attempted`. When the current model and effort are known, also pass their
    `model@effort` reference in `--active-candidate`.
@@ -118,8 +119,16 @@ failure, not permission to invent a model choice.
 ## Bounded selection loop
 
 Automatic provider switching is limited to `quota`, `authentication`,
-`rate_limit`, `provider_unavailable`, and preflight `missing_executor`.
-`missing_executor` is classified by the resolver before dispatch. After a
+`rate_limit`, `provider_unavailable`, and the preflight reasons
+`missing_executor` and `unsuitable_executor`.
+The preflight reasons are settled before dispatch. For each executor the rubric
+names and the caller does not offer, the caller states one in `--excluded`:
+`missing_executor` when the executor's check did not return available, or
+`unsuitable_executor` when it is callable but cannot do this request's work or
+verification inside its sandbox. The resolver refuses a candidate whose executor
+is neither offered nor excluded, so an unchecked executor cannot be skipped
+silently. A row with no `via` names no executor to check and is skipped as
+`missing_executor`. After a
 dispatch, the executor boundary may classify only the other four reasons; it
 must not parse raw provider text beyond that bounded typed classification seam.
 
@@ -137,7 +146,8 @@ never creates a timed circuit or dispatch attempt. Capability discovery includes
 `codex` only when `scripts/codex-app-server.py check` proves the required schema
 and initialize-only stdio handshake.
 If the seam disappears after selection, remove `codex` from the callable
-inventory and reselect without recording failure or appending the candidate.
+inventory, exclude it as `missing_executor`, and reselect without recording
+failure or appending the candidate.
 
 On a typed post-dispatch availability failure, call `record-failure` without any
 raw error or secret-bearing value, append that dispatched candidate to
@@ -163,7 +173,7 @@ route and terminal model, effort, provider, executor, and dispatch.
 Timed availability failures open a local circuit for 24 hours for `quota` and
 `authentication`, and for 15 minutes, 1 hour, 6 hours, then 24 hours for repeated
 `rate_limit` or `provider_unavailable` failures. A provider/executor success
-clears its circuit. `missing_executor` is a preflight fact and is not persisted.
+clears its circuit. A preflight reason is a fact about one request and is not persisted.
 
 While a circuit is open, selection skips that provider/executor endpoint. After
 a cooldown expires, exactly one selector may claim the half-open probe for 15
