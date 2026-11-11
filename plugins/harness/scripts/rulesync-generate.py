@@ -8,7 +8,8 @@ Runs only when <repo>/rulesync.jsonc exists; prints RULESYNC_STATE=skipped other
 Steps, all inside the repo:
   1. `rulesync install` when the config declares `sources` (third-party skills,
      pinned by rulesync.lock) and the config, lockfile, or installed skills changed
-     since this machine's last install. It runs from a private root (see install())
+     since this machine's last install. It runs from a private root (see install()),
+     fetching GitHub sources with `git` rather than the GitHub API (see via_git()),
      and reuses the `gh` login token. `"delete": true` is refused.
   2. Build a temporary input root: .rulesync/ plus this machine's untracked
      .rulesync.local/mcp.jsonc servers and hooks.jsonc entries merged in. rulesync
@@ -371,6 +372,33 @@ def declared_skills(config: dict) -> set[str]:
             for name in source.get("skills") or [] if isinstance(name, str) and name != "*"}
 
 
+GITHUB_SOURCE = re.compile(r"^(?:https://github\.com/)?([\w.-]+/[\w.-]+?)(?:\.git)?(?:@([^:]+))?(?::(.+))?$")
+
+
+def via_git(config: dict) -> dict:
+    """Point GitHub sources at rulesync's git transport.
+
+    The default GitHub transport fetches each file through the REST API, so one
+    install of a large skill (taste-skill ships about 1,600 files) can spend a third
+    of the account's 5,000-an-hour quota, and two machines syncing in the same hour
+    exhaust it. A shallow clone costs no API calls, and rulesync keys the lock by
+    owner/repo either way, so rulesync.lock is unchanged.
+    """
+    sources = []
+    for source in config.get("sources") or []:
+        match = isinstance(source, dict) and source.get("transport", "github") == "github" \
+            and isinstance(source.get("source"), str) and GITHUB_SOURCE.match(source["source"])
+        if match:
+            slug, ref, path = match.groups()
+            source = {**source, "source": f"https://github.com/{slug}", "transport": "git"}
+            if ref and "ref" not in source:
+                source["ref"] = ref
+            if path and "path" not in source:
+                source["path"] = path
+        sources.append(source)
+    return {**config, "sources": sources} if "sources" in config else config
+
+
 def install(repo: Path, update: bool = False, extra: tuple[str, ...] = ()) -> subprocess.CompletedProcess:
     """Run `rulesync install` from a private root, then copy its results back.
 
@@ -384,6 +412,12 @@ def install(repo: Path, update: bool = False, extra: tuple[str, ...] = ()) -> su
         for name in INSTALL_FILES:
             if (repo / name).is_file():
                 shutil.copy2(repo / name, root / name)
+        for name in ("rulesync.jsonc", "rulesync.local.jsonc"):
+            if (root / name).is_file():
+                try:
+                    (root / name).write_text(json.dumps(via_git(load_jsonc(root / name)), indent=2) + "\n")
+                except ValueError:
+                    pass  # rulesync reports a malformed config itself
         for folder in INSTALL_FOLDERS:
             if (repo / folder).is_dir():
                 shutil.copytree(repo / folder, root / folder, symlinks=True)
@@ -457,7 +491,8 @@ def check_updates(repo: Path, settings: dict) -> str:
         notes.append(f"rulesync {pinned} -> {latest} (bump the Harness pin after scripts/rulesync-rehearse.py {latest})")
     if settings.get("sources"):
         outdated = install(repo, extra=("--outdated",))
-        behind = [source for status, source in UPDATE_LINE.findall(outdated.stdout + outdated.stderr)]
+        behind = [source.removeprefix("https://github.com/")
+                  for status, source in UPDATE_LINE.findall(outdated.stdout + outdated.stderr)]
         if outdated.returncode == 2:
             notes.append("a skill source could not be resolved")
         elif outdated.returncode == 1 or behind:
@@ -505,9 +540,15 @@ def move_broken_links(output: str) -> str | None:
     return f"moved {len(broken)} broken link(s) from {parent} to {backup}"
 
 
+FETCH_FAILED = re.compile(r'^Failed to fetch source "([^"]+)": (.+)$', re.M)
+
+
 def last_line(result: subprocess.CompletedProcess) -> str:
     lines = (result.stderr or result.stdout).strip().splitlines()
-    return lines[-1] if lines else f"exit {result.returncode}"
+    line = lines[-1] if lines else f"exit {result.returncode}"
+    # Name each failed source and why; the summary line alone says only "1 of 5".
+    failed = FETCH_FAILED.findall(f"{result.stdout or ''}\n{result.stderr or ''}")
+    return line + "".join(f"; {source}: {why}" for source, why in failed)
 
 
 def main(argv: list[str]) -> int:

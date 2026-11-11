@@ -75,7 +75,8 @@ A personal agents repo that contains `rulesync.jsonc` hands per-tool generation 
   Codex `AGENTS.md`, and every other tool's instruction file from it;
 - runs `rulesync install` for the third-party skills declared under `sources`
   (pinned by `rulesync.lock`) only when the config, lockfile, or installed skills
-  changed, with your `gh` login token so GitHub's anonymous rate limit does not apply;
+  changed, cloning GitHub sources with `git` instead of fetching each file through
+  the GitHub API, so a large skill never uses up the account's hourly API quota;
   an install that only refreshes the lock's `resolvedAt` timestamps leaves the
   committed `rulesync.lock` alone;
 - runs `rulesync generate --global` for instructions, MCP servers
