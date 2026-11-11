@@ -51,6 +51,11 @@ apply hook denials under its `read-only` sandbox. In Codex, the zsh glob guard a
 denies with a quoting reason; Codex only accepts a rewrite together with an `allow`
 decision, which would skip its approval policy.
 
+The dispatch model guard (Claude Code only) denies an Agent call that has no `model`,
+so a lookup never silently runs on the session's model. It leaves forks alone, and
+agent types whose definition declares its own `model:`, exactly as the rubric audit
+does not count them as UNSET.
+
 Any main model chooses direct execution or a rubric worker using
 [Execution choice](references/routing.md#execution-choice): capability, verifiability,
 and total cost including handoff and verification. Tiny edits stay local; clear

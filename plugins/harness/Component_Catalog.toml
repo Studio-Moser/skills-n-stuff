@@ -396,6 +396,15 @@ retire_test = "Retire when usage-report shim_firings for zsh-glob-guard stay nea
 detector = "events:zsh-glob-guard"
 
 [[component]]
+id = "dispatch-model-guard"
+kind = "model-shim"
+source = "scripts/dispatch-model-guard.py"
+anchor = "Claude Code PreToolUse hook: every Agent dispatch names its model."
+added_for = "Agent dispatches without a model inherit the session model: 17 on Mac-Studio in the 7 days to 2026-11-10 (general-purpose, web-fetch, Explore), where the per-project memory rule did not apply."
+retire_test = "Retire when rubric-audit reports no UNSET Claude dispatches and dispatch-model-guard firings stay near zero for a month after a model change."
+detector = "events:dispatch-model-guard"
+
+[[component]]
 id = "messages-via-file"
 kind = "environment-shim"
 source = "references/house-rules.md"
