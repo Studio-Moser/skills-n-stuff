@@ -78,7 +78,10 @@ try {
     const errors = []
     page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
     page.on('pageerror', (e) => errors.push(String(e)))
-    await page.goto(url, { waitUntil: 'networkidle', timeout: 180000 })
+    // Pages with analytics beacons, live audio or ad polling never reach network
+    // idle, so wait for load and give idle a bounded chance before moving on.
+    await page.goto(url, { waitUntil: 'load', timeout: 90000 })
+    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
     await page.addStyleTag({ content: HIDE_CSS })
     await page.waitForTimeout(2500)
     // Walk the page once so lazy images load, then return to the top.

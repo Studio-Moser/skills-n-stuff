@@ -172,7 +172,10 @@ for (const d of cfg.directions) {
     page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
     page.on('pageerror', (e) => errors.push(String(e)))
     try {
-      await page.goto(v.url, { waitUntil: 'networkidle', timeout: 180000 })
+      // Pages with analytics beacons, live audio or ad polling never reach network
+      // idle, so wait for load and give idle a bounded chance before moving on.
+      await page.goto(v.url, { waitUntil: 'load', timeout: 90000 })
+      await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
       if (HIDE_CSS) await page.addStyleTag({ content: HIDE_CSS })
       // Walk the page so lazy images load and scroll-driven sections settle.
       await page.evaluate(

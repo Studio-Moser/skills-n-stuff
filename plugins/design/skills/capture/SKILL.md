@@ -101,8 +101,9 @@ initial state with the fixed layer missing.
 
 ## What `capture.mjs` does per target
 
-1. Opens the URL at `captureWidth` × 900 and `captureScale`, waits for network
-   idle, walks the page so lazy images load and scroll-driven sections settle,
+1. Opens the URL at `captureWidth` × 900 and `captureScale`, waits for load
+   and then up to 15 s for network idle (a page with analytics beacons or live
+   audio never goes idle, so this moves on rather than timing out), walks the page so lazy images load and scroll-driven sections settle,
    and waits for a real page height (a cold container can report 0 before first
    paint).
 2. Measures overflow (`scrollWidth - clientWidth`), visible images and how
